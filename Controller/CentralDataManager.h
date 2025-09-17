@@ -71,6 +71,7 @@ private:
     // 辅助方法
     bool isInRange(const PointInfo& info, float minRange, float maxRange, 
                    float minAngle, float maxAngle) const;
+    bool isValidPointInfo(const PointInfo& info) const;
     void setupCleanupTimer();
     
 private slots:

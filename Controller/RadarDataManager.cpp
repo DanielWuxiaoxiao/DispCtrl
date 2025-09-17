@@ -1,5 +1,6 @@
 // RadarDataManager.cpp - 雷达数据统一管理器实现
 #include "CentralDataManager.h"
+#include "ErrorHandler.h"
 #include <QDebug>
 #include <QtMath>
 #include <QDateTime>
@@ -18,40 +19,72 @@ RadarDataManager& RadarDataManager::instance()
 
 void RadarDataManager::processDetection(const PointInfo& info)
 {
-    QMutexLocker locker(&m_dataMutex);
-    
-    // 直接存储检测点（不使用timestamp）
-    m_detections.append(info);
-    
-    // 限制检测点数量，避免内存无限增长
-    const int MAX_DETECTIONS = 10000;
-    if (m_detections.size() > MAX_DETECTIONS) {
-        m_detections.removeFirst();
+    try {
+        // 数据验证
+        if (!isValidPointInfo(info)) {
+            ERROR_HANDLER.reportError("DATA_INVALID_DETECTION", 
+                                    QString("Invalid detection point: type=%1, range=%2, azimuth=%3")
+                                    .arg(info.type).arg(info.range).arg(info.azimuth),
+                                    ErrorSeverity::Warning, ErrorCategory::DataProcessing);
+            return;
+        }
+        
+        QMutexLocker locker(&m_dataMutex);
+        
+        // 直接存储检测点（不使用timestamp）
+        m_detections.append(info);
+        
+        // 限制检测点数量，避免内存无限增长
+        const int MAX_DETECTIONS = 10000;
+        if (m_detections.size() > MAX_DETECTIONS) {
+            m_detections.removeFirst();
+        }
+        
+        // 发出信号通知所有视图
+        emit detectionReceived(info);
+        
+    } catch (const std::exception& e) {
+        ERROR_HANDLER.reportError("DATA_PROCESS_DETECTION_EXCEPTION", 
+                                QString("Exception processing detection: %1").arg(e.what()),
+                                ErrorSeverity::Error, ErrorCategory::DataProcessing);
     }
-    
-    // 发出信号通知所有视图
-    emit detectionReceived(info);
 }
 
 void RadarDataManager::processTrack(const PointInfo& info)
 {
-    QMutexLocker locker(&m_dataMutex);
-    
-    // 直接存储航迹点（不使用timestamp）
-    if (!m_tracks.contains(info.batch)) {
-        m_tracks[info.batch] = QList<PointInfo>();
+    try {
+        // 数据验证
+        if (!isValidPointInfo(info)) {
+            ERROR_HANDLER.reportError("DATA_INVALID_TRACK", 
+                                    QString("Invalid track point: type=%1, batch=%2, range=%3, azimuth=%4")
+                                    .arg(info.type).arg(info.batch).arg(info.range).arg(info.azimuth),
+                                    ErrorSeverity::Warning, ErrorCategory::DataProcessing);
+            return;
+        }
+        
+        QMutexLocker locker(&m_dataMutex);
+        
+        // 直接存储航迹点（不使用timestamp）
+        if (!m_tracks.contains(info.batch)) {
+            m_tracks[info.batch] = QList<PointInfo>();
+        }
+        
+        m_tracks[info.batch].append(info);
+        
+        // 限制每个批次的航迹点数量
+        const int MAX_TRACK_POINTS = 1000;
+        if (m_tracks[info.batch].size() > MAX_TRACK_POINTS) {
+            m_tracks[info.batch].removeFirst();
+        }
+        
+        // 发出信号通知所有视图
+        emit trackReceived(info);
+        
+    } catch (const std::exception& e) {
+        ERROR_HANDLER.reportError("DATA_PROCESS_TRACK_EXCEPTION", 
+                                QString("Exception processing track: %1").arg(e.what()),
+                                ErrorSeverity::Error, ErrorCategory::DataProcessing);
     }
-    
-    m_tracks[info.batch].append(info);
-    
-    // 限制每个批次的航迹点数量
-    const int MAX_TRACK_POINTS = 1000;
-    if (m_tracks[info.batch].size() > MAX_TRACK_POINTS) {
-        m_tracks[info.batch].removeFirst();
-    }
-    
-    // 发出信号通知所有视图
-    emit trackReceived(info);
 }
 
 void RadarDataManager::registerView(const QString& viewId, QObject* view)
@@ -212,5 +245,35 @@ void RadarDataManager::setupCleanupTimer()
 
 void RadarDataManager::performCleanup()
 {
-    clearOldData(300); // 清理5分钟前的数据
+    try {
+        clearOldData(300); // 清理5分钟前的数据
+    } catch (const std::exception& e) {
+        ERROR_HANDLER.reportError("DATA_CLEANUP_EXCEPTION", 
+                                QString("Exception during data cleanup: %1").arg(e.what()),
+                                ErrorSeverity::Warning, ErrorCategory::DataProcessing);
+    }
+}
+
+// 数据验证方法
+bool RadarDataManager::isValidPointInfo(const PointInfo& info) const
+{
+    // 检查基本数值范围
+    if (info.range < 0 || info.range > 1000000) { // 最大距离1000km
+        return false;
+    }
+    
+    if (info.azimuth < 0 || info.azimuth >= 360) {
+        return false;
+    }
+    
+    if (info.elevation < -90 || info.elevation > 90) {
+        return false;
+    }
+    
+    // 检查是否为NaN
+    if (std::isnan(info.range) || std::isnan(info.azimuth) || std::isnan(info.elevation)) {
+        return false;
+    }
+    
+    return true;
 }

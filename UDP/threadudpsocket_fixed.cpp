@@ -138,7 +138,7 @@ void ThreadedUdpSocket::handleDatagram(const QByteArray& data, int senderPort) {
             break;
         }
         case 0xDC01: {
-            if(m_Port == CF_INS.port("DISP_GET_MONITOR_PORT",DISP_GET_MONITOR_PORT)) {
+            if(m_Port == CF_INS.port("DISP_GET_MON_PORT",DISP_GET_MON_PORT)) {
                 MonitorParam info;
                 memcpy(&info, payload, sizeof(info));
                 emit monitorParamSend(info);
@@ -162,7 +162,7 @@ bool ThreadedUdpSocket::validateFrame(const QByteArray& data)
     }
     auto frame = reinterpret_cast<const ProtocolFrame*>(data.constData());
     auto end = reinterpret_cast<const ProtocolEnd*>(data.constData() + data.size() - sizeof(ProtocolEnd));
-    return (memcmp(&HEADCODE, &frame->head, sizeof(HEADCODE)) == 0 &&
+    return (memcmp(&STARTCODE, &frame->start, sizeof(STARTCODE)) == 0 &&
             memcmp(&ENDCODE, &end->end, sizeof(ENDCODE)) == 0);
 }
 

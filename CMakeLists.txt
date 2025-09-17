@@ -45,6 +45,7 @@ set(SRC_FILES
     Controller/sig2dispmanager.cpp
     Controller/mon2dispmanager.cpp
     Controller/RadarDataManager.cpp
+    Controller/ErrorHandler.cpp
     PolarDisp/pviewtopleft.cpp
     PolarDisp/tooltip.cpp
     Controller/disp2sigmanager.cpp
@@ -63,6 +64,7 @@ set(HDR_FILES
     Controller/sig2dispmanager.h
     Controller/mon2dispmanager.h
     Controller/CentralDataManager.h
+    Controller/ErrorHandler.h
     Controller/disp2sigmanager.h
     Controller/disp2resmanager.h
     Controller/disp2photomanager.h

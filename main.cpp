@@ -6,6 +6,7 @@
 #include "Basic/DispBasci.h"
 #include "Basic/log.h"
 #include "Basic/ConfigManager.h"
+#include "Controller/ErrorHandler.h"
 #include <QLoggingCategory>
 #include "Controller/controller.h"
 
@@ -52,6 +53,10 @@ int main(int argc, char *argv[]) {
     QApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
     QApplication app(argc, argv);
 
+    // 初始化错误处理器
+    ErrorHandler& errorHandler = ErrorHandler::instance();
+    qInfo() << "Error handler initialized";
+
     CON_INS->init();
 
     setupFont(app);
@@ -61,9 +66,11 @@ int main(int argc, char *argv[]) {
     qInstallMessageHandler(enhancedLog);
 
     if (!ConfigManager::instance().load("config.json")) {
-        LOG_CRITICAL("Config load failed, exiting...");
+        ERROR_HANDLER.reportError("CONFIG_LOAD_FAILED", "Failed to load config.json", 
+                                 ErrorSeverity::Critical, ErrorCategory::Configuration);
         return -1;
     }
+    
     // 记录应用程序启动
     LOG_INFO("Application starting...");
     FramelessMainWindow window;
