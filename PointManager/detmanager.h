@@ -17,6 +17,7 @@ class DetManager : public QObject
     Q_OBJECT
 public:
     explicit DetManager(QGraphicsScene* scene, PolarAxis* axis, QObject* parent = nullptr);
+    ~DetManager();  // 添加析构函数声明
 
     // 添加一个检测点
     void addDetPoint(const PointInfo& info);

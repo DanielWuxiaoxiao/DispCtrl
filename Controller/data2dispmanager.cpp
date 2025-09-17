@@ -1,6 +1,7 @@
 #include "data2dispmanager.h"
 #include "UDP/threadudpsocket.h"
 #include "controller.h"
+#include "CentralDataManager.h"  // 添加新的头文件
 #include <QThread>
 
 Data2DispManager::Data2DispManager(QObject *parent) : QObject(parent)
@@ -45,7 +46,11 @@ void Data2DispManager::traInfoDecode(QByteArray data)
         info.batch = traPointInfo->batch;
         info.statMethod = traPointInfo->statMethod;
         rawData += sizeof(trackInfo);
+        
+        // 使用新的统一数据管理器
+        RADAR_DATA_MGR.processTrack(info);
 
+        // 保持原有的信号发射以兼容现有代码
         emit traInfoProcess(info);
     }
 }

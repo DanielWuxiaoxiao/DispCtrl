@@ -1,16 +1,27 @@
 // sectordetmanager.cpp
 #include "sectordetmanager.h"
 #include "Basic/DispBasci.h"
+#include "Controller/CentralDataManager.h"  // 添加新的头文件
 #include <QtMath>
 #include <QDebug>
 
 SectorDetManager::SectorDetManager(QGraphicsScene* scene, PolarAxis* axis, QObject* parent)
     : QObject(parent), m_scene(scene), m_axis(axis)
 {
+    // 注册到统一数据管理器
+    RADAR_DATA_MGR.registerView("SectorDetManager_" + QString::number((quintptr)this), this);
+    
+    // 连接统一数据管理器的信号
+    connect(&RADAR_DATA_MGR, &RadarDataManager::detectionReceived, 
+            this, &SectorDetManager::addDetPoint);
+    connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared, 
+            this, &SectorDetManager::clear);
 }
 
 SectorDetManager::~SectorDetManager()
 {
+    // 从统一数据管理器注销
+    RADAR_DATA_MGR.unregisterView("SectorDetManager_" + QString::number((quintptr)this));
     clear();
 }
 

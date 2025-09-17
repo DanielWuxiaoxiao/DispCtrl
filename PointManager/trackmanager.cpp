@@ -1,6 +1,7 @@
 #include "trackmanager.h"
 #include <QPen>
 #include "Basic/DispBasci.h"
+#include "Controller/CentralDataManager.h"  // 添加新的头文件
 
 //trainfo的实现
 DraggableLabel::DraggableLabel(QGraphicsItem* parent)
@@ -34,6 +35,21 @@ QVariant DraggableLabel::itemChange(GraphicsItemChange change, const QVariant &v
 TrackManager::TrackManager(QGraphicsScene* scene, PolarAxis* axis, QObject* parent)
     : QObject(parent), mScene(scene), mAxis(axis)
 {
+    // 注册到统一数据管理器
+    RADAR_DATA_MGR.registerView("TrackManager_" + QString::number((quintptr)this), this);
+    
+    // 连接统一数据管理器的信号
+    connect(&RADAR_DATA_MGR, &RadarDataManager::trackReceived, 
+            this, &TrackManager::addTrackPoint);
+    connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared, 
+            this, &TrackManager::clear);
+}
+
+TrackManager::~TrackManager()
+{
+    // 从统一数据管理器注销
+    RADAR_DATA_MGR.unregisterView("TrackManager_" + QString::number((quintptr)this));
+    clear();
 }
 
 void TrackManager::setPointSizeRatio(float ratio)

@@ -42,6 +42,7 @@ class TrackManager : public QObject
     Q_OBJECT
 public:
     explicit TrackManager(QGraphicsScene* scene, PolarAxis* axis, QObject* parent = nullptr);
+    ~TrackManager();  // 添加析构函数声明
 
     // 添加一个航迹点（按 batchID 拆分不同航迹）
     void addTrackPoint(const PointInfo& info);

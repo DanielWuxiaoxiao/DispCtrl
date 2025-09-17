@@ -1,9 +1,25 @@
 #include "detmanager.h"
 #include "Basic/DispBasci.h"
+#include "Controller/CentralDataManager.h"  // 添加新的头文件
 
 DetManager::DetManager(QGraphicsScene* scene, PolarAxis* axis, QObject* parent)
     : QObject(parent), mScene(scene), mAxis(axis)
 {
+    // 注册到统一数据管理器
+    RADAR_DATA_MGR.registerView("DetManager_" + QString::number((quintptr)this), this);
+    
+    // 连接统一数据管理器的信号
+    connect(&RADAR_DATA_MGR, &RadarDataManager::detectionReceived, 
+            this, &DetManager::addDetPoint);
+    connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared, 
+            this, &DetManager::clear);
+}
+
+DetManager::~DetManager()
+{
+    // 从统一数据管理器注销
+    RADAR_DATA_MGR.unregisterView("DetManager_" + QString::number((quintptr)this));
+    clear();
 }
 
 void DetManager::addDetPoint(const PointInfo& info)
