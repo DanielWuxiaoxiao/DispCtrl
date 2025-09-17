@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="initial-scale=1.0, user-scalable=no, width=device-width"
+    />
+    <!-- <link
+      rel="stylesheet"
+      href="https://cache.amap.com/lbs/static/main1119.css"
+    /> -->
+    <!-- <script
+      type="text/javascript"
+      src="https://webapi.amap.com/maps?v=2.0&key=7eaa30d7af3c6819066212a8a0fdffda"
+    ></script> -->
+    <script src="./amap/AMap3.js"></script>
+    <style>
+      /* 设置地图容器的大小 否则地图容器大小为0*/
+      #container {
+        width: 100%;
+        height: 100vh; /* 使容器占满整个视口 */
+        margin: 0;
+        padding: 0;
+        filter: grayscale(0%); /* 初始灰度为 0% */
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container"></div>
+    <script src="qwebchannel.js"></script>
+    <script type="text/javascript">
+      // var map = new AMap.Map("container", {
+      //   resizeEnable: true,
+      //   zoom: 15, //初始化地图层级
+      //   center: [108.9138, 34.2311], //初始化地图中心点
+      //   mapStyle: "amap://styles/normal", //地图风格
+      //   //viewMode: "3D", //三维视图,需要拖动才能变成3d
+      // });
+
+      //离线地图
+      var initLng = 108.9138;
+      var initLat = 34.2311;
+      var initRange = 3.0; //km
+      var map = new AMap.Map("container", {
+        resizeEnable: true,
+        //rotateEnable: true,  //旋转后汉字也会旋转
+        center: [initLng, initLat], // 中心点，西电99号楼
+        zoom: 15.3, //
+        layers: [
+          new AMap.TileLayer({
+            tileUrl: "./map16S/[z]/[x]/[y]/tile.png", // 本地瓦片路径，使用[]而不是{},amap3.js是处理的[]的瓦片替代
+            zooms: [1, 16], //注意范围必须大于等于 zoom，瓦片范围为1-16
+            //mapStyle: "amap://styles/dark", //地图风格在离线地图情况下无法使用
+          }),
+        ],
+      });
+
+      const earthRadius = 6378.137; // 地球半径，单位为公里
+
+      var mchannel; //注册qt通信通道
+      window.onload = function () {
+        if (typeof qt != "undefined") {
+          //注册qtchannel
+          new QWebChannel(qt.webChannelTransport, function (channel) {
+            channel.objects.qtChannel.centerOn.connect(setCenterOn);
+            channel.objects.qtChannel.changeGrayScale.connect(setGrayscale);
+            mchannel = channel;
+          });
+        } else {
+          alert("qt对象获取失败！");
+        }
+      };
+      //直接设置地图的中心和距离
+      function setCenterOn(centerLng, centerLat, range) {
+        const latDiff = range / (earthRadius * (Math.PI / 180)); // 纬度上的差异
+        const lngDiff =
+          range /
+          (earthRadius *
+            Math.cos((centerLat * Math.PI) / 180) *
+            (Math.PI / 180)); // 经度上的差异
+
+        // 计算矩形边界的西南角和东北角的经纬度
+        const southWestLng = centerLng - lngDiff;
+        const southWestLat = centerLat - latDiff;
+        const northEastLng = centerLng + lngDiff;
+        const northEastLat = centerLat + latDiff;
+
+        var bounds = new AMap.Bounds(
+          [southWestLng, southWestLat], // 西南角坐标
+          [northEastLng, northEastLat] // 东北角坐标
+        );
+        // 设置地图显示的边界范围
+        map.setBounds(bounds);
+      }
+      //如果再setcenter后立即执行getcenter函数会导致setcenter实际没有完全更新地图，这个时候获得的center并不是最终center
+      setCenterOn(initLng,initLat,initRange);
+
+      function setGrayscale(value) {
+        var container = document.getElementById("container");
+        container.style.filter = `grayscale(${value}%)`;
+      }
+    </script>
+  </body>
+</html>

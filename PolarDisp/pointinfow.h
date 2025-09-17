@@ -15,6 +15,9 @@ public:
     explicit PointInfoW(QWidget *parent = nullptr);
     ~PointInfoW();
 
+protected:
+    void paintEvent(QPaintEvent* event) override; // 声明 paintEvent
+
 private:
     Ui::PointInfoW *ui;
 };

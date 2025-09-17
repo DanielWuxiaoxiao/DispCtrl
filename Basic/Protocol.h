@@ -4,6 +4,7 @@
 #include <string.h>
 #pragma pack(1)
 
+//优先是config.json中的默认值，其次是这里的constexpr值
 constexpr char DISP_CTRL_IP[] = "192.168.64.4";
 constexpr char DATA_PRO_IP[] = "192.168.64.3";
 constexpr char SIG_PRO_IP[] = "192.168.64.3";
@@ -231,8 +232,6 @@ typedef struct _PhotoElectricParamUp  //光电设备上报的设备状态
         lon = 0;
     }
 }PhotoElectricParamUp;
-
-
 
 typedef struct _TranRecvControl
 {
@@ -723,7 +722,13 @@ typedef struct _PointInfo
     float amp;
     unsigned short batch;
     unsigned char statMethod;
-} PointInfo;
+}PointInfo;
+
+enum PointType
+{
+    Detection = 1,
+    Track = 2
+};
 
 typedef struct _SetTrackManual
 {
@@ -777,7 +782,7 @@ typedef struct _StartSysParam
     };
 }StartSysParam;
 
-unsigned char calculateXOR(char* data, unsigned len);
+unsigned char calculateXOR(const char* data, unsigned len);
 char checkAccusation(char* data, unsigned len);
 
 char* packData(char* data, unsigned dataLen, unsigned short srcID, unsigned short destID, unsigned commCount);

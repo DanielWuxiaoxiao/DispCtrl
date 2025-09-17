@@ -2,20 +2,38 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QKeyEvent>
 
-QT_BEGIN_NAMESPACE
-namespace Ui { class MainWindow; }
-QT_END_NAMESPACE
+class MapProxyWidget;
+class MainOverLayOut;
 
-class MainWindow : public QMainWindow
+class FramelessMainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    MainWindow(QWidget *parent = nullptr);
-    ~MainWindow();
+    explicit FramelessMainWindow(QWidget *parent = nullptr);
 
+protected:
+//    void keyPressEvent(QKeyEvent *event) override {
+//        if (event->key() == Qt::Key_Escape) {
+//            if (isFullScreen()) {
+//                showMaximized();
+//            } else {
+//                showFullScreen();
+//            }
+//        }
+//        else {
+//            QMainWindow::keyPressEvent(event);
+//        }
+//    }
 private:
-    Ui::MainWindow *ui;
+    void setupUI();
+    void setupCentralView();
+    void setupOverlayUI();
+
+    MainOverLayOut *m_overlayWidget;      //上层控件
+    MapProxyWidget* m_map;         //地图
 };
+
 #endif // MAINWINDOW_H

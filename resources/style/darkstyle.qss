@@ -1,672 +1,538 @@
-/*基础设置*/
-QWidget
-{
-    color: #FFFFFF;
-    background-color: #353941;
-    font : 10pt "Microsoft YaHei"; /* 统一字体 */
+#LogoWidget {
+    background-color: rgba(16, 24, 24, 0.8);
+    /* 边框颜色，可根据需要调整 */
+    border-width: 0 0 0 0;
+    /* 设置四个角的圆角半径 */
+    /* 将左上、右上、左下角的圆角半径设为0 */
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
+    border-bottom-left-radius: 15px;
+    /* 仅将右下角的圆角半径设置为你想要的值 */
+    border-bottom-right-radius: 15px;
+    /* 例如，设置为10像素 */
+    padding: 6px 10px;
 }
 
-QLineEdit
-{
-    border : 1px solid aquamarine;
-    border-radius: 8px;
+#TitleLabel {
+    color: #ffffff;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+#SubtitleLabel {
+    color: #66ffcc;
+    font-size: 15px;
+    margin-top: -2px;
+}
+
+#mainviewTopLeft {
+    background-color: rgba(16, 24, 24, 0.8);
+    /* 这个颜色是深灰色，透明度0.8 */
+    border-radius: 5px;
+    /* 统一设置所有角的圆角 */
+}
+
+/* 移除 #mainPview 的样式 */
+/*QLabel的样式，确保它仍然生效*/
+#mainviewTopLeft QLabel {
+    background-color: transparent;
+    color: #66ffcc;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+#mainviewTopLeft QLineEdit {
+    background-color: rgba(16, 24, 24, 0.8);
+    /* 继承的深灰色背景 */
+    color: #66ffcc;
+    /* 继承的文字颜色 */
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 5px;
+    /* 为 QLineEdit 添加圆角 */
+    border: 1px solid lightblue;
+    /* 添加一个浅灰色边框，使其更清晰 */
+    padding: 4px;
+    /* 调整内边距 */
+}
+
+/* 鼠标悬停时的样式 */
+#mainviewTopLeft QLineEdit:hover {
+    background-color: rgba(32, 48, 48, 0.9);
+    /* 更深一点的灰色，或者你喜欢的亮色 */
+    border: 1px solid #99ffff;
+    /* 悬停时改变边框颜色，更明显 */
+    color: #ffffff;
+    /* 悬停时改变文字颜色 */
+}
+
+/* 焦点时的样式（可选，但推荐） */
+#mainviewTopLeft QLineEdit:focus {
+    border: 1px solid #66ffcc;
+    /* 获得焦点时，边框颜色变为目标亮色 */
+    background-color: rgba(16, 24, 24, 0.9);
+    /* 稍微加深背景 */
+}
+
+#PointInfoW {
+    background-color: rgba(16, 24, 24, 0.8);
+    /* 这个颜色是深灰色，透明度0.8 */
+    border-radius: 5px;
+    /* 统一设置所有角的圆角 */
+}
+
+/* 移除 #mainPview 的样式 */
+/*QLabel的样式，确保它仍然生效*/
+#PointInfoW QLabel {
+    background-color: transparent;
+    color: #66ffcc;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+QLabel#batch,
+QLabel#range,
+QLabel#azi,
+QLabel#ele,
+QLabel#speed,
+QLabel#SNR {
     background-color: transparent;
     color: white;
-    padding: 5px;
-}
-QLineEdit:focus
-{
-    border : 1px solid aquamarine;
-    background-color: black;
+    font-size: 18px;
 }
 
-QLabel
-{
-    background-color: rgba(0,0,0,0);
-}
-QPushButton
-{
-    background-color: #424956;
-    color : #FFFFFF;
-    font-weight: bold;
-    border: 2px solid #424956;
-    border-radius: 10px;
-    padding: 8px;
-    /* 增加一个过渡效果，让状态变化更平滑 */
-    transition: all 0.1s ease-out;
-}
-QPushButton:hover
-{
-   border:  2px solid aqua;
-   /* 鼠标悬停时，也可以稍微亮一点背景色，但不要太明显 */
-   background-color: #4A515E; /* 比默认色略浅 */
-}
-QPushButton:pressed{
-   /* 核心修改点： */
-   background-color: #2F333B; /* 按下时背景色变深 */
-   border: 2px solid lightgreen; /* 边框保持高亮 */
-   padding: 7px; /* 减少内边距，模拟按钮被“按下去”的效果 */
-   /* 或者可以考虑在按下时稍微调整字体颜色或阴影，增加立体感 */
-   /* color: #EEEEEE; */
-   /* border: 2px solid #00DD00; */ /* 也可以用更亮的绿色 */
-}
-QPushButton:disabled{
-   background-color: #666666;
-   color : #CCCCCC;
-}
-
-/*标题和主控界面设置*/
-QLabel#title
-{
-    color      : #FFFFFF;
-    font       : 10pt;
-    font-weight: bold;
-}
-QLabel#menu
-{
-    color      : #FFFFFF;
-    background-color: dodgerblue;
-    font       : 10pt;
-    font-weight: bold;
-    padding: 10px;
-    border-radius: 12px;
-}
-QLabel#time
-{
-    color      : #FFFFFF;
-    font       : 10pt;
-    font-weight: bold;
-    padding: 5px;
-}
-QLabel#tabC
-{
-    color      : #FFFFFF;
-    background-color:dodgerblue;
-    font       : 10pt;
-    font-weight: bold;
-    padding: 10px;
-    border-radius: 12px;
-}
-/*去掉scroll area的border和颜色*/
-QScrollArea#tabScroll
-{
-    border: none;
+/*ppiview 无边框 无颜色*/
+#mainPview {
     background-color: transparent;
+    border: 0px solid;
 }
-/*去掉scroll area内widget的颜色*/
-QWidget#tabScrollW
-{
+
+#ZoomView {
     background-color: transparent;
-}
-QWidget#tabControl
-{
-    background-color: #222222;
-    border-radius: 12px;
-}
-QWidget#mainControl
-{
-    background-color: #222222;
-    border-radius: 12px;
-}
- /*P显配置*/
-QWidget#pcontrol
-{
-    background-color: #26282B;
-    border-radius: 10px;
-}
-QLabel#pcontrollabel
-{
-    color      : #FFFFFF;
-    background-color:dodgerblue;
-    font       : 12pt;
-    font-weight: bold;
-    padding: 10px;
-    border-radius: 12px;
-}
-QLabel#radarinfo
-{
-    color      : #FFFFFF;
-    background-color:dodgerblue;
-    font       : 12pt;
-    font-weight: bold;
-    padding: 10px;
-    border-radius: 12px;
-}
-QLabel#radarControl
-{
-    color      : #FFFFFF;
-    background-color:dodgerblue;
-    font       : 12pt;
-    font-weight: bold;
-    padding: 10px;
-    border-radius: 12px;
+    border: 0px solid;
 }
 
-QCheckBox{
-    border: none;
-    background-color: transparent;
-}
-QCheckBox::indicator{
-    background-color: rgba(255, 255, 255, 0);
-    border: 0px solid #b1b1b1;
-    width: 20px;
-    height: 20px;
-}
-QCheckBox:enabled:checked{
-    color: rgb(255, 255, 255);
-}
-QCheckBox:enabled:!checked{
-    color: rgb(255, 255, 255);
-}
-QCheckBox:enabled:hover{
-    color: rgb(0, 200, 0);
-}
-QCheckBox:!enabled{
-    color: rgb(80, 80, 80);
-}
-QCheckBox::indicator:unchecked {
-    image: url(:/resource/icons/uncheck.png);
-}
-QCheckBox::indicator:unchecked:hover {
-    image: url(:/resource/icons/uncheckh.png);
-}
-QCheckBox::indicator:checked {
-    image: url(:/resource/icons/check.png);
+#timeLabel {
+    color: #66ffcc;
+    font-size: 20px;
+    background-color: rgba(16, 24, 24, 0.8);
+    /* 边框颜色，可根据需要调整 */
+    border-width: 0 0 0 0;
+    /* 设置四个角的圆角半径 */
+    /* 将左上、右上、左下角的圆角半径设为0 */
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
+    border-bottom-left-radius: 15px;
+    /* 仅将右下角的圆角半径设置为你想要的值 */
+    border-bottom-right-radius: 15px;
+    /* 例如，设置为10像素 */
+    padding: 6px 10px;
 }
 
-QSpinBox {
-
-padding-top: 2px;
-
-padding-bottom: 2px;
-
-padding-left: 2px;
-
-padding-right: 2px;
-
-border: 2px solid rgb(64,64,64);
-
-border-radius: 10px;
-
-color: white;
-
-background-color: rgb(44,44,44);
-
-selection-color: rgb(235,235,235);
-
-selection-background-color: rgb(83,121,180);
-
-font-family: "Microsoft Yahei";
-
-}
-
-QSpinBox:hover {
-
-background-color: rgb(59,59,59);
-
-border: 2px solid aqua;
-
-}
-
-QSpinBox:focus {
-
-background-color: rgb(59,59,59);
-
-border: 2px solid aqua;
-
-}
-
-QSpinBox::up-button { /* 向上按钮 */
-
-subcontrol-origin: border; /* 起始位置 */
-
-subcontrol-position: top right; /* 居于右上角 */
-
-border: none;
-
-width: 12px;
-
-margin-top: 3px;
-
-margin-right: 8px;
-
-margin-bottom: 3px;
-
-}
-
-QSpinBox::up-button:hover {
-
-border: none;
-
-}
-
-QSpinBox::up-arrow { /* 向上箭头，图片大小为8x8 */
-
-image: url(:/resource/icons/up.png);
-
-}
-
-QSpinBox::up-arrow:hover {
-
-image: url(:/resource/icons/uph.png);
-
-}
-
-QSpinBox::up-arrow:disabled, QSpinBox::up-arrow:off {
-
-image: url(:/resource/icons/upd.png);
-
-}
-
-QSpinBox::down-button { /* 向下按钮 */
-
-subcontrol-origin: border;
-
-subcontrol-position: bottom right;
-
-border: none;
-
-width: 12px;
-
-margin-top: 3px;
-
-margin-right: 8px;
-
-margin-bottom: 3px;
-
-}
-
-QSpinBox::down-button:hover {
-
-border: none;
-
-}
-
-QSpinBox::down-arrow { /* 向下箭头 */
-
-image: url(:/resource/icons/down.png);
-
-}
-
-QSpinBox::down-arrow:hover {
-
-image: url(:/resource/icons/downh.png);
-
-}
-
-QSpinBox::down-arrow:disabled, QSpinBox::down-arrow:off {
-
-image: url(:/resource/icons/downd.png);
-
-}
-
-
-
-QComboBox {
-
-background-color: rgb(44,44,44);
-
-color: white;
-
-border: 2px solid rgb(64,64,64);
-
-padding-top: 2px;
-
-padding-bottom: 2px;
-
-padding-left: 2px;
-
-padding-right: 2px;
-
-border-radius: 10px;
-
-}
-
-QComboBox::drop-down {
-
-width: 30px;
-
-border: none;
-
-background: transparent;
-
-}
-
-QComboBox::drop-down:hover {
-
-background-color: transparent;
-
-}
-
-QComboBox::down-arrow {
-
-image: url(:/resource/icons/down.png);
-
-width: 15px;
-
-height: 15px;
-
-}
-
-QComboBox::down-arrow:hover {
-
-image: url(:/resource/icons/downh.png);
-
-}
-
-QComboBox::down-arrow:pressed {
-
-image: url(:/resource/icons/downh.png);
-
-}
-
-/* 下拉后，整个下拉窗体样式 */
-
-QComboBox QAbstractItemView {
-
-outline: 0px solid black; /* 选定项的虚框 */
-
-border: 2px solid aqua; /* 整个下拉窗体的边框 */
-
-color: white;
-
-background-color: #353941; /* 整个下拉窗体的背景色 */
-
-/* 整个下拉窗体被选中项的背景色 */
-
-}
-
-
-/* 下拉后，整个下拉窗体每项的样式 */
-
-QComboBox QAbstractItemView::item {
-
-height: 50px; /* 项的高度（设置pComboBox->setView(new QListView());后，该项才起作用） */
-
-}
-
-
-/* 下拉后，整个下拉窗体越过每项的样式 */
-
-QComboBox QAbstractItemView::item:hover {
-
-color: #FFFFFF;
-
-background-color: #424956; /* 整个下拉窗体越过每项的背景色 */
-
-}
-
-
-/* 下拉后，整个下拉窗体被选择的每项的样式 */
-
-QComboBox QAbstractItemView::item:selected {
-
-color: #FFFFFF;
-
-background-color: #424956;
-
-}
-
-
-
-/* QScrollBar 和 QTabWidget/QTabBar 部分保持不变，因为上次已修正 */
-/* ... 其他 QSS 代码保持不变 ... */
-
-/* --- QSlider (水平滑块) 示例 --- */
-QSlider::groove:horizontal {
-    background: #424956;
-    height: 6px;
-    border-radius: 3px;
-    margin: 2px 0;
-}
-
-QSlider::handle:horizontal {
-    background: aqua;
-    border: 1px solid lightgreen;
-    width: 16px;
-    height: 16px;
+/* 右上角窗口按钮通用样式 */
+QPushButton#minButton {
+    background-color: rgba(16, 24, 24, 0.8);
+    /* 无背景 */
+    border: 1px solid black;
+    /* 默认细绿色边框 */
     border-radius: 8px;
-    margin: -5px 0;
+    padding: 4px;
+    margin: 2px;
+    color: #ffffff;
 }
 
-QSlider::handle:horizontal:hover {
-    background: lightgreen;
-    border: 1px solid aqua;
+/* 悬浮状态 */
+QPushButton#minButton:hover {
+    border: 2px solid #00ff88;
+    /* 边框变粗且更亮 */
+    background-color: rgb(16, 24, 24);
+    /* 仍然透明 */
+    /* 稍微浮起 */
+    color: #66ffcc;
 }
 
-QSlider::handle:horizontal:pressed {
-    background: lightgreen;
-    border: 1px solid aqua;
+/* 按下状态 */
+QPushButton#minButton:pressed {
+    border: 2px solid #00ffaa;
+    background-color: rgba(0, 255, 136, 0.15);
+    /* 压下效果 */
+    color: #66ffcc;
 }
 
-QSlider::add-page:horizontal {
-    background: #333333;
-    border-radius: 3px;
+/* X 按钮 hover 特效（切换图标） */
+QPushButton#CloseButton {
+    background-color: rgba(16, 24, 24, 0.8);
+    border: 1px solid black;
+    border-radius: 8px;
+    padding: 4px;
+    margin: 2px;
+    color: #ffffff;
 }
 
-QSlider::sub-page:horizontal {
-    background: aqua;
-    border-radius: 3px;
+QPushButton#CloseButton:hover {
+    border: 2px solid #ff4444;
+    /* 悬浮变成红色边框 */
+    color: #66ffcc;
+}
+
+QPushButton#CloseButton:pressed {
+    border: 2px solid #00ffaa;
+    background-color: rgba(0, 255, 136, 0.15);
+    /* 压下效果 */
+    color: #66ffcc;
 }
 
 
-QLabel#trackTable
-{
-    color      : #FFFFFF;
-    background-color:dodgerblue;
-    font       : 12pt;
-    font-weight: bold;
-    padding: 10px;
-    border-radius: 12px;
-}
-QTableWidget {
-    background-color: #353941;
-    border: 2px solid aqua;
-    border-radius: 12px;
-    color: #FFFFFF;
-}
-
-QTableWidget::item {
-    padding: 1px;
-    border-bottom: 1px solid #555555;
+/* 功能按钮区域背景 */
+/* 功能按钮区域背景 */
+#FuncWidget {
+    background-color: rgb(16, 24, 24, 0.8);
+    border-style: solid;
+    border-color: rgba(0, 100, 0, 0.2);
+    /* 背景边框，深绿 */
+    border-width: 10px 10px 10px 10px;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+    padding: 8px 16px;
 }
 
-QTableWidget::item:selected {
-    background-color: #666666;
-    border: 1px solid lightgreen;
-    color: #FFFFFF;
+/* 默认按钮样式 */
+QToolButton[buttonGroup="A"] {
+    color: #00ff88;
+    /* 默认字体绿色 */
+    font-size: 14px;
+    padding: 8px 20px;
+    border: 2px solid rgba(144, 238, 144, 0.7);
+    /* 较暗的绿色边框 */
+    border-radius: 8px;
+    background-color: transparent;
 }
 
-QHeaderView::section {
-    background-color: #222222;
-    color: #FFFFFF;
-    padding: 5px;
+/* 鼠标悬浮 */
+QToolButton[buttonGroup="A"]:hover {
+    color: #ffffff;
+    /* 字体变白 */
+    border: 3px solid #00ff88;
+    /* 边框高亮 + 变粗 */
+    background-color: rgba(0, 100, 20, 0.25);
+    /* 背景色加深 */
 }
 
-/* QTableWidget 内部滚动条 - 修正语法 */
-QTableWidget QScrollBar:vertical {
+/* 按下状态 */
+QToolButton[buttonGroup="A"]:pressed {
+    color: #ffffff;
+    border: 3px solid #00ffaa;
+    background-color: rgba(0, 0, 0, 0.35);
+}
+
+
+/* 当tablewidget添加了控件后， pane的style就不起作用了，需要单独设置这个控件的style */
+/* Tab 栏整体 */
+QTabWidget::pane {
+    border: 0px solid #00ff88;
+}
+
+QTabWidget {
+    border: 0px solid #00ff88;
+}
+
+/* 针对标签栏容器本身的样式 */
+QTabBar {
     border: none;
-    background: #333333;
-    width: 12px; /* 仍然是12px，如果想统一，可以改成8px */
+    /* 或者 border: 0px; */
 }
 
-QTableWidget QScrollBar::handle:vertical {
-    background: #666666;
-    border-radius: 6px; /* 添加圆角 */
+QWidget#tab1,
+QWidget#tab_2,
+QWidget#tab_3,
+QWidget#tab_4,
+QWidget#tab_5,
+QWidget#tab {
+    border: 0px solid #00ff88;
+    border-radius: 8px;
+    background: rgba(16, 24, 24, 0.8);
 }
 
-QTableWidget QScrollBar::add-line:vertical, QTableWidget QScrollBar::sub-line:vertical { /* 修正语法 */
-    border: none;
-    background: none;
-    height: 0px; /* 隐藏箭头 */
-}
-QTableWidget QScrollBar:horizontal {
-    border: none;
-    background: #333333;
-    height: 12px; /* 仍然是12px，如果想统一，可以改成8px */
-}
-
-QTableWidget QScrollBar::handle:horizontal {
-    background: #666666;
-    border-radius: 6px; /* 添加圆角 */
+/* Tab 标签 */
+QTabWidget QTabBar::tab {
+    font-family: "Microsoft YaHei";
+    font-size: 13px;
+    color: #cccccc;
+    background: rgba(0, 40, 40, 0.3);
+    padding: 6px 14px;
+    border: 0px solid;
+    border-radius: 6px;
+    margin: 3px;
 }
 
-QTableWidget QScrollBar::add-line:horizontal, QTableWidget QScrollBar::sub-line:horizontal { /* 修正语法 */
-    border: none;
-    background: none;
-    width: 0px; /* 隐藏箭头 */
+/* Tab 被选中 */
+QTabWidget QTabBar::tab:selected {
+    color: #00ff88;
+    border: 2px solid black;
+    background: rgba(0, 80, 80, 0.9);
 }
 
 
-/* --- 全局 QScrollBar 优化 (细条蓝绿配色，再次确认语法) --- */
-/*垂直滚动条*/
-QScrollBar:vertical{
-    width:8px;
-    border-style:flat;
-    border-radius: 4px;
-    border:0px;
-    background: #353941;
-    margin: 0px; /* 确保无额外边距 */
+QTabWidget QTabBar::tab {
+    color: #cccccc;
+    background: rgba(0, 40, 40, 0.3);
+    padding: 6px 12px;
+    border: 0px solid #005533;
+    border-radius: 6px;
+    margin: 4px 6px;
 }
-QScrollBar::handle:vertical{
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                                stop:0 #8fbc8f, stop:1 #20b2aa);
-    border-radius: 4px;
-    width:8px;
-    min-height:20px;
-    border-style:flat;
+
+QTabWidget QTabBar::tab:selected {
+    color: #00ff88;
+    border: 2px solid black;
+    background: rgba(0, 80, 80, 0.9);
 }
-QScrollBar::handle:vertical::hover{
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                                stop:0 #a0d4a0, stop:1 #26c6da);
-    border-radius: 4px;
-    width:8px;
+
+/* 可能因为层级问题  labelgroup = "a"的形式无法生效 */
+/* 状态标签左侧（参数名） */
+#stalabel1,
+#stalabel2,
+#stalabel3,
+#stalabel4,
+#stalabel5 {
+    font-family: "Microsoft YaHei";
+    font-size: 14px;
+    color: #00ff88;
+    /* 绿色 */
+    /* 设置背景色，以防父控件透明导致不显示 */
+    background-color: transparent;
 }
-QScrollBar::handle:vertical::pressed{
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                                stop:0 #7cb342, stop:1 #00897b);
-    border-radius:4px;
-    width:8px;
+
+/* 状态标签右侧（值） */
+#stamsg1,
+#stamsg2,
+#stamsg3,
+#stamsg4,
+#stamsg5 {
+    font-family: "Microsoft YaHei";
+    font-size: 14px;
+    color: #ffffff;
+    /* 白色 */
+    /* 设置背景色，以防父控件透明导致不显示 */
+    background-color: transparent;
 }
-QScrollBar::sub-page:vertical, QScrollBar::add-page:vertical {
-    background: #353941;
-    border-style:flat;
+
+/* 日志编辑框 */
+QTextEdit#logEdit {
+    background-color: rgba(0, 20, 20, 0.3);
+    border: 1px solid lightblue;
+    border-radius: 8px;
+    font-family: "Microsoft YaHei";
+    font-size: 12px;
+    color: #cccccc;
 }
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { /* 再次修正语法 */
-    border: none;
+
+/* 日志滚动条美化 */
+QTextEdit#logEdit QScrollBar:vertical {
     background: transparent;
+    width: 8px;
+    margin: 0px;
+}
+
+QTextEdit#logEdit QScrollBar::handle:vertical {
+    background: #00aa66;
+    border-radius: 4px;
+}
+
+QTextEdit#logEdit QScrollBar::handle:vertical:hover {
+    background: #00ff88;
+}
+
+QTextEdit#logEdit QScrollBar::add-line,
+QTextEdit#logEdit QScrollBar::sub-line {
     height: 0px;
 }
 
-/*水平滚动条*/
-QScrollBar:horizontal{
-    height:8px;
-    border-style:flat;
-    border-radius: 4px;
-    border:0px;
-    background: #353941;
-    margin: 0px; /* 确保无额外边距 */
-}
-QScrollBar::handle:horizontal{
-    background: qlineargradient(y1:0, x1:0, y2:0, x2:1,
-                                stop:0 #8fbc8f, stop:1 #20b2aa);
-    border-radius: 4px;
-    height:8px;
-    min-width:20px;
-    border-style:flat;
-}
-QScrollBar::handle:horizontal::hover{
-    background: qlineargradient(y1:0, x1:0, y2:0, x2:1,
-                                stop:0 #a0d4a0, stop:1 #26c6da);
-    border-radius: 4px;
-    height:8px;
-}
-QScrollBar::handle:horizontal::pressed{
-    background: qlineargradient(y1:0, x1:0, y2:0, x2:1,
-                                stop:0 #7cb342, stop:1 #00897b);
-    border-radius:4px;
-    height:8px;
-}
-QScrollBar::sub-page:horizontal, QScrollBar::add-page:horizontal {
-    background: #353941;
-    border-style:flat;
-}
-QScrollBar::sub-line:horizontal, QScrollBar::add-line:horizontal{ /* 再次修正语法 */
-    border: none;
+/* QTableWidget 的样式 */
+/* 强制背景绘制，避免被父控件覆盖 */
+/* --- 正确的样式 --- */
+QTableWidget#tableWidget {
+    /* 这里只放边框、字体颜色等整体属性 */
+    border: 0px solid;
+    color: #E0E0E0;
+    font-size: 14px;
+    /* 不要在这里设置background-color */
     background: transparent;
-    width: 0px;
+    /* 让控件本身透明 */
 }
 
-QTextEdit {
-   background-color: #26282B;
-   border: 1px solid #424956;
-   border-radius: 10px;
-   color: #FFFFFF;
-   font: 10pt 'Microsoft YaHei';
-   padding: 5px;
+/* Item的样式保持不变 */
+QTableWidget#tableWidget::item {
+    border-bottom: 1px solid #333333;
+    padding-left: 5px;
+    background-color: transparent;
+    /* Item背景最好也设为透明，让viewport的背景透出来 */
 }
 
-QMenu {
-    background-color : rgb(253,253,254);
-    padding:5px;
-    border-radius:15px;
-}
-QMenu::item {
-    font-size:14pt;
-    color: rgb(0,0,0);
-    background-color:rgb(253,253,254);
-    padding: 8px 25px 6px 10px;
-    margin: 4px 1px;
-}
-QMenu::item:selected {
-    background-color : rgb(236,236,237);
-}
-/* 移除了 QMenu::icon:checked 中的 position: absolute; */
-QMenu::icon:checked {
-    background: rgb(253,253,254);
-    /* 移除 position: absolute; 及其相关属性 */
-}
-QMenu::icon:checked:selected {
-    background-color : rgb(236,236,237);
-    background-image: url(:/space_selected.png);
-}
-QMenu::separator {
-    height: 3px;
-    background: rgb(235,235,236);
-    margin-left: 10px;
-    margin-right: 10px;
-}
-
-/* QTabWidget and QTabBar styles */
-QTabWidget::pane { /* The tab widget frame */
-    border: 2px solid #222222;
-    background-color: #222222;
-    border-radius: 12px;
-    padding: 5px;
-}
-
-QTabWidget::tab-bar {
-    left: 5px;
-}
-
-QTabBar::tab {
-    background-color: #424956;
+/* 选中项的样式可以覆盖背景色 */
+QTableWidget#tableWidget::item:selected {
+    background-color: rgba(0, 255, 200, 0.2);
     color: #FFFFFF;
+    border: 1px solid #00ffc8;
+}
+
+/*detach*/
+#pviewFitW {
+    background-color: rgba(0, 40, 40, 0.8);
+    border: 0px solid #00ff88;
+    border-radius: 15px;
+}
+
+/* 自定义窗口 */
+#TitleBar {
+    background-color: transparent;
+    border: 0px solid #00ffc8;
+    min-height: 40px;
+}
+
+#TitleLabel {
+    color: #00ff88;
+    font-size: 18px;
     font-weight: bold;
-    border: 2px solid #424956;
+}
+
+/* 右上角窗口按钮通用样式 */
+#cMaxButton {
+    background-color: transparent;
+    /* 无背景 */
+    border: 0px solid black;
+    /* 默认细绿色边框 */
     border-radius: 8px;
-    padding: 8px 15px;
+    padding: 4px;
     margin: 2px;
-    min-width: 80px;
 }
 
-QTabBar::tab:hover {
-    border: 2px solid aqua;
-    cursor: pointer;
+/* 悬浮状态 */
+#cMaxButton:hover {
+    border: 2px solid #00ff88;
+    /* 边框变粗且更亮 */
+    background-color: rgb(16, 24, 24);
 }
 
-QTabBar::tab:selected {
-   background-color: black;
-   color : aqua;
-   border: 2px solid lightgreen;
+/* 按下状态 */
+#cMaxButton:pressed {
+    border: 2px solid #00ffaa;
+    background-color: rgba(0, 255, 136, 0.15);
+}
+
+/* 右上角窗口按钮通用样式 */
+#cMinButton {
+    background-color: transparent;
+    /* 无背景 */
+    border: 0px solid black;
+    /* 默认细绿色边框 */
+    border-radius: 8px;
+    padding: 4px;
+    margin: 2px;
+}
+
+/* 悬浮状态 */
+#cMinButton:hover {
+    border: 2px solid #00ff88;
+    /* 边框变粗且更亮 */
+    background-color: rgb(16, 24, 24);
+}
+
+/* 按下状态 */
+#cMinButton:pressed {
+    border: 2px solid #00ffaa;
+    background-color: rgba(0, 255, 136, 0.15);
+}
+
+/* X 按钮 hover 特效（切换图标） */
+#cCloseBtn {
+    background-color: transparent;
+    /* 无背景 */
+    border: 0px solid black;
+    /* 默认细绿色边框 */
+    border-radius: 8px;
+    padding: 4px;
+    margin: 2px;
+}
+
+#cCloseBtn:hover {
+    border: 2px solid #ff4444;
+    /* 悬浮变成红色边框 */
+    background-color: transparent;
+}
+
+#cCloseBtn:pressed {
+    border: 2px solid red;
+    background-color: transparent;
+}
+
+
+/* 默认按钮样式 */
+QPushButton {
+    color: #00ff88;
+    /* 默认字体绿色 */
+    font-size: 14px;
+    padding: 8px 20px;
+    border: 2px solid rgba(144, 238, 144, 0.7);
+    /* 较暗的绿色边框 */
+    border-radius: 8px;
+    background-color: transparent;
+}
+
+/* 鼠标悬浮 */
+QPushButton:hover {
+    color: #ffffff;
+    /* 字体变白 */
+    border: 3px solid #00ff88;
+    /* 边框高亮 + 变粗 */
+    background-color: rgba(0, 100, 20, 0.25);
+    /* 背景色加深 */
+}
+
+/* 按下状态 */
+QPushButton:pressed {
+    color: #ffffff;
+    border: 3px solid #00ffaa;
+    background-color: rgba(0, 0, 0, 0.35);
+}
+
+/* ZoomView 工具栏按钮：在 pviewFitW 区域下的样式，使按钮与背景一致 */
+#pviewFitW QPushButton#ZoomInBtn,
+#pviewFitW QPushButton#ZoomOutBtn,
+#pviewFitW QPushButton#ResetBtn,
+#pviewFitW QPushButton#DragBtn,
+#pviewFitW QPushButton#MeasureBtn {
+    /* 让父背景透出，采用低对比边框以保持简洁 */
+    background-color: transparent;
+    color: #00ff88;
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 8px;
+    padding: 6px;
+    margin: 1px;
+}
+
+/* 悬浮显示高亮边框，略微加深背景以提示交互 */
+#pviewFitW QPushButton#ZoomInBtn:hover,
+#pviewFitW QPushButton#ZoomOutBtn:hover,
+#pviewFitW QPushButton#ResetBtn:hover,
+#pviewFitW QPushButton#DragBtn:hover,
+#pviewFitW QPushButton#MeasureBtn:hover {
+    background-color: rgba(0,255,136,0.18);
+    border: 2px solid #00ff88;
+}
+
+/* 选中态（checked）更明显：明亮背景 + 内外对比边框 + 轻微发光效果 */
+#pviewFitW QPushButton#DragBtn:checked,
+#pviewFitW QPushButton#MeasureBtn:checked {
+    border: 2px solid #00ff88;
+    background-color: rgba(16,24,24,0.85);/* 大多数 Qt 版本会忽略 ，但保留为兼容性注释 */
+}
+
+QLabel#ZoomLabel  {
+    background-color: transparent;
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
 }

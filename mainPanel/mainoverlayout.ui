@@ -1,22 +1,815 @@
-<?xml version='1.0'?>
+<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <author/>
- <comment/>
- <exportmacro/>
  <class>MainOverLayOut</class>
  <widget class="QWidget" name="MainOverLayOut">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>640</width>
-    <height>480</height>
+    <width>1399</width>
+    <height>935</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Form</string>
   </property>
+  <layout class="QVBoxLayout" name="verticalLayout_2">
+   <property name="spacing">
+    <number>0</number>
+   </property>
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,1,0">
+     <property name="spacing">
+      <number>0</number>
+     </property>
+     <item>
+      <layout class="QVBoxLayout" name="verticalLayout">
+       <property name="spacing">
+        <number>5</number>
+       </property>
+       <property name="leftMargin">
+        <number>5</number>
+       </property>
+       <property name="topMargin">
+        <number>5</number>
+       </property>
+       <property name="bottomMargin">
+        <number>5</number>
+       </property>
+       <item>
+        <widget class="QTabWidget" name="infoTab">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>400</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="tabShape">
+          <enum>QTabWidget::Rounded</enum>
+         </property>
+         <property name="currentIndex">
+          <number>0</number>
+         </property>
+         <property name="documentMode">
+          <bool>false</bool>
+         </property>
+         <property name="movable">
+          <bool>true</bool>
+         </property>
+         <widget class="QWidget" name="tab1">
+          <property name="styleSheet">
+           <string notr="true"/>
+          </property>
+          <attribute name="icon">
+           <iconset resource="../resource.qrc">
+            <normaloff>:/resources/icon/info.png</normaloff>:/resources/icon/info.png</iconset>
+          </attribute>
+          <attribute name="title">
+           <string>状态信息</string>
+          </attribute>
+          <attribute name="toolTip">
+           <string>显示雷达状态信息</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="verticalLayout_9">
+           <property name="spacing">
+            <number>0</number>
+           </property>
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QWidget" name="infoWidget" native="true">
+             <property name="autoFillBackground">
+              <bool>false</bool>
+             </property>
+             <layout class="QHBoxLayout" name="horizontalLayout_2">
+              <item>
+               <widget class="QLabel" name="label">
+                <property name="maximumSize">
+                 <size>
+                  <width>150</width>
+                  <height>150</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string/>
+                </property>
+                <property name="pixmap">
+                 <pixmap resource="../resource.qrc">:/resources/icon/radararray.png</pixmap>
+                </property>
+                <property name="scaledContents">
+                 <bool>true</bool>
+                </property>
+                <property name="textInteractionFlags">
+                 <set>Qt::NoTextInteraction</set>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <layout class="QGridLayout" name="gridLayout">
+                <item row="3" column="1">
+                 <widget class="QLabel" name="stamsg4">
+                  <property name="text">
+                   <string/>
+                  </property>
+                  <property name="labelGroup" stdset="0">
+                   <string>B</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="0">
+                 <widget class="QLabel" name="stalabel1">
+                  <property name="text">
+                   <string>型号</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
+                  </property>
+                  <property name="labelGroup" stdset="0">
+                   <string>A</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="0">
+                 <widget class="QLabel" name="stalabel3">
+                  <property name="text">
+                   <string>波形</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
+                  </property>
+                  <property name="labelGroup" stdset="0">
+                   <string>A</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="3" column="0">
+                 <widget class="QLabel" name="stalabel4">
+                  <property name="text">
+                   <string>带宽</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
+                  </property>
+                  <property name="labelGroup" stdset="0">
+                   <string>A</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="2" column="1">
+                 <widget class="QLabel" name="stamsg3">
+                  <property name="text">
+                   <string/>
+                  </property>
+                  <property name="labelGroup" stdset="0">
+                   <string>B</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="0" column="1">
+                 <widget class="QLabel" name="stamsg1">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="text">
+                   <string/>
+                  </property>
+                  <property name="labelGroup" stdset="0">
+                   <string>B</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QLabel" name="stalabel2">
+                  <property name="text">
+                   <string>功率</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
+                  </property>
+                  <property name="labelGroup" stdset="0">
+                   <string>A</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QLabel" name="stamsg2">
+                  <property name="text">
+                   <string/>
+                  </property>
+                  <property name="labelGroup" stdset="0">
+                   <string>B</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="4" column="0">
+                 <widget class="QLabel" name="stalabel5">
+                  <property name="text">
+                   <string>脉宽</string>
+                  </property>
+                  <property name="alignment">
+                   <set>Qt::AlignCenter</set>
+                  </property>
+                  <property name="labelGroup" stdset="0">
+                   <string>A</string>
+                  </property>
+                 </widget>
+                </item>
+                <item row="4" column="1">
+                 <widget class="QLabel" name="stamsg5">
+                  <property name="text">
+                   <string/>
+                  </property>
+                  <property name="labelGroup" stdset="0">
+                   <string>B</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+             </layout>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QWidget" name="tab_2">
+          <attribute name="icon">
+           <iconset resource="../resource.qrc">
+            <normaloff>:/resources/icon/log.png</normaloff>:/resources/icon/log.png</iconset>
+          </attribute>
+          <attribute name="title">
+           <string>日志</string>
+          </attribute>
+          <attribute name="toolTip">
+           <string>雷达操作日志</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="verticalLayout_3">
+           <property name="spacing">
+            <number>0</number>
+           </property>
+           <property name="leftMargin">
+            <number>3</number>
+           </property>
+           <property name="topMargin">
+            <number>3</number>
+           </property>
+           <property name="rightMargin">
+            <number>3</number>
+           </property>
+           <property name="bottomMargin">
+            <number>3</number>
+           </property>
+           <item>
+            <widget class="QTextEdit" name="logEdit">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="textInteractionFlags">
+              <set>Qt::NoTextInteraction</set>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+       <item>
+        <widget class="QTabWidget" name="setTab">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>400</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="tabShape">
+          <enum>QTabWidget::Rounded</enum>
+         </property>
+         <property name="currentIndex">
+          <number>0</number>
+         </property>
+         <property name="documentMode">
+          <bool>false</bool>
+         </property>
+         <property name="movable">
+          <bool>true</bool>
+         </property>
+         <property name="tabBarAutoHide">
+          <bool>false</bool>
+         </property>
+         <widget class="QWidget" name="tab_3">
+          <attribute name="icon">
+           <iconset resource="../resource.qrc">
+            <normaloff>:/resources/icon/scan.png</normaloff>:/resources/icon/scan.png</iconset>
+          </attribute>
+          <attribute name="title">
+           <string>范围设置</string>
+          </attribute>
+          <attribute name="toolTip">
+           <string>设置雷达方位和俯仰的扫描范围</string>
+          </attribute>
+         </widget>
+         <widget class="QWidget" name="tab_4">
+          <attribute name="icon">
+           <iconset resource="../resource.qrc">
+            <normaloff>:/resources/icon/mode.png</normaloff>:/resources/icon/mode.png</iconset>
+          </attribute>
+          <attribute name="title">
+           <string>工作方式</string>
+          </attribute>
+         </widget>
+         <widget class="QWidget" name="tab">
+          <attribute name="icon">
+           <iconset resource="../resource.qrc">
+            <normaloff>:/resources/icon/param.png</normaloff>:/resources/icon/param.png</iconset>
+          </attribute>
+          <attribute name="title">
+           <string>参数设置</string>
+          </attribute>
+         </widget>
+        </widget>
+       </item>
+       <item>
+        <widget class="QTabWidget" name="trackTab">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="tabPosition">
+          <enum>QTabWidget::North</enum>
+         </property>
+         <property name="tabShape">
+          <enum>QTabWidget::Rounded</enum>
+         </property>
+         <property name="currentIndex">
+          <number>0</number>
+         </property>
+         <property name="documentMode">
+          <bool>false</bool>
+         </property>
+         <widget class="QWidget" name="tab_5">
+          <attribute name="icon">
+           <iconset resource="../resource.qrc">
+            <normaloff>:/resources/icon/track.png</normaloff>:/resources/icon/track.png</iconset>
+          </attribute>
+          <attribute name="title">
+           <string>航迹管理</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="verticalLayout_4">
+           <property name="spacing">
+            <number>0</number>
+           </property>
+           <property name="leftMargin">
+            <number>4</number>
+           </property>
+           <property name="topMargin">
+            <number>4</number>
+           </property>
+           <property name="rightMargin">
+            <number>4</number>
+           </property>
+           <property name="bottomMargin">
+            <number>4</number>
+           </property>
+           <item>
+            <widget class="QTableWidget" name="tableWidget">
+             <property name="autoFillBackground">
+              <bool>false</bool>
+             </property>
+             <property name="styleSheet">
+              <string notr="true"/>
+             </property>
+             <property name="gridStyle">
+              <enum>Qt::DashLine</enum>
+             </property>
+             <attribute name="horizontalHeaderVisible">
+              <bool>false</bool>
+             </attribute>
+             <attribute name="horizontalHeaderShowSortIndicator" stdset="0">
+              <bool>true</bool>
+             </attribute>
+             <attribute name="verticalHeaderVisible">
+              <bool>false</bool>
+             </attribute>
+             <attribute name="verticalHeaderShowSortIndicator" stdset="0">
+              <bool>false</bool>
+             </attribute>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="QWidget" name="viewWidget" native="true">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="autoFillBackground">
+        <bool>false</bool>
+       </property>
+       <property name="styleSheet">
+        <string notr="true"/>
+       </property>
+       <property name="label_group" stdset="0">
+        <string>A</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <layout class="QVBoxLayout" name="verticalLayout_5">
+       <property name="spacing">
+        <number>8</number>
+       </property>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_3">
+         <property name="spacing">
+          <number>8</number>
+         </property>
+         <property name="topMargin">
+          <number>8</number>
+         </property>
+         <property name="rightMargin">
+          <number>3</number>
+         </property>
+         <item>
+          <spacer name="horizontalSpacer_2">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QWidget" name="LogoWidget" native="true">
+           <layout class="QHBoxLayout" name="horizontalLayout_5">
+            <property name="spacing">
+             <number>15</number>
+            </property>
+            <property name="leftMargin">
+             <number>15</number>
+            </property>
+            <property name="topMargin">
+             <number>15</number>
+            </property>
+            <property name="rightMargin">
+             <number>15</number>
+            </property>
+            <property name="bottomMargin">
+             <number>15</number>
+            </property>
+            <item>
+             <widget class="QLabel" name="label_12">
+              <property name="maximumSize">
+               <size>
+                <width>50</width>
+                <height>50</height>
+               </size>
+              </property>
+              <property name="text">
+               <string/>
+              </property>
+              <property name="pixmap">
+               <pixmap resource="../resource.qrc">:/resources/icon/logo.png</pixmap>
+              </property>
+              <property name="scaledContents">
+               <bool>true</bool>
+              </property>
+              <property name="textInteractionFlags">
+               <set>Qt::NoTextInteraction</set>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <layout class="QVBoxLayout" name="verticalLayout_6">
+              <item>
+               <widget class="QLabel" name="TitleLabel">
+                <property name="text">
+                 <string>雷达控制平台</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLabel" name="SubtitleLabel">
+                <property name="text">
+                 <string>Radar Control Platform</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <layout class="QVBoxLayout" name="verticalLayout_8">
+           <item>
+            <widget class="QPushButton" name="CloseButton">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>300</width>
+               <height>300</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>退出</string>
+             </property>
+             <property name="icon">
+              <iconset resource="../resource.qrc">
+               <normaloff>:/resources/icon/close.png</normaloff>:/resources/icon/close.png</iconset>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="minButton">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>300</width>
+               <height>30300</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>最小化</string>
+             </property>
+             <property name="icon">
+              <iconset resource="../resource.qrc">
+               <normaloff>:/resources/icon/min.png</normaloff>:/resources/icon/min.png</iconset>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_6">
+         <property name="rightMargin">
+          <number>5</number>
+         </property>
+         <item>
+          <spacer name="horizontalSpacer_3">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QLabel" name="timeLabel">
+           <property name="text">
+            <string/>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QWidget" name="pviewFitW" native="true">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>500</width>
+           <height>16777215</height>
+          </size>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_4">
+         <property name="spacing">
+          <number>0</number>
+         </property>
+         <item>
+          <spacer name="horizontalSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QWidget" name="FuncWidget" native="true">
+           <layout class="QVBoxLayout" name="verticalLayout_7">
+            <property name="rightMargin">
+             <number>9</number>
+            </property>
+            <item>
+             <layout class="QGridLayout" name="gridLayout_2">
+              <property name="leftMargin">
+               <number>8</number>
+              </property>
+              <property name="topMargin">
+               <number>8</number>
+              </property>
+              <property name="rightMargin">
+               <number>8</number>
+              </property>
+              <property name="bottomMargin">
+               <number>8</number>
+              </property>
+              <item row="0" column="0">
+               <widget class="QToolButton" name="FuncToolButton">
+                <property name="text">
+                 <string>态势操作</string>
+                </property>
+                <property name="icon">
+                 <iconset resource="../resource.qrc">
+                  <normaloff>:/resources/icon/control.png</normaloff>:/resources/icon/control.png</iconset>
+                </property>
+                <property name="iconSize">
+                 <size>
+                  <width>36</width>
+                  <height>36</height>
+                 </size>
+                </property>
+                <property name="toolButtonStyle">
+                 <enum>Qt::ToolButtonTextUnderIcon</enum>
+                </property>
+                <property name="buttonGroup" stdset="0">
+                 <string>A</string>
+                </property>
+               </widget>
+              </item>
+              <item row="1" column="0">
+               <widget class="QToolButton" name="FuncToolButton_2">
+                <property name="text">
+                 <string>态势感知</string>
+                </property>
+                <property name="icon">
+                 <iconset resource="../resource.qrc">
+                  <normaloff>:/resources/icon/data.png</normaloff>:/resources/icon/data.png</iconset>
+                </property>
+                <property name="iconSize">
+                 <size>
+                  <width>36</width>
+                  <height>36</height>
+                 </size>
+                </property>
+                <property name="toolButtonStyle">
+                 <enum>Qt::ToolButtonTextUnderIcon</enum>
+                </property>
+                <property name="buttonGroup" stdset="0">
+                 <string>A</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="0">
+               <widget class="QToolButton" name="toolButton_2">
+                <property name="text">
+                 <string>雷达系统</string>
+                </property>
+                <property name="icon">
+                 <iconset resource="../resource.qrc">
+                  <normaloff>:/resources/icon/radararray.png</normaloff>:/resources/icon/radararray.png</iconset>
+                </property>
+                <property name="iconSize">
+                 <size>
+                  <width>36</width>
+                  <height>36</height>
+                 </size>
+                </property>
+                <property name="toolButtonStyle">
+                 <enum>Qt::ToolButtonTextUnderIcon</enum>
+                </property>
+                <property name="buttonGroup" stdset="0">
+                 <string>A</string>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="0">
+               <widget class="QToolButton" name="toolButton_3">
+                <property name="text">
+                 <string>记录回放</string>
+                </property>
+                <property name="icon">
+                 <iconset resource="../resource.qrc">
+                  <normaloff>:/resources/icon/record.png</normaloff>:/resources/icon/record.png</iconset>
+                </property>
+                <property name="iconSize">
+                 <size>
+                  <width>36</width>
+                  <height>36</height>
+                 </size>
+                </property>
+                <property name="toolButtonStyle">
+                 <enum>Qt::ToolButtonTextUnderIcon</enum>
+                </property>
+                <property name="buttonGroup" stdset="0">
+                 <string>A</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="QWidget" name="pviewZoomW" native="true">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>500</width>
+           <height>16777215</height>
+          </size>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+  </layout>
  </widget>
- <pixmapfunction/>
+ <resources>
+  <include location="../resource.qrc"/>
+ </resources>
  <connections/>
 </ui>

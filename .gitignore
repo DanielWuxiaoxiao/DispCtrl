@@ -71,3 +71,32 @@ Thumbs.db
 *.dll
 *.exe
 
+# CMake and build directories
+build/
+debug/
+release/
+out/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+*.ninja
+.ninja_deps
+.ninja_log
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Log files
+*.log
+disp_ctrl_log.txt
+
+# Qt autogen files
+*_autogen/
+
+# Configuration files (uncomment if sensitive)
+# config.json
+

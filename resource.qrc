@@ -1,2 +1,30 @@
-<!DOCTYPE RCC>
-<RCC version="1.0"/>
+<RCC>
+    <qresource prefix="/">
+        <file>resources/style/darkstyle.qss</file>
+        <file>resources/icon/logo.png</file>
+        <file>resources/icon/close.png</file>
+        <file>resources/icon/control.png</file>
+        <file>resources/icon/drone.png</file>
+        <file>resources/icon/min.png</file>
+        <file>resources/icon/junji.png</file>
+        <file>resources/icon/radararray.png</file>
+        <file>resources/icon/record.png</file>
+        <file>resources/icon/minji.png</file>
+        <file>resources/icon/data.png</file>
+        <file>resources/icon/info.png</file>
+        <file>resources/icon/log.png</file>
+        <file>resources/icon/health.png</file>
+        <file>resources/icon/mode.png</file>
+        <file>resources/icon/param.png</file>
+        <file>resources/icon/scan.png</file>
+        <file>resources/icon/track.png</file>
+        <file>resources/icon/array.png</file>
+        <file>resources/icon/maxi.png</file>
+        <file>resources/icon/full.png</file>
+        <file>resources/icon/win.png</file>
+        <file>resources/icon/plus.png</file>
+        <file>resources/icon/hand.png</file>
+        <file>resources/icon/meas.png</file>
+        <file>resources/icon/reset.png</file>
+    </qresource>
+</RCC>

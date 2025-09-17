@@ -1,13 +1,23 @@
 #ifndef TOOLTIP_H
 #define TOOLTIP_H
 
-#include <QObject>
+#pragma once
+#include <QGraphicsItemGroup>
+#include <QGraphicsTextItem>
+#include <QGraphicsRectItem>
+#include "polaraxis.h"
 
-class ToolTip
-{
-    Q_OBJECT
+#define TOOL_TIP Tooltip::getInstance() // tooltip为单例模式
+class Tooltip : public QGraphicsItemGroup {
 public:
-    ToolTip();
+    Tooltip(QGraphicsItem* parent = nullptr);
+    static Tooltip *getInstance();
+    void showTooltip(const QPointF& scenePos,const QString& text);
+    void hideTooltip();
+
+private:
+    QGraphicsRectItem* m_background;
+    QGraphicsTextItem* m_text;
 };
 
 #endif // TOOLTIP_H

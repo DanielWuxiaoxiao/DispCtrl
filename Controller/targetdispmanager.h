@@ -2,12 +2,26 @@
 #define TARGETDISPMANAGER_H
 
 #include <QObject>
+#include "Basic/Protocol.h"
+#include <QHostAddress>
 
-class targetDispManager
+class ThreadedUdpSocket;
+class QThread;
+
+class targetDispManager : public QObject
 {
     Q_OBJECT
 public:
-    targetDispManager();
+    explicit targetDispManager(QObject *parent = nullptr);
+    ~targetDispManager();
+private:
+    ThreadedUdpSocket* socket;
+    QThread* thread;
+    unsigned commCount;
+    QHostAddress host;
+    quint16 port;
+    quint16 src;
+    quint16 dst;
 };
 
 #endif // TARGETDISPMANAGER_H

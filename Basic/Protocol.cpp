@@ -1,7 +1,6 @@
 #include "Protocol.h"
 
-
-unsigned char calculateXOR(char* data, unsigned len)
+unsigned char calculateXOR(const char* data, unsigned len)
 {
     unsigned char checksum = 0;
     for(unsigned i =0; i<len ; i++)

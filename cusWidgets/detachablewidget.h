@@ -2,12 +2,13 @@
 #include <QWidget>
 #include <QPushButton>
 #include <QVBoxLayout>
-#include <QDialog>
+
+class CusWindow;
 
 class DetachableWidget : public QWidget {
     Q_OBJECT
 public:
-    explicit DetachableWidget(QWidget* childWidget, QWidget* parent = nullptr);
+    explicit DetachableWidget(QString name, QWidget* childWidget,QIcon icon, QWidget* parent = nullptr);
 
 private slots:
     void detach();
@@ -17,6 +18,7 @@ private:
     QWidget* m_child;         // 真正的内容
     QPushButton* m_btn;       // 控制按钮
     QVBoxLayout* m_layout;
-
-    QDialog* m_floatWindow = nullptr;
+    QString m_name;
+    CusWindow* m_floatWindow = nullptr;
+    QIcon m_icon;
 };

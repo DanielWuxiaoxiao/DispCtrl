@@ -1,13 +1,14 @@
 #include "disp2sigmanager.h"
 #include "UDP/threadudpsocket.h"
 #include <QThread>
+#include "controller.h"
 
 Disp2SigManager::Disp2SigManager(QObject *parent) : QObject(parent)
 {
-    src = DISP_CTRL_ID;
-    dst = SIG_PRO_ID;
-    socket = new ThreadedUdpSocket(DISP_CTRL_IP, DISP_2_PHOTO_PORT);
-    socket->setSourceAndDestID(DISP_CTRL_ID, SIG_PRO_ID);
+    src = CF_INS.id("DISP_CTRL_ID",DISP_CTRL_ID);
+    dst = CF_INS.id("SIG_PRO_ID",SIG_PRO_ID);
+    socket = new ThreadedUdpSocket(CF_INS.ip("DISP_CTRL_IP",DISP_CTRL_IP),CF_INS.port("DISP_2_PHOTO_PORT",DISP_2_PHOTO_PORT));
+    socket->setSourceAndDestID(src, dst);
 
     thread = new QThread(this);
     socket->moveToThread(thread);
@@ -16,8 +17,8 @@ Disp2SigManager::Disp2SigManager(QObject *parent) : QObject(parent)
     thread->start();
     commCount = 1;
 
-    host = QHostAddress(PHOTO_ELE_IP);
-    port = PHOTO_GET_DISP_PORT;
+    host = QHostAddress(CF_INS.ip("PHOTO_ELE_IP",PHOTO_ELE_IP));
+    port = CF_INS.port("PHOTO_GET_DISP_PORT",PHOTO_GET_DISP_PORT);
 }
 
 void Disp2SigManager::sendParam(char* paramData, unsigned paramSize)
@@ -46,3 +47,9 @@ void Disp2SigManager::sendDSParam(DataSet param)
         sendParam(reinterpret_cast<char *>(&param.off),sizeof(param.off));
     }
 }
+
+Disp2SigManager::~Disp2SigManager() {
+    thread->quit();
+    thread->wait();
+}
+

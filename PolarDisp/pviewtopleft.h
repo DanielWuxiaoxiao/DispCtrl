@@ -4,19 +4,22 @@
 #include <QWidget>
 
 namespace Ui {
-class pviewTopLeft;
+class mainviewTopLeft;
 }
 
-class pviewTopLeft : public QWidget
+class mainviewTopLeft : public QWidget
 {
     Q_OBJECT
 
 public:
-    explicit pviewTopLeft(QWidget *parent = nullptr);
-    ~pviewTopLeft();
+    explicit mainviewTopLeft(QWidget *parent = nullptr);
+    ~mainviewTopLeft();
+
+protected:
+    void paintEvent(QPaintEvent* event) override; // 声明 paintEvent
 
 private:
-    Ui::pviewTopLeft *ui;
+    Ui::mainviewTopLeft *ui;
 };
 
 #endif // PVIEWTOPLEFT_H

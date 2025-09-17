@@ -1,22 +1,22 @@
 #include "detachablewidget.h"
+#include "cuswindow.h"
 #include <QHBoxLayout>
 #include <QCloseEvent>
 #include <QLabel>
 
-DetachableWidget::DetachableWidget(QWidget* childWidget, QWidget* parent)
-    : QWidget(parent), m_child(childWidget)
+DetachableWidget::DetachableWidget(QString name , QWidget* childWidget, QIcon icon, QWidget* parent)
+    : QWidget(parent), m_child(childWidget) , m_name(name) , m_icon(icon)
 {
-    m_btn = new QPushButton("↗", this); // 小按钮
-    m_btn->setFixedSize(20, 20);
-
+    m_btn = new QPushButton(QIcon(":/resources/icon/maxi.png"),"最大化"); // 小按钮
     connect(m_btn, &QPushButton::clicked, this, &DetachableWidget::detach);
 
     m_layout = new QVBoxLayout(this);
+    m_layout->setContentsMargins(3,6,3,3);
+    m_layout->setSpacing(0);
     QHBoxLayout* titleBar = new QHBoxLayout();
-    titleBar->addWidget(new QLabel("面板", this));
     titleBar->addStretch();
     titleBar->addWidget(m_btn);
-
+    titleBar->addStretch();
     m_layout->addLayout(titleBar);
     m_layout->addWidget(m_child);
     setLayout(m_layout);
@@ -25,19 +25,16 @@ DetachableWidget::DetachableWidget(QWidget* childWidget, QWidget* parent)
 void DetachableWidget::detach() {
     if (m_floatWindow) return; // 已经在外面了
 
-    m_floatWindow = new QDialog(nullptr, Qt::Window);
-    m_floatWindow->setAttribute(Qt::WA_DeleteOnClose);
-    m_floatWindow->setWindowTitle("独立面板");
+    CusWindow* win = new CusWindow(m_name, m_icon);
+    m_floatWindow = win;
+    m_child->setParent(win);
+    win->setContentWidget(m_child);
 
-    QVBoxLayout* floatLayout = new QVBoxLayout(m_floatWindow);
-    m_child->setParent(m_floatWindow);  // 把内容转移出去
-    floatLayout->addWidget(m_child);
+    connect(win, &CusWindow::windowClosed, this, &DetachableWidget::reattach);
+    connect(win, &QWidget::destroyed, this, &DetachableWidget::reattach);
 
-    // 当窗口关闭时，把内容放回原来的地方
-    connect(m_floatWindow, &QDialog::finished, this, &DetachableWidget::reattach);
-
-    m_floatWindow->resize(400, 300);
-    m_floatWindow->show();
+    win->resize(400, 300);
+    win->show();
 }
 
 void DetachableWidget::reattach() {
