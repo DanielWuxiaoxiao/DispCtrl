@@ -1,29 +1,77 @@
-// sectordetmanager.cpp
+/*
+ * @Author: wuxiaoxiao
+ * @Email: wuxiaoxiao@gmail.com
+ * @Date: 2025-09-17 10:04:10
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2025-09-23 09:45:05
+ * @Description: 
+ */
+/**
+ * @file sectordetmanager.cpp  
+ * @brief 扇形检测点管理器实现文件
+ * @details 实现扇形显示区域的检测点管理功能：
+ *          - 与RadarDataManager集成的数据接收
+ *          - 扇形角度范围的动态过滤算法
+ *          - 高效的扇形区域点对象管理
+ *          - 与主PPI显示系统的协调工作
+ * @author DispCtrl Team
+ * @date 2024
+ */
+
 #include "sectordetmanager.h"
 #include "Basic/DispBasci.h"
-#include "Controller/CentralDataManager.h"  // 添加新的头文件
+#include "Controller/RadarDataManager.h"  // 雷达数据管理器头文件
 #include <QtMath>
 #include <QDebug>
+
+/**
+ * @brief SectorDetManager构造函数实现
+ * @param scene 图形场景指针
+ * @param axis 极坐标轴指针
+ * @param parent 父对象指针
+ * @details 完成扇形检测点管理器的初始化：
+ *          1. 注册到统一数据管理器接收检测点数据
+ *          2. 连接数据信号到对应的处理槽函数
+ *          3. 设置默认的扇形角度范围
+ */
 
 SectorDetManager::SectorDetManager(QGraphicsScene* scene, PolarAxis* axis, QObject* parent)
     : QObject(parent), m_scene(scene), m_axis(axis)
 {
-    // 注册到统一数据管理器
+    // 注册到统一数据管理器，使用唯一标识符
     RADAR_DATA_MGR.registerView("SectorDetManager_" + QString::number((quintptr)this), this);
     
-    // 连接统一数据管理器的信号
+    // 连接统一数据管理器的信号到本地处理函数
     connect(&RADAR_DATA_MGR, &RadarDataManager::detectionReceived, 
-            this, &SectorDetManager::addDetPoint);
+            this, &SectorDetManager::addDetPoint);     // 接收检测点数据
     connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared, 
-            this, &SectorDetManager::clear);
+            this, &SectorDetManager::clear);           // 响应数据清理
 }
 
+/**
+ * @brief SectorDetManager析构函数实现
+ * @details 确保资源的正确清理：
+ *          - 从统一数据管理器注销当前视图
+ *          - 清理所有扇形检测点对象
+ *          - 断开信号连接
+ */
 SectorDetManager::~SectorDetManager()
 {
     // 从统一数据管理器注销
     RADAR_DATA_MGR.unregisterView("SectorDetManager_" + QString::number((quintptr)this));
-    clear();
+    clear();  // 清理所有扇形检测点
 }
+
+/**
+ * @brief 添加检测点到扇形区域
+ * @param info 检测点信息结构体
+ * @details 完整的扇形检测点创建流程：
+ *          1. 复制并标记为检测点类型
+ *          2. 创建DetPoint对象并配置外观
+ *          3. 计算屏幕坐标位置
+ *          4. 应用扇形可见性过滤规则
+ *          5. 添加到场景和内部容器
+ */
 
 void SectorDetManager::addDetPoint(const PointInfo& info)
 {

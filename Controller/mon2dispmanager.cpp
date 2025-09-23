@@ -1,3 +1,11 @@
+/*
+ * @Author: wuxiaoxiao
+ * @Email: wuxiaoxiao@gmail.com
+ * @Date: 2025-09-17 09:54:43
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2025-09-23 09:44:59
+ * @Description: 
+ */
 #include "mon2dispmanager.h"
 #include "UDP/threadudpsocket.h"
 #include "controller.h"

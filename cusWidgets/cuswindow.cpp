@@ -1,3 +1,11 @@
+/*
+ * @Author: wuxiaoxiao
+ * @Email: wuxiaoxiao@gmail.com
+ * @Date: 2025-09-17 09:54:43
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2025-09-23 09:45:17
+ * @Description: 
+ */
 #include "cuswindow.h"
 #include <QHBoxLayout>
 #include <QStyle>
@@ -59,6 +67,7 @@ CusWindow::CusWindow(const QString& title, const QIcon& icon, QWidget* parent)
     m_minBtn->setFixedSize(32, 32);
     m_minBtn->setIcon(QIcon(":/resources/icon/min.png"));
     m_minBtn->setIconSize(QSize(20, 20));
+    m_minBtn->setToolTip("最小化窗口");
     connect(m_minBtn, &QPushButton::clicked, this, [this](){
         showMinimized();
     });
@@ -68,6 +77,7 @@ CusWindow::CusWindow(const QString& title, const QIcon& icon, QWidget* parent)
     m_maxBtn->setFixedSize(32, 32);
     m_maxBtn->setIcon(QIcon(":/resources/icon/full.png"));
     m_maxBtn->setIconSize(QSize(20, 20));
+    m_maxBtn->setToolTip("最大化/还原窗口");
     connect(m_maxBtn, &QPushButton::clicked, this, [this](){
         if (!m_maximized) {
             m_restoreRect = geometry();
@@ -86,6 +96,7 @@ CusWindow::CusWindow(const QString& title, const QIcon& icon, QWidget* parent)
     m_closeBtn->setFixedSize(32, 32);
     m_closeBtn->setIcon(QIcon(":/resources/icon/close.png"));
     m_closeBtn->setIconSize(QSize(20, 20));
+    m_closeBtn->setToolTip("关闭窗口");
     connect(m_closeBtn, &QPushButton::clicked, this, [this](){
         close();
     });

@@ -1,53 +1,311 @@
+/**
+ * @file darkstyle.qss
+ * @brief DispCtrl雷达显示系统深色主题样式表
+ * @details 专为雷达显示系统设计的深色主题样式：
+ *          - 深色背景减少眼疲劳，适合长时间操作
+ *          - 高对比度确保重要信息清晰可见
+ *          - 专业的雷达显示界面外观
+ *          - 统一的视觉设计语言
+ * @author DispCtrl Team
+ */
+
+/* =============================================================================
+ * Logo组件样式 - 应用程序标识和标题区域
+ * =============================================================================
+ */
+
+/**
+ * LogoWidget - 主要品牌标识容器
+ * 特点：
+ * - 半透明深色背景，融入整体设计
+ * - 圆角设计，提供现代化外观
+ * - 适当的内边距确保内容不贴边
+ */
 #LogoWidget {
-    background-color: rgba(16, 24, 24, 0.8);
-    /* 边框颜色，可根据需要调整 */
-    border-width: 0 0 0 0;
-    /* 设置四个角的圆角半径 */
-    /* 将左上、右上、左下角的圆角半径设为0 */
+    background-color: rgba(16, 24, 24, 0.8);    /* 深灰色半透明背景 */
+    border-width: 0 0 0 0;                       /* 无边框设计 */
+    
+    /* 圆角设计 - 统一15px圆角提供现代化外观 */
     border-top-left-radius: 15px;
     border-top-right-radius: 15px;
     border-bottom-left-radius: 15px;
-    /* 仅将右下角的圆角半径设置为你想要的值 */
     border-bottom-right-radius: 15px;
-    /* 例如，设置为10像素 */
-    padding: 6px 10px;
+    
+    padding: 6px 10px;                           /* 内边距：垂直6px，水平10px */
 }
 
+/**
+ * TitleLabel - 主标题文字样式
+ * 特点：
+ * - 纯白色文字确保最高可读性
+ * - 大字体24px突出重要性
+ * - 粗体增强视觉层次
+ */
 #TitleLabel {
-    color: #ffffff;
-    font-size: 24px;
-    font-weight: bold;
+    color: #ffffff;                              /* 纯白色文字 */
+    font-size: 24px;                            /* 大字体强调标题重要性 */
+    font-weight: bold;                          /* 粗体增强视觉重量 */
 }
 
+/**
+ * SubtitleLabel - 副标题文字样式  
+ * 特点：
+ * - 青绿色(#66ffcc)体现技术感和专业性
+ * - 中等字体15px作为标题的补充
+ * - 负边距微调与主标题的间距
+ */
 #SubtitleLabel {
-    color: #66ffcc;
-    font-size: 15px;
-    margin-top: -2px;
+    color: #66ffcc;                             /* 科技感青绿色 */
+    font-size: 15px;                           /* 中等字体作为补充信息 */
+    margin-top: -2px;                          /* 微调与主标题的间距 */
 }
 
+/* =============================================================================
+ * 主视图左上角控制区域样式
+ * =============================================================================
+ */
+
+/**
+ * mainviewTopLeft - 主视图左上角控制容器
+ * 功能：提供雷达参数控制和状态显示区域
+ * 特点：
+ * - 与Logo相同的深色半透明背景，保持视觉一致性
+ * - 小圆角5px设计，不过分突出但保持现代感
+ */
 #mainviewTopLeft {
-    background-color: rgba(16, 24, 24, 0.8);
-    /* 这个颜色是深灰色，透明度0.8 */
-    border-radius: 5px;
-    /* 统一设置所有角的圆角 */
+    background-color: rgba(16, 24, 24, 0.8);    /* 深灰色半透明背景 */
+    border-radius: 5px;                         /* 5px圆角，适度的现代化设计 */
 }
 
-/* 移除 #mainPview 的样式 */
-/*QLabel的样式，确保它仍然生效*/
+/**
+ * MousePositionInfo - 鼠标位置信息显示容器
+ * 功能：实时显示鼠标在雷达视图中的位置和方位角信息
+ * 特点：
+ * - 与mainviewTopLeft相同的视觉样式，保持一致性
+ * - 半透明背景不遮挡雷达数据
+ * - 适度圆角保持现代化外观
+ */
+#MousePositionInfo {
+    background-color: rgba(16, 24, 24, 0.8);    /* 深灰色半透明背景 */
+    border-radius: 5px;                         /* 5px圆角，与左上角控制区一致 */
+}
+
+/**
+ * PPIVisualSettings - PPI视觉设置控制容器
+ * 功能：提供PPI显示参数配置界面（距离范围、地图类型等）
+ * 特点：
+ * - 与其他叠加层组件相同的视觉样式，保持整体一致性
+ * - 半透明背景不干扰雷达数据显示
+ * - 适度圆角设计保持现代化外观
+ * - 使用!important确保样式优先级，避免被父组件覆盖
+ */
+#PPIVisualSettings {
+    background-color: rgba(16, 24, 24, 0.8) !important;    /* 深灰色半透明背景，!important确保优先级 */
+    border-radius: 5px !important;                         /* 5px圆角，与其他叠加层组件一致 */
+}
+
+/* 为了确保在#mainPview下的PPIVisualSettings也能正确应用样式 */
+#mainPview #PPIVisualSettings {
+    background-color: rgba(16, 24, 24, 0.8) !important;    /* 深灰色半透明背景 */
+    border-radius: 5px !important;                         /* 5px圆角 */
+}
+
+/**
+ * mainviewTopLeft 内部QLabel样式
+ * 功能：显示参数标签和状态信息
+ * 特点：
+ * - 透明背景融入容器
+ * - 青绿色文字与系统主题色一致
+ * - 18px字体确保清晰可读
+ * - 粗体突出重要参数
+ */
 #mainviewTopLeft QLabel {
-    background-color: transparent;
-    color: #66ffcc;
-    font-size: 18px;
-    font-weight: bold;
+    background-color: transparent;              /* 透明背景融入父容器 */
+    color: #66ffcc;                            /* 青绿色主题色 */
+    font-size: 18px;                          /* 18px确保参数清晰可读 */
+    font-weight: bold;                         /* 粗体突出重要性 */
 }
 
+/**
+ * MousePositionInfo 内部QLabel样式
+ * 功能：显示鼠标位置的距离和方位角标签
+ * 特点：
+ * - 与mainviewTopLeft保持相同的视觉样式
+ * - 青绿色文字确保在深色背景下清晰可见
+ * - 适中字体大小平衡可读性和空间占用
+ */
+#MousePositionInfo QLabel {
+    background-color: transparent;              /* 透明背景融入父容器 */
+    color: #66ffcc;                            /* 青绿色主题色，与系统一致 */
+    font-size: 16px;                          /* 16px适中字体，不过分占用空间 */
+    font-weight: bold;                         /* 粗体确保在复杂背景下可读 */
+}
+
+/**
+ * PPIVisualSettings 内部QLabel样式
+ * 功能：显示距离配置和地图类型的标签文字
+ * 特点：
+ * - 与其他叠加层组件保持一致的视觉风格
+ * - 青绿色文字确保良好的可读性
+ * - 适中字体大小不占用过多空间
+ */
+#PPIVisualSettings QLabel {
+    background-color: transparent;              /* 透明背景融入父容器 */
+    color: #66ffcc;                            /* 青绿色主题色，与系统一致 */
+    font-size: 14px;                          /* 14px适中字体，平衡可读性和空间 */
+    font-weight: bold;                         /* 粗体确保清晰可读 */
+}
+
+/**
+ * PPIVisualSettings 内部QLineEdit样式
+ * 功能：距离配置输入框
+ * 特点：
+ * - 深色背景与容器保持一致
+ * - 青绿色文字确保输入内容清晰
+ * - 适中字体大小便于输入和查看
+ */
+#PPIVisualSettings QLineEdit {
+    background-color: rgba(16, 24, 24, 0.9);    /* 稍深的背景突出输入区域 */
+    color: #66ffcc;                             /* 青绿色文字 */
+    font-size: 14px;                           /* 14px适中字体 */
+    font-weight: bold;                         /* 粗体增强可读性 */
+    border: 1px solid #66ffcc;                 /* 青绿色边框突出输入框 */
+    border-radius: 3px;                        /* 小圆角保持现代感 */
+    padding: 2px 4px;                          /* 内边距提升输入体验 */
+}
+
+/**
+ * PPIVisualSettings QComboBox样式 - 增强版
+ * 功能：地图类型选择下拉框
+ * 特点：
+ * - 与LineEdit保持一致的视觉风格
+ * - 深色背景适应整体主题
+ * - 青绿色文字和边框保持品牌色彩
+ * - 自定义下拉箭头样式
+ */
+#PPIVisualSettings QComboBox {
+    background-color: rgba(16, 24, 24, 0.9);    /* 稍深的背景突出选择区域 */
+    color: #66ffcc;                             /* 青绿色文字 */
+    font-size: 14px;                           /* 14px适中字体 */
+    font-weight: bold;                         /* 粗体增强可读性 */
+    border: 1px solid #66ffcc;                 /* 青绿色边框 */
+    border-radius: 3px;                        /* 小圆角保持现代感 */
+    padding: 2px 20px 2px 4px;                 /* 右侧留出箭头空间 */
+    min-width: 60px;                           /* 最小宽度确保可读性 */
+}
+
+/**
+ * PPIVisualSettings QComboBox hover状态
+ * 悬停时的亮绿色高亮效果
+ */
+#PPIVisualSettings QComboBox:hover {
+    background-color: rgba(20, 30, 30, 0.95);   /* 稍亮的背景 */
+    border: 1px solid #99ffdd;                 /* 更亮的绿色边框 */
+    color: #99ffdd;                            /* 更亮的绿色文字 */
+}
+
+/**
+ * PPIVisualSettings QComboBox focus状态
+ * 获得焦点时的样式
+ */
+#PPIVisualSettings QComboBox:focus {
+    border: 2px solid #99ffdd;                 /* 更粗的亮绿色边框 */
+    background-color: rgba(20, 30, 30, 0.95);   /* 稍亮的背景 */
+}
+
+/**
+ * PPIVisualSettings QComboBox下拉箭头区域
+ * 定义箭头的容器区域
+ */
+#PPIVisualSettings QComboBox::drop-down {
+    width: 16px;                               /* 箭头区域宽度 */
+    border-left: 1px solid #66ffcc;           /* 左侧分割线 */
+    border-top-right-radius: 3px;             /* 右上角圆角 */
+    border-bottom-right-radius: 3px;          /* 右下角圆角 */
+    background-color: rgba(16, 24, 24, 0.9);   /* 与主体背景一致 */
+}
+
+/**
+ * PPIVisualSettings QComboBox下拉箭头区域 hover状态
+ */
+#PPIVisualSettings QComboBox::drop-down:hover {
+    background-color: rgba(20, 30, 30, 0.95);   /* hover时稍亮背景 */
+    border-left: 1px solid #99ffdd;           /* hover时亮绿色分割线 */
+}
+
+/**
+ * PPIVisualSettings QComboBox下拉箭头图标
+ * 使用简单的矩形箭头指示器
+ */
+#PPIVisualSettings QComboBox::down-arrow {
+    width: 8px;                               /* 箭头宽度 */
+    height: 4px;                              /* 箭头高度 */
+    background-color: #66ffcc;                /* 绿色背景 */
+    border: none;                             /* 无边框 */
+    margin: 2px;                              /* 外边距 */
+}
+
+/**
+ * PPIVisualSettings QComboBox下拉箭头图标 hover状态
+ * hover时显示亮绿色箭头
+ */
+#PPIVisualSettings QComboBox::down-arrow:hover {
+    background-color: #99ffdd;                /* hover时亮绿色背景 */
+}
+
+/**
+ * PPIVisualSettings QComboBox下拉列表
+ * 下拉选项列表的样式
+ */
+#PPIVisualSettings QComboBox QAbstractItemView {
+    background-color: rgba(16, 24, 24, 0.95);  /* 下拉列表背景 */
+    border: 1px solid #66ffcc;                /* 绿色边框 */
+    border-radius: 3px;                       /* 圆角 */
+    color: #66ffcc;                           /* 绿色文字 */
+    font-size: 14px;                         /* 与主体一致的字体大小 */
+    font-weight: bold;                        /* 粗体 */
+    outline: none;                            /* 移除焦点轮廓 */
+}
+
+/**
+ * PPIVisualSettings QComboBox下拉列表项
+ * 单个选项项的样式
+ */
+#PPIVisualSettings QComboBox QAbstractItemView::item {
+    padding: 4px 8px;                        /* 选项内边距 */
+    border: none;                             /* 无边框 */
+    min-height: 20px;                        /* 最小高度 */
+}
+
+/**
+ * PPIVisualSettings QComboBox下拉列表项 hover状态
+ */
+#PPIVisualSettings QComboBox QAbstractItemView::item:hover {
+    background-color: rgba(102, 255, 204, 0.2); /* hover时半透明绿色背景 */
+    color: #99ffdd;                           /* hover时亮绿色文字 */
+}
+
+/**
+ * PPIVisualSettings QComboBox下拉列表项 selected状态
+ */
+#PPIVisualSettings QComboBox QAbstractItemView::item:selected {
+    background-color: rgba(102, 255, 204, 0.4); /* 选中时更强的绿色背景 */
+    color: #ffffff;                           /* 选中时白色文字 */
+}
+
+/**
+ * mainviewTopLeft 内部QLineEdit样式
+ * 功能：参数输入和编辑控件
+ * 特点：
+ * - 与容器背景一致的深色调
+ * - 青绿色文字保持视觉统一
+ * - 18px粗体确保输入内容清晰
+ */
 #mainviewTopLeft QLineEdit {
-    background-color: rgba(16, 24, 24, 0.8);
-    /* 继承的深灰色背景 */
-    color: #66ffcc;
-    /* 继承的文字颜色 */
-    font-size: 18px;
-    font-weight: bold;
+    background-color: rgba(16, 24, 24, 0.8);    /* 继承容器的深色背景 */
+    color: #66ffcc;                             /* 青绿色文字 */
+    font-size: 18px;                           /* 18px确保输入清晰 */
+    font-weight: bold;                         /* 粗体增强可读性 */
     border-radius: 5px;
     /* 为 QLineEdit 添加圆角 */
     border: 1px solid lightblue;
@@ -108,6 +366,11 @@ QLabel#SNR {
 }
 
 #ZoomView {
+    background-color: transparent;
+    border: 0px solid;
+}
+
+#sectorView {
     background-color: transparent;
     border: 0px solid;
 }
@@ -385,6 +648,12 @@ QTableWidget#tableWidget::item:selected {
     border-radius: 15px;
 }
 
+#pviewZoomW {
+    background-color: rgba(0, 40, 40, 0.8);
+    border: 0px solid #00ff88;
+    border-radius: 15px;
+} 
+
 /* 自定义窗口 */
 #TitleBar {
     background-color: transparent;
@@ -393,6 +662,12 @@ QTableWidget#tableWidget::item:selected {
 }
 
 #TitleLabel {
+    color: #00ff88;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+#dTitleLabel {
     color: #00ff88;
     font-size: 18px;
     font-weight: bold;
@@ -499,11 +774,11 @@ QPushButton:pressed {
 }
 
 /* ZoomView 工具栏按钮：在 pviewFitW 区域下的样式，使按钮与背景一致 */
-#pviewFitW QPushButton#ZoomInBtn,
-#pviewFitW QPushButton#ZoomOutBtn,
-#pviewFitW QPushButton#ResetBtn,
-#pviewFitW QPushButton#DragBtn,
-#pviewFitW QPushButton#MeasureBtn {
+#ZoomViewW QPushButton#ZoomInBtn,
+#ZoomViewW QPushButton#ZoomOutBtn,
+#ZoomViewW QPushButton#ResetBtn,
+#ZoomViewW QPushButton#DragBtn,
+#ZoomViewW QPushButton#MeasureBtn {
     /* 让父背景透出，采用低对比边框以保持简洁 */
     background-color: transparent;
     color: #00ff88;
@@ -514,18 +789,18 @@ QPushButton:pressed {
 }
 
 /* 悬浮显示高亮边框，略微加深背景以提示交互 */
-#pviewFitW QPushButton#ZoomInBtn:hover,
-#pviewFitW QPushButton#ZoomOutBtn:hover,
-#pviewFitW QPushButton#ResetBtn:hover,
-#pviewFitW QPushButton#DragBtn:hover,
-#pviewFitW QPushButton#MeasureBtn:hover {
+#ZoomViewW QPushButton#ZoomInBtn:hover,
+#ZoomViewW QPushButton#ZoomOutBtn:hover,
+#ZoomViewW QPushButton#ResetBtn:hover,
+#ZoomViewW QPushButton#DragBtn:hover,
+#ZoomViewW QPushButton#MeasureBtn:hover {
     background-color: rgba(0,255,136,0.18);
     border: 2px solid #00ff88;
 }
 
 /* 选中态（checked）更明显：明亮背景 + 内外对比边框 + 轻微发光效果 */
-#pviewFitW QPushButton#DragBtn:checked,
-#pviewFitW QPushButton#MeasureBtn:checked {
+#ZoomViewW QPushButton#DragBtn:checked,
+#ZoomViewW QPushButton#MeasureBtn:checked {
     border: 2px solid #00ff88;
     background-color: rgba(16,24,24,0.85);/* 大多数 Qt 版本会忽略 ，但保留为兼容性注释 */
 }
@@ -535,4 +810,169 @@ QLabel#ZoomLabel  {
     color: white;
     font-size: 18px;
     font-weight: bold;
+}
+
+/* SectorWidget 容器样式 */
+#pviewSectorW {
+    background-color: rgba(16, 24, 24, 0.85);
+    border: 0px solid #00ff88;
+    border-radius: 15px;
+}
+
+/* SectorWidget 工具栏按钮样式：参考 pviewFitW 的样式  实际还是应用的detachwidget的样式*/
+#SectorWidget QPushButton#SectorUpdateBtn,
+#SectorWidget QPushButton#SectorResetBtn {
+    /* 让父背景透出，采用低对比边框以保持简洁 */
+    background-color: transparent;
+    color: #00ff88;
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 8px;
+    padding: 6px;
+    margin: 1px;
+}
+
+/* 悬浮显示高亮边框，略微加深背景以提示交互 */
+#SectorWidget QPushButton#SectorUpdateBtn:hover,
+#SectorWidget QPushButton#SectorResetBtn:hover {
+    background-color: rgba(0,255,136,0.18);
+    border: 2px solid #00ff88;
+}
+
+/* 按下状态 */
+#SectorWidget QPushButton#SectorUpdateBtn:pressed,
+#SectorWidget QPushButton#SectorResetBtn:pressed {
+    border: 2px solid #00ffaa;
+    background-color: rgba(0, 0, 0, 0.35);
+}
+
+/* SectorWidget 标签样式：参考 pviewFitW 的样式 */
+#SectorWidget QLabel#SectorAngleLabel,
+#SectorWidget QLabel#SectorRangeLabel {
+    background-color: transparent;
+    color: #66ffcc;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* SectorWidget 分隔符标签样式 */
+#SectorWidget QLabel#SectorSeparatorLabel {
+    background-color: transparent;
+    color: #66ffcc;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* SectorWidget 状态标签样式 */
+#SectorWidget QLabel#SectorStatusLabel {
+    background-color: transparent;
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* SectorWidget LineEdit样式：参考 mainviewTopLeft 的样式 */
+#SectorWidget QLineEdit#SectorMinAngleEdit,
+#SectorWidget QLineEdit#SectorMaxAngleEdit,
+#SectorWidget QLineEdit#SectorMinRangeEdit,
+#SectorWidget QLineEdit#SectorMaxRangeEdit {
+    background-color: rgba(16, 24, 24, 0.8);    /* 继承容器的深色背景 */
+    color: #66ffcc;                             /* 青绿色文字 */
+    font-size: 14px;                           /* 适中字体 */
+    font-weight: bold;                         /* 粗体增强可读性 */
+    border-radius: 5px;                        /* 圆角 */
+    border: 1px solid lightblue;               /* 浅蓝色边框 */
+    padding: 4px;                              /* 内边距 */
+}
+
+/* SectorWidget LineEdit 鼠标悬停样式 */
+#SectorWidget QLineEdit#SectorMinAngleEdit:hover,
+#SectorWidget QLineEdit#SectorMaxAngleEdit:hover,
+#SectorWidget QLineEdit#SectorMinRangeEdit:hover,
+#SectorWidget QLineEdit#SectorMaxRangeEdit:hover {
+    background-color: rgba(32, 48, 48, 0.9);   /* 更深一点的灰色 */
+    border: 1px solid #99ffff;                 /* 悬停时改变边框颜色 */
+    color: #ffffff;                            /* 悬停时改变文字颜色 */
+}
+
+/* SectorWidget LineEdit 焦点样式 */
+#SectorWidget QLineEdit#SectorMinAngleEdit:focus,
+#SectorWidget QLineEdit#SectorMaxAngleEdit:focus,
+#SectorWidget QLineEdit#SectorMinRangeEdit:focus,
+#SectorWidget QLineEdit#SectorMaxRangeEdit:focus {
+    border: 1px solid #66ffcc;                 /* 获得焦点时，边框颜色变为目标亮色 */
+    background-color: rgba(16, 24, 24, 0.9);   /* 稍微加深背景 */
+}
+
+/* =============================================================================
+ * 全局ToolTip样式 - 统一的提示框外观
+ * =============================================================================
+ */
+
+/**
+ * QToolTip - 全局工具提示样式
+ * 功能：为所有控件的setToolTip()提供统一的视觉样式
+ * 特点：
+ * - 与系统主题一致的深色半透明背景
+ * - 青绿色边框与系统强调色保持一致  
+ * - 白色文字确保最佳可读性
+ * - 圆角设计融入整体现代化外观
+ * - 适当的内边距确保文字不贴边
+ * - 半透明效果营造专业的悬浮感
+ */
+QToolTip {
+    background-color: rgba(16, 24, 24, 0.95);   /* 深色半透明背景，比其他控件稍不透明确保可读性 */
+    border: 2px solid #66ffcc;                  /* 青绿色边框与系统主题色一致 */
+    border-radius: 8px;                         /* 8px圆角保持现代化设计 */
+    color: #ffffff;                             /* 纯白色文字确保最高对比度 */
+    font-size: 14px;                           /* 14px适中字体，清晰易读 */
+    font-weight: normal;                        /* 正常字重，不抢夺注意力 */
+    padding: 8px 12px;                          /* 内边距：垂直8px，水平12px，确保文字不贴边 */
+    
+    /* 可选：添加轻微阴影效果增强层次感 */
+    /* 注意：部分Qt版本可能不支持box-shadow */
+    /* box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.3); */
+}
+
+/**
+ * QToolTip悬浮动画效果（可选）
+ * 注意：Qt对CSS动画支持有限，此处仅作预留
+ * 实际动画效果可能需要通过C++代码实现
+ */
+/*
+QToolTip:hover {
+    border: 2px solid #00ff88;
+    background-color: rgba(16, 24, 24, 0.98);
+}
+*/
+
+/* =============================================================================
+ * DetachableWidget分离按钮样式 - 窗口分离/最大化按钮
+ * =============================================================================
+ */
+
+/**
+ * DetachBtn - 分离按钮样式
+ * 特点：
+ * - 正常状态透明无边框，与背景融合
+ * - 悬浮时显示边框和背景色，提供视觉反馈
+ * - 统一的绿色主题保持界面一致性
+ */
+#DetachBtn {
+    background-color: transparent;               /* 透明背景，与父容器融合 */
+    border: 1px solid transparent;              /* 透明边框，正常状态下不可见 */
+    border-radius: 6px;                         /* 圆角设计 */
+    padding: 4px;                               /* 内边距确保图标不贴边 */
+    margin: 1px;                                /* 外边距 */
+}
+
+/* 悬浮状态：显示边框和底色 */
+#DetachBtn:hover {
+    background-color: rgba(0, 255, 136, 0.15);  /* 浅绿色半透明背景 */
+    border: 1px solid #00ff88;                  /* 绿色边框 */
+}
+
+/* 按下状态：更明显的反馈 */
+#DetachBtn:pressed {
+    background-color: rgba(0, 255, 136, 0.25);  /* 稍深的绿色背景 */
+    border: 2px solid #00ff88;                  /* 更粗的边框 */
 }

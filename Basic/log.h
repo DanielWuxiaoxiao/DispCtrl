@@ -1,3 +1,11 @@
+/*
+ * @Author: wuxiaoxiao
+ * @Email: wuxiaoxiao@gmail.com
+ * @Date: 2025-09-17 09:54:43
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2025-09-23 09:44:54
+ * @Description: 
+ */
 #ifndef LOG_H
 #define LOG_H
 
@@ -14,7 +22,8 @@ const qint64 MAX_LOG_FILE_SIZE = 10 * 1024 * 1024; // 10 MB 分卷大小
 const QString LOG_FILE_BASENAME = "disp_ctrl_log"; // 日志文件基础名
 const QString LOG_FILE_SUFFIX   = ".txt";          // 日志后缀
 
-static void setEarlyEnv()
+// 预留的环境设置函数 - 可根据需要调用
+[[maybe_unused]] static void setEarlyEnv()
 {
     // 让 Qt 的日志分类在所有进程里生效（包含 QtWebEngineProcess）
     qputenv("QT_LOGGING_RULES",
@@ -44,6 +53,7 @@ void enhancedLog(QtMsgType type, const QMessageLogContext &context, const QStrin
 #define LOG_DEBUG(msg) qDebug() << msg
 #define LOG_INFO(msg) qInfo() << msg
 #define LOG_WARNING(msg) qWarning() << msg
+#define LOG_ERROR(msg) qCritical() << msg
 #define LOG_CRITICAL(msg) qCritical() << msg
 #define LOG_FATAL(msg) qFatal(msg)
 

@@ -14,13 +14,23 @@
         height: 100vh; /* 使容器占满整个视口 */
         margin: 0;
         padding: 0;
-        filter: grayscale(0%); /* 初始灰度为 0% */
+        /* 高科技绿色滤镜效果 */
+        filter: grayscale(100%) brightness(40%) contrast(200%) sepia(100%)
+          hue-rotate(90deg) saturate(300%);
+        opacity: 0.9;
+        /* grayscale(100%) → 完全去掉原色彩，留下灰度。
+        brightness(40%) → 全体压暗，接近黑底。
+        contrast(200%) → 增强对比，让线条边界更清晰。
+        sepia(100%) hue-rotate(90deg) → 灰度转黄后再旋转色相到绿色。
+        saturate(300%) → 提升绿色饱和度，让线条和地块凸显出雷达绿。
+        opacity(0.9) → 不完全透明，保持雷达 UI 背景感。 */
       }
       html,
       body {
         height: 100%;
         margin: 0;
         padding: 0;
+        background: transparent; /* 背景透明 */
       }
     </style>
   </head>

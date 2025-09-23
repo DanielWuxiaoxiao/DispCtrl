@@ -1,3 +1,11 @@
+/*
+ * @Author: wuxiaoxiao
+ * @Email: wuxiaoxiao@gmail.com
+ * @Date: 2025-09-17 09:54:43
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2025-09-23 09:45:18
+ * @Description: 
+ */
 #include "azelrangewidget.h"
 #include <QPainter>
 #include <QVBoxLayout>
@@ -8,10 +16,11 @@
 #include <QLabel>
 
 namespace {
-constexpr int EL_MIN = -45;
-constexpr int EL_MAX =  45;
-constexpr int AZ_MIN =   0;
-constexpr int AZ_MAX = 360;
+// 默认值，可通过config.toml中的polarDisp.elevationRange和polarDisp.azimuthRange配置
+constexpr int EL_MIN = -45;  // 可用CF_INS.elevationRange("min", EL_MIN)
+constexpr int EL_MAX =  45;  // 可用CF_INS.elevationRange("max", EL_MAX)
+constexpr int AZ_MIN =   0;  // 可用CF_INS.azimuthRange("min", AZ_MIN)
+constexpr int AZ_MAX = 360;  // 可用CF_INS.azimuthRange("max", AZ_MAX)
 }
 
 AzElRangeWidget::AzElRangeWidget(QWidget *parent)
@@ -24,9 +33,16 @@ AzElRangeWidget::AzElRangeWidget(QWidget *parent)
 
     // —— 下方四个数值编辑框 —— //
     edAzMin = new QLineEdit(QString::number(mAzMin), this);
+    edAzMin->setToolTip("最小方位角(-180°~180°)");
+    
     edAzMax = new QLineEdit(QString::number(mAzMax), this);
+    edAzMax->setToolTip("最大方位角(-180°~180°)");
+    
     edElMin = new QLineEdit(QString::number(mElMin), this);
+    edElMin->setToolTip("最小俯仰角(-90°~90°)");
+    
     edElMax = new QLineEdit(QString::number(mElMax), this);
+    edElMax->setToolTip("最大俯仰角(-90°~90°)");
 
     edAzMin->setValidator(new QIntValidator(AZ_MIN, AZ_MAX, edAzMin));
     edAzMax->setValidator(new QIntValidator(AZ_MIN, AZ_MAX, edAzMax));
@@ -55,13 +71,29 @@ AzElRangeWidget::AzElRangeWidget(QWidget *parent)
     auto *grid = new QHBoxLayout();
     grid->setSpacing(10);
     grid->setContentsMargins(20, 0, 20, 0);
-    grid->addWidget(new QLabel("方位"));
+    
+    QLabel* azLabel = new QLabel("方位");
+    azLabel->setToolTip("方位角范围");
+    grid->addWidget(azLabel);
+    
     grid->addWidget(edAzMin);
-    grid->addWidget(new QLabel("-"));
+    
+    QLabel* azSeparator = new QLabel("-");
+    azSeparator->setToolTip("到");
+    grid->addWidget(azSeparator);
+    
     grid->addWidget(edAzMax);
-    grid->addWidget(new QLabel("俯仰"));
+    
+    QLabel* elLabel = new QLabel("俯仰");
+    elLabel->setToolTip("俯仰角范围");
+    grid->addWidget(elLabel);
+    
     grid->addWidget(edElMin);
-    grid->addWidget(new QLabel("-"));
+    
+    QLabel* elSeparator = new QLabel("-");
+    elSeparator->setToolTip("到");
+    grid->addWidget(elSeparator);
+    
     grid->addWidget(edElMax);
     mainLay->addLayout(grid);
 
@@ -394,5 +426,25 @@ void AzElRangeWidget::drawElBar(QPainter &p, const QRect &rcBar)
     //        p.setPen(QColor("#a8d4c8"));
     //        p.drawText(QRect(x, y-2, w, 24), Qt::AlignHCenter|Qt::AlignTop, "仰角范围");
     //    }
+}
+
+/**
+ * @brief 计算从a1到a2的顺时针角度跨度
+ * @param a1 起始角度(0-359)
+ * @param a2 结束角度(0-359)
+ * @return 顺时针跨度角度(0-360)
+ */
+int AzElRangeWidget::cwSpan(int a1, int a2)
+{
+    // 确保角度在0-359范围内
+    a1 = norm360(a1);
+    a2 = norm360(a2);
+    
+    // 计算顺时针跨度
+    if (a2 >= a1) {
+        return a2 - a1;
+    } else {
+        return 360 - a1 + a2;
+    }
 }
 

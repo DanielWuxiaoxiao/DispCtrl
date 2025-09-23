@@ -1,5 +1,12 @@
+/*
+ * @Author: wuxiaoxiao
+ * @Email: wuxiaoxiao@gmail.com
+ * @Date: 2025-09-17 09:54:43
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2025-09-23 09:45:18
+ * @Description: 
+ */
 #include "mainoverlayout.h"
-#include "ui_mainoverlayout.h"
 #include "PolarDisp/ppiview.h"
 #include "PolarDisp/ppisscene.h"
 #include "cusWidgets/custommessagebox.h"
@@ -15,12 +22,39 @@ MainOverLayOut::MainOverLayOut(QWidget *parent) :
     ui(new Ui::MainOverLayOut)
 {
     ui->setupUi(this);
+    
+    // 设置状态信息标签的简化tooltip
+    ui->stalabel1->setToolTip("状态信息1");
+    ui->stalabel2->setToolTip("状态信息2");
+    ui->stalabel3->setToolTip("状态信息3");
+    ui->stalabel4->setToolTip("状态信息4");
+    ui->stalabel5->setToolTip("状态信息5");
+    
+    ui->stamsg1->setToolTip("状态数值1");
+    ui->stamsg2->setToolTip("状态数值2");
+    ui->stamsg3->setToolTip("状态数值3");
+    ui->stamsg4->setToolTip("状态数值4");
+    ui->stamsg5->setToolTip("状态数值5");
+    
+    ui->infoTab->setToolTip("信息面板");
+
     topRightSet();
     mainPView();
 }
 
 void MainOverLayOut::topRightSet()
 {
+    // 设置控件提示信息
+    ui->minButton->setToolTip("最小化窗口");
+    
+    ui->CloseButton->setToolTip("关闭程序");
+    
+    ui->timeLabel->setToolTip("系统时间");
+    
+    ui->TitleLabel->setToolTip("系统标题");
+    
+    ui->SubtitleLabel->setToolTip("系统副标题");
+
     connect(ui->minButton, &QPushButton::clicked, CON_INS, &Controller::minimizeWindow);
     connect(ui->CloseButton, &QPushButton::clicked, this, [this]()
     {
@@ -60,6 +94,7 @@ void MainOverLayOut::mainPView()
     m_zoomView = new ZoomViewWidget();
     // 设置窗口属性
     layout1->addWidget(new DetachableWidget("P显", m_zoomView, QIcon(":/resources/icon/scan.png"), this));
+    
     // 如果场景已设置，同步场景
     m_zoomView->setPPIScene(mScene);
     // 连接信号
@@ -76,9 +111,10 @@ void MainOverLayOut::mainPView()
     m_sectorWidget = new SectorWidget();
     // 默认与主场景同步（如果需要独立场景，可以删除下面一行）
     // m_sectorWidget->setSector(-30, 30, 0, 5000); // 可按需初始化
-    QVBoxLayout *layout2 = new QVBoxLayout(ui->pviewZoomW);
+    QVBoxLayout *layout2 = new QVBoxLayout(ui->pviewSectorW);
     layout2->setContentsMargins(0,0,0,0);
     layout2->addWidget(new DetachableWidget("扇区显示", m_sectorWidget, QIcon(":/resources/icon/scan.png"), this));
+    
     // 自动转发来自 Controller 的点到扇区面板
     
 }

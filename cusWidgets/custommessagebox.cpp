@@ -1,7 +1,15 @@
+/*
+ * @Author: wuxiaoxiao
+ * @Email: wuxiaoxiao@gmail.com
+ * @Date: 2025-09-17 09:54:43
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2025-09-23 09:45:16
+ * @Description: 
+ */
 #include "custommessagebox.h"
 #include <QGraphicsDropShadowEffect>
-
-CustomMessageBox::CustomMessageBox(QWidget *parent)
+// 自定义消息框构造函数
+CustomMessageBox::CustomMessageBox(QWidget *parent)  
     : QDialog(parent)
 {
     setModal(true);

@@ -462,7 +462,7 @@
       </widget>
      </item>
      <item>
-      <layout class="QVBoxLayout" name="verticalLayout_5">
+      <layout class="QVBoxLayout" name="verticalLayout_5" stretch="0,0,1,0,1">
        <property name="spacing">
         <number>8</number>
        </property>
@@ -643,7 +643,7 @@
          </property>
          <property name="maximumSize">
           <size>
-           <width>500</width>
+           <width>550</width>
            <height>16777215</height>
           </size>
          </property>
@@ -687,7 +687,7 @@
               <property name="bottomMargin">
                <number>8</number>
               </property>
-              <item row="0" column="0">
+              <item row="0" column="3">
                <widget class="QToolButton" name="FuncToolButton">
                 <property name="text">
                  <string>态势操作</string>
@@ -710,30 +710,7 @@
                 </property>
                </widget>
               </item>
-              <item row="1" column="0">
-               <widget class="QToolButton" name="FuncToolButton_2">
-                <property name="text">
-                 <string>态势感知</string>
-                </property>
-                <property name="icon">
-                 <iconset resource="../resource.qrc">
-                  <normaloff>:/resources/icon/data.png</normaloff>:/resources/icon/data.png</iconset>
-                </property>
-                <property name="iconSize">
-                 <size>
-                  <width>36</width>
-                  <height>36</height>
-                 </size>
-                </property>
-                <property name="toolButtonStyle">
-                 <enum>Qt::ToolButtonTextUnderIcon</enum>
-                </property>
-                <property name="buttonGroup" stdset="0">
-                 <string>A</string>
-                </property>
-               </widget>
-              </item>
-              <item row="2" column="0">
+              <item row="0" column="1">
                <widget class="QToolButton" name="toolButton_2">
                 <property name="text">
                  <string>雷达系统</string>
@@ -756,7 +733,30 @@
                 </property>
                </widget>
               </item>
-              <item row="3" column="0">
+              <item row="0" column="2">
+               <widget class="QToolButton" name="FuncToolButton_2">
+                <property name="text">
+                 <string>态势感知</string>
+                </property>
+                <property name="icon">
+                 <iconset resource="../resource.qrc">
+                  <normaloff>:/resources/icon/data.png</normaloff>:/resources/icon/data.png</iconset>
+                </property>
+                <property name="iconSize">
+                 <size>
+                  <width>36</width>
+                  <height>36</height>
+                 </size>
+                </property>
+                <property name="toolButtonStyle">
+                 <enum>Qt::ToolButtonTextUnderIcon</enum>
+                </property>
+                <property name="buttonGroup" stdset="0">
+                 <string>A</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="0">
                <widget class="QToolButton" name="toolButton_3">
                 <property name="text">
                  <string>记录回放</string>
@@ -787,7 +787,7 @@
         </layout>
        </item>
        <item>
-        <widget class="QWidget" name="pviewZoomW" native="true">
+        <widget class="QWidget" name="pviewSectorW" native="true">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
            <horstretch>0</horstretch>
@@ -796,7 +796,7 @@
          </property>
          <property name="maximumSize">
           <size>
-           <width>500</width>
+           <width>550</width>
            <height>16777215</height>
           </size>
          </property>

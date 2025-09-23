@@ -1,3 +1,11 @@
+/*
+ * @Author: wuxiaoxiao
+ * @Email: wuxiaoxiao@gmail.com
+ * @Date: 2025-09-17 09:54:43
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2025-09-23 09:44:53
+ * @Description: 
+ */
 #include "Protocol.h"
 
 unsigned char calculateXOR(const char* data, unsigned len)
@@ -27,7 +35,7 @@ char* packData(char* data, unsigned dataLen, unsigned short srcID, unsigned shor
     frame.srcID = srcID;
     frame.destID = destID;
     frame.commCount = commCount;
-    frame.dataLen = sizeof(ProtocolFrame) + dataLen;
+    frame.dataLen = static_cast<unsigned short>(sizeof(ProtocolFrame) + dataLen); // 显式转换避免警告
     memcpy(sendData, &frame, sizeof (frame));
     memcpy(sendData + sizeof(frame), data, dataLen);
     auto checksum = calculateXOR(sendData, frame.dataLen);

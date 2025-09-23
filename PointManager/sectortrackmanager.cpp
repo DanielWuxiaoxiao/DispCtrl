@@ -1,41 +1,99 @@
-// sectortrackmanager.cpp
+/*
+ * @Author: wuxiaoxiao
+ * @Email: wuxiaoxiao@gmail.com
+ * @Date: 2025-09-17 10:04:10
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2025-09-23 09:45:06
+ * @Description: 
+ */
+/**
+ * @file sectortrackmanager.cpp
+ * @brief 扇形航迹管理器实现文件
+ * @details 实现扇形显示区域的航迹管理功能：
+ *          - 与RadarDataManager集成的数据接收
+ *          - 扇形区域的多航迹并发管理
+ *          - 动态标签系统和交互功能
+ *          - 扇形范围的航迹连线几何计算
+ * @author DispCtrl Team
+ * @date 2024
+ */
+
 #include "sectortrackmanager.h"
 #include "Basic/DispBasci.h"
-#include "Controller/CentralDataManager.h"  // 添加新的头文件
+#include "Controller/RadarDataManager.h"  // 雷达数据管理器头文件
 #include <QPen>
 #include <QtMath>
 #include <QDebug>
 
-// SectorDraggableLabel 实现
+// ==================== SectorDraggableLabel 扇形可拖拽标签实现 ====================
+
+/**
+ * @brief SectorDraggableLabel构造函数实现
+ * @param parent 父图形项指针
+ * @details 初始化扇形区域的可拖拽航迹标签：
+ *          - 启用移动和几何变化监听功能
+ *          - 设置高层级Z值确保标签在最上层显示
+ *          - 专门适配扇形显示区域
+ */
 SectorDraggableLabel::SectorDraggableLabel(QGraphicsItem* parent)
     : QGraphicsTextItem(parent)
 {
-    setFlag(ItemIsMovable, true);
-    setFlag(ItemSendsGeometryChanges, true);
-    setZValue(INFO_Z);
+    setFlag(ItemIsMovable, true);                // 启用拖拽移动
+    setFlag(ItemSendsGeometryChanges, true);     // 启用几何变化通知
+    setZValue(INFO_Z);                           // 设置高层级，确保在点之上显示
 }
 
+/**
+ * @brief 设置扇形标签的锚点关联
+ * @param anchor 锚点图形项（通常是航迹点）
+ * @param tether 连接线图形项
+ * @details 建立扇形标签与锚点的动态关联：
+ *          - 保存锚点和连线的引用
+ *          - 设置连线的层级略低于标签
+ */
 void SectorDraggableLabel::setAnchorItem(QGraphicsItem* anchor, QGraphicsLineItem* tether)
 {
     m_anchor = anchor;
     m_tether = tether;
     if (m_tether) {
-        m_tether->setZValue(zValue() - 1);
+        m_tether->setZValue(zValue() - 1);  // 连线层级低于标签
     }
 }
 
+/**
+ * @brief 扇形标签的图形项变化事件处理
+ * @param change 变化类型枚举
+ * @param value 变化的值
+ * @return 处理后的值
+ * @details 监听位置变化事件，自动更新扇形区域内连线几何：
+ *          - 当标签位置改变时，重新计算与锚点的连线
+ *          - 连线始终连接标签中心和锚点位置
+ */
 QVariant SectorDraggableLabel::itemChange(GraphicsItemChange change, const QVariant& value)
 {
     if (change == ItemPositionHasChanged && m_anchor && m_tether) {
-        // 更新标签与锚点的连线
+        // 计算标签中心点在场景中的坐标
         QPointF labelCenter = mapToScene(boundingRect().center());
+        // 获取锚点在场景中的坐标
         QPointF anchorPos = m_anchor->scenePos();
+        // 更新连线几何形状
         m_tether->setLine(QLineF(labelCenter, anchorPos));
     }
     return QGraphicsTextItem::itemChange(change, value);
 }
 
-// SectorTrackManager 实现
+// ==================== SectorTrackManager 扇形航迹管理器实现 ====================
+
+/**
+ * @brief SectorTrackManager构造函数实现
+ * @param scene 图形场景指针
+ * @param axis 极坐标轴指针
+ * @param parent 父对象指针
+ * @details 完成扇形航迹管理器的初始化：
+ *          1. 注册到统一数据管理器接收航迹数据
+ *          2. 连接数据信号到对应的处理槽函数
+ *          3. 设置默认的扇形角度范围
+ */
 SectorTrackManager::SectorTrackManager(QGraphicsScene* scene, PolarAxis* axis, QObject* parent)
     : QObject(parent), m_scene(scene), m_axis(axis)
 {

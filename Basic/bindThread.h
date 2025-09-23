@@ -1,7 +1,15 @@
-#ifndef BINDTHREAD_H
-#define BINDTHREAD_H
+/*
+ * @Author: wuxiaoxiao
+ * @Email: wuxiaoxiao@gmail.com
+ * @Date: 2025-09-17 09:54:43
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2025-09-23 09:44:53
+ * @Description: 
+ */
+#ifndef BINDTHREAD_H     
+#define BINDTHREAD_H  
 
-#ifdef Q_OS_LINUX // 检查是否是 Linux 操作系统
+#ifdef Q_OS_LINUX // 检查是否是 Linux 操作系统  
 #include <sched.h>      // For sched_setaffinity, cpu_set_t
 #include <unistd.h>     // For getpid (optional, useful for process affinity)
 #include <sys/syscall.h> // For SYS_gettid (for thread affinity)

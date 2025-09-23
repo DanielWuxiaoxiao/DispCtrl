@@ -22,13 +22,23 @@
         height: 100vh; /* 使容器占满整个视口 */
         margin: 0;
         padding: 0;
-        filter: grayscale(0%); /* 初始灰度为 0% */
+        /* 卫星影像优化滤镜 - 保持清晰度的绿色科技感 */
+        filter: brightness(80%) contrast(120%) sepia(30%) 
+          hue-rotate(90deg) saturate(150%);
+        opacity: 0.95;
+        /* brightness(80%) → 轻微压暗，不会太暗影响清晰度
+        contrast(120%) → 适度增强对比，保持细节清晰
+        sepia(30%) → 轻微黄化，不会完全改变原色彩
+        hue-rotate(90deg) → 色相向绿色偏移
+        saturate(150%) → 适度提升饱和度，增强绿色效果
+        opacity(0.95) → 几乎完全不透明，保持影像清晰 */
       }
       html,
       body {
         height: 100%;
         margin: 0;
         padding: 0;
+        background: transparent; /* 背景透明 */
       }
     </style>
   </head>

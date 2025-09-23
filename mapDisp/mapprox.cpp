@@ -1,3 +1,11 @@
+/*
+ * @Author: wuxiaoxiao
+ * @Email: wuxiaoxiao@gmail.com
+ * @Date: 2025-09-17 09:54:43
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2025-09-23 09:45:19
+ * @Description: 
+ */
 #include "mapprox.h"
 #include <QWebEngineSettings>
 #include <QWebEngineProfile>
@@ -72,6 +80,14 @@ void MapProxyWidget::chooseMap(int index)
 void MapProxyWidget::setCenterOn(float lng, float lat,float range)
 {
     emit centerOn(lng,lat,range);
+}
+
+void MapProxyWidget::syncRadarToMap(double longitude, double latitude, double range)
+{
+    // 调用现有的setCenterOn方法来同步地图显示
+    setCenterOn(static_cast<float>(longitude), static_cast<float>(latitude), static_cast<float>(range));
+    
+    qDebug() << "地图同步雷达位置：" << longitude << "," << latitude << "，范围：" << range << "km";
 }
 
 void MapProxyWidget::setGray(int value)

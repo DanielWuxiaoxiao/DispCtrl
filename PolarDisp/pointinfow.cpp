@@ -1,3 +1,11 @@
+/*
+ * @Author: wuxiaoxiao
+ * @Email: wuxiaoxiao@gmail.com
+ * @Date: 2025-09-17 09:54:43
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2025-09-23 09:45:08
+ * @Description: 
+ */
 #include "pointinfow.h"
 #include "ui_pointinfow.h"
 #include <QStyleOption>
@@ -8,6 +16,20 @@ PointInfoW::PointInfoW(QWidget *parent) :
     ui(new Ui::PointInfoW)
 {
     ui->setupUi(this);
+    
+    // 设置简化的tooltip
+    ui->label_8->setToolTip("批号");
+    ui->batch->setToolTip("目标批次编号");
+    ui->label->setToolTip("距离");
+    ui->range->setToolTip("目标距离(公里)");
+    ui->label_3->setToolTip("方位");
+    ui->azi->setToolTip("方位角(度)");
+    ui->label_5->setToolTip("俯仰");
+    ui->ele->setToolTip("俯仰角(度)");
+    ui->label_6->setToolTip("速度");
+    ui->speed->setToolTip("径向速度(m/s)");
+    ui->label_7->setToolTip("信噪比");
+    ui->SNR->setToolTip("信噪比(dB)");
 }
 
 void PointInfoW::paintEvent(QPaintEvent* event) {

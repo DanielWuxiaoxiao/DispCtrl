@@ -1,3 +1,11 @@
+/*
+ * @Author: wuxiaoxiao
+ * @Email: wuxiaoxiao@gmail.com
+ * @Date: 2025-09-17 09:54:43
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2025-09-23 09:45:01
+ * @Description: 
+ */
 #ifndef SIG2DISPMANAGER_H
 #define SIG2DISPMANAGER_H
 

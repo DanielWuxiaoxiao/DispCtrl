@@ -1,7 +1,15 @@
+/*
+ * @Author: wuxiaoxiao
+ * @Email: wuxiaoxiao@gmail.com
+ * @Date: 2025-09-17 09:54:43
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2025-09-23 09:44:54
+ * @Description: 
+ */
 #include "data2dispmanager.h"
 #include "UDP/threadudpsocket.h"
 #include "controller.h"
-#include "CentralDataManager.h"  // 添加新的头文件
+#include "RadarDataManager.h"  // 雷达数据管理器头文件
 #include <QThread>
 
 Data2DispManager::Data2DispManager(QObject *parent) : QObject(parent)

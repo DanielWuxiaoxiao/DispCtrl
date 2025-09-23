@@ -1,3 +1,33 @@
+/*
+ * @Author: wuxiaoxiao
+ * @Email: wuxiaoxiao@gmail.com
+ * @Date: 2025-09-17 09:54:43
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2025-09-23 09:45:15
+ * @Description: 
+ */
+/**
+ * @file zoomview.cpp
+ * @brief 局部放大视图组件实现
+ * @details 实现雷达显示的局部放大、缩放控制和精确测距功能
+ * 
+ * 本文件实现了三个主要类：
+ * 1. ZoomViewToolBar: 提供缩放控制和模式切换的工具栏
+ * 2. ZoomView: 核心的局部放大视图，支持拖拽和测距
+ * 3. ZoomViewWidget: 完整的放大窗口，组合工具栏和视图
+ * 
+ * 技术要点：
+ * - 几何级数缩放算法：保证平滑的缩放体验
+ * - 场景坐标转换：精确的视图到场景坐标映射
+ * - 图形对象管理：动态创建和管理测距图形元素
+ * - 事件处理：完整的鼠标交互事件处理链
+ * - 信号槽通信：组件间的松耦合通信机制
+ * 
+ * @author DispCtrl Development Team
+ * @version 1.0
+ * @date 2024
+ */
+
 #include "zoomview.h"
 #include "ppisscene.h"
 #include "polaraxis.h"
@@ -12,6 +42,29 @@
 #include <QBrush>
 #include <QFont>
 
+/**
+ * @brief 工具栏构造函数
+ * @param parent 父窗口组件
+ * @details 创建并初始化所有工具栏按钮和控件，设置布局和样式
+ * 
+ * 初始化流程：
+ * 1. 创建水平布局：设置零边距和间距的紧凑布局
+ * 2. 创建功能按钮：放大、缩小、重置按钮，配置图标和工具提示
+ * 3. 创建模式按钮：拖拽和测距的可切换按钮
+ * 4. 创建状态显示：缩放比例的实时显示标签
+ * 5. 建立信号连接：按钮点击与信号发射的连接
+ * 
+ * 按钮设计：
+ * - 图标按钮：使用资源文件中的图标，提供直观的视觉识别
+ * - 工具提示：为每个按钮提供操作说明
+ * - 对象名称：设置objectName便于CSS样式定制
+ * - 互斥按钮：拖拽和测距按钮互斥，确保模式唯一性
+ * 
+ * 布局优化：
+ * - 紧凑设计：最小化边距和间距，节省界面空间
+ * - 逻辑分组：按功能将按钮分组排列
+ * - 弹性布局：适应不同的父容器尺寸
+ */
 // ===== 工具栏实现 =====
 ZoomViewToolBar::ZoomViewToolBar(QWidget* parent)
     : QWidget(parent)
@@ -42,18 +95,19 @@ ZoomViewToolBar::ZoomViewToolBar(QWidget* parent)
     m_zoomLabel = new QLabel("缩放比例:100%", this);
     m_zoomLabel->setAlignment(Qt::AlignCenter);
     m_zoomLabel->setObjectName("ZoomLabel");
+    m_zoomLabel->setToolTip("当前缩放比例");
 
     // 拖动/测距模式按钮（icon + 互斥按钮组）
     m_dragBtn = new QPushButton(this);
     m_dragBtn->setCheckable(true);
     m_dragBtn->setIcon(QIcon(":/resources/icon/hand.png"));
-    m_dragBtn->setToolTip("拖动视图");
+    m_dragBtn->setToolTip("拖动模式");
     m_dragBtn->setObjectName("DragBtn");
 
     m_measureBtn = new QPushButton(this);
     m_measureBtn->setCheckable(true);
     m_measureBtn->setIcon(QIcon(":/resources/icon/meas.png"));
-    m_measureBtn->setToolTip("测量距离");
+    m_measureBtn->setToolTip("测量模式");
     m_measureBtn->setObjectName("MeasureBtn");
 
     // 互斥逻辑使用 QButtonGroup
@@ -86,10 +140,47 @@ ZoomViewToolBar::ZoomViewToolBar(QWidget* parent)
     });
 }
 
+/**
+ * @brief 设置缩放级别显示
+ * @param level 当前缩放级别（1.0表示100%）
+ * @details 更新缩放比例标签的显示文本，以百分比形式显示
+ * 
+ * 显示格式：
+ * - 计算：level * 100得到百分比数值
+ * - 取整：qRound()进行四舍五入，避免小数显示
+ * - 格式化：QString::arg()插入数值，生成"缩放比例:XXX%"格式
+ * 
+ * 用户体验：
+ * - 实时更新：缩放操作时立即更新显示
+ * - 直观显示：百分比比小数更容易理解
+ * - 中文界面：提供中文的界面文本
+ */
 void ZoomViewToolBar::setZoomLevel(double level) {
     m_zoomLabel->setText(QString("缩放比例:%1%").arg(qRound(level * 100)));
 }
 
+/**
+ * @brief ZoomView构造函数
+ * @param parent 父窗口组件
+ * @details 初始化局部放大视图，配置渲染设置和默认状态
+ * 
+ * 初始化内容：
+ * 1. 基础状态：设置默认模式、缩放因子、测距状态
+ * 2. 渲染配置：启用反锯齿，提升图形显示质量
+ * 3. 交互设置：配置拖拽模式为默认交互方式
+ * 4. 测距组件：初始化测距相关的图形对象指针
+ * 
+ * 默认配置：
+ * - 场景：初始为空，待后续设置
+ * - 模式：DragMode拖拽模式
+ * - 缩放：1.0倍率（100%）
+ * - 测距：未激活状态
+ * - 图形对象：延迟创建，避免不必要的内存占用
+ * 
+ * 渲染优化：
+ * - 反锯齿：QPainter::Antialiasing提升图形边缘质量
+ * - 交互模式：ScrollHandDrag支持拖拽浏览
+ */
 // ===== ZoomView 实现 =====
 ZoomView::ZoomView(QWidget* parent)
     : QGraphicsView(parent)
@@ -109,8 +200,12 @@ ZoomView::ZoomView(QWidget* parent)
     QGraphicsView::setDragMode(QGraphicsView::ScrollHandDrag);
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff); //隐藏滚动条
+
     // 设置背景
     setObjectName("ZoomView");
+    
+    // 设置size policy以避免过度伸展
+    setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
 }
 
 ZoomView::~ZoomView() {
@@ -377,7 +472,10 @@ ZoomViewWidget::ZoomViewWidget(QWidget* parent)
     connectSignals();
     // 设置窗口属性
     setWindowTitle("P显");
-    //setMinimumSize(400, 300);
+    setObjectName("ZoomViewW");
+    
+    // 设置size policy以避免过度伸展
+    setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
 }
 
 ZoomViewWidget::~ZoomViewWidget() {
