@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:19
+ * @LastEditTime: 2025-09-23 15:56:16
  * @Description: 
  */
 /**
@@ -37,16 +37,16 @@
  *          - Qt信号槽与JavaScript的通信机制
  *          - 地图显示参数的控制接口
  *          - 多种地图源和显示模式支持
- * 
+ *
  * 通信机制：
  * Qt Application ←→ MapProxyWidget ←→ QWebChannel ←→ JavaScript ←→ Web Map
- * 
+ *
  * 功能特点：
  * - 地理坐标定位和缩放
  * - 灰度显示模式切换
  * - 多地图源选择
  * - 实时参数同步
- * 
+ *
  * @example 基本使用：
  * @code
  * MapProxyWidget* mapProxy = new MapProxyWidget();
@@ -58,7 +58,7 @@
 class MapProxyWidget : public QObject
 {
     Q_OBJECT  ///< Qt元对象系统支持，启用信号槽机制
-    
+
 public:
     /**
      * @brief 构造函数
@@ -69,7 +69,7 @@ public:
      *          - 加载地图HTML页面
      */
     MapProxyWidget();
-    
+
     /**
      * @brief 获取Web视图对象
      * @return QWebEngineView指针
@@ -85,17 +85,28 @@ public:
 private:
     QWebEngineView* mView;   ///< Web引擎视图对象，承载地图显示
 
+    // 当前雷达状态存储
+    double m_currentLongitude;  ///< 当前雷达经度
+    double m_currentLatitude;   ///< 当前雷达纬度
+    double m_currentRange;      ///< 当前显示范围(公里)
+
+    /**
+     * @brief 同步当前雷达状态到地图
+     * @details 在地图切换后使用存储的雷达状态更新新地图的显示范围
+     */
+    void syncCurrentRadarState();
+
 public slots:
     /**
      * @defgroup MapControlSlots 地图控制槽函数
      * @brief 接收来自HTML/JavaScript的地图控制请求
      * @{
      */
-    
+
     /**
      * @brief 设置地图中心位置和缩放级别
      * @param lng 经度值(度)
-     * @param lat 纬度值(度)  
+     * @param lat 纬度值(度)
      * @param range 显示范围(公里)
      * @details 响应HTML页面的定位请求：
      *          - 将雷达坐标转换为地理坐标
@@ -103,7 +114,7 @@ public slots:
      *          - 通过信号通知HTML更新地图视图
      */
     void setCenterOn(float lng, float lat, float range);
-    
+
     /**
      * @brief 同步雷达中心位置和范围到地图
      * @param longitude 雷达中心经度
@@ -112,7 +123,7 @@ public slots:
      * @details 响应PPIView的雷达位置/范围变化，同步更新地图显示范围
      */
     void syncRadarToMap(double longitude, double latitude, double range);
-    
+
     /**
      * @brief 设置地图灰度显示模式
      * @param value 灰度值，0-100的整数值
@@ -123,19 +134,19 @@ public slots:
      *          - 用于在雷达数据叠加时减少背景干扰
      */
     void setGray(int value);
-    
+
     /**
      * @brief 选择地图类型
      * @param index 地图类型索引
      * @details 切换不同的地图数据源：
      *          - 0: 卫星地图
-     *          - 1: 街道地图  
+     *          - 1: 街道地图
      *          - 2: 地形地图
      *          - 3: 海图模式
      *          - 根据雷达应用场景选择最适合的地图类型
      */
     void chooseMap(int index);
-    
+
     /** @} */ // end of MapControlSlots group
 
 signals:
@@ -144,7 +155,7 @@ signals:
      * @brief 发送给HTML/JavaScript的地图控制信号
      * @{
      */
-    
+
     /**
      * @brief 地图中心定位信号
      * @param lng 经度值(度)
@@ -156,7 +167,7 @@ signals:
      *          - 实现雷达数据与地图的同步显示
      */
     void centerOn(float lng, float lat, float range);
-    
+
     /**
      * @brief 灰度模式变化信号
      * @param value 新的灰度值
@@ -166,9 +177,9 @@ signals:
      *          - 实时调整地图视觉效果
      */
     void changeGrayScale(int value);
-    
+
     /** @} */ // end of MapControlSignals group
-    
+
     /**
      * @note 预留信号接口
      * @details 这里可以添加更多与主窗口通信的信号：
@@ -180,4 +191,3 @@ signals:
 };
 
 #endif // MAPPROXYWIDGET_H
-

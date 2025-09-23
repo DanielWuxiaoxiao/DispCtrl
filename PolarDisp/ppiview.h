@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:10
+ * @LastEditTime: 2025-09-23 15:56:15
  * @Description: 
  */
 /**
@@ -38,19 +38,19 @@ class PPIVisualSettings;  ///< PPI视觉设置组件
  *          - 橡皮筋缩放功能
  *          - 信息叠加层管理
  *          - 自适应窗口大小变化
- * 
+ *
  * 主要特性：
  * - 智能视图更新：平衡性能与更新完整性
  * - 鼠标中心缩放：以鼠标位置为缩放中心
  * - 视图中心对齐：窗口大小变化时保持内容居中
  * - 橡皮筋区域选择：支持拖拽选择特定区域
  * - 信息叠加显示：不受缩放影响的固定信息显示
- * 
+ *
  * 渲染优化：
  * - 抗锯齿渲染：提供平滑的图形显示效果
  * - 智能更新模式：减少不必要的重绘提升性能
  * - 变换锚点优化：提供直观的用户交互体验
- * 
+ *
  * @example 基本使用：
  * @code
  * PPIView* view = new PPIView();
@@ -74,7 +74,7 @@ public:
      *          - 启用橡皮筋缩放功能
      */
     explicit PPIView(QWidget* parent=nullptr);
-    
+
     /**
      * @brief 设置PPI场景
      * @param scene PPI场景对象指针
@@ -84,7 +84,7 @@ public:
      *          - 自动调整视图以适应场景内容
      */
     void setPPIScene(PPIScene* scene);
-    
+
     /**
      * @brief 启用/禁用橡皮筋缩放功能
      * @param on true启用，false禁用
@@ -94,7 +94,7 @@ public:
      *          - 同时切换相应的拖拽模式
      */
     void enableRubberBandZoom(bool on);
-    
+
     /**
      * @brief 设置雷达中心经纬度
      * @param longitude 经度
@@ -102,24 +102,40 @@ public:
      * @details 设置雷达中心的地理位置，用于与地图同步
      */
     void setRadarCenter(double longitude, double latitude);
-    
+
     /**
      * @brief 获取雷达中心经度
      * @return 雷达中心经度
      */
     double getRadarLongitude() const { return m_radarLongitude; }
-    
+
     /**
      * @brief 获取雷达中心纬度
      * @return 雷达中心纬度
      */
     double getRadarLatitude() const { return m_radarLatitude; }
-    
+
     /**
      * @brief 获取当前雷达最大范围
      * @return 最大范围（公里）
      */
     double getCurrentRange() const { return m_currentRange; }
+
+    /**
+     * @brief 计算PPIView中心在主窗口centralWidget中的位置
+     * @return PPIView中心在centralWidget坐标系中的位置(像素)
+     * @details 通过widget层级关系计算PPIView几何中心在MainWindow的centralWidget中的位置
+     */
+    QPointF getPPIViewCenterInMainWindow() const;
+
+    /**
+     * @brief 计算地图显示所需的中心经纬度和范围
+     * @param mapCenterLng 输出：地图中心经度
+     * @param mapCenterLat 输出：地图中心纬度
+     * @param mapRange 输出：地图显示范围（公里）
+     * @details 根据PPIView在centralWidget中的位置偏移，计算地图应该显示的中心和范围
+     */
+    void calculateMapDisplayParameters(double& mapCenterLng, double& mapCenterLat, double& mapRange) const;
 
 signals:
     /**
@@ -131,7 +147,7 @@ signals:
      *          - 其他依赖视图尺寸的组件需要更新
      */
     void viewResized(const QSize& newSize);
-    
+
     /**
      * @brief 区域选择信号
      * @param sceneRect 选择的场景矩形区域
@@ -141,28 +157,28 @@ signals:
      *          - 矩形大小必须超过10x10像素才会触发
      */
     void areaSelected(const QRectF& sceneRect);
-    
+
     /**
      * @brief 最大距离变化信号
      * @param distance 新的最大距离值（公里）
      * @details 当用户通过视觉设置组件修改最大距离时发出
      */
     void maxDistanceChanged(double distance);
-    
+
     /**
      * @brief 地图类型变化信号
      * @param index 新的地图类型索引
      * @details 当用户通过视觉设置组件切换地图类型时发出
      */
     void mapTypeChanged(int index);
-    
+
     /**
      * @brief 测距结果信号
      * @param distance 测量得到的距离值（米）
      * @details 当用户完成测距操作时发出，提供测量结果
      */
     void distanceMeasured(double distance);
-    
+
     /**
      * @brief 雷达中心位置变化信号
      * @param longitude 新的经度
@@ -179,14 +195,14 @@ public slots:
      * @details 响应PPIVisualSettings组件的距离变化，更新场景显示范围
      */
     void onMaxDistanceChanged(double distance);
-    
+
     /**
      * @brief 处理地图类型变化
      * @param index 新的地图类型索引
      * @details 响应PPIVisualSettings组件的地图类型变化，转发给地图组件
      */
     void onMapTypeChanged(int index);
-    
+
     /**
      * @brief 处理测距模式切换
      * @param enabled 是否启用测距模式
@@ -203,7 +219,7 @@ protected:
      *          - 调用基类处理其他鼠标交互
      */
     void mousePressEvent(QMouseEvent* e) override;
-    
+
     /**
      * @brief 鼠标移动事件处理
      * @param e 鼠标事件对象
@@ -212,7 +228,7 @@ protected:
      *          - 调用基类处理视图拖拽等操作
      */
     void mouseMoveEvent(QMouseEvent* e) override;
-    
+
     /**
      * @brief 鼠标释放事件处理
      * @param e 鼠标事件对象
@@ -222,7 +238,7 @@ protected:
      *          - 调用基类处理其他鼠标操作
      */
     void mouseReleaseEvent(QMouseEvent* e) override;
-    
+
     /**
      * @brief 窗口大小变化事件处理
      * @param e 大小变化事件对象
@@ -237,12 +253,12 @@ protected:
 private:
     // 核心组件
     PPIScene* m_scene;                ///< PPI场景对象指针
-    
+
     // 交互控制
     bool m_rubberBandZoom = true;     ///< 橡皮筋缩放功能开关
     QRubberBand* m_band = nullptr;    ///< 橡皮筋选择框对象
     QPoint m_origin;                  ///< 橡皮筋拖拽起始点
-    
+
     // 测距功能
     bool m_measureMode = false;       ///< 测距模式开关
     bool m_measuring = false;         ///< 正在测距标志
@@ -251,18 +267,18 @@ private:
     QGraphicsEllipseItem* m_startMarker = nullptr;  ///< 起始点标记
     QGraphicsEllipseItem* m_endMarker = nullptr;    ///< 结束点标记
     QGraphicsTextItem* m_distanceText = nullptr;    ///< 距离文本显示
-    
+
     // 信息叠加层组件 - 不随视图缩放变化的固定UI元素
     mainviewTopLeft* radarInfoW = nullptr;      ///< 左上角雷达系统信息显示
     PointInfoW* pointInfo = nullptr;            ///< 右上角选中点详细信息显示
     MousePositionInfo* mousePositionInfo = nullptr;  ///< 左下角鼠标位置信息显示
     PPIVisualSettings* visualSettings = nullptr;     ///< 右下角PPI视觉设置组件
-    
+
     // 雷达地理位置信息
     double m_radarLongitude = 108.9138;         ///< 雷达中心经度（默认西电99号楼）
     double m_radarLatitude = 34.2311;           ///< 雷达中心纬度（默认西电99号楼）
     double m_currentRange = 5.0;                ///< 当前雷达最大范围（公里）
-    
+
     /**
      * @brief 初始化叠加层
      * @details 创建和配置信息叠加层组件：
@@ -273,7 +289,7 @@ private:
      *          - 调用layoutOverlay()进行初始布局
      */
     void setupOverlay();
-    
+
     /**
      * @brief 布局叠加层组件
      * @details 重新定位所有叠加层组件的位置：
@@ -284,7 +300,7 @@ private:
      *          - 确保叠加层不会超出视图边界
      */
     void layoutOverlay();
-    
+
     /**
      * @brief 清除测距线
      * @details 清除当前显示的测距图形元素，包括路径、标记和文本

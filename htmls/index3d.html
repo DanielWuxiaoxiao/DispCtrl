@@ -69,18 +69,52 @@
       };
       //直接设置地图的中心和距离
       function setCenterOn(centerLng, centerLat, range) {
-        const latDiff = range / (earthRadius * (Math.PI / 180)); // 纬度上的差异
-        const lngDiff =
-          range /
-          (earthRadius *
-            Math.cos((centerLat * Math.PI) / 180) *
-            (Math.PI / 180)); // 经度上的差异
+        // range 是以公里为单位的显示范围（整个水平宽度）
+        // 我们需要将这个范围转换为地图四个角的经纬度
+
+        // 使用高精度地球常数
+        const EARTH_RADIUS_M = 6378137.0; // WGS84椭球体长半轴，米
+        const DEG_TO_RAD = Math.PI / 180.0;
+        const RAD_TO_DEG = 180.0 / Math.PI;
+
+        // 动态获取地图容器的实际宽高比
+        const container = document.getElementById("container");
+        const containerWidth = container.clientWidth;
+        const containerHeight = container.clientHeight;
+        const actualAspectRatio = containerWidth / containerHeight; // 实际宽高比
+
+        console.log(`Container dimensions: ${containerWidth}x${containerHeight}, aspect ratio: ${actualAspectRatio.toFixed(3)}`);
+
+        // 计算水平和垂直的范围，使用实际容器比例
+        const horizontalRange = range; // 水平方向的总宽度（公里）
+        const verticalRange = range / actualAspectRatio; // 垂直方向的总高度，使用实际宽高比
+
+        // 转换为米
+        const horizontalRangeM = horizontalRange * 1000.0;
+        const verticalRangeM = verticalRange * 1000.0;
+
+        // 使用高精度公式计算经纬度差异
+        const centerLatRad = centerLat * DEG_TO_RAD;
+
+        // 纬度差异：使用精确的子午圈半径计算
+        const latDiffRad = (verticalRangeM / 2.0) / EARTH_RADIUS_M;
+        const latDiff = latDiffRad * RAD_TO_DEG;
+
+        // 经度差异：考虑椭球体在当前纬度的曲率半径
+        const cosLat = Math.cos(centerLatRad);
+        const lngDiffRad = (horizontalRangeM / 2.0) / (EARTH_RADIUS_M * cosLat);
+        const lngDiff = lngDiffRad * RAD_TO_DEG;
 
         // 计算矩形边界的西南角和东北角的经纬度
         const southWestLng = centerLng - lngDiff;
         const southWestLat = centerLat - latDiff;
         const northEastLng = centerLng + lngDiff;
         const northEastLat = centerLat + latDiff;
+
+        console.log(`setCenterOn: center(${centerLng}, ${centerLat}), range=${range}km (horizontal)`);
+        console.log(`Calculated ranges: horizontal=${horizontalRange}km, vertical=${verticalRange.toFixed(3)}km`);
+        console.log(`Calculated bounds: SW(${southWestLng.toFixed(8)}, ${southWestLat.toFixed(8)}), NE(${northEastLng.toFixed(8)}, ${northEastLat.toFixed(8)})`);
+        console.log(`High-precision diffs: lat=${latDiff.toFixed(8)}°, lng=${lngDiff.toFixed(8)}°`);
 
         var bounds = new AMap.Bounds(
           [southWestLng, southWestLat], // 西南角坐标

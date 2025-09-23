@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:44:53
+ * @LastEditTime: 2025-09-23 15:56:15
  * @Description: 
  */
 #ifndef CONFIGMANAGER_H
@@ -30,7 +30,7 @@ public:
         // 首先尝试加载TOML文件
         if (path.endsWith(".toml")) {
             return loadToml(path);
-        } 
+        }
         // 向后兼容，支持JSON文件
         else if (path.endsWith(".json")) {
             return loadJson(path);
@@ -138,10 +138,19 @@ public:
         return getValue("network.protocol." + key, def).toUInt();
     }
 
+    // WebEngine调试配置
+    bool webEngineDebugEnabled(bool def = false) const {
+        return getValue("webengine.enable_debug", def).toBool();
+    }
+
+    int webEngineDebugPort(int def = 6669) const {
+        return getValue("webengine.debug_port", def).toInt();
+    }
+
 private:
     QMap<QString, QVariant> configData;
     QJsonObject root; // 保持向后兼容
-    
+
     // TOML文件加载
     bool loadToml(const QString& path) {
         QFile file(path);
@@ -149,14 +158,14 @@ private:
             qWarning() << "TOML config file not found:" << path << ", using defaults.";
             return false;
         }
-        
+
         QTextStream in(&file);
         QString content = in.readAll();
         file.close();
-        
+
         return parseToml(content);
     }
-    
+
     // JSON文件加载（向后兼容）
     bool loadJson(const QString& path) {
         QFile file(path);
@@ -176,47 +185,47 @@ private:
         convertJsonToMap(root, "");
         return true;
     }
-    
+
     // 简单的TOML解析器（基础实现）
     bool parseToml(const QString& content) {
         QStringList lines = content.split('\n');
         QString currentSection = "";
-        
+
         for (const QString& line : lines) {
             QString trimmed = line.trimmed();
-            
+
             // 跳过注释和空行
             if (trimmed.isEmpty() || trimmed.startsWith('#')) {
                 continue;
             }
-            
+
             // 处理节（section）
             if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
                 currentSection = trimmed.mid(1, trimmed.length() - 2);
                 continue;
             }
-            
+
             // 处理键值对
             int equalPos = trimmed.indexOf('=');
             if (equalPos > 0) {
                 QString key = trimmed.left(equalPos).trimmed();
                 QString value = trimmed.mid(equalPos + 1).trimmed();
-                
+
                 // 移除引号
                 if ((value.startsWith('"') && value.endsWith('"')) ||
                     (value.startsWith('\'') && value.endsWith('\''))) {
                     value = value.mid(1, value.length() - 2);
                 }
-                
+
                 // 移除行内注释
                 int commentPos = value.indexOf('#');
                 if (commentPos >= 0) {
                     value = value.left(commentPos).trimmed();
                 }
-                
+
                 // 构建完整的键路径
                 QString fullKey = currentSection.isEmpty() ? key : currentSection + "." + key;
-                
+
                 // 尝试转换为适当的类型
                 QVariant varValue;
                 bool ok;
@@ -235,19 +244,19 @@ private:
                         varValue = value;
                     }
                 }
-                
+
                 configData[fullKey] = varValue;
             }
         }
-        
+
         return true;
     }
-    
+
     // 将JSON对象转换为扁平化的Map
     void convertJsonToMap(const QJsonObject& obj, const QString& prefix) {
         for (auto it = obj.begin(); it != obj.end(); ++it) {
             QString key = prefix.isEmpty() ? it.key() : prefix + "." + it.key();
-            
+
             if (it.value().isObject()) {
                 convertJsonToMap(it.value().toObject(), key);
             } else {
@@ -255,13 +264,13 @@ private:
             }
         }
     }
-    
+
     // 统一的值获取方法
     QVariant getValue(const QString& key, const QVariant& defaultValue) const {
         return configData.value(key, defaultValue);
     }
 
-    
+
     ConfigManager() {}
     ConfigManager(const ConfigManager&) = delete;
     ConfigManager& operator=(const ConfigManager&) = delete;
