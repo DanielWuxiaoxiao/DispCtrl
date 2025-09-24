@@ -24,13 +24,13 @@
 #LogoWidget {
     background-color: rgba(16, 24, 24, 0.8);    /* 深灰色半透明背景 */
     border-width: 0 0 0 0;                       /* 无边框设计 */
-    
+
     /* 圆角设计 - 统一15px圆角提供现代化外观 */
     border-top-left-radius: 15px;
     border-top-right-radius: 15px;
     border-bottom-left-radius: 15px;
     border-bottom-right-radius: 15px;
-    
+
     padding: 6px 10px;                           /* 内边距：垂直6px，水平10px */
 }
 
@@ -48,7 +48,7 @@
 }
 
 /**
- * SubtitleLabel - 副标题文字样式  
+ * SubtitleLabel - 副标题文字样式
  * 特点：
  * - 青绿色(#66ffcc)体现技术感和专业性
  * - 中等字体15px作为标题的补充
@@ -614,31 +614,195 @@ QTextEdit#logEdit QScrollBar::sub-line {
 }
 
 /* QTableWidget 的样式 */
-/* 强制背景绘制，避免被父控件覆盖 */
-/* --- 正确的样式 --- */
 QTableWidget#tableWidget {
-    /* 这里只放边框、字体颜色等整体属性 */
-    border: 0px solid;
+    border: 1px solid #333333;
+    background-color: rgba(16, 24, 24, 0.9);
     color: #E0E0E0;
     font-size: 14px;
-    /* 不要在这里设置background-color */
-    background: transparent;
-    /* 让控件本身透明 */
 }
 
-/* Item的样式保持不变 */
+/* 表头样式 */
+QTableWidget#tableWidget QHeaderView::section {
+    background-color: rgba(24, 36, 36, 0.95);
+    color: #00ffc8;
+    border: 1px solid #444444;
+    padding: 4px;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+/* Item的样式 */
 QTableWidget#tableWidget::item {
     border-bottom: 1px solid #333333;
-    padding-left: 5px;
-    background-color: transparent;
-    /* Item背景最好也设为透明，让viewport的背景透出来 */
+    padding: 4px 8px;
+    background-color: rgba(16, 24, 24, 0.8);
 }
 
-/* 选中项的样式可以覆盖背景色 */
+/* 选中项的样式 */
 QTableWidget#tableWidget::item:selected {
-    background-color: rgba(0, 255, 200, 0.2);
+    background-color: rgba(0, 255, 200, 0.3);
     color: #FFFFFF;
     border: 1px solid #00ffc8;
+}
+
+/* 交替行颜色 */
+QTableWidget#tableWidget::item:alternate {
+    background-color: rgba(20, 30, 30, 0.8);
+}
+
+/* 无人机航迹表格样式 - 与主表格保持一致 */
+QTableWidget#droneTableWidget {
+    border: 1px solid #333333;
+    background-color: rgba(16, 24, 24, 0.9);
+    color: #E0E0E0;
+    font-size: 14px;
+}
+
+/* 无人机表头样式 */
+QTableWidget#droneTableWidget QHeaderView::section {
+    background-color: rgba(24, 36, 36, 0.95);
+    color: #00ffc8;
+    border: 1px solid #444444;
+    padding: 4px;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+/* 无人机航迹表格Item的样式 */
+QTableWidget#droneTableWidget::item {
+    border-bottom: 1px solid #333333;
+    padding: 4px 8px;
+    background-color: rgba(16, 24, 24, 0.8);
+}
+
+/* 无人机航迹表格选中项的样式 */
+QTableWidget#droneTableWidget::item:selected {
+    background-color: rgba(0, 255, 200, 0.3);
+    color: #FFFFFF;
+    border: 1px solid #00ffc8;
+}
+
+/* 无人机表格交替行颜色 */
+QTableWidget#droneTableWidget::item:alternate {
+    background-color: rgba(20, 30, 30, 0.8);
+}
+
+/* 航迹表格滚动条样式 */
+QTableWidget#tableWidget QScrollBar:vertical {
+    background: rgba(32, 32, 32, 0.8);
+    width: 12px;
+    border-radius: 6px;
+    margin: 0px;
+}
+
+QTableWidget#tableWidget QScrollBar::handle:vertical {
+    background: rgba(0, 255, 200, 0.6);
+    border-radius: 6px;
+    min-height: 20px;
+    margin: 2px;
+}
+
+QTableWidget#tableWidget QScrollBar::handle:vertical:hover {
+    background: rgba(0, 255, 200, 0.8);
+}
+
+QTableWidget#tableWidget QScrollBar::handle:vertical:pressed {
+    background: rgba(0, 255, 200, 1.0);
+}
+
+QTableWidget#tableWidget QScrollBar::add-line:vertical,
+QTableWidget#tableWidget QScrollBar::sub-line:vertical {
+    border: none;
+    background: none;
+    height: 0px;
+}
+
+QTableWidget#tableWidget QScrollBar:horizontal {
+    background: rgba(32, 32, 32, 0.8);
+    height: 12px;
+    border-radius: 6px;
+    margin: 0px;
+}
+
+QTableWidget#tableWidget QScrollBar::handle:horizontal {
+    background: rgba(0, 255, 200, 0.6);
+    border-radius: 6px;
+    min-width: 20px;
+    margin: 2px;
+}
+
+QTableWidget#tableWidget QScrollBar::handle:horizontal:hover {
+    background: rgba(0, 255, 200, 0.8);
+}
+
+QTableWidget#tableWidget QScrollBar::handle:horizontal:pressed {
+    background: rgba(0, 255, 200, 1.0);
+}
+
+QTableWidget#tableWidget QScrollBar::add-line:horizontal,
+QTableWidget#tableWidget QScrollBar::sub-line:horizontal {
+    border: none;
+    background: none;
+    width: 0px;
+}
+
+/* 无人机航迹表格滚动条样式 */
+QTableWidget#droneTableWidget QScrollBar:vertical {
+    background: rgba(32, 32, 32, 0.8);
+    width: 12px;
+    border-radius: 6px;
+    margin: 0px;
+}
+
+QTableWidget#droneTableWidget QScrollBar::handle:vertical {
+    background: rgba(0, 255, 200, 0.6);
+    border-radius: 6px;
+    min-height: 20px;
+    margin: 2px;
+}
+
+QTableWidget#droneTableWidget QScrollBar::handle:vertical:hover {
+    background: rgba(0, 255, 200, 0.8);
+}
+
+QTableWidget#droneTableWidget QScrollBar::handle:vertical:pressed {
+    background: rgba(0, 255, 200, 1.0);
+}
+
+QTableWidget#droneTableWidget QScrollBar::add-line:vertical,
+QTableWidget#droneTableWidget QScrollBar::sub-line:vertical {
+    border: none;
+    background: none;
+    height: 0px;
+}
+
+QTableWidget#droneTableWidget QScrollBar:horizontal {
+    background: rgba(32, 32, 32, 0.8);
+    height: 12px;
+    border-radius: 6px;
+    margin: 0px;
+}
+
+QTableWidget#droneTableWidget QScrollBar::handle:horizontal {
+    background: rgba(0, 255, 200, 0.6);
+    border-radius: 6px;
+    min-width: 20px;
+    margin: 2px;
+}
+
+QTableWidget#droneTableWidget QScrollBar::handle:horizontal:hover {
+    background: rgba(0, 255, 200, 0.8);
+}
+
+QTableWidget#droneTableWidget QScrollBar::handle:horizontal:pressed {
+    background: rgba(0, 255, 200, 1.0);
+}
+
+QTableWidget#droneTableWidget QScrollBar::add-line:horizontal,
+QTableWidget#droneTableWidget QScrollBar::sub-line:horizontal {
+    border: none;
+    background: none;
+    width: 0px;
 }
 
 /*detach*/
@@ -652,7 +816,7 @@ QTableWidget#tableWidget::item:selected {
     background-color: rgba(0, 40, 40, 0.8);
     border: 0px solid #00ff88;
     border-radius: 15px;
-} 
+}
 
 /* 自定义窗口 */
 #TitleBar {
@@ -913,7 +1077,7 @@ QLabel#ZoomLabel  {
  * 功能：为所有控件的setToolTip()提供统一的视觉样式
  * 特点：
  * - 与系统主题一致的深色半透明背景
- * - 青绿色边框与系统强调色保持一致  
+ * - 青绿色边框与系统强调色保持一致
  * - 白色文字确保最佳可读性
  * - 圆角设计融入整体现代化外观
  * - 适当的内边距确保文字不贴边
@@ -927,7 +1091,7 @@ QToolTip {
     font-size: 14px;                           /* 14px适中字体，清晰易读 */
     font-weight: normal;                        /* 正常字重，不抢夺注意力 */
     padding: 8px 12px;                          /* 内边距：垂直8px，水平12px，确保文字不贴边 */
-    
+
     /* 可选：添加轻微阴影效果增强层次感 */
     /* 注意：部分Qt版本可能不支持box-shadow */
     /* box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.3); */
@@ -975,4 +1139,154 @@ QToolTip:hover {
 #DetachBtn:pressed {
     background-color: rgba(0, 255, 136, 0.25);  /* 稍深的绿色背景 */
     border: 2px solid #00ff88;                  /* 更粗的边框 */
+}
+
+/* =============================================================================
+ * 工作方式Widget样式
+ * ============================================================================= */
+
+/**
+ * 工作方式标签样式
+ * 功能：阵面摆放、扫描方式、工作方式标签
+ * 特点：与整体风格保持一致的青绿色主题
+ */
+#workModeTab QLabel#placementLabel,
+#workModeTab QLabel#scanMethodLabel,
+#workModeTab QLabel#workModeLabel {
+    background-color: transparent;              /* 透明背景融入父容器 */
+    color: #66ffcc;                            /* 青绿色主题色，与系统一致 */
+    font-size: 14px;                          /* 14px适中字体，平衡可读性和空间 */
+    font-weight: bold;                         /* 粗体确保清晰可读 */
+    padding: 4px;                              /* 适当内边距 */
+}
+
+/**
+ * 工作方式组合框样式
+ * 功能：阵面摆放、扫描方式、工作方式选择
+ * 特点：与PPIVisualSettings保持一致的视觉风格
+ */
+#workModeTab CustomComboBox#placementCombo,
+#workModeTab CustomComboBox#scanMethodCombo,
+#workModeTab CustomComboBox#workModeCombo {
+    background-color: rgba(16, 24, 24, 0.9);    /* 稍深的背景突出选择区域 */
+    color: #66ffcc;                             /* 青绿色文字 */
+    font-size: 14px;                           /* 14px适中字体 */
+    font-weight: bold;                         /* 粗体增强可读性 */
+    border: 1px solid #66ffcc;                 /* 青绿色边框 */
+    border-radius: 3px;                        /* 小圆角保持现代感 */
+    padding: 2px 20px 2px 4px;                 /* 右侧留出箭头空间 */
+    min-width: 80px;                           /* 最小宽度确保可读性 */
+    min-height: 24px;                          /* 最小高度 */
+}
+
+/**
+ * 工作方式组合框hover状态
+ */
+#workModeTab CustomComboBox#placementCombo:hover,
+#workModeTab CustomComboBox#scanMethodCombo:hover,
+#workModeTab CustomComboBox#workModeCombo:hover {
+    background-color: rgba(20, 30, 30, 0.95);   /* 稍亮的背景 */
+    border: 1px solid #99ffdd;                 /* 更亮的绿色边框 */
+    color: #99ffdd;                            /* 更亮的绿色文字 */
+}
+
+/**
+ * 工作方式组合框focus状态
+ */
+#workModeTab CustomComboBox#placementCombo:focus,
+#workModeTab CustomComboBox#scanMethodCombo:focus,
+#workModeTab CustomComboBox#workModeCombo:focus {
+    border: 2px solid #99ffdd;                 /* 更粗的亮绿色边框 */
+    background-color: rgba(20, 30, 30, 0.95);   /* 稍亮的背景 */
+}
+
+/**
+ * 工作方式组合框下拉箭头区域
+ */
+#workModeTab CustomComboBox#placementCombo::drop-down,
+#workModeTab CustomComboBox#scanMethodCombo::drop-down,
+#workModeTab CustomComboBox#workModeCombo::drop-down {
+    width: 16px;                               /* 箭头区域宽度 */
+    border-left: 1px solid #66ffcc;           /* 左侧分割线 */
+    border-top-right-radius: 3px;             /* 右上角圆角 */
+    border-bottom-right-radius: 3px;          /* 右下角圆角 */
+    background-color: rgba(16, 24, 24, 0.9);   /* 与主体背景一致 */
+}
+
+/**
+ * 工作方式组合框下拉箭头区域hover状态
+ */
+#workModeTab CustomComboBox#placementCombo::drop-down:hover,
+#workModeTab CustomComboBox#scanMethodCombo::drop-down:hover,
+#workModeTab CustomComboBox#workModeCombo::drop-down:hover {
+    background-color: rgba(20, 30, 30, 0.95);   /* hover时稍亮背景 */
+    border-left: 1px solid #99ffdd;           /* hover时亮绿色分割线 */
+}
+
+/**
+ * 工作方式组合框下拉箭头图标
+ */
+#workModeTab CustomComboBox#placementCombo::down-arrow,
+#workModeTab CustomComboBox#scanMethodCombo::down-arrow,
+#workModeTab CustomComboBox#workModeCombo::down-arrow {
+    width: 8px;                               /* 箭头宽度 */
+    height: 4px;                              /* 箭头高度 */
+    background-color: #66ffcc;                /* 绿色背景 */
+    border: none;                             /* 无边框 */
+    margin: 2px;                              /* 外边距 */
+}
+
+/**
+ * 工作方式组合框下拉箭头图标hover状态
+ */
+#workModeTab CustomComboBox#placementCombo::down-arrow:hover,
+#workModeTab CustomComboBox#scanMethodCombo::down-arrow:hover,
+#workModeTab CustomComboBox#workModeCombo::down-arrow:hover {
+    background-color: #99ffdd;                /* hover时亮绿色背景 */
+}
+
+/**
+ * 工作方式组合框下拉列表
+ */
+#workModeTab CustomComboBox#placementCombo QAbstractItemView,
+#workModeTab CustomComboBox#scanMethodCombo QAbstractItemView,
+#workModeTab CustomComboBox#workModeCombo QAbstractItemView {
+    background-color: rgba(16, 24, 24, 0.95);  /* 下拉列表背景 */
+    border: 1px solid #66ffcc;                /* 绿色边框 */
+    border-radius: 3px;                       /* 圆角 */
+    color: #66ffcc;                           /* 绿色文字 */
+    font-size: 14px;                         /* 与主体一致的字体大小 */
+    font-weight: bold;                        /* 粗体 */
+    outline: none;                            /* 移除焦点轮廓 */
+}
+
+/**
+ * 工作方式组合框下拉列表项
+ */
+#workModeTab CustomComboBox#placementCombo QAbstractItemView::item,
+#workModeTab CustomComboBox#scanMethodCombo QAbstractItemView::item,
+#workModeTab CustomComboBox#workModeCombo QAbstractItemView::item {
+    padding: 4px 8px;                        /* 选项内边距 */
+    border: none;                             /* 无边框 */
+    min-height: 20px;                        /* 最小高度 */
+}
+
+/**
+ * 工作方式组合框下拉列表项hover状态
+ */
+#workModeTab CustomComboBox#placementCombo QAbstractItemView::item:hover,
+#workModeTab CustomComboBox#scanMethodCombo QAbstractItemView::item:hover,
+#workModeTab CustomComboBox#workModeCombo QAbstractItemView::item:hover {
+    background-color: rgba(102, 255, 204, 0.2); /* hover时半透明绿色背景 */
+    color: #99ffdd;                           /* hover时亮绿色文字 */
+}
+
+/**
+ * 工作方式组合框下拉列表项selected状态
+ */
+#workModeTab CustomComboBox#placementCombo QAbstractItemView::item:selected,
+#workModeTab CustomComboBox#scanMethodCombo QAbstractItemView::item:selected,
+#workModeTab CustomComboBox#workModeCombo QAbstractItemView::item:selected {
+    background-color: rgba(102, 255, 204, 0.4); /* 选中时更强的绿色背景 */
+    color: #ffffff;                           /* 选中时白色文字 */
 }

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:18
+ * @LastEditTime: 2025-09-24 11:22:47
  * @Description: 
  */
 #include "azelrangewidget.h"
@@ -14,6 +14,7 @@
 #include <QIntValidator>
 #include <QtMath>
 #include <QLabel>
+#include <QPushButton>
 
 namespace {
 // 默认值，可通过config.toml中的polarDisp.elevationRange和polarDisp.azimuthRange配置
@@ -27,30 +28,29 @@ AzElRangeWidget::AzElRangeWidget(QWidget *parent)
     : QWidget(parent)
 {
     setObjectName("AzElRangeWidget");
-    setAttribute(Qt::WA_TranslucentBackground, true);
-    setAutoFillBackground(false);               // 背景透明
-    setAttribute(Qt::WA_NoSystemBackground, true);
+    // 移除可能导致背景问题的属性，让widget继承父widget的背景
+    // setAttribute(Qt::WA_TranslucentBackground, true);
+    // setAutoFillBackground(false);
+    // setAttribute(Qt::WA_NoSystemBackground, true);
 
     // —— 下方四个数值编辑框 —— //
     edAzMin = new QLineEdit(QString::number(mAzMin), this);
-    edAzMin->setToolTip("最小方位角(-180°~180°)");
-    
+    edAzMin->setToolTip("最小方位角(-180°~359°)");
+
     edAzMax = new QLineEdit(QString::number(mAzMax), this);
-    edAzMax->setToolTip("最大方位角(-180°~180°)");
-    
-    edElMin = new QLineEdit(QString::number(mElMin), this);
+    edAzMax->setToolTip("最大方位角(-180°~359°)");    edElMin = new QLineEdit(QString::number(mElMin), this);
     edElMin->setToolTip("最小俯仰角(-90°~90°)");
-    
+
     edElMax = new QLineEdit(QString::number(mElMax), this);
     edElMax->setToolTip("最大俯仰角(-90°~90°)");
 
-    edAzMin->setValidator(new QIntValidator(AZ_MIN, AZ_MAX, edAzMin));
-    edAzMax->setValidator(new QIntValidator(AZ_MIN, AZ_MAX, edAzMax));
+    edAzMin->setValidator(new QIntValidator(-180, 359, edAzMin));  // 支持负数到359
+    edAzMax->setValidator(new QIntValidator(-180, 359, edAzMax));  // 支持负数到359
     edElMin->setValidator(new QIntValidator(EL_MIN, EL_MAX, edElMin));
     edElMax->setValidator(new QIntValidator(EL_MIN, EL_MAX, edElMax));
 
     for (auto *e : {edAzMin, edAzMax, edElMin, edElMax}) {
-        e->setFixedWidth(64);
+        e->setFixedWidth(48);  // 减少宽度从64到48
         e->setAlignment(Qt::AlignCenter);
         e->setPlaceholderText("--");
         e->setObjectName("RangeLineEdit");
@@ -58,54 +58,71 @@ AzElRangeWidget::AzElRangeWidget(QWidget *parent)
 
     // 布局：上方绘图区域，下方编辑区
     auto *mainLay = new QVBoxLayout(this);
-    mainLay->setContentsMargins(3, 3, 3, 3);
+    mainLay->setContentsMargins(0, 0, 0, 0);
     mainLay->setSpacing(6);
 
     // 用一个空的 QWidget 承载绘制（本类自身绘制）
     auto *drawHolder = new QWidget(this);
     drawHolder->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    drawHolder->setAttribute(Qt::WA_TranslucentBackground, true);
+    drawHolder->setStyleSheet("background-color: transparent;");
     drawHolder->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    mainLay->addWidget(drawHolder, 1);
+//    drawHolder->setMinimumHeight(180);  // 设置绘图区域最小高度
+    mainLay->addWidget(drawHolder, 1);  // 给绘图区域更多权重
 
     // 底部输入区
     auto *grid = new QHBoxLayout();
     grid->setSpacing(10);
     grid->setContentsMargins(20, 0, 20, 0);
-    
+
     QLabel* azLabel = new QLabel("方位");
     azLabel->setToolTip("方位角范围");
     grid->addWidget(azLabel);
-    
+
     grid->addWidget(edAzMin);
-    
+
     QLabel* azSeparator = new QLabel("-");
     azSeparator->setToolTip("到");
     grid->addWidget(azSeparator);
-    
+
     grid->addWidget(edAzMax);
-    
+
     QLabel* elLabel = new QLabel("俯仰");
     elLabel->setToolTip("俯仰角范围");
     grid->addWidget(elLabel);
-    
+
     grid->addWidget(edElMin);
-    
+
     QLabel* elSeparator = new QLabel("-");
     elSeparator->setToolTip("到");
     grid->addWidget(elSeparator);
-    
+
     grid->addWidget(edElMax);
+
+    // 添加设置按钮
+    QPushButton* settingsBtn = new QPushButton("设置", this);
+    settingsBtn->setObjectName("SettingsButton");
+    settingsBtn->setToolTip("打开详细角度范围设置");
+    settingsBtn->setFixedSize(45, 24);
+    grid->addWidget(settingsBtn);
+
+
     mainLay->addLayout(grid);
 
-    // 统一样式（与 Dock1 保持一致的半透明+霓虹边）
+    // 统一样式，确保继承父widget背景
     setStyleSheet(R"(
                   QWidget#AzElRangeWidget {
-                  background-color: transparent; /* 本控件透明，由父Dock半透明 */
+                  background-color: transparent;
+                  border: none;
+                  }
+                  QWidget {
+                  background-color: transparent;
                   }
                   QLabel {
                   color: #a8d4c8;
                   font-family: "Microsoft YaHei";
-                  font-size: 12px;
+                  font-size: 15px;  /* 增大字体从11px到13px */
+                  background-color: transparent;
                   }
                   QLineEdit#RangeLineEdit {
                   color: #ffffff;
@@ -118,6 +135,22 @@ AzElRangeWidget::AzElRangeWidget(QWidget *parent)
                   QLineEdit#RangeLineEdit:focus {
                   border: 1.5px solid #00ff88;
                   }
+                  QPushButton#SettingsButton {
+                  color: #ffffff;
+                  background-color: rgba(0,100,70,0.7);
+                  border: 1px solid rgba(0,255,136,0.6);
+                  border-radius: 4px;
+                  padding: 2px 6px;
+                  font-family: "Microsoft YaHei";
+                  font-size: 11px;
+                  }
+                  QPushButton#SettingsButton:hover {
+                  background-color: rgba(0,255,136,0.2);
+                  border: 1.5px solid #00ff88;
+                  }
+                  QPushButton#SettingsButton:pressed {
+                  background-color: rgba(0,255,136,0.4);
+                  }
                   )");
 
     connectEditors();
@@ -126,8 +159,8 @@ AzElRangeWidget::AzElRangeWidget(QWidget *parent)
 void AzElRangeWidget::connectEditors()
 {
     auto onAz = [this]{
-        int a1 = clamp(edAzMin->text().toInt(), AZ_MIN, AZ_MAX);
-        int a2 = clamp(edAzMax->text().toInt(), AZ_MIN, AZ_MAX);
+        int a1 = clamp(edAzMin->text().toInt(), -180, 359);  // 支持负数输入
+        int a2 = clamp(edAzMax->text().toInt(), -180, 359);  // 支持负数输入
         setAzRange(a1, a2);
     };
     auto onEl = [this]{
@@ -171,10 +204,21 @@ void AzElRangeWidget::setElRange(int minDeg, int maxDeg)
 }
 void AzElRangeWidget::syncEditors()
 {
-    edAzMin->setText(QString::number(mAzMin));
-    edAzMax->setText(QString::number(mAzMax));
+    // 使用显示角度格式更新编辑框
+    edAzMin->setText(QString::number(toDisplayAngle(mAzMin)));
+    edAzMax->setText(QString::number(toDisplayAngle(mAzMax)));
     edElMin->setText(QString::number(mElMin));
     edElMax->setText(QString::number(mElMax));
+}
+
+int AzElRangeWidget::toDisplayAngle(int internalDeg)
+{
+    // 将0-359度的内部角度转换为显示角度
+    // 如果角度大于180，显示为负数（如350°显示为-10°）
+    if (internalDeg > 180) {
+        return internalDeg - 360;
+    }
+    return internalDeg;
 }
 
 double AzElRangeWidget::azToThetaRad(int azDeg)
@@ -190,14 +234,20 @@ void AzElRangeWidget::paintEvent(QPaintEvent *e)
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
 
-    // 整体布局：左 2/3 是圆盘，右 1/3 是仰角条
+    // 整体布局：左部分是圆盘，右部分是俯仰角条
     const int W = width();
     const int H = height();
-    const int gap = 12;
+    const int gap = 8;
 
-    const int barW = qMax(64, W / 6);
-    const QRect rcDial(gap, gap, W - barW - gap*3, H - 90);
-    const QRect rcBar (W - barW - gap, rcDial.top()+75, barW, rcDial.height()-150);
+    // 优化布局比例，给俯仰角条合适的空间
+    const int barW = qMax(60, W / 5);  // 俯仰角条宽度
+    const int dialSize = qMin(W - barW - gap*1, H - 40);  // 圆盘大小
+    const QRect rcDial(gap, gap, dialSize, dialSize);
+
+    // 俯仰角条高度与圆盘高度相近，只稍微长一点
+    const int barTop = rcDial.top();
+    const int barHeight = dialSize + 30;  // 比圆盘稍长30像素
+    const QRect rcBar(W - barW - gap, barTop, barW, barHeight);
 
     drawAzDial(p, rcDial);
     drawElBar (p, rcBar);
@@ -250,7 +300,7 @@ void AzElRangeWidget::drawAzDial(QPainter &p, const QRect &rcDial)
         const double th = azToThetaRad(az);
         QPointF pt(C.x() + r * std::cos(th),
                    C.y() - r * std::sin(th));
-        QFont f("Microsoft YaHei", 12, QFont::DemiBold);
+        QFont f("Microsoft YaHei", 10, QFont::DemiBold);  // 减小字体从12到10
         p.setFont(f);
         p.setPen(QColor(QColorConstants::Green));
         QRectF tr(pt.x()-14, pt.y()-12, 28, 24);
@@ -267,7 +317,7 @@ void AzElRangeWidget::drawAzDial(QPainter &p, const QRect &rcDial)
         const int r = R_outer - 22; // 在外圈内一点
         QPointF pt(C.x() + r * std::cos(th),
                    C.y() - r * std::sin(th));
-        QFont f("Microsoft YaHei", 9);
+        QFont f("Microsoft YaHei", 8);  // 减小字体从9到8
         p.setFont(f);
         p.setPen(QColor(150, 190, 180, 220));
         QRectF tr(pt.x()-14, pt.y()-9, 28, 18);
@@ -345,7 +395,7 @@ void AzElRangeWidget::drawAzDial(QPainter &p, const QRect &rcDial)
     // —— 中间数值文本 —— //
     {
         QString txt = QString("%1° - %2°").arg(mAzMin).arg(mAzMax);
-        QFont f("Microsoft YaHei", 14, QFont::DemiBold);
+        QFont f("Microsoft YaHei", 12, QFont::DemiBold);  // 减小字体从14到12
         p.setFont(f);
         p.setPen(QColor("#e3fff6"));
         p.drawText(QRectF(C.x()-80, C.y()-14, 160, 28), Qt::AlignCenter, txt);
@@ -390,7 +440,7 @@ void AzElRangeWidget::drawElBar(QPainter &p, const QRect &rcBar)
 
         if (d % 15 == 0) {
             p.setPen(QColor("#a8d4c8"));
-            QFont f("Microsoft YaHei", 10);
+            QFont f("Microsoft YaHei", 9);  // 减小字体从10到9
             p.setFont(f);
             p.drawText(QRect(gradRect.left() - 44, yy - 9, 38, 18),
                        Qt::AlignRight|Qt::AlignVCenter,
@@ -412,7 +462,7 @@ void AzElRangeWidget::drawElBar(QPainter &p, const QRect &rcBar)
         p.drawLine(gradRect.right()+2, yy, gradRect.right()+8, yy);
         // 文本
         p.setPen(QColor("#e3fff6"));
-        QFont f("Microsoft YaHei", 10, QFont::DemiBold);
+        QFont f("Microsoft YaHei", 9, QFont::DemiBold);  // 减小字体从10到9
         p.setFont(f);
         p.drawText(r, Qt::AlignCenter, QString::number(el));
     };
@@ -439,7 +489,7 @@ int AzElRangeWidget::cwSpan(int a1, int a2)
     // 确保角度在0-359范围内
     a1 = norm360(a1);
     a2 = norm360(a2);
-    
+
     // 计算顺时针跨度
     if (a2 >= a1) {
         return a2 - a1;
@@ -447,4 +497,3 @@ int AzElRangeWidget::cwSpan(int a1, int a2)
         return 360 - a1 + a2;
     }
 }
-
