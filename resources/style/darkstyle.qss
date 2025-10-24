@@ -1290,3 +1290,270 @@ QToolTip:hover {
     background-color: rgba(102, 255, 204, 0.4); /* 选中时更强的绿色背景 */
     color: #ffffff;                           /* 选中时白色文字 */
 }
+
+/* =============================================================================
+ * ParamWidget �������öԻ�����ʽ
+ * =============================================================================
+ */
+
+/* QLabel - ������ǩ��ʽ */
+BatteryControl QLabel,
+TranRecvUI QLabel,
+DataSaveUI QLabel,
+DataProcessUI QLabel,
+sigParamUI QLabel,
+FreqControlUI QLabel,
+waveAndSample QLabel,
+ScanRangeUI QLabel,
+PhotoElectricParam QLabel {
+    background-color: transparent;
+    color: #66ffcc;
+    font-size: 14px;
+    font-weight: bold;
+    padding: 2px;
+}
+
+/* QCheckBox - checkbox style */
+BatteryControl QCheckBox,
+TranRecvUI QCheckBox,
+DataSaveUI QCheckBox,
+DataProcessUI QCheckBox,
+sigParamUI QCheckBox,
+FreqControlUI QCheckBox,
+waveAndSample QCheckBox,
+ScanRangeUI QCheckBox,
+PhotoElectricParam QCheckBox {
+    color: #66ffcc;
+    font-size: 14px;
+    font-weight: bold;
+    spacing: 8px;
+}
+
+/* QCheckBox indicator */
+BatteryControl QCheckBox::indicator,
+TranRecvUI QCheckBox::indicator,
+DataSaveUI QCheckBox::indicator,
+DataProcessUI QCheckBox::indicator,
+sigParamUI QCheckBox::indicator,
+FreqControlUI QCheckBox::indicator,
+waveAndSample QCheckBox::indicator,
+ScanRangeUI QCheckBox::indicator,
+PhotoElectricParam QCheckBox::indicator {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #66ffcc;
+    border-radius: 4px;
+    background-color: rgba(16, 24, 24, 0.8);
+}
+
+/* QCheckBox checked - 使用对勾图标 */
+BatteryControl QCheckBox::indicator:checked,
+TranRecvUI QCheckBox::indicator:checked,
+DataSaveUI QCheckBox::indicator:checked,
+DataProcessUI QCheckBox::indicator:checked,
+sigParamUI QCheckBox::indicator:checked,
+FreqControlUI QCheckBox::indicator:checked,
+waveAndSample QCheckBox::indicator:checked,
+ScanRangeUI QCheckBox::indicator:checked,
+PhotoElectricParam QCheckBox::indicator:checked {
+    background-color: #66ffcc;
+    border: 2px solid #66ffcc;
+    border-radius: 4px;
+    image: url(:/resources/images/checkbox_checked.svg);
+}
+
+/* QCheckBox hover */
+BatteryControl QCheckBox::indicator:hover,
+TranRecvUI QCheckBox::indicator:hover,
+DataSaveUI QCheckBox::indicator:hover,
+DataProcessUI QCheckBox::indicator:hover,
+sigParamUI QCheckBox::indicator:hover,
+FreqControlUI QCheckBox::indicator:hover,
+waveAndSample QCheckBox::indicator:hover,
+ScanRangeUI QCheckBox::indicator:hover,
+PhotoElectricParam QCheckBox::indicator:hover {
+    border-color: rgba(102, 255, 204, 0.8);
+    background-color: rgba(102, 255, 204, 0.1);
+}
+
+/* QComboBox - combobox style */
+BatteryControl QComboBox,
+TranRecvUI QComboBox,
+DataSaveUI QComboBox,
+DataProcessUI QComboBox,
+sigParamUI QComboBox,
+FreqControlUI QComboBox,
+waveAndSample QComboBox,
+ScanRangeUI QComboBox,
+PhotoElectricParam QComboBox {
+    background-color: rgba(16, 24, 24, 0.9);
+    color: #66ffcc;
+    font-size: 14px;
+    font-weight: bold;
+    border: 2px solid #66ffcc;
+    border-radius: 4px;
+    padding: 4px 8px;
+    min-height: 28px;
+}
+
+/* QComboBox hover */
+BatteryControl QComboBox:hover,
+TranRecvUI QComboBox:hover,
+DataSaveUI QComboBox:hover,
+DataProcessUI QComboBox:hover,
+sigParamUI QComboBox:hover,
+FreqControlUI QComboBox:hover,
+waveAndSample QComboBox:hover,
+ScanRangeUI QComboBox:hover,
+PhotoElectricParam QComboBox:hover {
+    border-color: rgba(102, 255, 204, 0.8);
+    background-color: rgba(102, 255, 204, 0.1);
+}
+
+/* QComboBox drop-down - 下拉按钮区域 */
+BatteryControl QComboBox::drop-down,
+TranRecvUI QComboBox::drop-down,
+DataSaveUI QComboBox::drop-down,
+DataProcessUI QComboBox::drop-down,
+sigParamUI QComboBox::drop-down,
+FreqControlUI QComboBox::drop-down,
+waveAndSample QComboBox::drop-down,
+ScanRangeUI QComboBox::drop-down,
+PhotoElectricParam QComboBox::drop-down {
+    border: none;
+    width: 30px;
+    background: transparent;
+}
+
+/* QComboBox down-arrow - 使用border技巧绘制三角形箭头 */
+BatteryControl QComboBox::down-arrow,
+TranRecvUI QComboBox::down-arrow,
+DataSaveUI QComboBox::down-arrow,
+DataProcessUI QComboBox::down-arrow,
+sigParamUI QComboBox::down-arrow,
+FreqControlUI QComboBox::down-arrow,
+waveAndSample QComboBox::down-arrow,
+ScanRangeUI QComboBox::down-arrow,
+PhotoElectricParam QComboBox::down-arrow {
+    width: 0;
+    height: 0;
+    /* 使用border技巧绘制向下的三角形 */
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid #66ffcc;
+    margin-right: 8px;
+}
+
+/* QComboBox down-arrow hover - hover时箭头颜色变亮 */
+BatteryControl QComboBox::down-arrow:hover,
+TranRecvUI QComboBox::down-arrow:hover,
+DataSaveUI QComboBox::down-arrow:hover,
+DataProcessUI QComboBox::down-arrow:hover,
+sigParamUI QComboBox::down-arrow:hover,
+FreqControlUI QComboBox::down-arrow:hover,
+waveAndSample QComboBox::down-arrow:hover,
+ScanRangeUI QComboBox::down-arrow:hover,
+PhotoElectricParam QComboBox::down-arrow:hover {
+    border-top-color: #99ffdd;
+}
+
+/* QComboBox popup list view */
+BatteryControl QComboBox QAbstractItemView,
+TranRecvUI QComboBox QAbstractItemView,
+DataSaveUI QComboBox QAbstractItemView,
+DataProcessUI QComboBox QAbstractItemView,
+sigParamUI QComboBox QAbstractItemView,
+FreqControlUI QComboBox QAbstractItemView,
+waveAndSample QComboBox QAbstractItemView,
+ScanRangeUI QComboBox QAbstractItemView,
+PhotoElectricParam QComboBox QAbstractItemView {
+    background-color: rgba(16, 24, 24, 0.95);
+    color: #66ffcc;
+    font-size: 14px;
+    border: 2px solid #66ffcc;
+    border-radius: 4px;
+    selection-background-color: rgba(102, 255, 204, 0.3);
+    selection-color: #ffffff;
+}
+
+/* QComboBox list item */
+BatteryControl QComboBox QAbstractItemView::item,
+TranRecvUI QComboBox QAbstractItemView::item,
+DataSaveUI QComboBox QAbstractItemView::item,
+DataProcessUI QComboBox QAbstractItemView::item,
+sigParamUI QComboBox QAbstractItemView::item,
+FreqControlUI QComboBox QAbstractItemView::item,
+waveAndSample QComboBox QAbstractItemView::item,
+ScanRangeUI QComboBox QAbstractItemView::item,
+PhotoElectricParam QComboBox QAbstractItemView::item {
+    padding: 6px 10px;
+    min-height: 28px;
+}
+
+/* QComboBox list item hover */
+BatteryControl QComboBox QAbstractItemView::item:hover,
+TranRecvUI QComboBox QAbstractItemView::item:hover,
+DataSaveUI QComboBox QAbstractItemView::item:hover,
+DataProcessUI QComboBox QAbstractItemView::item:hover,
+sigParamUI QComboBox QAbstractItemView::item:hover,
+FreqControlUI QComboBox QAbstractItemView::item:hover,
+waveAndSample QComboBox QAbstractItemView::item:hover,
+ScanRangeUI QComboBox QAbstractItemView::item:hover,
+PhotoElectricParam QComboBox QAbstractItemView::item:hover {
+    background-color: rgba(102, 255, 204, 0.2);
+}
+
+/* QLineEdit - line edit */
+BatteryControl QLineEdit,
+TranRecvUI QLineEdit,
+DataSaveUI QLineEdit,
+DataProcessUI QLineEdit,
+sigParamUI QLineEdit,
+FreqControlUI QLineEdit,
+waveAndSample QLineEdit,
+ScanRangeUI QLineEdit,
+PhotoElectricParam QLineEdit {
+    background-color: rgba(16, 24, 24, 0.9);
+    color: #66ffcc;
+    font-size: 14px;
+    font-weight: bold;
+    border: 2px solid #66ffcc;
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+
+/* QDialogButtonBox button */
+BatteryControl QDialogButtonBox QPushButton,
+TranRecvUI QDialogButtonBox QPushButton,
+DataSaveUI QDialogButtonBox QPushButton,
+DataProcessUI QDialogButtonBox QPushButton,
+sigParamUI QDialogButtonBox QPushButton,
+FreqControlUI QDialogButtonBox QPushButton,
+waveAndSample QDialogButtonBox QPushButton,
+ScanRangeUI QDialogButtonBox QPushButton,
+PhotoElectricParam QDialogButtonBox QPushButton {
+    background-color: rgba(16, 24, 24, 0.9);
+    color: #66ffcc;
+    font-size: 13px;
+    font-weight: bold;
+    border: 2px solid #66ffcc;
+    border-radius: 4px;
+    padding: 4px 12px;
+    min-width: 70px;
+    min-height: 26px;
+    max-height: 28px;
+}
+
+/* button hover */
+BatteryControl QDialogButtonBox QPushButton:hover,
+TranRecvUI QDialogButtonBox QPushButton:hover,
+DataSaveUI QDialogButtonBox QPushButton:hover,
+DataProcessUI QDialogButtonBox QPushButton:hover,
+sigParamUI QDialogButtonBox QPushButton:hover,
+FreqControlUI QDialogButtonBox QPushButton:hover,
+waveAndSample QDialogButtonBox QPushButton:hover,
+ScanRangeUI QDialogButtonBox QPushButton:hover,
+PhotoElectricParam QDialogButtonBox QPushButton:hover {
+    background-color: rgba(102, 255, 204, 0.2);
+    border-color: rgba(102, 255, 204, 0.8);
+}

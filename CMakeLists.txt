@@ -6,7 +6,7 @@
 #   主要功能包括：
 #   - 实时雷达数据接收和处理
 #   - PPI（平面位置显示）和极坐标显示
-#   - 目标检测和航迹管理  
+#   - 目标检测和航迹管理
 #   - UDP网络通信
 #   - Web地图集成显示
 #   - 多线程数据处理
@@ -67,7 +67,7 @@ set(CMAKE_AUTORCC ON)
 ##############################################################################
 
 # 查找Qt5库 - 雷达显示系统所需的核心组件
-find_package(Qt5 REQUIRED COMPONENTS 
+find_package(Qt5 REQUIRED COMPONENTS
     Widgets          # GUI界面组件（按钮、窗口、布局等）
     Core             # Qt核心功能（字符串、容器、事件系统等）
     Gui              # 底层GUI支持（绘图、字体、颜色等）
@@ -77,12 +77,12 @@ find_package(Qt5 REQUIRED COMPONENTS
 )
 
 # Qt库列表 - 用于后续的链接配置
-set(QT_LIBS 
-    Qt5::Widgets 
-    Qt5::Core 
-    Qt5::Gui 
-    Qt5::Network 
-    Qt5::WebEngineWidgets 
+set(QT_LIBS
+    Qt5::Widgets
+    Qt5::Core
+    Qt5::Gui
+    Qt5::Network
+    Qt5::WebEngineWidgets
     Qt5::WebChannel
 )
 
@@ -96,13 +96,13 @@ set(SRC_FILES
     # 主程序和主界面
     main.cpp                                    # 程序入口点
     mainwindow.cpp                             # 主窗口实现
-    
+
     # UDP通信模块 - 网络数据收发
     UDP/threadudpsocket.cpp                    # 多线程UDP Socket通信
-    
+
     # 地图显示模块 - Web地图集成
     mapDisp/mapprox.cpp                        # 地图代理和Web交互
-    
+
     # 极坐标显示模块 - PPI雷达显示核心
     PolarDisp/pointinfow.cpp                   # 点信息窗口
     PolarDisp/polargrid.cpp                    # 极坐标网格绘制
@@ -118,14 +118,14 @@ set(SRC_FILES
     PolarDisp/tooltip.cpp                      # 工具提示
     PolarDisp/zoomview.cpp                     # 缩放视图
     PolarDisp/ppiview.cpp                      # PPI主视图
-    
+
     # 点管理模块 - 目标检测和航迹管理
     PointManager/detmanager.cpp                # 检测点管理器
     PointManager/point.cpp                     # 点对象基类
     PointManager/trackmanager.cpp              # 航迹管理器
     PointManager/sectordetmanager.cpp          # 扇区检测管理
     PointManager/sectortrackmanager.cpp        # 扇区航迹管理
-    
+
     # 控制模块 - 数据流控制和业务逻辑
     Controller/controller.cpp                  # 主控制器
     Controller/disp2datamanager.cpp            # 显示到数据管理
@@ -140,17 +140,28 @@ set(SRC_FILES
     Controller/disp2resmanager.cpp             # 显示到资源管理
     Controller/disp2photomanager.cpp           # 显示到照片管理
     Controller/disp2datamanager.cpp            # 显示到数据管理
-    
+
     # 主界面模块 - 控制面板和布局
     mainPanel/mainoverlayout.cpp               # 主界面覆盖布局
     mainPanel/azelrangewidget.cpp              # 方位角高低角范围控件
-    
+
     # 自定义组件模块 - UI扩展控件
     cusWidgets/detachablewidget.cpp            # 可分离窗口部件
     cusWidgets/cuswindow.cpp                   # 自定义窗口
     cusWidgets/custommessagebox.cpp            # 自定义消息框
     cusWidgets/customcombobox.cpp              # 自定义ComboBox组件
-    
+
+    # 参数配置模块 - 雷达参数配置对话框
+    paramWidget/batterycontrol.cpp             # 一键全数配置
+    paramWidget/tranrecvui.cpp                 # 发射接收控制
+    paramWidget/datasaveui.cpp                 # 数据存储/删除
+    paramWidget/dataprocessui.cpp              # 数据处理参数
+    paramWidget/sigparamui.cpp                 # 信号处理参数
+    paramWidget/freqcontrolui.cpp              # 波形及采样控制
+    paramWidget/waveandsample.cpp              # 电调控制
+    paramWidget/scanrangeui.cpp                # 方向图扫描控制
+    paramWidget/photoelectricparam.cpp         # 光电系统控制
+
     # 基础模块 - 系统基础功能
     Basic/log.cpp                              # 日志系统
     Basic/Protocol.cpp                         # 通信协议定义
@@ -163,7 +174,7 @@ set(SRC_FILES
 set(HDR_FILES
     # 主界面头文件
     mainwindow.h                               # 主窗口类定义
-    
+
     # 控制模块头文件 - 数据流和业务逻辑
     Controller/targetdispmanager.h             # 目标显示管理器
     Controller/sig2dispmanager.h               # 信号到显示管理器
@@ -177,13 +188,24 @@ set(HDR_FILES
     Controller/disp2datamanager.h              # 显示到数据管理器
     Controller/data2dispmanager.h              # 数据到显示管理器
     Controller/controller.h                    # 主控制器
-    
+
     # 自定义组件头文件 - UI扩展控件
     cusWidgets/detachablewidget.h              # 可分离窗口部件
     cusWidgets/cuswindow.h                     # 自定义窗口
     cusWidgets/custommessagebox.h              # 自定义消息框
     cusWidgets/customcombobox.h                # 自定义ComboBox组件
-    
+
+    # 参数配置模块头文件 - 雷达参数配置对话框
+    paramWidget/batterycontrol.h               # 一键全数配置
+    paramWidget/tranrecvui.h                   # 发射接收控制
+    paramWidget/datasaveui.h                   # 数据存储/删除
+    paramWidget/dataprocessui.h                # 数据处理参数
+    paramWidget/sigparamui.h                   # 信号处理参数
+    paramWidget/freqcontrolui.h                # 波形及采样控制
+    paramWidget/waveandsample.h                # 电调控制
+    paramWidget/scanrangeui.h                  # 方向图扫描控制
+    paramWidget/photoelectricparam.h           # 光电系统控制
+
     # 基础模块头文件 - 系统基础功能
     Basic/bindThread.h                         # 线程绑定工具
     Basic/Protocol.h                           # 通信协议定义
@@ -191,7 +213,7 @@ set(HDR_FILES
     Basic/log.h                               # 日志系统
     Basic/DispBasci.h                         # 显示基础定义
     Basic/ConfigManager.h                     # 配置管理器
-    
+
     # 极坐标显示模块头文件 - PPI雷达显示
     PolarDisp/polargrid.h                     # 极坐标网格
     PolarDisp/polaraxis.h                     # 极坐标轴
@@ -207,21 +229,21 @@ set(HDR_FILES
     PolarDisp/sectorpolargrid.h               # 扇区极坐标网格
     PolarDisp/ppiview.h                       # PPI主视图
     PolarDisp/ppisscene.h                     # PPI场景管理
-    
+
     # 主界面模块头文件 - 控制面板和布局
     mainPanel/mainoverlayout.h                # 主界面覆盖布局
     mainPanel/azelrangewidget.h               # 方位角高低角范围控件
-    
+
     # 点管理模块头文件 - 目标检测和航迹
     PointManager/sectordetmanager.h           # 扇区检测管理
     PointManager/sectortrackmanager.h         # 扇区航迹管理
     PointManager/detmanager.h                 # 检测点管理器
     PointManager/trackmanager.h               # 航迹管理器
     PointManager/point.h                      # 点对象基类
-    
+
     # 地图显示模块头文件
     mapDisp/mapprox.h                         # 地图代理
-    
+
     # UDP通信模块头文件
     UDP/threadudpsocket.h                     # 多线程UDP Socket
 )
@@ -237,6 +259,15 @@ set(UI_FILES
     PolarDisp/mousepositioninfo.ui             # 鼠标位置信息界面
     PolarDisp/ppivisualsettings.ui             # PPI视觉设置界面
     mainPanel/mainoverlayout.ui                # 主界面布局
+    paramWidget/batterycontrol.ui              # 一键全数配置界面
+    paramWidget/tranrecvui.ui                  # 发射接收控制界面
+    paramWidget/datasaveui.ui                  # 数据存储界面
+    paramWidget/dataprocessui.ui               # 数据处理参数界面
+    paramWidget/sigparamui.ui                  # 信号处理参数界面
+    paramWidget/freqcontrolui.ui               # 波形及采样控制界面
+    paramWidget/waveandsample.ui               # 电调控制界面
+    paramWidget/scanrangeui.ui                 # 方向图扫描控制界面
+    paramWidget/photoelectricparam.ui          # 光电系统控制界面
 )
 
 # Qt资源文件 - 图标、样式表、静态文件等
@@ -252,7 +283,7 @@ set(QRC_FILES
 # 包含所有源文件、头文件、UI文件和资源文件
 add_executable(DispCtrl
     ${SRC_FILES}                               # 所有.cpp源文件
-    ${HDR_FILES}                               # 所有.h头文件  
+    ${HDR_FILES}                               # 所有.h头文件
     ${UI_FILES}                                # 所有.ui界面文件
     ${QRC_FILES}                               # 所有.qrc资源文件
 )
@@ -272,7 +303,7 @@ target_link_libraries(DispCtrl PRIVATE ${QT_LIBS})
 # 分别为Debug和Release配置创建独立的输出目录
 set_target_properties(DispCtrl PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/$<CONFIG>"    # 可执行文件目录
-    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/$<CONFIG>"    # 静态库目录  
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/$<CONFIG>"    # 静态库目录
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib/$<CONFIG>"    # 动态库目录
 )
 

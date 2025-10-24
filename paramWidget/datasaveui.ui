@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+  <class>DataSaveUI</class>
+  <widget class="QDialog" name="DataSaveUI">
+    <property name="geometry">
+      <rect>
+        <x>0</x>
+        <y>0</y>
+        <width>919</width>
+        <height>538</height>
+      </rect>
+    </property>
+    <property name="windowTitle">
+      <string>Dialog</string>
+    </property>
+    <layout class="QVBoxLayout" name="verticalLayout">
+      <property name="bottomMargin">
+        <number>8</number>
+      </property>
+      <property name="rightMargin">
+        <number>8</number>
+      </property>
+      <property name="topMargin">
+        <number>8</number>
+      </property>
+      <property name="leftMargin">
+        <number>8</number>
+      </property>
+      <property name="spacing">
+        <number>6</number>
+      </property>
+      <item>
+        <layout class="QGridLayout" name="gridLayout">
+          <property name="bottomMargin">
+            <number>8</number>
+          </property>
+          <property name="rightMargin">
+            <number>8</number>
+          </property>
+          <property name="topMargin">
+            <number>8</number>
+          </property>
+          <property name="leftMargin">
+            <number>8</number>
+          </property>
+          <property name="spacing">
+            <number>6</number>
+          </property>
+          <item row="0" column="1">
+            <widget class="QLineEdit" name="saveID" />
+          </item>
+          <item row="0" column="3">
+            <widget class="QPushButton" name="save">
+              <property name="text">
+                <string>保存备注</string>
+              </property>
+            </widget>
+          </item>
+          <item row="1" column="0" colspan="5">
+            <widget class="QTableWidget" name="tab">
+              <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+                  <horstretch>0</horstretch>
+                  <verstretch>1</verstretch>
+                </sizepolicy>
+              </property>
+              <property name="alternatingRowColors">
+                <bool>true</bool>
+              </property>
+              <column>
+                <property name="text">
+                  <string>数据编号</string>
+                </property>
+              </column>
+              <column>
+                <property name="text">
+                  <string>存储时间</string>
+                </property>
+              </column>
+              <column>
+                <property name="text">
+                  <string>存储大小(GB)</string>
+                </property>
+              </column>
+              <column>
+                <property name="text">
+                  <string>备注</string>
+                </property>
+              </column>
+            </widget>
+          </item>
+          <item row="0" column="0">
+            <widget class="QLabel" name="label">
+              <property name="text">
+                <string>数据存储编号</string>
+              </property>
+            </widget>
+          </item>
+          <item row="0" column="2">
+            <widget class="QPushButton" name="startSave">
+              <property name="text">
+                <string>下发开始存储</string>
+              </property>
+            </widget>
+          </item>
+        </layout>
+      </item>
+    </layout>
+  </widget>
+  <customwidgets>
+    <customwidget>
+      <class>CustomComboBox</class>
+      <extends>QComboBox</extends>
+      <header>cusWidgets/customcombobox.h</header>
+    </customwidget>
+  </customwidgets>
+  <resources />
+  <connections />
+</ui>

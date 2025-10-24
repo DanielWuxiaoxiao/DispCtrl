@@ -1,0 +1,941 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+  <class>waveAndSample</class>
+  <widget class="QDialog" name="waveAndSample">
+    <property name="geometry">
+      <rect>
+        <x>0</x>
+        <y>0</y>
+        <width>1048</width>
+        <height>730</height>
+      </rect>
+    </property>
+    <property name="windowTitle">
+      <string>Dialog</string>
+    </property>
+    <layout class="QVBoxLayout" name="verticalLayout">
+      <property name="bottomMargin">
+        <number>8</number>
+      </property>
+      <property name="rightMargin">
+        <number>8</number>
+      </property>
+      <property name="topMargin">
+        <number>8</number>
+      </property>
+      <property name="leftMargin">
+        <number>8</number>
+      </property>
+      <property name="spacing">
+        <number>6</number>
+      </property>
+      <item>
+        <layout class="QGridLayout" name="gridLayout">
+          <property name="bottomMargin">
+            <number>8</number>
+          </property>
+          <property name="rightMargin">
+            <number>8</number>
+          </property>
+          <property name="topMargin">
+            <number>8</number>
+          </property>
+          <property name="leftMargin">
+            <number>8</number>
+          </property>
+          <property name="spacing">
+            <number>6</number>
+          </property>
+          <item row="6" column="0">
+            <widget class="QLabel" name="label_5">
+              <property name="text">
+                <string>采样终止(us)</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="18" column="3">
+            <widget class="QLineEdit" name="eleend3" />
+          </item>
+          <item row="15" column="0">
+            <widget class="QLabel" name="label_21">
+              <property name="text">
+                <string>积累脉冲数</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="5" column="3">
+            <widget class="QLineEdit" name="samplestart1">
+              <property name="text">
+                <string>3</string>
+              </property>
+            </widget>
+          </item>
+          <item row="9" column="0">
+            <widget class="QLabel" name="label_20">
+              <property name="text">
+                <string>积累脉冲数</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="16" column="1">
+            <widget class="QLineEdit" name="tran3">
+              <property name="text">
+                <string>1</string>
+              </property>
+              <property name="readOnly">
+                <bool>true</bool>
+              </property>
+            </widget>
+          </item>
+          <item row="5" column="2">
+            <widget class="QLabel" name="label_4">
+              <property name="text">
+                <string>采样起始(us)</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="14" column="0">
+            <widget class="QCheckBox" name="enable3">
+              <property name="text">
+                <string>波形3起效</string>
+              </property>
+            </widget>
+          </item>
+          <item row="4" column="2">
+            <widget class="QLabel" name="label_2">
+              <property name="text">
+                <string>波形1编码</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="4" column="0">
+            <widget class="QLabel" name="label">
+              <property name="text">
+                <string>积累脉冲数</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="7" column="2">
+            <widget class="QLabel" name="label_15">
+              <property name="text">
+                <string>波形1俯仰终止</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="7" column="1">
+            <widget class="QLineEdit" name="elestart1">
+              <property name="text">
+                <string>-10</string>
+              </property>
+            </widget>
+          </item>
+          <item row="7" column="3">
+            <widget class="QLineEdit" name="eleend1">
+              <property name="text">
+                <string>46</string>
+              </property>
+            </widget>
+          </item>
+          <item row="9" column="1">
+            <widget class="CustomComboBox" name="pulseNum2">
+              <property name="currentIndex">
+                <number>3</number>
+              </property>
+              <item>
+                <property name="text">
+                  <string>32</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>64</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>128</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>256</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>512</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>1024</string>
+                </property>
+              </item>
+            </widget>
+          </item>
+          <item row="13" column="3">
+            <widget class="QLineEdit" name="eleend2">
+              <property name="text">
+                <string>-2</string>
+              </property>
+            </widget>
+          </item>
+          <item row="9" column="3">
+            <widget class="CustomComboBox" name="wave2">
+              <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                </sizepolicy>
+              </property>
+              <property name="currentIndex">
+                <number>9</number>
+              </property>
+              <item>
+                <property name="text">
+                  <string>时宽2us-带宽6MHz-重复周期40us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽2us-带宽6MHz-重复周期25us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽4us-带宽6MHz-重复周期20us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽10us-带宽6MHz-重复周期50us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽20us-带宽6MHz-重复周期100us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽35us-带宽6MHz-重复周期175us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽1us-带宽15MHz-重复周期15us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽1us-带宽15MHz-重复周期30us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽1us-带宽15MHz-重复周期40us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽10us-带宽15MHz-重复周期50us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽25us-带宽15MHz-重复周期125us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽35us-带宽15MHz-重复周期175us</string>
+                </property>
+              </item>
+            </widget>
+          </item>
+          <item row="16" column="3">
+            <widget class="QLineEdit" name="samplestart3">
+              <property name="text">
+                <string>4</string>
+              </property>
+            </widget>
+          </item>
+          <item row="6" column="3">
+            <widget class="QLineEdit" name="elestep1">
+              <property name="text">
+                <string>6</string>
+              </property>
+            </widget>
+          </item>
+          <item row="10" column="0">
+            <widget class="QLabel" name="label_7">
+              <property name="text">
+                <string>发射起始(us)</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="5" column="0">
+            <widget class="QLabel" name="label_3">
+              <property name="text">
+                <string>发射起始(us)</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="6" column="2">
+            <widget class="QLabel" name="label_27">
+              <property name="text">
+                <string>波形1俯仰间隔</string>
+              </property>
+            </widget>
+          </item>
+          <item row="2" column="0">
+            <widget class="QLabel" name="label_26">
+              <property name="text">
+                <string>方位间隔</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="16" column="0">
+            <widget class="QLabel" name="label_11">
+              <property name="text">
+                <string>发射起始(us)</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="12" column="1">
+            <widget class="QLineEdit" name="samplelen2">
+              <property name="text">
+                <string>254</string>
+              </property>
+            </widget>
+          </item>
+          <item row="17" column="0">
+            <widget class="QLabel" name="label_13">
+              <property name="text">
+                <string>采样终止(us)</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="18" column="2">
+            <widget class="QLabel" name="label_19">
+              <property name="text">
+                <string>波形3俯仰终止</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="17" column="3">
+            <widget class="QLineEdit" name="elestep3" />
+          </item>
+          <item row="16" column="2">
+            <widget class="QLabel" name="label_12">
+              <property name="text">
+                <string>采样起始(us)</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="8" column="0">
+            <widget class="QCheckBox" name="enable2">
+              <property name="text">
+                <string>波形2起效</string>
+              </property>
+              <property name="checked">
+                <bool>true</bool>
+              </property>
+            </widget>
+          </item>
+          <item row="1" column="2">
+            <widget class="QLabel" name="label_25">
+              <property name="text">
+                <string>方位终止</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="3" column="0">
+            <widget class="QCheckBox" name="enable1">
+              <property name="text">
+                <string>波形1起效</string>
+              </property>
+              <property name="checked">
+                <bool>true</bool>
+              </property>
+            </widget>
+          </item>
+          <item row="0" column="2">
+            <widget class="QLabel" name="label_23">
+              <property name="text">
+                <string>调频方式</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="4" column="1">
+            <widget class="CustomComboBox" name="pulseNum1">
+              <property name="currentIndex">
+                <number>3</number>
+              </property>
+              <item>
+                <property name="text">
+                  <string>32</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>64</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>128</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>256</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>512</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>1024</string>
+                </property>
+              </item>
+            </widget>
+          </item>
+          <item row="13" column="2">
+            <widget class="QLabel" name="label_17">
+              <property name="text">
+                <string>波形2俯仰终止</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="18" column="1">
+            <widget class="QLineEdit" name="elestart3" />
+          </item>
+          <item row="1" column="3">
+            <widget class="QLineEdit" name="aziend">
+              <property name="text">
+                <string>135</string>
+              </property>
+            </widget>
+          </item>
+          <item row="7" column="0">
+            <widget class="QLabel" name="label_14">
+              <property name="text">
+                <string>波形1俯仰起始</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="12" column="2">
+            <widget class="QLabel" name="label_28">
+              <property name="text">
+                <string>波形2俯仰间隔</string>
+              </property>
+            </widget>
+          </item>
+          <item row="1" column="1">
+            <widget class="QLineEdit" name="azistart">
+              <property name="text">
+                <string>-45</string>
+              </property>
+            </widget>
+          </item>
+          <item row="9" column="2">
+            <widget class="QLabel" name="label_6">
+              <property name="text">
+                <string>波形2编码</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="12" column="3">
+            <widget class="QLineEdit" name="elestep2">
+              <property name="text">
+                <string>6</string>
+              </property>
+            </widget>
+          </item>
+          <item row="15" column="3">
+            <widget class="CustomComboBox" name="wave3">
+              <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                </sizepolicy>
+              </property>
+              <item>
+                <property name="text">
+                  <string>时宽2us-带宽6MHz-重复周期40us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽2us-带宽6MHz-重复周期25us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽4us-带宽6MHz-重复周期20us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽10us-带宽6MHz-重复周期50us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽20us-带宽6MHz-重复周期100us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽35us-带宽6MHz-重复周期175us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽1us-带宽15MHz-重复周期15us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽1us-带宽15MHz-重复周期30us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽1us-带宽15MHz-重复周期40us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽10us-带宽15MHz-重复周期50us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽25us-带宽15MHz-重复周期125us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽35us-带宽15MHz-重复周期175us</string>
+                </property>
+              </item>
+            </widget>
+          </item>
+          <item row="10" column="3">
+            <widget class="QLineEdit" name="samplestart2">
+              <property name="text">
+                <string>2</string>
+              </property>
+            </widget>
+          </item>
+          <item row="15" column="2">
+            <widget class="QLabel" name="label_10">
+              <property name="text">
+                <string>波形3编码</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="12" column="0">
+            <widget class="QLabel" name="label_9">
+              <property name="text">
+                <string>采样终止(us)</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="10" column="1">
+            <widget class="QLineEdit" name="tran2">
+              <property name="text">
+                <string>1</string>
+              </property>
+              <property name="readOnly">
+                <bool>true</bool>
+              </property>
+            </widget>
+          </item>
+          <item row="17" column="1">
+            <widget class="QLineEdit" name="samplelen3">
+              <property name="text">
+                <string>39</string>
+              </property>
+            </widget>
+          </item>
+          <item row="4" column="3">
+            <widget class="CustomComboBox" name="wave1">
+              <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                </sizepolicy>
+              </property>
+              <property name="currentIndex">
+                <number>6</number>
+              </property>
+              <item>
+                <property name="text">
+                  <string>时宽2us-带宽6MHz-重复周期40us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽2us-带宽6MHz-重复周期25us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽4us-带宽6MHz-重复周期20us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽10us-带宽6MHz-重复周期50us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽20us-带宽6MHz-重复周期100us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽35us-带宽6MHz-重复周期175us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽1us-带宽15MHz-重复周期15us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽1us-带宽15MHz-重复周期30us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽1us-带宽15MHz-重复周期40us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽10us-带宽15MHz-重复周期50us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽25us-带宽15MHz-重复周期125us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽35us-带宽15MHz-重复周期175us</string>
+                </property>
+              </item>
+            </widget>
+          </item>
+          <item row="13" column="1">
+            <widget class="QLineEdit" name="elestart2">
+              <property name="text">
+                <string>0</string>
+              </property>
+            </widget>
+          </item>
+          <item row="17" column="2">
+            <widget class="QLabel" name="label_29">
+              <property name="text">
+                <string>波形3俯仰间隔</string>
+              </property>
+            </widget>
+          </item>
+          <item row="2" column="1">
+            <widget class="QLineEdit" name="azistep">
+              <property name="text">
+                <string>3</string>
+              </property>
+            </widget>
+          </item>
+          <item row="0" column="3">
+            <widget class="CustomComboBox" name="type">
+              <property name="currentIndex">
+                <number>1</number>
+              </property>
+              <item>
+                <property name="text">
+                  <string>线性负调频</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>线性正调频</string>
+                </property>
+              </item>
+            </widget>
+          </item>
+          <item row="0" column="0">
+            <widget class="QLabel" name="label_22">
+              <property name="text">
+                <string>频点(GHz)</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="13" column="0">
+            <widget class="QLabel" name="label_16">
+              <property name="text">
+                <string>波形2俯仰起始</string>
+              </property>
+            </widget>
+          </item>
+          <item row="0" column="1">
+            <widget class="CustomComboBox" name="freq">
+              <property name="currentIndex">
+                <number>2</number>
+              </property>
+              <item>
+                <property name="text">
+                  <string>15.6</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>15.7</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>15.8</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>15.9</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>16.0</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>16.1</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>16.2</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>16.3</string>
+                </property>
+              </item>
+            </widget>
+          </item>
+          <item row="18" column="0">
+            <widget class="QLabel" name="label_18">
+              <property name="text">
+                <string>波形3俯仰起始</string>
+              </property>
+            </widget>
+          </item>
+          <item row="6" column="1">
+            <widget class="QLineEdit" name="samplelen1">
+              <property name="text">
+                <string>14</string>
+              </property>
+            </widget>
+          </item>
+          <item row="10" column="2">
+            <widget class="QLabel" name="label_8">
+              <property name="text">
+                <string>采样起始(us)</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="15" column="1">
+            <widget class="CustomComboBox" name="pulseNum3">
+              <property name="currentIndex">
+                <number>3</number>
+              </property>
+              <item>
+                <property name="text">
+                  <string>32</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>64</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>128</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>256</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>512</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>1024</string>
+                </property>
+              </item>
+            </widget>
+          </item>
+          <item row="5" column="1">
+            <widget class="QLineEdit" name="tran1">
+              <property name="text">
+                <string>1</string>
+              </property>
+              <property name="readOnly">
+                <bool>true</bool>
+              </property>
+            </widget>
+          </item>
+          <item row="1" column="0">
+            <widget class="QLabel" name="label_24">
+              <property name="text">
+                <string>方位起始</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+        </layout>
+      </item>
+      <item>
+        <widget class="QDialogButtonBox" name="buttonBox">
+          <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="standardButtons">
+            <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+          </property>
+        </widget>
+      </item>
+    </layout>
+  </widget>
+  <customwidgets>
+    <customwidget>
+      <class>CustomComboBox</class>
+      <extends>QComboBox</extends>
+      <header>cusWidgets/customcombobox.h</header>
+    </customwidget>
+  </customwidgets>
+  <resources />
+  <connections>
+    <connection>
+      <sender>buttonBox</sender>
+      <signal>accepted()</signal>
+      <receiver>waveAndSample</receiver>
+      <slot>accept()</slot>
+      <hints>
+        <hint type="sourcelabel">
+          <x>248</x>
+          <y>254</y>
+        </hint>
+        <hint type="destinationlabel">
+          <x>157</x>
+          <y>274</y>
+        </hint>
+      </hints>
+    </connection>
+    <connection>
+      <sender>buttonBox</sender>
+      <signal>rejected()</signal>
+      <receiver>waveAndSample</receiver>
+      <slot>reject()</slot>
+      <hints>
+        <hint type="sourcelabel">
+          <x>316</x>
+          <y>260</y>
+        </hint>
+        <hint type="destinationlabel">
+          <x>286</x>
+          <y>274</y>
+        </hint>
+      </hints>
+    </connection></connections>
+</ui>

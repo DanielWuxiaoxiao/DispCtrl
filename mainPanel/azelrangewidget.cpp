@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-24 11:22:47
+ * @LastEditTime: 2025-10-24 21:06:35
  * @Description: 
  */
 #include "azelrangewidget.h"
@@ -105,6 +105,9 @@ AzElRangeWidget::AzElRangeWidget(QWidget *parent)
     settingsBtn->setToolTip("打开详细角度范围设置");
     settingsBtn->setFixedSize(45, 24);
     grid->addWidget(settingsBtn);
+
+    // 连接设置按钮点击信号
+    connect(settingsBtn, &QPushButton::clicked, this, &AzElRangeWidget::settingsButtonClicked);
 
 
     mainLay->addLayout(grid);

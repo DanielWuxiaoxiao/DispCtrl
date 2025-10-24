@@ -1,0 +1,467 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+  <class>sigParamUI</class>
+  <widget class="QDialog" name="sigParamUI">
+    <property name="geometry">
+      <rect>
+        <x>0</x>
+        <y>0</y>
+        <width>608</width>
+        <height>379</height>
+      </rect>
+    </property>
+    <property name="windowTitle">
+      <string>Dialog</string>
+    </property>
+    <layout class="QVBoxLayout" name="verticalLayout">
+      <property name="bottomMargin">
+        <number>8</number>
+      </property>
+      <property name="rightMargin">
+        <number>8</number>
+      </property>
+      <property name="topMargin">
+        <number>8</number>
+      </property>
+      <property name="leftMargin">
+        <number>8</number>
+      </property>
+      <property name="spacing">
+        <number>6</number>
+      </property>
+      <item>
+        <layout class="QGridLayout" name="gridLayout" columnstretch="1,1,1,1">
+          <property name="bottomMargin">
+            <number>8</number>
+          </property>
+          <property name="rightMargin">
+            <number>8</number>
+          </property>
+          <property name="topMargin">
+            <number>8</number>
+          </property>
+          <property name="leftMargin">
+            <number>8</number>
+          </property>
+          <property name="spacing">
+            <number>6</number>
+          </property>
+          <item row="4" column="1">
+            <widget class="QLineEdit" name="doppro">
+              <property name="text">
+                <string>2</string>
+              </property>
+            </widget>
+          </item>
+          <item row="8" column="2">
+            <widget class="QCheckBox" name="sidelobehide">
+              <property name="text">
+                <string>副瓣匿影</string>
+              </property>
+            </widget>
+          </item>
+          <item row="3" column="1">
+            <widget class="QLineEdit" name="dispro">
+              <property name="text">
+                <string>2</string>
+              </property>
+            </widget>
+          </item>
+          <item row="4" column="0">
+            <widget class="QLabel" name="label_9">
+              <property name="text">
+                <string>多普勒保护窗</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="3" column="2">
+            <widget class="QLabel" name="label_8">
+              <property name="text">
+                <string>距离参考窗</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="6" column="1">
+            <widget class="QLineEdit" name="clutterwid">
+              <property name="text">
+                <string>0</string>
+              </property>
+            </widget>
+          </item>
+          <item row="7" column="1">
+            <widget class="QLineEdit" name="clutteriter">
+              <property name="text">
+                <string>19</string>
+              </property>
+            </widget>
+          </item>
+          <item row="1" column="2">
+            <widget class="QLabel" name="label_4">
+              <property name="text">
+                <string>杂波区门限(dB)</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="2" column="1">
+            <widget class="CustomComboBox" name="clutterfalse">
+              <property name="currentIndex">
+                <number>4</number>
+              </property>
+              <item>
+                <property name="text">
+                  <string>1e-2</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>1e-3</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>1e-4</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>1e-5</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>1e-6</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>1e-7</string>
+                </property>
+              </item>
+            </widget>
+          </item>
+          <item row="3" column="0">
+            <widget class="QLabel" name="label_7">
+              <property name="text">
+                <string>距离保护窗</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="5" column="2">
+            <widget class="QLabel" name="label_12">
+              <property name="text">
+                <string>杂波图启用模式</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="1" column="3">
+            <widget class="QLineEdit" name="clutterthresh">
+              <property name="text">
+                <string>15</string>
+              </property>
+            </widget>
+          </item>
+          <item row="7" column="0">
+            <widget class="QLabel" name="label_15">
+              <property name="text">
+                <string>杂波图迭代系数</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="5" column="3">
+            <widget class="CustomComboBox" name="cluttertype">
+              <property name="currentIndex">
+                <number>1</number>
+              </property>
+              <item>
+                <property name="text">
+                  <string>静态幅度杂波图</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>动态幅度杂波图</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>静态幅相杂波图</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>动态幅相杂波图</string>
+                </property>
+              </item>
+            </widget>
+          </item>
+          <item row="0" column="3">
+            <widget class="QLineEdit" name="firstthresh">
+              <property name="text">
+                <string>9</string>
+              </property>
+            </widget>
+          </item>
+          <item row="2" column="2">
+            <widget class="QLabel" name="label_6">
+              <property name="text">
+                <string>CFAR类型</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="2" column="0">
+            <widget class="QLabel" name="label_5">
+              <property name="text">
+                <string>幅相杂波图虚警率表</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="0" column="1">
+            <widget class="QLineEdit" name="noise">
+              <property name="text">
+                <string>30</string>
+              </property>
+            </widget>
+          </item>
+          <item row="8" column="1">
+            <widget class="QCheckBox" name="cluttersense">
+              <property name="text">
+                <string>杂波感知</string>
+              </property>
+            </widget>
+          </item>
+          <item row="5" column="0">
+            <widget class="QLabel" name="label_11">
+              <property name="text">
+                <string>MTD加窗类型</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="1" column="1">
+            <widget class="QLineEdit" name="secondthre">
+              <property name="text">
+                <string>13</string>
+              </property>
+            </widget>
+          </item>
+          <item row="4" column="3">
+            <widget class="QLineEdit" name="dopref">
+              <property name="text">
+                <string>16</string>
+              </property>
+            </widget>
+          </item>
+          <item row="0" column="2">
+            <widget class="QLabel" name="label_2">
+              <property name="text">
+                <string>一级门限(dB)</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="5" column="1">
+            <widget class="CustomComboBox" name="mtdtype">
+              <property name="currentIndex">
+                <number>1</number>
+              </property>
+              <item>
+                <property name="text">
+                  <string>FFT</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>FIR</string>
+                </property>
+              </item>
+            </widget>
+          </item>
+          <item row="6" column="2">
+            <widget class="QLabel" name="label_14">
+              <property name="text">
+                <string>杂波单元更新窗</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="3" column="3">
+            <widget class="QLineEdit" name="disref">
+              <property name="text">
+                <string>16</string>
+              </property>
+            </widget>
+          </item>
+          <item row="1" column="0">
+            <widget class="QLabel" name="label_3">
+              <property name="text">
+                <string>二级门限(dB)</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="8" column="0">
+            <widget class="QLabel" name="label_16">
+              <property name="text">
+                <string>算法处理开关</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="2" column="3">
+            <widget class="CustomComboBox" name="cfartype">
+              <item>
+                <property name="text">
+                  <string>CA</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>GO</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>SO</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>OS</string>
+                </property>
+              </item>
+            </widget>
+          </item>
+          <item row="0" column="0">
+            <widget class="QLabel" name="label">
+              <property name="text">
+                <string>系统噪声(dB)</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="6" column="3">
+            <widget class="QLineEdit" name="clutterrefresh">
+              <property name="text">
+                <string>19</string>
+              </property>
+            </widget>
+          </item>
+          <item row="4" column="2">
+            <widget class="QLabel" name="label_10">
+              <property name="text">
+                <string>多普勒参考窗</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="6" column="0">
+            <widget class="QLabel" name="label_13">
+              <property name="text">
+                <string>杂波通道宽度</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="8" column="3">
+            <widget class="QCheckBox" name="jinqubumang">
+              <property name="text">
+                <string>近区补盲</string>
+              </property>
+            </widget>
+          </item>
+        </layout>
+      </item>
+      <item>
+        <widget class="QDialogButtonBox" name="buttonBox">
+          <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="standardButtons">
+            <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+          </property>
+        </widget>
+      </item>
+    </layout>
+  </widget>
+  <customwidgets>
+    <customwidget>
+      <class>CustomComboBox</class>
+      <extends>QComboBox</extends>
+      <header>cusWidgets/customcombobox.h</header>
+    </customwidget>
+  </customwidgets>
+  <resources />
+  <connections>
+    <connection>
+      <sender>buttonBox</sender>
+      <signal>accepted()</signal>
+      <receiver>sigParamUI</receiver>
+      <slot>accept()</slot>
+      <hints>
+        <hint type="sourcelabel">
+          <x>248</x>
+          <y>254</y>
+        </hint>
+        <hint type="destinationlabel">
+          <x>157</x>
+          <y>274</y>
+        </hint>
+      </hints>
+    </connection>
+    <connection>
+      <sender>buttonBox</sender>
+      <signal>rejected()</signal>
+      <receiver>sigParamUI</receiver>
+      <slot>reject()</slot>
+      <hints>
+        <hint type="sourcelabel">
+          <x>316</x>
+          <y>260</y>
+        </hint>
+        <hint type="destinationlabel">
+          <x>286</x>
+          <y>274</y>
+        </hint>
+      </hints>
+    </connection></connections>
+</ui>

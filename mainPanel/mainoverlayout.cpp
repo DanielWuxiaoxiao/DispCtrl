@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-24 11:22:47
+ * @LastEditTime: 2025-10-24 21:06:35
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -11,6 +11,7 @@
 #include "PolarDisp/ppisscene.h"
 #include "cusWidgets/custommessagebox.h"
 #include "cusWidgets/customcombobox.h"
+#include "cusWidgets/cuswindow.h"
 #include "Controller/controller.h"
 #include "cusWidgets/detachablewidget.h"
 #include "azelrangewidget.h"
@@ -18,6 +19,16 @@
 #include "PolarDisp/pviewtopleft.h"
 #include "PointManager/trackmanager.h"
 #include "Controller/RadarDataManager.h"
+// 参数配置对话框头文件
+#include "paramWidget/batterycontrol.h"
+#include "paramWidget/tranrecvui.h"
+#include "paramWidget/datasaveui.h"
+#include "paramWidget/dataprocessui.h"
+#include "paramWidget/sigparamui.h"
+#include "paramWidget/freqcontrolui.h"
+#include "paramWidget/waveandsample.h"
+#include "paramWidget/scanrangeui.h"
+#include "paramWidget/photoelectricparam.h"
 #include <QTimer>
 #include <QDateTime>
 #include <QVBoxLayout>
@@ -28,9 +39,14 @@
 #include <QDoubleValidator>
 #include <QTableWidget>
 #include <QHeaderView>
+#include <QScrollBar>
+#include <QApplication>
 #include <QDebug>
 #include "PolarDisp/zoomview.h"
 #include "PolarDisp/sectorwidget.h"
+#include "PolarDisp/sectorscene.h"
+#include "PointManager/sectordetmanager.h"
+#include "PointManager/sectortrackmanager.h"
 
 MainOverLayOut::MainOverLayOut(QWidget *parent) :
     QWidget(parent),
@@ -58,6 +74,52 @@ MainOverLayOut::MainOverLayOut(QWidget *parent) :
     setupRangeSettings();
     setupWorkModeSettings();
     setupTrackManagement();
+    setupLogInfo();
+
+    // 初始化最大日志行数
+    m_maxLogLines = 200;
+
+    // 初始化一键全数配置相关成员
+    m_commandTimer = new QTimer(this);
+    m_commandIndex = 0;
+    connect(m_commandTimer, &QTimer::timeout, this, &MainOverLayOut::cmdTimeOut);
+
+    // 初始化健康管理相关成员
+    m_systemNormal = false;  // 默认异常状态
+    m_sigProSta = 1;         // 默认异常
+    m_dataProSta = 1;        // 默认异常
+    m_beamConSta = 1;        // 默认异常
+
+    // 连接健康管理信号
+    connect(CON_INS, &Controller::monitorParamSend, this, &MainOverLayOut::monitorParamRef);
+
+    // 连接雷达控制按钮
+    connect(ui->btnBatteryControl, &QPushButton::clicked, this, &MainOverLayOut::onBatteryControlClicked);
+    connect(ui->btnStartSoftware, &QPushButton::clicked, this, &MainOverLayOut::onStartSoftwareClicked);
+    connect(ui->btnDataStorage, &QPushButton::clicked, this, &MainOverLayOut::onDataStorageClicked);
+    connect(ui->btnTransmitControl, &QPushButton::clicked, this, &MainOverLayOut::onTransmitControlClicked);
+
+    // 连接参数设置按钮
+    connect(ui->btnDataProcess, &QPushButton::clicked, this, &MainOverLayOut::onDataProcessClicked);
+    connect(ui->btnSignalProcess, &QPushButton::clicked, this, &MainOverLayOut::onSignalProcessClicked);
+    connect(ui->btnFreqControl, &QPushButton::clicked, this, &MainOverLayOut::onFreqControlClicked);
+    connect(ui->btnSetParam, &QPushButton::clicked, this, &MainOverLayOut::onSetParamClicked);
+    // 隐藏方向图扫描控制按钮，功能已集成到"范围设置"tab中
+    // ui->btnScanRange->setVisible(false);
+    connect(ui->btnScanRange, &QPushButton::clicked, this, &MainOverLayOut::onScanRangeClicked);
+    connect(ui->btnPhotoelectric, &QPushButton::clicked, this, &MainOverLayOut::onPhotoelectricClicked);
+
+    // 连接雷达系统健康管理按钮
+    connect(ui->radarsystem, &QToolButton::clicked, this, &MainOverLayOut::onRadarSystemClicked);
+
+    // ========== 关键修复：连接航迹数据到表格显示 ==========
+    // 从Controller接收航迹数据并更新表格
+    connect(CON_INS, &Controller::traInfoProcess,
+            this, &MainOverLayOut::updateTrackList);
+
+    // 从Controller接收航迹数据并更新无人机表格
+    connect(CON_INS, &Controller::traInfoProcess,
+            this, &MainOverLayOut::updateDroneTrackList);
 }
 
 void MainOverLayOut::topRightSet()
@@ -133,7 +195,14 @@ void MainOverLayOut::mainPView()
     layout2->setContentsMargins(0,0,0,0);
     layout2->addWidget(new DetachableWidget("扇区显示", m_sectorWidget, QIcon(":/resources/icon/scan.png"), this));
 
-    // 自动转发来自 Controller 的点到扇区面板
+    // ========== 关键修复：连接扇区显示数据流 ==========
+    // 从Controller接收检测点数据并添加到扇区DetManager
+    connect(CON_INS, &Controller::detInfoProcess,
+            m_sectorWidget->scene()->detManager(), &SectorDetManager::addDetPoint);
+
+    // 从Controller接收航迹数据并添加到扇区TrackManager
+    connect(CON_INS, &Controller::traInfoProcess,
+            m_sectorWidget->scene()->trackManager(), &SectorTrackManager::addTrackPoint);
 
 }
 
@@ -167,20 +236,61 @@ void MainOverLayOut::setupRangeSettings()
         }
     )");
 
-    // 连接信号槽，当角度范围改变时可以进行相应处理
+    // 连接信号槽，当角度范围改变时下发到雷达控制系统
     connect(m_azElRangeWidget, &AzElRangeWidget::azRangeChanged,
             this, [this](int minAz, int maxAz) {
         qDebug() << "方位角范围变更:" << minAz << "°到" << maxAz << "°";
-        // 这里可以添加与雷达控制系统的接口调用
-        // 例如：CON_INS->setAzimuthRange(minAz, maxAz);
+
+        // 构造ScanRange参数并下发
+        ScanRange param;
+        // 保持其他参数为默认值或从当前设置获取
+        param.place = 0;     // 默认水平放置
+        param.method = 0;    // 默认先列后行
+        param.workMode = 0;  // 默认TWS模式
+
+        // 计算扫描范围中心点（方位角）
+        int azCenter;
+        if (maxAz >= minAz) {
+            azCenter = (minAz + maxAz) / 2;
+        } else {
+            // 跨越0度的情况
+            azCenter = ((minAz + maxAz + 360) / 2) % 360;
+        }
+        param.azi = azCenter * 100;  // 转换为0.01度单位
+
+        // 俯仰角保持当前设置（可以从成员变量获取）
+        param.ele = 1500;  // 默认15度
+
+        // 下发参数到Controller
+        CON_INS->sendSRParam(param);
+        qDebug() << "下发方位角扫描范围: center=" << azCenter << "°";
     });
 
     connect(m_azElRangeWidget, &AzElRangeWidget::elRangeChanged,
             this, [this](int minEl, int maxEl) {
         qDebug() << "俯仰角范围变更:" << minEl << "°到" << maxEl << "°";
-        // 这里可以添加与雷达控制系统的接口调用
-        // 例如：CON_INS->setElevationRange(minEl, maxEl);
+
+        // 构造ScanRange参数并下发
+        ScanRange param;
+        param.place = 0;
+        param.method = 0;
+        param.workMode = 0;
+
+        // 方位角保持当前设置（可以从成员变量获取）
+        param.azi = 2000;  // 默认20度
+
+        // 计算俯仰角中心点
+        int elCenter = (minEl + maxEl) / 2;
+        param.ele = elCenter * 100;  // 转换为0.01度单位
+
+        // 下发参数到Controller
+        CON_INS->sendSRParam(param);
+        qDebug() << "下发俯仰角扫描范围: center=" << elCenter << "°";
     });
+
+    // 连接"设置"按钮点击信号，打开详细设置对话框
+    connect(m_azElRangeWidget, &AzElRangeWidget::settingsButtonClicked,
+            this, &MainOverLayOut::onScanRangeClicked);
 
     // 设置默认的扫描范围（从配置文件读取）
     int defaultAzMin = CF_INS.azimuthRange("min", 30);    // 从配置读取，默认30°
@@ -510,4 +620,552 @@ QString MainOverLayOut::getTargetTypeText(int targetType) const
         case 5: return "其他";
         default: return "未知";
     }
+}
+
+// ============ 雷达控制槽函数实现 ============
+
+/**
+ * @brief 打开一键全数配置对话框
+ * @details 配置阵地控制参数
+ */
+void MainOverLayOut::onSetParamClicked()
+{
+    // 确保定时器没有在运行
+    if (m_commandTimer->isActive()) {
+        m_commandTimer->stop();
+    }
+
+    m_commandIndex = 0; // 重置命令索引
+    setupCommands();    // 重新设置命令，确保每次启动都是从头开始
+
+    // 设置定时器间隔为 1000 毫秒 (1秒)
+    m_commandTimer->setInterval(1000);
+    // 启动定时器
+    m_commandTimer->start();
+
+    logCommand("开始一键全数配置", "依次发送扫描范围、波形采样、信号处理、数据处理参数");
+}
+
+/**
+ * @brief 打开处理软件启动对话框
+ * @details 发送系统启动命令
+ */
+void MainOverLayOut::onStartSoftwareClicked()
+{
+    if (CustomMessageBox::showConfirm(this, "启动确认", "是否启动处理软件？")) {
+        StartSysParam param;
+        // 设置默认参数
+        param.sta = 1;  // 启动状态
+
+        logCommand("正在启动软件", "");
+
+        emit CON_INS->sendSysStart(param);
+    }
+}
+
+/**
+ * @brief 打开数据存储/删除对话框
+ * @details 配置数据保存和删除参数
+ */
+void MainOverLayOut::onDataStorageClicked()
+{
+    CusWindow* window = new CusWindow("数据存储/删除", QIcon(":/resources/icon/radararray.png"), this);
+    window->setAttribute(Qt::WA_DeleteOnClose);
+
+    DataSaveUI* dialog = new DataSaveUI(window);
+    dialog->setWindowFlags(Qt::Widget);
+    window->setContentWidget(dialog);
+
+    // 记录日志
+    connect(dialog, &DataSaveUI::setParam, this, [this]() {
+        logCommand("数据存储参数", "");
+    });
+
+    connect(dialog, &DataSaveUI::setParam, CON_INS, &Controller::sendDSParam);
+
+    // ========== 关键修复：连接数据存储状态反馈 ==========
+    // 数据保存成功反馈
+    connect(CON_INS, &Controller::dataSaveOK, dialog, &DataSaveUI::dataSaveOK);
+
+    // 数据删除成功反馈
+    connect(CON_INS, &Controller::dataDelOK, dialog, &DataSaveUI::dataDelOK);
+
+    // 离线处理状态反馈
+    connect(CON_INS, &Controller::offLineStat, dialog, [dialog](OfflineStat offlinestat) {
+        if (offlinestat.delStat == 1) {
+            // 离线处理开始
+            DataSaveUI::offlineDataID = offlinestat.dataID;
+        } else if (offlinestat.delStat == 0) {
+            // 离线处理结束
+        }
+    });
+
+    window->show();
+}/**
+ * @brief 打开发射接收控制对话框
+ * @details 配置收发控制参数
+ */
+void MainOverLayOut::onTransmitControlClicked()
+{
+    CusWindow* window = new CusWindow("发射接收控制", QIcon(":/resources/icon/radararray.png"), this);
+    window->setAttribute(Qt::WA_DeleteOnClose);
+
+    TranRecvUI* dialog = new TranRecvUI(window);
+    dialog->setWindowFlags(Qt::Widget);
+    window->setContentWidget(dialog);
+
+    // 恢复上次参数
+    dialog->restoreParam(m_tranRecControlM);
+
+    // 保存参数
+    connect(dialog, &TranRecvUI::setParam, this, [this](const TranRecControl param) {
+        m_tranRecControlM = param;
+    });
+
+    // 发送参数到控制器
+    connect(dialog, &TranRecvUI::setParam, CON_INS, &Controller::sendTRParam);
+
+    // 记录日志
+    connect(dialog, &TranRecvUI::setParam, this, [this]() {
+        logCommand("发射接收控制", "");
+    });
+
+    window->show();
+}// ============ 参数设置槽函数实现 ============
+
+/**
+ * @brief 打开数据处理参数对话框
+ * @details 配置数据处理相关参数
+ */
+void MainOverLayOut::onDataProcessClicked()
+{
+    CusWindow* window = new CusWindow("数据处理参数", QIcon(":/resources/icon/radararray.png"), this);
+    window->setAttribute(Qt::WA_DeleteOnClose);
+
+    DataProcessUI* dialog = new DataProcessUI(window);
+    dialog->setWindowFlags(Qt::Widget);
+    window->setContentWidget(dialog);
+
+    // 恢复上次参数
+    dialog->restoreParam(m_dataProParam);
+
+    // 保存参数
+    connect(dialog, &DataProcessUI::setParam, this, [this](const DataProParam param) {
+        m_dataProParam = param;
+    });
+
+    // 发送参数到控制器
+    connect(dialog, &DataProcessUI::setParam, CON_INS, &Controller::sendDPParam);
+
+    // 记录日志
+    connect(dialog, &DataProcessUI::setParam, this, [this]() {
+        logCommand("数据处理参数", "");
+    });
+
+    window->show();
+}/**
+ * @brief 打开信号处理参数对话框
+ * @details 配置信号处理相关参数
+ */
+void MainOverLayOut::onSignalProcessClicked()
+{
+    CusWindow* window = new CusWindow("信号处理参数", QIcon(":/resources/icon/radararray.png"), this);
+    window->setAttribute(Qt::WA_DeleteOnClose);
+
+    sigParamUI* dialog = new sigParamUI(window);
+    dialog->setWindowFlags(Qt::Widget);
+    window->setContentWidget(dialog);
+
+    // 恢复上次参数
+    dialog->restoreParam(m_sigProParam);
+
+    // 保存参数
+    connect(dialog, &sigParamUI::setParam, this, [this](const SigProParam param) {
+        m_sigProParam = param;
+    });
+
+    // 发送参数到控制器
+    connect(dialog, &sigParamUI::setParam, CON_INS, &Controller::sendSPParam);
+
+    // 记录日志
+    connect(dialog, &sigParamUI::setParam, this, [this]() {
+        logCommand("信号处理参数", "");
+    });
+
+    window->show();
+}/**
+ * @brief 打开波形及采样控制对话框
+ * @details 配置频率控制和波形参数
+ */
+void MainOverLayOut::onFreqControlClicked()
+{
+       // 创建自定义窗口，使用雷达图标
+    CusWindow* window = new CusWindow("波形及采样控制", QIcon(":/resources/icon/radararray.png"), this);
+    window->setAttribute(Qt::WA_DeleteOnClose);
+
+    // 创建对话框作为内容
+    waveAndSample* waveControl = new waveAndSample(window);
+    waveControl->setWindowFlags(Qt::Widget); // 作为普通widget嵌入
+    window->setContentWidget(waveControl);
+
+    // 恢复上次参数
+    waveControl->restoreParam(m_beamControl);
+
+    // 保存参数
+    connect(waveControl, &waveAndSample::setParam, this, [this](const BeamControl param) {
+        m_beamControl = param;
+    });
+
+    // 发送参数
+    connect(waveControl, &waveAndSample::setParam, CON_INS, &Controller::sendWCParam);
+
+    // 记录日志
+    connect(waveControl, &waveAndSample::setParam, this, [this]() {
+        logCommand("波形采样参数", "");
+    });
+
+    window->show();
+}/**
+ * @brief 打开电调控制对话框
+ * @details 配置波束控制参数
+ */
+void MainOverLayOut::onBatteryControlClicked()
+{
+    // 创建自定义窗口，使用雷达图标
+    CusWindow* window = new CusWindow("象限电源控制", QIcon(":/resources/icon/radararray.png"), this);
+    window->setAttribute(Qt::WA_DeleteOnClose);
+
+    // 创建对话框作为内容
+    BatteryControl* dialog = new BatteryControl(window);
+    dialog->setWindowFlags(Qt::Widget); // 作为普通widget嵌入
+    window->setContentWidget(dialog);
+
+    // 恢复上次参数
+    dialog->restoreParam(m_batteryControlM);
+
+    // 保存参数
+    connect(dialog, &BatteryControl::setParam, this, [this](const BatteryControlM param) {
+        m_batteryControlM = param;
+    });
+
+    // 连接参数设置信号到Controller
+    connect(dialog, &BatteryControl::setParam, CON_INS, &Controller::sendBCParam);
+
+    // 记录日志
+    connect(dialog, &BatteryControl::setParam, this, [this]() {
+        logCommand("象限电源控制", "");
+    });
+
+    window->show();
+}/**
+ * @brief 打开方向图扫描控制对话框
+ * @details 配置扫描范围参数
+ */
+void MainOverLayOut::onScanRangeClicked()
+{
+    CusWindow* window = new CusWindow("搜索范围控制", QIcon(":/resources/icon/radararray.png"), this);
+    window->setAttribute(Qt::WA_DeleteOnClose);
+
+    ScanRangeUI* dialog = new ScanRangeUI(window);
+    dialog->setWindowFlags(Qt::Widget);
+    window->setContentWidget(dialog);
+
+    // 恢复上次参数
+    dialog->restoreParam(m_scanRange);
+
+    // 保存参数
+    connect(dialog, &ScanRangeUI::setParam, this, [this](const ScanRange param) {
+        m_scanRange = param;
+    });
+
+    // 发送参数到控制器
+    connect(dialog, &ScanRangeUI::setParam, CON_INS, &Controller::sendSRParam);
+
+    // 记录日志
+    connect(dialog, &ScanRangeUI::setParam, this, [this]() {
+        logCommand("扫描范围参数", "");
+    });
+
+    window->show();
+}/**
+ * @brief 打开光电系统控制对话框
+ * @details 配置光电参数
+ */
+void MainOverLayOut::onPhotoelectricClicked()
+{
+    CusWindow* window = new CusWindow("光电系统控制", QIcon(":/resources/icon/radararray.png"), this);
+    window->setAttribute(Qt::WA_DeleteOnClose);
+
+    PhotoElectricParam* dialog = new PhotoElectricParam(window);
+    dialog->setWindowFlags(Qt::Widget);
+    window->setContentWidget(dialog);
+
+    // 发送参数到控制器
+    connect(dialog, &PhotoElectricParam::setParam, CON_INS, &Controller::sendPEParam);
+    connect(dialog, &PhotoElectricParam::setParam2, CON_INS, &Controller::sendPEParam2);
+
+    // 记录日志
+    connect(dialog, &PhotoElectricParam::setParam, this, [this]() {
+        logCommand("光电追踪", "");
+    });
+    connect(dialog, &PhotoElectricParam::setParam2, this, [this]() {
+        logCommand("光电追踪", "");
+    });
+
+    window->show();
+}/**
+ * @brief 初始化日志信息组件
+ * @details 设置日志文本框为只读
+ */
+void MainOverLayOut::setupLogInfo()
+{
+    ui->logEdit->setReadOnly(true);
+    // 日志文本框的样式已在darkstyle.qss中配置
+}
+
+/**
+ * @brief 记录命令日志
+ * @param commandName 命令名称
+ * @param parameters 命令参数描述
+ * @details 将命令操作记录到logEdit中，显示时间戳、命令名和参数
+ *          日志从顶部添加，自动限制最大行数
+ */
+void MainOverLayOut::logCommand(const QString &commandName, const QString &parameters)
+{
+    // 获取当前时间戳
+    QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
+
+    // 格式化日志信息
+    QString newLogEntry = QString("[%1] %2: %3\n").arg(timestamp).arg(commandName).arg(parameters);
+
+    // 获取当前QTextEdit的文本
+    QString currentText = ui->logEdit->toPlainText();
+
+    // 将新日志添加到当前文本的最前面
+    QString updatedText = newLogEntry + currentText;
+
+    // 限制日志行数
+    QStringList lines = updatedText.split('\n', Qt::SkipEmptyParts);
+    if (lines.count() > m_maxLogLines) {
+        // 如果超过最大行数，只取最新的 m_maxLogLines 行
+        lines = lines.mid(0, m_maxLogLines);
+        updatedText = lines.join('\n') + '\n';
+    }
+
+    // 更新QTextEdit的文本
+    ui->logEdit->setPlainText(updatedText);
+
+    // 确保滚动条在顶部
+    ui->logEdit->verticalScrollBar()->setValue(0);
+}
+
+/**
+ * @brief 设置命令序列
+ * @details 准备一键全数配置的命令列表
+ */
+void MainOverLayOut::setupCommands()
+{
+    // 清空现有命令
+    m_commands.clear();
+
+    // 命令1: 发送扫描范围参数
+    m_commands.push_back([this]() {
+        sendScanRangeParams();
+        logCommand("设置工作模式", "发送扫描范围参数");
+    });
+
+    // 命令2: 发送波形及采样控制参数
+    m_commands.push_back([this]() {
+        CON_INS->sendWCParam(m_beamControl);
+        logCommand("波形及采样控制", "");
+    });
+
+    // 命令3: 发送信号处理参数
+    m_commands.push_back([this]() {
+        CON_INS->sendSPParam(m_sigProParam);
+        logCommand("信号处理参数", "");
+    });
+
+    // 命令4: 发送数据处理参数
+    m_commands.push_back([this]() {
+        CON_INS->sendDPParam(m_dataProParam);
+        logCommand("数据处理参数", "");
+    });
+}
+
+/**
+ * @brief 命令定时器超时槽函数
+ * @details 定时器触发时依次执行命令列表中的命令
+ */
+void MainOverLayOut::cmdTimeOut()
+{
+    if (m_commandIndex < static_cast<int>(m_commands.size())) {
+        // 执行当前命令
+        m_commands[m_commandIndex]();
+        m_commandIndex++;
+    } else {
+        // 所有命令执行完毕，停止定时器
+        m_commandTimer->stop();
+        logCommand("一键全数配置完成", QString("共执行 %1 条命令").arg(m_commands.size()));
+    }
+}
+
+/**
+ * @brief 监控参数刷新槽函数
+ * @param res 监控参数结构
+ * @details 接收来自Controller的监控参数，更新系统健康状态和UI显示
+ */
+void MainOverLayOut::monitorParamRef(MonitorParam res)
+{
+    bool normal = true;
+
+    // 处理信号处理软件状态
+    m_sigProSta = res.sigProSta;
+    switch(res.sigProSta)
+    {
+    case 0:  // 正常
+        break;
+    case 1:  // 异常
+        normal = false;
+        break;
+    case 2:  // 启动成功
+        logCommand("信号处理软件启动成功", "");
+        break;
+    case 3:  // 启动失败
+        logCommand("信号处理软件启动失败", "");
+        break;
+    }
+
+    // 处理数据处理软件状态
+    m_dataProSta = res.dataProSta;
+    switch(res.dataProSta)
+    {
+    case 0:  // 正常
+        break;
+    case 1:  // 异常
+        normal = false;
+        break;
+    case 2:  // 启动成功
+        logCommand("数据处理软件启动成功", "");
+        break;
+    case 3:  // 启动失败
+        logCommand("数据处理软件启动失败", "");
+        break;
+    }
+
+    // 处理波束调度软件状态
+    m_beamConSta = res.beamConSta;
+    switch(res.beamConSta)
+    {
+    case 0:  // 正常
+        break;
+    case 1:  // 异常
+        normal = false;
+        break;
+    case 2:  // 启动成功
+        logCommand("波束调度软件启动成功", "");
+        break;
+    case 3:  // 启动失败
+        logCommand("波束调度软件启动失败", "");
+        break;
+    }
+
+    // 更新系统整体状态
+    m_systemNormal = normal;
+
+    // 更新雷达系统按钮的样式
+    if (normal) {
+        // 正常状态 - 恢复原样式（清除自定义样式）
+        ui->radarsystem->setStyleSheet("");
+    } else {
+        // 异常状态 - 半透明红色背景 + 深红边框
+        ui->radarsystem->setStyleSheet(
+            "QToolButton#radarsystem {"
+            "    background-color: rgba(255, 0, 0, 0.3);"  // 半透明红色背景
+            "    border: 2px solid #cc0000;"               // 深红色边框
+            "    border-radius: 5px;"
+            "}"
+            "QToolButton#radarsystem:hover {"
+            "    background-color: rgba(255, 0, 0, 0.5);"  // hover时稍微深一点
+            "    border: 2px solid #ff0000;"
+            "}"
+        );
+    }
+}
+
+/**
+ * @brief 打开雷达系统健康管理对话框
+ * @details 显示信号处理、数据处理、波束调度三个子系统的运行状态
+ */
+void MainOverLayOut::onRadarSystemClicked()
+{
+    // 创建自定义窗口
+    CusWindow* window = new CusWindow("雷达系统健康管理", QIcon(":/resources/icon/radararray.png"), this);
+    window->setAttribute(Qt::WA_DeleteOnClose);
+    window->setMinimumSize(400, 300);
+
+    // 创建内容Widget
+    QWidget* contentWidget = new QWidget(window);
+    QVBoxLayout* mainLayout = new QVBoxLayout(contentWidget);
+    mainLayout->setContentsMargins(20, 20, 20, 20);
+    mainLayout->setSpacing(15);
+
+    // 定义按钮样式
+    QString greenStyle = "QPushButton { "
+                         "background-color: #00ff00; "
+                         "color: #101818; "
+                         "border: 2px solid #66ffcc; "
+                         "border-radius: 8px; "
+                         "padding: 15px; "
+                         "font-size: 16px; "
+                         "font-weight: bold; "
+                         "}";
+
+    QString redStyle = "QPushButton { "
+                       "background-color: #ff0000; "
+                       "color: #ffffff; "
+                       "border: 2px solid #ff6666; "
+                       "border-radius: 8px; "
+                       "padding: 15px; "
+                       "font-size: 16px; "
+                       "font-weight: bold; "
+                       "}";
+
+    // 创建三个状态按钮
+    QPushButton* sigProBtn = new QPushButton("信号处理", contentWidget);
+    sigProBtn->setEnabled(false);  // 不可选
+    sigProBtn->setMinimumHeight(60);
+    if (m_sigProSta == 0) {
+        sigProBtn->setStyleSheet(greenStyle);
+    } else {
+        sigProBtn->setStyleSheet(redStyle);
+    }
+
+    QPushButton* dataProBtn = new QPushButton("数据处理", contentWidget);
+    dataProBtn->setEnabled(false);  // 不可选
+    dataProBtn->setMinimumHeight(60);
+    if (m_dataProSta == 0) {
+        dataProBtn->setStyleSheet(greenStyle);
+    } else {
+        dataProBtn->setStyleSheet(redStyle);
+    }
+
+    QPushButton* beamConBtn = new QPushButton("波束调度", contentWidget);
+    beamConBtn->setEnabled(false);  // 不可选
+    beamConBtn->setMinimumHeight(60);
+    if (m_beamConSta == 0) {
+        beamConBtn->setStyleSheet(greenStyle);
+    } else {
+        beamConBtn->setStyleSheet(redStyle);
+    }
+
+    // 添加到布局
+    mainLayout->addWidget(sigProBtn);
+    mainLayout->addWidget(dataProBtn);
+    mainLayout->addWidget(beamConBtn);
+    mainLayout->addStretch();
+
+    // 设置内容
+    window->setContentWidget(contentWidget);
+    window->show();
 }

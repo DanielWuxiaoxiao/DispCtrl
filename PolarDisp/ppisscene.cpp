@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 15:56:15
+ * @LastEditTime: 2025-10-24 21:06:35
  * @Description: 
  */
 /**
@@ -27,6 +27,7 @@
 #include "Basic/log.h"
 #include "Basic/ConfigManager.h"
 #include "scanlayer.h"
+#include "Controller/controller.h"
 
 /**
  * @brief PPIScene构造函数
@@ -74,6 +75,15 @@ PPIScene::PPIScene(QObject *parent)
 
     // ensure axis->rangeChanged is forwarded
     connect(m_axis, &PolarAxis::rangeChanged, this, &PPIScene::rangeChanged);
+
+    // ========== 关键修复：连接检测点和航迹数据流 ==========
+    // 从Controller接收检测点数据并添加到DetManager
+    connect(CON_INS, &Controller::detInfoProcess,
+            m_det, &DetManager::addDetPoint);
+
+    // 从Controller接收航迹数据并添加到TrackManager
+    connect(CON_INS, &Controller::traInfoProcess,
+            m_track, &TrackManager::addTrackPoint);
 }
 
 /**

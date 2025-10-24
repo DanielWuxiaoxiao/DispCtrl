@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-24 11:22:47
+ * @LastEditTime: 2025-10-24 21:06:35
  * @Description: 
  */
 /**
@@ -108,6 +108,12 @@ signals:
      * @details 当用户通过界面修改俯仰角范围时发射此信号
      */
     void elRangeChanged(int minDeg, int maxDeg);
+
+    /**
+     * @brief 设置按钮点击信号
+     * @details 当用户点击"设置"按钮时发射此信号，用于打开详细设置对话框
+     */
+    void settingsButtonClicked();
 
 protected:
     /**

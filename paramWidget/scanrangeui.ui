@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+  <class>ScanRangeUI</class>
+  <widget class="QDialog" name="ScanRangeUI">
+    <property name="geometry">
+      <rect>
+        <x>0</x>
+        <y>0</y>
+        <width>704</width>
+        <height>261</height>
+      </rect>
+    </property>
+    <property name="windowTitle">
+      <string>Dialog</string>
+    </property>
+    <layout class="QVBoxLayout" name="verticalLayout">
+      <property name="bottomMargin">
+        <number>8</number>
+      </property>
+      <property name="rightMargin">
+        <number>8</number>
+      </property>
+      <property name="topMargin">
+        <number>8</number>
+      </property>
+      <property name="leftMargin">
+        <number>8</number>
+      </property>
+      <property name="spacing">
+        <number>6</number>
+      </property>
+      <item>
+        <layout class="QGridLayout" name="gridLayout">
+          <property name="bottomMargin">
+            <number>8</number>
+          </property>
+          <property name="rightMargin">
+            <number>8</number>
+          </property>
+          <property name="topMargin">
+            <number>8</number>
+          </property>
+          <property name="leftMargin">
+            <number>8</number>
+          </property>
+          <property name="spacing">
+            <number>6</number>
+          </property>
+          <item row="0" column="3">
+            <widget class="CustomComboBox" name="scan">
+              <item>
+                <property name="text">
+                  <string>先俯仰后方位</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>先方位后俯仰</string>
+                </property>
+              </item>
+            </widget>
+          </item>
+          <item row="1" column="1">
+            <widget class="QLineEdit" name="dir">
+              <property name="text">
+                <string>0</string>
+              </property>
+            </widget>
+          </item>
+          <item row="2" column="1">
+            <widget class="QLineEdit" name="dirstart">
+              <property name="text">
+                <string>-45</string>
+              </property>
+            </widget>
+          </item>
+          <item row="0" column="2">
+            <widget class="QLabel" name="label_2">
+              <property name="text">
+                <string>扫描方式</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="2" column="0">
+            <widget class="QLabel" name="label_5">
+              <property name="text">
+                <string>方位起始(°)</string>
+              </property>
+            </widget>
+          </item>
+          <item row="1" column="0">
+            <widget class="QLabel" name="label_3">
+              <property name="text">
+                <string>阵面偏航(°)</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="2" column="3">
+            <widget class="QLineEdit" name="dirend">
+              <property name="text">
+                <string>45</string>
+              </property>
+            </widget>
+          </item>
+          <item row="0" column="0">
+            <widget class="QLabel" name="label">
+              <property name="text">
+                <string>阵面摆放</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="3" column="2">
+            <widget class="QLabel" name="label_8">
+              <property name="text">
+                <string>俯仰终止(°)</string>
+              </property>
+            </widget>
+          </item>
+          <item row="3" column="3">
+            <widget class="QLineEdit" name="eleend">
+              <property name="text">
+                <string>18</string>
+              </property>
+            </widget>
+          </item>
+          <item row="0" column="1">
+            <widget class="CustomComboBox" name="place">
+              <item>
+                <property name="text">
+                  <string>水平放置</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>竖直放置</string>
+                </property>
+              </item>
+            </widget>
+          </item>
+          <item row="3" column="1">
+            <widget class="QLineEdit" name="elestart">
+              <property name="text">
+                <string>-18</string>
+              </property>
+            </widget>
+          </item>
+          <item row="2" column="2">
+            <widget class="QLabel" name="label_6">
+              <property name="text">
+                <string>方位终止(°)</string>
+              </property>
+            </widget>
+          </item>
+          <item row="1" column="3">
+            <widget class="QLineEdit" name="ele">
+              <property name="text">
+                <string>0</string>
+              </property>
+            </widget>
+          </item>
+          <item row="1" column="2">
+            <widget class="QLabel" name="label_4">
+              <property name="text">
+                <string>阵面倾角(°)</string>
+              </property>
+            </widget>
+          </item>
+          <item row="3" column="0">
+            <widget class="QLabel" name="label_7">
+              <property name="text">
+                <string>俯仰起始(°)</string>
+              </property>
+            </widget>
+          </item>
+          <item row="0" column="4">
+            <widget class="QLabel" name="label_9">
+              <property name="text">
+                <string>工作模式</string>
+              </property>
+            </widget>
+          </item>
+          <item row="0" column="5">
+            <widget class="CustomComboBox" name="workMode">
+              <item>
+                <property name="text">
+                  <string>TWS</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>TAS</string>
+                </property>
+              </item>
+            </widget>
+          </item>
+        </layout>
+      </item>
+      <item>
+        <widget class="QDialogButtonBox" name="buttonBox">
+          <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="standardButtons">
+            <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+          </property>
+        </widget>
+      </item>
+    </layout>
+  </widget>
+  <customwidgets>
+    <customwidget>
+      <class>CustomComboBox</class>
+      <extends>QComboBox</extends>
+      <header>cusWidgets/customcombobox.h</header>
+    </customwidget>
+  </customwidgets>
+  <resources />
+  <connections>
+    <connection>
+      <sender>buttonBox</sender>
+      <signal>accepted()</signal>
+      <receiver>ScanRangeUI</receiver>
+      <slot>accept()</slot>
+      <hints>
+        <hint type="sourcelabel">
+          <x>248</x>
+          <y>254</y>
+        </hint>
+        <hint type="destinationlabel">
+          <x>157</x>
+          <y>274</y>
+        </hint>
+      </hints>
+    </connection>
+    <connection>
+      <sender>buttonBox</sender>
+      <signal>rejected()</signal>
+      <receiver>ScanRangeUI</receiver>
+      <slot>reject()</slot>
+      <hints>
+        <hint type="sourcelabel">
+          <x>316</x>
+          <y>260</y>
+        </hint>
+        <hint type="destinationlabel">
+          <x>286</x>
+          <y>274</y>
+        </hint>
+      </hints>
+    </connection></connections>
+</ui>

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-24 11:22:47
+ * @LastEditTime: 2025-10-24 21:06:35
  * @Description: 
  */
 /**
@@ -41,6 +41,9 @@
 #include <QMap>
 #include <QDateTime>
 #include <QTableWidget>
+#include <QTimer>
+#include <functional>
+#include <vector>
 #include "ui_mainoverlayout.h"
 #include "Basic/Protocol.h"
 
@@ -191,6 +194,81 @@ private slots:
      */
     void clearAllTracks();
 
+    // 雷达控制槽函数
+    /**
+     * @brief 打开一键全数配置对话框
+     * @details 配置阵地控制参数
+     */
+    void onSetParamClicked();
+
+    /**
+     * @brief 打开处理软件启动对话框
+     * @details 发送系统启动命令
+     */
+    void onStartSoftwareClicked();
+
+    /**
+     * @brief 打开数据存储/删除对话框
+     * @details 配置数据保存和删除参数
+     */
+    void onDataStorageClicked();
+
+    /**
+     * @brief 打开发射接收控制对话框
+     * @details 配置收发控制参数
+     */
+    void onTransmitControlClicked();
+
+    // 参数设置槽函数
+    /**
+     * @brief 打开数据处理参数对话框
+     * @details 配置数据处理相关参数
+     */
+    void onDataProcessClicked();
+
+    /**
+     * @brief 打开信号处理参数对话框
+     * @details 配置信号处理相关参数
+     */
+    void onSignalProcessClicked();
+
+    /**
+     * @brief 打开波形及采样控制对话框
+     * @details 配置频率控制和波形参数
+     */
+    void onFreqControlClicked();
+
+    /**
+     * @brief 打开电调控制对话框
+     * @details 配置波束控制参数
+     */
+    void onBatteryControlClicked();
+
+    /**
+     * @brief 打开方向图扫描控制对话框
+     * @details 配置扫描范围参数
+     */
+    void onScanRangeClicked();
+
+    /**
+     * @brief 打开光电系统控制对话框
+     * @details 配置光电参数
+     */
+    void onPhotoelectricClicked();
+
+    /**
+     * @brief 监控参数刷新槽函数
+     * @param res 监控参数结构
+     * @details 接收来自Controller的监控参数，更新系统健康状态
+     */
+    void monitorParamRef(MonitorParam res);
+
+    /**
+     * @brief 打开雷达系统健康管理对话框
+     * @details 显示信号处理、数据处理、波束调度三个子系统的运行状态
+     */
+    void onRadarSystemClicked();
+
 private:
     Ui::MainOverLayOut *ui;           ///< UI界面对象指针
     PPIView* mView;                   ///< PPI雷达显示视图
@@ -232,6 +310,55 @@ private:
      * @return 目标类型文本描述
      */
     QString getTargetTypeText(int targetType) const;
+
+    /**
+     * @brief 初始化日志信息组件
+     * @details 设置日志文本框为只读，配置样式
+     */
+    void setupLogInfo();
+
+    /**
+     * @brief 记录命令日志
+     * @param commandName 命令名称
+     * @param parameters 命令参数描述
+     * @details 将命令操作记录到logEdit中，显示时间戳、命令名和参数
+     *          日志从顶部添加，自动限制最大行数
+     */
+    void logCommand(const QString &commandName, const QString &parameters);
+
+    /**
+     * @brief 设置命令序列
+     * @details 准备一键全数配置的命令列表
+     */
+    void setupCommands();
+
+    /**
+     * @brief 命令定时器超时槽函数
+     * @details 定时器触发时依次执行命令列表中的命令
+     */
+    void cmdTimeOut();
+
+    // 参数保存成员变量（对应旧框架中的参数）
+    BatteryControlM m_batteryControlM;   ///< 阵地控制参数
+    TranRecControl m_tranRecControlM;    ///< 发射接收控制参数
+    DirGramScan m_freqControlM;          ///< 方向图扫描/频率控制参数
+    BeamControl m_beamControl;           ///< 波束控制参数
+    SigProParam m_sigProParam;           ///< 信号处理参数
+    DataProParam m_dataProParam;         ///< 数据处理参数
+    ScanRange m_scanRange;               ///< 扫描范围参数
+
+    int m_maxLogLines;                   ///< 最大日志行数限制
+
+    // 一键全数配置相关成员
+    QTimer* m_commandTimer;              ///< 命令执行定时器
+    std::vector<std::function<void()>> m_commands; ///< 命令列表
+    int m_commandIndex;                  ///< 当前命令索引
+
+    // 健康管理相关成员
+    bool m_systemNormal;                 ///< 系统整体健康状态（true=正常，false=异常）
+    int m_sigProSta;                     ///< 信号处理软件状态
+    int m_dataProSta;                    ///< 数据处理软件状态
+    int m_beamConSta;                    ///< 波束调度软件状态
 };
 
 #endif // MAINOVERLAYOUT_H

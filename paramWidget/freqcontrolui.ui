@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+  <class>FreqControlUI</class>
+  <widget class="QDialog" name="FreqControlUI">
+    <property name="geometry">
+      <rect>
+        <x>0</x>
+        <y>0</y>
+        <width>531</width>
+        <height>153</height>
+      </rect>
+    </property>
+    <property name="windowTitle">
+      <string>Dialog</string>
+    </property>
+    <layout class="QVBoxLayout" name="verticalLayout">
+      <property name="bottomMargin">
+        <number>8</number>
+      </property>
+      <property name="rightMargin">
+        <number>8</number>
+      </property>
+      <property name="topMargin">
+        <number>8</number>
+      </property>
+      <property name="leftMargin">
+        <number>8</number>
+      </property>
+      <property name="spacing">
+        <number>6</number>
+      </property>
+      <item>
+        <layout class="QGridLayout" name="gridLayout">
+          <property name="bottomMargin">
+            <number>8</number>
+          </property>
+          <property name="rightMargin">
+            <number>8</number>
+          </property>
+          <property name="topMargin">
+            <number>8</number>
+          </property>
+          <property name="leftMargin">
+            <number>8</number>
+          </property>
+          <property name="spacing">
+            <number>6</number>
+          </property>
+          <item row="2" column="1">
+            <widget class="QLineEdit" name="transtart" />
+          </item>
+          <item row="0" column="1">
+            <widget class="CustomComboBox" name="dircontrol">
+              <property name="currentIndex">
+                <number>0</number>
+              </property>
+              <item>
+                <property name="text">
+                  <string>方位方向图</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>俯仰方向图</string>
+                </property>
+              </item>
+            </widget>
+          </item>
+          <item row="1" column="2">
+            <widget class="QLabel" name="label_4">
+              <property name="text">
+                <string>扫描结束(°)</string>
+              </property>
+            </widget>
+          </item>
+          <item row="2" column="2">
+            <widget class="QLabel" name="label_5">
+              <property name="text">
+                <string>扫描间隔(°)</string>
+              </property>
+            </widget>
+          </item>
+          <item row="1" column="1">
+            <widget class="CustomComboBox" name="wave">
+              <property name="sizePolicy">
+                <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                </sizepolicy>
+              </property>
+              <property name="currentIndex">
+                <number>8</number>
+              </property>
+              <item>
+                <property name="text">
+                  <string>时宽2us-带宽6MHz-重复周期40us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽2us-带宽6MHz-重复周期25us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽4us-带宽6MHz-重复周期20us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽10us-带宽6MHz-重复周期50us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽20us-带宽6MHz-重复周期100us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽35us-带宽6MHz-重复周期175us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽2us-带宽15MHz-重复周期15us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽2us-带宽15MHz-重复周期30us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽2us-带宽15MHz-重复周期40us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽10us-带宽15MHz-重复周期50us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽25us-带宽15MHz-重复周期125us</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>时宽35us-带宽15MHz-重复周期175us</string>
+                </property>
+              </item>
+            </widget>
+          </item>
+          <item row="0" column="0">
+            <widget class="QLabel" name="label">
+              <property name="text">
+                <string>方向图控制</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="2" column="3">
+            <widget class="QLineEdit" name="scanstep" />
+          </item>
+          <item row="1" column="0">
+            <widget class="QLabel" name="label_2">
+              <property name="text">
+                <string>波形ID</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="1" column="3">
+            <widget class="QLineEdit" name="scanend" />
+          </item>
+          <item row="0" column="3">
+            <widget class="QLineEdit" name="scanstart" />
+          </item>
+          <item row="2" column="0">
+            <widget class="QLabel" name="label_6">
+              <property name="text">
+                <string>发射起始(us)</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="0" column="2">
+            <widget class="QLabel" name="label_3">
+              <property name="text">
+                <string>扫描起始(°)</string>
+              </property>
+            </widget>
+          </item>
+          <item row="3" column="0">
+            <widget class="QLabel" name="label_7">
+              <property name="text">
+                <string>采样起始(us)</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="3" column="1">
+            <widget class="QLineEdit" name="samplestart" />
+          </item>
+          <item row="3" column="2">
+            <widget class="QLabel" name="label_8">
+              <property name="text">
+                <string>采样终止(us)</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="3" column="3">
+            <widget class="QLineEdit" name="sampleend" />
+          </item>
+        </layout>
+      </item>
+      <item>
+        <widget class="QDialogButtonBox" name="buttonBox">
+          <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="standardButtons">
+            <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+          </property>
+        </widget>
+      </item>
+    </layout>
+  </widget>
+  <customwidgets>
+    <customwidget>
+      <class>CustomComboBox</class>
+      <extends>QComboBox</extends>
+      <header>cusWidgets/customcombobox.h</header>
+    </customwidget>
+  </customwidgets>
+  <resources />
+  <connections>
+    <connection>
+      <sender>buttonBox</sender>
+      <signal>accepted()</signal>
+      <receiver>FreqControlUI</receiver>
+      <slot>accept()</slot>
+      <hints>
+        <hint type="sourcelabel">
+          <x>248</x>
+          <y>254</y>
+        </hint>
+        <hint type="destinationlabel">
+          <x>157</x>
+          <y>274</y>
+        </hint>
+      </hints>
+    </connection>
+    <connection>
+      <sender>buttonBox</sender>
+      <signal>rejected()</signal>
+      <receiver>FreqControlUI</receiver>
+      <slot>reject()</slot>
+      <hints>
+        <hint type="sourcelabel">
+          <x>316</x>
+          <y>260</y>
+        </hint>
+        <hint type="destinationlabel">
+          <x>286</x>
+          <y>274</y>
+        </hint>
+      </hints>
+    </connection></connections>
+</ui>
