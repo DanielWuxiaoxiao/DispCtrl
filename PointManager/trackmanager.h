@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:07
+ * @LastEditTime: 2025-12-25 16:19:34
  * @Description: 
  */
 /**
@@ -36,7 +36,7 @@
  *          - 自动保持与锚点的连线
  *          - 动态更新连线几何形状
  *          - 高层级显示（在点和线之上）
- * 
+ *
  * 特点：
  * - 继承自QGraphicsTextItem，支持文本显示
  * - 可拖拽移动，提升用户体验
@@ -53,7 +53,7 @@ public:
      *          - 设置合适的Z值层级
      */
     DraggableLabel(QGraphicsItem* parent = nullptr);
-    
+
     /**
      * @brief 设置锚点关联
      * @param anchor 锚点图形项（通常是航迹点）
@@ -92,7 +92,7 @@ struct TrackNode {
 };
 
 /**
- * @struct TrackSeries  
+ * @struct TrackSeries
  * @brief 航迹序列结构
  * @details 表示一条完整的航迹路径：
  *          - 包含该航迹的所有历史点
@@ -106,6 +106,7 @@ struct TrackSeries {
     QGraphicsLineItem* labelLine = nullptr;     ///< 标签到最新点的连线
     bool visible = true;                        ///< 航迹可见性标志
     QColor color;                               ///< 航迹颜色
+    PointType type = PointType::Track;          ///< 航迹类型（区分DBT/TBD）
 };
 
 /**
@@ -117,14 +118,14 @@ struct TrackSeries {
  *          - 动态标签的显示和交互
  *          - 批次分组和颜色管理
  *          - 角度范围和距离范围过滤
- * 
+ *
  * 功能特点：
  * - 支持多航迹并发显示
  * - 航迹点自动连线
  * - 可拖拽的动态标签
  * - 批次颜色定制
  * - 实时过滤功能
- * 
+ *
  * @example 基本使用：
  * @code
  * TrackManager* mgr = new TrackManager(scene, axis);
@@ -148,7 +149,7 @@ public:
      *          - 初始化航迹容器
      */
     explicit TrackManager(QGraphicsScene* scene, PolarAxis* axis, QObject* parent = nullptr);
-    
+
     /**
      * @brief 析构函数
      * @details 清理所有航迹对象和相关资源
@@ -174,7 +175,7 @@ public:
      *          - 更新所有连线的几何形状
      *          - 重新应用距离和角度过滤
      *          - 更新标签位置和连线
-     * 
+     *
      * 调用时机：
      * - PolarAxis的最小/最大距离变化
      * - 像素范围(pixelRange)变化
@@ -191,7 +192,7 @@ public:
      *          - 不影响其他批次的显示状态
      */
     void setBatchVisible(int batchID, bool vis);
-    
+
     /**
      * @brief 设置全局可见性
      * @param vis true显示所有航迹，false隐藏所有航迹
@@ -210,7 +211,7 @@ public:
      *          - 释放相关内存资源
      */
     void removeBatch(int batchID);
-    
+
     /**
      * @brief 清理所有航迹
      * @details 删除所有航迹对象：
@@ -228,7 +229,7 @@ public:
      *          - 保持航迹点在不同缩放下的可见性
      */
     void setPointSizeRatio(float ratio);
-    
+
     /**
      * @brief 设置指定批次的颜色
      * @param batchID 批次ID
@@ -256,29 +257,29 @@ private:
      * @param batchID 批次ID
      * @details 根据批次ID查找或创建对应的航迹序列
      */
-    void ensureSeries(int batchID);
-    
+    void ensureSeries(int batchID, PointType type = PointType::Track);
+
     /**
      * @brief 更新最新点标签
      * @param batchID 批次ID
      * @details 更新指定航迹的动态标签显示和连线
      */
     void updateLatestLabel(int batchID);
-    
+
     /**
      * @brief 更新节点可见性
      * @param node 航迹节点引用
      * @details 根据当前过滤条件更新单个节点的可见性
      */
     void updateNodeVisibility(TrackNode& node);
-    
+
     /**
      * @brief 更新批次可见性
      * @param batchID 批次ID
      * @details 批量更新指定航迹的所有元素可见性
      */
     void updateBatchVisibility(int batchID);
-    
+
     /**
      * @brief 更新连线几何形状
      * @param line 连线对象指针
@@ -296,7 +297,7 @@ private:
      * @details 利用PolarAxis进行坐标变换
      */
     QPointF polarToPixel(float range, float azimuthDeg) const;
-    
+
     /**
      * @brief 检查距离是否在显示范围内
      * @param range 距离值(公里)
@@ -309,17 +310,17 @@ private:
     // 核心组件引用
     QGraphicsScene* mScene = nullptr;           ///< 图形场景指针
     PolarAxis* mAxis = nullptr;                ///< 极坐标轴指针
-    
+
     // 航迹管理
     QMap<int, TrackSeries> mSeries;            ///< 批次ID到航迹序列的映射
-    
+
     // 显示控制参数
     float mPointSizeRatio = 1.f;               ///< 点尺寸缩放比例
-    
+
     // 角度过滤参数
     double m_angleStart = 0.0;                 ///< 起始角度(度)
     double m_angleEnd = 360.0;                 ///< 结束角度(度)
-    
+
     /**
      * @brief 检查角度是否在显示扇区内
      * @param azimuthDeg 方位角(度)

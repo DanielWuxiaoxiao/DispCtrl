@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:44:54
+ * @LastEditTime: 2025-12-25 16:19:34
  * @Description: 
  */
 #include "data2dispmanager.h"
@@ -27,6 +27,8 @@ Data2DispManager::Data2DispManager(QObject *parent) : QObject(parent)
     host = QHostAddress(CF_INS.ip("SIG_PRO_IP",SIG_PRO_IP));
     port = CF_INS.port("DATA_PRO_2_DISP",DATA_PRO_2_DISP);
     connect(socket, &ThreadedUdpSocket::traInfo, this, &Data2DispManager::traInfoDecode);
+    connect(socket, &ThreadedUdpSocket::servoCtrlRet, CON_INS, &Controller::servoCtrlRet);
+    connect(socket, &ThreadedUdpSocket::bitReport, CON_INS, &Controller::bitReport);
     connect(this,&Data2DispManager::traInfoProcess,CON_INS, &Controller::traInfoProcess);
 }
 
@@ -54,7 +56,7 @@ void Data2DispManager::traInfoDecode(QByteArray data)
         info.batch = traPointInfo->batch;
         info.statMethod = traPointInfo->statMethod;
         rawData += sizeof(trackInfo);
-        
+
         // 使用新的统一数据管理器
         RADAR_DATA_MGR.processTrack(info);
 
@@ -67,4 +69,3 @@ Data2DispManager::~Data2DispManager() {
     thread->quit();
     thread->wait();
 }
-

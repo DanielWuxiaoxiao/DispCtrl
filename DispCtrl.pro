@@ -1,6 +1,6 @@
 ##############################################################################
 # DispCtrl.pro - 雷达显示控制系统Qt项目配置文件
-# 
+#
 # 项目描述：
 #   实时雷达数据显示和控制系统，支持多种数据类型的接收、处理和可视化
 #   包括检测点、航迹、系统监控等功能
@@ -13,7 +13,7 @@
 #   - 错误处理模块：统一的错误处理和重试机制
 #
 # 技术栈：Qt 5.14.2, C++11, WebEngine, Network
-# 
+#
 # 作者：DanielWuxiaoxiao
 # 创建日期：2024
 # 最后更新：2025-09-17
@@ -39,8 +39,7 @@ QT += webengine webenginewidgets webchannel
 #httpserver在6.14之后才引入
 
 # MSVC编译器编码设置 - 解决中文编码问题
-msvc:QMAKE_CXXFLAGS += -execution-charset:utf-8  #mingw转成msvc后编译编码错误。 需添加这几行
-msvc:QMAKE_CXXFLAGS += -source-charset:utf-8
+msvc:QMAKE_CXXFLAGS += /utf-8  # 统一源/执行字符集，避免 C4819
 
 # 编译器警告设置
 # The following define makes your compiler emit warnings if you use
@@ -73,9 +72,22 @@ SOURCES += \
     Controller/disp2sigmanager.cpp \
     Controller/mon2dispmanager.cpp \
     Controller/sig2dispmanager.cpp \
+    Controller/tbd2dispmanager.cpp \
     Controller/targetdispmanager.cpp \
+    Controller/ExternalCtrlManager.cpp \
     Controller/RadarDataManager.cpp \
     Controller/ErrorHandler.cpp \
+    \
+    # 参数配置模块
+    paramWidget/batterycontrol.cpp \
+    paramWidget/tranrecvui.cpp \
+    paramWidget/datasaveui.cpp \
+    paramWidget/dataprocessui.cpp \
+    paramWidget/sigparamui.cpp \
+    paramWidget/freqcontrolui.cpp \
+    paramWidget/waveandsample.cpp \
+    paramWidget/scanrangeui.cpp \
+    paramWidget/photoelectricparam.cpp \
     \
     # 点管理模块 - 检测点和航迹管理
     PointManager/detmanager.cpp \
@@ -143,9 +155,22 @@ HEADERS += \
     Controller/disp2sigmanager.h \
     Controller/mon2dispmanager.h \
     Controller/sig2dispmanager.h \
+    Controller/tbd2dispmanager.h \
     Controller/targetdispmanager.h \
+    Controller/ExternalCtrlManager.h \
     Controller/RadarDataManager.h \
     Controller/ErrorHandler.h \
+    \
+    # 参数配置模块头文件
+    paramWidget/batterycontrol.h \
+    paramWidget/tranrecvui.h \
+    paramWidget/datasaveui.h \
+    paramWidget/dataprocessui.h \
+    paramWidget/sigparamui.h \
+    paramWidget/freqcontrolui.h \
+    paramWidget/waveandsample.h \
+    paramWidget/scanrangeui.h \
+    paramWidget/photoelectricparam.h \
     \
     # 点管理模块头文件
     PointManager/detmanager.h \
@@ -198,7 +223,18 @@ FORMS += \
     PolarDisp/pointinfow.ui \
     PolarDisp/pviewtopleft.ui \
     PolarDisp/mousepositioninfo.ui \
-    PolarDisp/ppivisualsettings.ui
+    PolarDisp/ppivisualsettings.ui \
+    \
+    # 参数配置模块 UI
+    paramWidget/batterycontrol.ui \
+    paramWidget/tranrecvui.ui \
+    paramWidget/datasaveui.ui \
+    paramWidget/dataprocessui.ui \
+    paramWidget/sigparamui.ui \
+    paramWidget/freqcontrolui.ui \
+    paramWidget/waveandsample.ui \
+    paramWidget/scanrangeui.ui \
+    paramWidget/photoelectricparam.ui
 
 ##############################################################################
 # 资源文件配置

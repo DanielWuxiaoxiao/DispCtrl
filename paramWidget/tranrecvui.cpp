@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2025-10-24 11:04:46
+ * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-10-24 21:06:36
+ * @LastEditTime: 2025-12-25 16:19:35
  * @Description: 
  */
 #include "tranrecvui.h"
@@ -42,6 +42,10 @@ void TranRecvUI::onAccept()
     else
         param.tran = 1;
 
+    // 角度以 0.01° 量化
+    param.tranStart = static_cast<unsigned short>(ui->spinStart->value());
+    param.tranEnd = static_cast<unsigned short>(ui->spinEnd->value());
+
     emit setParam(param);
     parentWidget()->close();
 }
@@ -63,6 +67,9 @@ void TranRecvUI::restoreParam(const TranRecControl &param)
         ui->t->setChecked(true);
     else
         ui->t->setChecked(false);
+
+    ui->spinStart->setValue(param.tranStart);
+    ui->spinEnd->setValue(param.tranEnd);
 }
 
 TranRecvUI::~TranRecvUI()

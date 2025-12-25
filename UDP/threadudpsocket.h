@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-10-24 21:06:35
+ * @LastEditTime: 2025-12-25 16:19:35
  * @Description: 
  */
 /**
@@ -188,6 +188,9 @@ signals:
     /// 航迹信息信号 - 包含处理后的目标航迹数据
     void traInfo(QByteArray);
 
+    /// TBD 航迹信息信号
+    void tbdInfo(QByteArray);
+
     /// 数据保存确认信号 - 数据存储操作的确认
     void dataSaveOK(DataSaveOK);
 
@@ -202,6 +205,12 @@ signals:
 
     /// 监控参数信号 - 系统监控参数数据
     void monitorParamSend(MonitorParam);
+
+    /// 伺服回送信号
+    void servoCtrlRet(ServoCtrlRet);
+
+    /// BIT 上报信号
+    void bitReport(BITReport);
 
     /** @} */ // end of DataSignals group
 

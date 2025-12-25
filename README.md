@@ -58,9 +58,19 @@ DispCtrl/
 - **DetManager**: 点迹检测管理器
 - **TrackManager**: 航迹跟踪管理器
 
+## 协议与数据流
+
+- 协议说明：详见 `docs/internal_protocol.md`（v5.0，含端口、消息编号与字段定义）。
+- 新增数据流：
+  - TBD 航迹上报（0xEE02）：数据处理→显控，端口默认 `DISP_GET_DATA_PORT2/DATA_PRO_2_DISP2`，已接入 `Tbd2DispManager` 并分发到 PPI/扇区/表格。
+  - 伺服控制回送（0xDE01）：资源管理→显控，控制器信号 `servoCtrlRet` 已透出，可用于 UI 呈现。
+  - BIT 上报（0xDE02）：资源管理→显控，控制器信号 `bitReport` 已透出，可用于健康/日志显示。
+- 兼容性：帧头/尾与控制表 512B 与外部协议保持一致；所有消息小端，1 字节对齐。
+
 ## 编译和运行
 
 ### 环境要求
+
 - Windows 10/11
 - Visual Studio 2017 或更高版本
 - Qt 5.14.2 或更高版本
@@ -69,6 +79,7 @@ DispCtrl/
 ### 编译步骤
 
 #### 使用 VS Code (推荐)
+
 1. 安装 CMake Tools 扩展
 2. 打开项目文件夹
 3. 按 `Ctrl+Shift+P` 输入 "CMake: Configure"
@@ -76,6 +87,7 @@ DispCtrl/
 5. 按 `F7` 或使用 "CMake: Build" 命令
 
 #### 命令行编译
+
 ```bash
 mkdir build
 cd build
@@ -84,6 +96,7 @@ cmake --build . --config Debug
 ```
 
 ### 运行程序
+
 ```bash
 # Debug 模式
 ./build/bin/Debug/DispCtrl.exe
@@ -95,7 +108,9 @@ cmake --build . --config Debug
 ## 配置文件
 
 ### config.json
+
 系统配置文件，包含：
+
 - 显示参数设置
 - 网络连接配置
 - 界面布局选项
@@ -104,12 +119,14 @@ cmake --build . --config Debug
 ## 开发指南
 
 ### 添加新的显示模块
+
 1. 继承 `QGraphicsItem` 或 `QGraphicsScene`
 2. 实现 `paint()` 和 `boundingRect()` 方法
 3. 在相应的管理器中注册模块
 4. 更新 CMakeLists.txt 文件
 
 ### 自定义数据协议
+
 1. 修改 `Basic/Protocol.h` 中的数据结构
 2. 更新相应的解析和处理逻辑
 3. 确保数据同步机制正常工作
@@ -134,4 +151,4 @@ cmake --build . --config Debug
 
 ---
 
-*DispCtrl - 专业的雷达显示控制解决方案*
+DispCtrl - 专业的雷达显示控制解决方案

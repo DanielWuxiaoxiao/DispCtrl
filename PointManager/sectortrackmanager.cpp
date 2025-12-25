@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 10:04:10
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:06
+ * @LastEditTime: 2025-12-25 16:19:34
  * @Description: 
  */
 /**
@@ -99,11 +99,11 @@ SectorTrackManager::SectorTrackManager(QGraphicsScene* scene, PolarAxis* axis, Q
 {
     // 注册到统一数据管理器
     RADAR_DATA_MGR.registerView("SectorTrackManager_" + QString::number((quintptr)this), this);
-    
+
     // 连接统一数据管理器的信号
-    connect(&RADAR_DATA_MGR, &RadarDataManager::trackReceived, 
+    connect(&RADAR_DATA_MGR, &RadarDataManager::trackReceived,
             this, &SectorTrackManager::addTrackPoint);
-    connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared, 
+    connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared,
             this, &SectorTrackManager::clear);
 }
 
@@ -116,30 +116,30 @@ SectorTrackManager::~SectorTrackManager()
 
 void SectorTrackManager::addTrackPoint(const PointInfo& info)
 {
-    ensureSeries(info.batch);
+    PointType type = (info.type == PointType::TBDPointType ? PointType::TBDPointType : PointType::Track);
+    ensureSeries(info.batch, type);
     SectorTrackSeries& series = m_series[info.batch];
-    
+
     // 创建航迹点
     PointInfo copy = info;
-    copy.type = 2; // 航迹点类型
-    
+
     TrackPoint* pt = new TrackPoint(copy);
     pt->setColor(series.color);
     pt->resize(m_pointSizeRatio);
-    
+
     // 设置位置
     QPointF pos = polarToPixel(copy.range, copy.azimuth);
     pt->updatePosition(pos.x(), pos.y());
-    
+
     // 设置可见性
     bool visible = series.visible && isPointVisible(copy);
     pt->setVisible(visible);
-    
+
     m_scene->addItem(pt);
-    
+
     SectorTrackNode node;
     node.point = pt;
-    
+
     // 与前一个点连线
     if (!series.nodes.isEmpty()) {
         TrackPoint* prevPoint = series.nodes.last().point;
@@ -148,22 +148,22 @@ void SectorTrackManager::addTrackPoint(const PointInfo& info)
             QPen pen(series.color);
             pen.setWidth(1);
             line->setPen(pen);
-            
+
             updateLineGeometry(line, prevPoint->scenePos(), pt->scenePos());
-            
+
             // 连线只有当两个点都在扇形内时才可见
-            bool lineVisible = series.visible && 
-                             isPointVisible(prevPoint->infoRef()) && 
+            bool lineVisible = series.visible &&
+                             isPointVisible(prevPoint->infoRef()) &&
                              isPointVisible(copy);
             line->setVisible(lineVisible);
-            
+
             m_scene->addItem(line);
             node.lineFromPrev = line;
         }
     }
-    
+
     series.nodes.append(node);
-    
+
     // 更新最新点标签
     updateLatestLabel(info.batch);
 }
@@ -172,47 +172,47 @@ void SectorTrackManager::refreshAll()
 {
     for (auto it = m_series.begin(); it != m_series.end(); ++it) {
         SectorTrackSeries& series = it.value();
-        
+
         // 更新所有节点
         for (int i = 0; i < series.nodes.size(); ++i) {
             SectorTrackNode& node = series.nodes[i];
             if (!node.point) continue;
-            
+
             const PointInfo& info = node.point->infoRef();
-            
+
             // 更新位置
             QPointF pos = polarToPixel(info.range, info.azimuth);
             node.point->updatePosition(pos.x(), pos.y());
-            
+
             // 更新可见性
             bool visible = series.visible && isPointVisible(info);
             node.point->setVisible(visible);
-            
+
             // 更新连线
             if (node.lineFromPrev && i > 0) {
                 TrackPoint* prevPoint = series.nodes[i-1].point;
                 if (prevPoint) {
-                    updateLineGeometry(node.lineFromPrev, 
-                                     prevPoint->scenePos(), 
+                    updateLineGeometry(node.lineFromPrev,
+                                     prevPoint->scenePos(),
                                      node.point->scenePos());
-                    
-                    bool lineVisible = series.visible && 
-                                     isPointVisible(prevPoint->infoRef()) && 
+
+                    bool lineVisible = series.visible &&
+                                     isPointVisible(prevPoint->infoRef()) &&
                                      isPointVisible(info);
                     node.lineFromPrev->setVisible(lineVisible);
                 }
             }
         }
-        
+
         // 更新最新点标签
         if (!series.nodes.isEmpty()) {
             SectorTrackNode& latestNode = series.nodes.last();
             if (latestNode.point && series.label && series.labelLine) {
                 QPointF anchorPos = latestNode.point->scenePos();
-                updateLineGeometry(series.labelLine, 
+                updateLineGeometry(series.labelLine,
                                  series.label->mapToScene(series.label->boundingRect().center()),
                                  anchorPos);
-                
+
                 bool labelVisible = series.visible && isPointVisible(latestNode.point->infoRef());
                 series.label->setVisible(labelVisible);
                 series.labelLine->setVisible(labelVisible);
@@ -225,7 +225,7 @@ void SectorTrackManager::setBatchVisible(int batchID, bool visible)
 {
     auto it = m_series.find(batchID);
     if (it == m_series.end()) return;
-    
+
     it->visible = visible;
     updateBatchVisibility(batchID);
 }
@@ -241,9 +241,9 @@ void SectorTrackManager::setAllVisible(bool visible)
 void SectorTrackManager::setPointSizeRatio(float ratio)
 {
     if (ratio <= 0.0f) ratio = 1.0f;
-    
+
     m_pointSizeRatio = ratio;
-    
+
     for (auto it = m_series.begin(); it != m_series.end(); ++it) {
         for (SectorTrackNode& node : it->nodes) {
             if (node.point) {
@@ -255,10 +255,12 @@ void SectorTrackManager::setPointSizeRatio(float ratio)
 
 void SectorTrackManager::setBatchColor(int batchID, const QColor& color)
 {
-    ensureSeries(batchID);
+    if (!m_series.contains(batchID)) {
+        ensureSeries(batchID);
+    }
     SectorTrackSeries& series = m_series[batchID];
     series.color = color;
-    
+
     // 更新所有点和线的颜色
     for (SectorTrackNode& node : series.nodes) {
         if (node.point) {
@@ -270,7 +272,7 @@ void SectorTrackManager::setBatchColor(int batchID, const QColor& color)
             node.lineFromPrev->setPen(pen);
         }
     }
-    
+
     if (series.labelLine) {
         QPen pen(color);
         pen.setStyle(Qt::DashLine);
@@ -282,7 +284,7 @@ void SectorTrackManager::setAngleRange(float minAngle, float maxAngle)
 {
     m_minAngle = minAngle;
     m_maxAngle = maxAngle;
-    
+
     // 刷新所有航迹的显示
     refreshAll();
 }
@@ -291,9 +293,9 @@ void SectorTrackManager::removeBatch(int batchID)
 {
     auto it = m_series.find(batchID);
     if (it == m_series.end()) return;
-    
+
     SectorTrackSeries& series = it.value();
-    
+
     // 删除所有节点
     for (SectorTrackNode& node : series.nodes) {
         if (node.lineFromPrev) {
@@ -305,7 +307,7 @@ void SectorTrackManager::removeBatch(int batchID)
             delete node.point;
         }
     }
-    
+
     // 删除标签
     if (series.labelLine) {
         m_scene->removeItem(series.labelLine);
@@ -315,7 +317,7 @@ void SectorTrackManager::removeBatch(int batchID)
         m_scene->removeItem(series.label);
         delete series.label;
     }
-    
+
     m_series.erase(it);
 }
 
@@ -327,13 +329,36 @@ void SectorTrackManager::clear()
     }
 }
 
-void SectorTrackManager::ensureSeries(int batchID)
+void SectorTrackManager::ensureSeries(int batchID, PointType type)
 {
     if (!m_series.contains(batchID)) {
         SectorTrackSeries series;
-        series.color = TRA_COLOR;
+        series.type = type;
+        series.color = (type == PointType::TBDPointType) ? QColor(TBD_COLOR) : QColor(TRA_COLOR);
         series.visible = true;
         m_series.insert(batchID, series);
+        return;
+    }
+
+    auto& series = m_series[batchID];
+    if (series.type != type) {
+        series.type = type;
+        QColor newColor = (type == PointType::TBDPointType) ? QColor(TBD_COLOR) : QColor(TRA_COLOR);
+        series.color = newColor;
+        // 更新已有节点和连线颜色
+        for (auto& node : series.nodes) {
+            if (node.point) node.point->setColor(newColor);
+            if (node.lineFromPrev) {
+                QPen pen(newColor);
+                pen.setWidth(1);
+                node.lineFromPrev->setPen(pen);
+            }
+        }
+        if (series.labelLine) {
+            QPen pen(newColor);
+            pen.setStyle(Qt::DashLine);
+            series.labelLine->setPen(pen);
+        }
     }
 }
 
@@ -341,46 +366,47 @@ void SectorTrackManager::updateLatestLabel(int batchID)
 {
     auto it = m_series.find(batchID);
     if (it == m_series.end() || it->nodes.isEmpty()) return;
-    
+
     SectorTrackSeries& series = it.value();
     SectorTrackNode& latestNode = series.nodes.last();
     if (!latestNode.point) return;
-    
+
     // 创建或更新标签
     if (!series.label) {
         series.label = new SectorDraggableLabel();
         series.label->setDefaultTextColor(Qt::white);
         series.label->setZValue(INFO_Z);
-        
+
         series.labelLine = new QGraphicsLineItem();
         QPen pen(series.color);
         pen.setStyle(Qt::DashLine);
         series.labelLine->setPen(pen);
         series.labelLine->setZValue(INFO_Z);
-        
+
         m_scene->addItem(series.label);
         m_scene->addItem(series.labelLine);
-        
+
         series.label->setAnchorItem(latestNode.point, series.labelLine);
     } else {
         series.label->setAnchorItem(latestNode.point, series.labelLine);
     }
-    
+
     // 设置标签内容
     const PointInfo& info = latestNode.point->infoRef();
-    QString labelText = QString("Track:%1").arg(info.batch);
+    QString typeText = (series.type == PointType::TBDPointType) ? QString("TBD") : QString("Track");
+    QString labelText = QString("%1:%2").arg(typeText).arg(info.batch);
     series.label->setPlainText(labelText);
-    
+
     // 设置初始位置
     QPointF anchorPos = latestNode.point->scenePos();
     QPointF labelPos = anchorPos + QPointF(30, -20);
     series.label->setPos(labelPos);
-    
+
     // 更新连线
-    updateLineGeometry(series.labelLine, 
+    updateLineGeometry(series.labelLine,
                      series.label->mapToScene(series.label->boundingRect().center()),
                      anchorPos);
-    
+
     // 设置可见性
     bool visible = series.visible && isPointVisible(info);
     series.label->setVisible(visible);
@@ -391,27 +417,27 @@ void SectorTrackManager::updateBatchVisibility(int batchID)
 {
     auto it = m_series.find(batchID);
     if (it == m_series.end()) return;
-    
+
     SectorTrackSeries& series = it.value();
-    
+
     for (int i = 0; i < series.nodes.size(); ++i) {
         SectorTrackNode& node = series.nodes[i];
         if (node.point) {
             bool visible = series.visible && isPointVisible(node.point->infoRef());
             node.point->setVisible(visible);
         }
-        
+
         if (node.lineFromPrev && i > 0) {
             TrackPoint* prevPoint = series.nodes[i-1].point;
             if (prevPoint) {
-                bool lineVisible = series.visible && 
-                                 isPointVisible(prevPoint->infoRef()) && 
+                bool lineVisible = series.visible &&
+                                 isPointVisible(prevPoint->infoRef()) &&
                                  isPointVisible(node.point->infoRef());
                 node.lineFromPrev->setVisible(lineVisible);
             }
         }
     }
-    
+
     // 更新标签可见性
     if (!series.nodes.isEmpty()) {
         SectorTrackNode& latestNode = series.nodes.last();
@@ -445,12 +471,12 @@ bool SectorTrackManager::inAngle(float azimuthDeg) const
     // 归一化角度到 [0, 360)
     double angle = fmod(azimuthDeg, 360.0);
     if (angle < 0) angle += 360.0;
-    
+
     double minAngle = fmod(m_minAngle, 360.0);
     double maxAngle = fmod(m_maxAngle, 360.0);
     if (minAngle < 0) minAngle += 360.0;
     if (maxAngle < 0) maxAngle += 360.0;
-    
+
     // 处理跨越0度的情况
     if (minAngle <= maxAngle) {
         return (angle >= minAngle && angle <= maxAngle);

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:07
+ * @LastEditTime: 2025-12-25 16:19:34
  * @Description: 
  */
 /**
@@ -95,11 +95,11 @@ TrackManager::TrackManager(QGraphicsScene* scene, PolarAxis* axis, QObject* pare
 {
     // 注册到统一数据管理器，使用唯一标识符
     RADAR_DATA_MGR.registerView("TrackManager_" + QString::number((quintptr)this), this);
-    
+
     // 连接统一数据管理器的信号到本地处理函数
-    connect(&RADAR_DATA_MGR, &RadarDataManager::trackReceived, 
+    connect(&RADAR_DATA_MGR, &RadarDataManager::trackReceived,
             this, &TrackManager::addTrackPoint);        // 接收航迹点数据
-    connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared, 
+    connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared,
             this, &TrackManager::clear);                // 响应数据清理
 }
 
@@ -130,7 +130,7 @@ void TrackManager::setPointSizeRatio(float ratio)
 {
     if (ratio <= 0.f) ratio = 1.f;  // 防护性检查
     mPointSizeRatio = ratio;
-    
+
     // 遍历所有航迹序列
     for (auto it = mSeries.begin(); it != mSeries.end(); ++it) {
         // 对每个航迹的所有节点应用新比例
@@ -154,9 +154,11 @@ void TrackManager::setPointSizeRatio(float ratio)
  */
 void TrackManager::setBatchColor(int batchID, const QColor& c)
 {
-    ensureSeries(batchID);      // 确保序列存在
+    if (!mSeries.contains(batchID)) {
+        ensureSeries(batchID);  // 默认使用DBT颜色
+    }
     auto& s = mSeries[batchID]; // 获取航迹序列引用
-    
+
     // 更新所有节点的点和连线颜色
     for (auto& n : s.nodes) {
         if (n.point) n.point->setColor(c);      // 航迹点颜色
@@ -166,7 +168,7 @@ void TrackManager::setBatchColor(int batchID, const QColor& c)
             n.lineFromPrev->setPen(pen);        // 连线颜色
         }
     }
-    
+
     // 更新标签连线颜色
     if (s.labelLine) {
         QPen pen(c);
@@ -183,12 +185,23 @@ void TrackManager::setBatchColor(int batchID, const QColor& c)
  *          - 如不存在则创建新的航迹序列
  *          - 设置默认的颜色和可见性参数
  */
-void TrackManager::ensureSeries(int batchID)
+void TrackManager::ensureSeries(int batchID, PointType type)
 {
     if (!mSeries.contains(batchID)) {
         TrackSeries s;
-        s.color = TRA_COLOR;    // 默认航迹颜色
+        s.type = type;
+        s.color = (type == PointType::TBDPointType) ? QColor(TBD_COLOR) : QColor(TRA_COLOR);
         mSeries.insert(batchID, s);
+        return;
+    }
+
+    // 如果已存在但类型发生变化，更新颜色并同步所有节点
+    auto& s = mSeries[batchID];
+    if (s.type != type) {
+        s.type = type;
+        QColor newColor = (type == PointType::TBDPointType) ? QColor(TBD_COLOR) : QColor(TRA_COLOR);
+        s.color = newColor;
+        setBatchColor(batchID, newColor);
     }
 }
 
@@ -229,13 +242,14 @@ bool TrackManager::inRange(float range) const
  */
 void TrackManager::addTrackPoint(const PointInfo& info)
 {
-    // 确保指定批次的航迹序列存在
-    ensureSeries(info.batch);
+    // 确保指定批次的航迹序列存在，并根据类型选择颜色
+    PointType type = (info.type == PointType::TBDPointType ? PointType::TBDPointType : PointType::Track);
+    ensureSeries(info.batch, type);
     auto& s = mSeries[info.batch];  // 获取航迹序列引用
 
     // 创建航迹点对象并设置基本属性
     PointInfo copy = info;
-    copy.type = 2;                  // 标记为航迹点类型
+    copy.type = info.type;          // 保持传入类型，用于标识DBT/TBD
     auto* pt = new TrackPoint(copy);
     pt->setColor(s.color);          // 应用航迹序列的颜色
     pt->resize(mPointSizeRatio);    // 应用当前缩放比例
@@ -243,11 +257,11 @@ void TrackManager::addTrackPoint(const PointInfo& info)
     // 计算并设置屏幕坐标位置
     const QPointF pos = polarToPixel(copy.range, copy.azimuth);
     pt->updatePosition(pos.x(), pos.y());
-    
+
     // 应用可见性过滤：序列可见性 && 距离范围 && 角度范围
     bool vis = s.visible && inRange(copy.range) && inAngle(copy.azimuth);
     pt->setVisible(vis);
-    
+
     // 添加到图形场景
     mScene->addItem(pt);
 
@@ -264,12 +278,12 @@ void TrackManager::addTrackPoint(const PointInfo& info)
             QPen pen(s.color);
             pen.setWidth(1);
             line->setPen(pen);
-            
+
             // 设置连线几何形状
             updateLineGeometry(line,
                                prev->scenePos(),    // 前一点位置
                                pt->scenePos());     // 当前点位置
-            
+
             // 连线可见性：两个点都在范围内且航迹序列可见时显示
             bool lineVis = s.visible && inRange(s.nodes.last().point->infoRef().range) && inRange(copy.range)
                        && inAngle(s.nodes.last().point->infoRef().azimuth) && inAngle(copy.azimuth);
@@ -316,8 +330,8 @@ void TrackManager::updateLatestLabel(int batchID)
 
     // 标签内容：根据你的需求自由定制
     const auto& pi = latest.point->infoRef();
-    QString labelText = QString("Num:%1")
-                        .arg(pi.batch);
+    QString typeText = (s.type == PointType::TBDPointType) ? QString("TBD") : QString("Track");
+    QString labelText = QString("%1:%2").arg(typeText).arg(pi.batch);
     s.label->setPlainText(labelText);
 
     // 初始放在最新点的右上方

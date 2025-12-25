@@ -130,10 +130,12 @@ set(SRC_FILES
     Controller/controller.cpp                  # 主控制器
     Controller/disp2datamanager.cpp            # 显示到数据管理
     Controller/data2dispmanager.cpp            # 数据到显示管理
+    Controller/tbd2dispmanager.cpp             # TBD数据到显示管理
     Controller/disp2monmanager.cpp             # 显示到监控管理
     Controller/targetdispmanager.cpp           # 目标显示管理
     Controller/sig2dispmanager.cpp             # 信号到显示管理
     Controller/mon2dispmanager.cpp             # 监控到显示管理
+        Controller/ExternalCtrlManager.cpp        # 外部雷控/调度链路
     Controller/RadarDataManager.cpp            # 雷达数据统一管理器
     Controller/ErrorHandler.cpp                # 错误处理框架
     Controller/disp2sigmanager.cpp             # 显示到信号管理
@@ -187,7 +189,9 @@ set(HDR_FILES
     Controller/disp2monmanager.h               # 显示到监控管理器
     Controller/disp2datamanager.h              # 显示到数据管理器
     Controller/data2dispmanager.h              # 数据到显示管理器
+    Controller/tbd2dispmanager.h               # TBD数据到显示管理器
     Controller/controller.h                    # 主控制器
+    Controller/ExternalCtrlManager.h           # 外部雷控/调度链路
 
     # 自定义组件头文件 - UI扩展控件
     cusWidgets/detachablewidget.h              # 可分离窗口部件

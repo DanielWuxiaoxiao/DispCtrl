@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-10-24 21:06:35
+ * @LastEditTime: 2025-12-25 16:19:35
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -16,6 +16,7 @@
 #include "cusWidgets/detachablewidget.h"
 #include "azelrangewidget.h"
 #include "Basic/ConfigManager.h"
+#include "Basic/DispBasci.h"
 #include "PolarDisp/pviewtopleft.h"
 #include "PointManager/trackmanager.h"
 #include "Controller/RadarDataManager.h"
@@ -89,9 +90,14 @@ MainOverLayOut::MainOverLayOut(QWidget *parent) :
     m_sigProSta = 1;         // 默认异常
     m_dataProSta = 1;        // 默认异常
     m_beamConSta = 1;        // 默认异常
+    m_targetRecSta = 1;      // 默认异常
 
     // 连接健康管理信号
     connect(CON_INS, &Controller::monitorParamSend, this, &MainOverLayOut::monitorParamRef);
+
+    // 连接伺服回送与BIT上报
+    connect(CON_INS, &Controller::servoCtrlRet, this, &MainOverLayOut::onServoCtrlRet);
+    connect(CON_INS, &Controller::bitReport, this, &MainOverLayOut::onBITReport);
 
     // 连接雷达控制按钮
     connect(ui->btnBatteryControl, &QPushButton::clicked, this, &MainOverLayOut::onBatteryControlClicked);
@@ -117,9 +123,17 @@ MainOverLayOut::MainOverLayOut(QWidget *parent) :
     connect(CON_INS, &Controller::traInfoProcess,
             this, &MainOverLayOut::updateTrackList);
 
+    // 从Controller接收TBD航迹数据并更新表格
+    connect(CON_INS, &Controller::tbdInfoProcess,
+        this, &MainOverLayOut::updateTrackList);
+
     // 从Controller接收航迹数据并更新无人机表格
     connect(CON_INS, &Controller::traInfoProcess,
             this, &MainOverLayOut::updateDroneTrackList);
+
+    // 从Controller接收TBD航迹数据并更新无人机表格
+    connect(CON_INS, &Controller::tbdInfoProcess,
+        this, &MainOverLayOut::updateDroneTrackList);
 }
 
 void MainOverLayOut::topRightSet()
@@ -203,6 +217,10 @@ void MainOverLayOut::mainPView()
     // 从Controller接收航迹数据并添加到扇区TrackManager
     connect(CON_INS, &Controller::traInfoProcess,
             m_sectorWidget->scene()->trackManager(), &SectorTrackManager::addTrackPoint);
+
+    // 从Controller接收TBD航迹数据并添加到扇区TrackManager
+    connect(CON_INS, &Controller::tbdInfoProcess,
+        m_sectorWidget->scene()->trackManager(), &SectorTrackManager::addTrackPoint);
 
 }
 
@@ -450,8 +468,9 @@ void MainOverLayOut::setupTrackManagement()
 
 void MainOverLayOut::updateTrackList(const PointInfo& info)
 {
-    QString targetType = getTargetTypeText(m_targetTypes.value(info.batch, 0));
-    addOrUpdateTrackRow(ui->tableWidget, info, targetType);
+    bool isTBD = (info.type == PointType::TBDPointType);
+    QString targetType = isTBD ? QStringLiteral("TBD") : getTargetTypeText(m_targetTypes.value(info.batch, 0));
+    addOrUpdateTrackRow(ui->tableWidget, info, targetType, isTBD);
     sortTrackTable(ui->tableWidget);
 }
 
@@ -460,19 +479,19 @@ void MainOverLayOut::updateDroneTrackList(const PointInfo& info)
     // 只显示无人机类型的航迹
     if (m_targetTypes.value(info.batch, 0) == 1) { // 1 = 无人机
         QString targetType = getTargetTypeText(1);
-        addOrUpdateTrackRow(ui->droneTableWidget, info, targetType);
+        addOrUpdateTrackRow(ui->droneTableWidget, info, targetType, info.type == PointType::TBDPointType);
         sortTrackTable(ui->droneTableWidget);
     }
 }
 
-void MainOverLayOut::updateTargetClassification(unsigned short batchID, int targetType)
+void MainOverLayOut::updateTargetClassification(unsigned int batchID, int targetType)
 {
     m_targetTypes[batchID] = targetType;
 
     // 更新总航迹表格中的目标类型
     QTableWidget* trackTable = ui->tableWidget;
     for (int row = 0; row < trackTable->rowCount(); ++row) {
-        if (trackTable->item(row, 0) && static_cast<unsigned short>(trackTable->item(row, 0)->text().toInt()) == batchID) {
+    if (trackTable->item(row, 0) && trackTable->item(row, 0)->text().toUInt() == batchID) {
             if (trackTable->item(row, 7)) {
                 trackTable->item(row, 7)->setText(getTargetTypeText(targetType));
             }
@@ -484,7 +503,7 @@ void MainOverLayOut::updateTargetClassification(unsigned short batchID, int targ
     if (targetType == 1) { // 无人机
         // 从总表格中找到该批次的数据，添加到无人机表格
         for (int row = 0; row < trackTable->rowCount(); ++row) {
-            if (trackTable->item(row, 0) && static_cast<unsigned short>(trackTable->item(row, 0)->text().toInt()) == batchID) {
+            if (trackTable->item(row, 0) && trackTable->item(row, 0)->text().toUInt() == batchID) {
                 PointInfo info;
                 info.batch = batchID;
                 info.azimuth = trackTable->item(row, 1)->text().toFloat();
@@ -494,7 +513,7 @@ void MainOverLayOut::updateTargetClassification(unsigned short batchID, int targ
                 info.speed = trackTable->item(row, 5)->text().toFloat();
                 info.SNR = trackTable->item(row, 6)->text().toFloat();
 
-                addOrUpdateTrackRow(ui->droneTableWidget, info, getTargetTypeText(targetType));
+                addOrUpdateTrackRow(ui->droneTableWidget, info, getTargetTypeText(targetType), false);
                 break;
             }
         }
@@ -502,7 +521,7 @@ void MainOverLayOut::updateTargetClassification(unsigned short batchID, int targ
         // 从无人机表格中移除非无人机目标
         QTableWidget* droneTable = ui->droneTableWidget;
         for (int row = droneTable->rowCount() - 1; row >= 0; --row) {
-            if (droneTable->item(row, 0) && static_cast<unsigned short>(droneTable->item(row, 0)->text().toInt()) == batchID) {
+            if (droneTable->item(row, 0) && droneTable->item(row, 0)->text().toUInt() == batchID) {
                 droneTable->removeRow(row);
                 break;
             }
@@ -522,13 +541,13 @@ void MainOverLayOut::clearAllTracks()
     m_trackStartTimes.clear();
 }
 
-int MainOverLayOut::addOrUpdateTrackRow(QTableWidget* tableWidget, const PointInfo& info, const QString& targetType)
+int MainOverLayOut::addOrUpdateTrackRow(QTableWidget* tableWidget, const PointInfo& info, const QString& targetType, bool isTBD)
 {
     int row = -1;
 
     // 查找是否已存在该批次
     for (int i = 0; i < tableWidget->rowCount(); ++i) {
-        if (tableWidget->item(i, 0) && static_cast<unsigned short>(tableWidget->item(i, 0)->text().toInt()) == info.batch) {
+        if (tableWidget->item(i, 0) && tableWidget->item(i, 0)->text().toUInt() == info.batch) {
             row = i;
             break;
         }
@@ -553,8 +572,13 @@ int MainOverLayOut::addOrUpdateTrackRow(QTableWidget* tableWidget, const PointIn
 
     // 设置所有项为不可编辑
     for (int col = 0; col < 8; ++col) {
-        if (tableWidget->item(row, col)) {
-            tableWidget->item(row, col)->setFlags(tableWidget->item(row, col)->flags() & ~Qt::ItemIsEditable);
+        QTableWidgetItem* item = tableWidget->item(row, col);
+        if (!item) continue;
+        item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+        if (isTBD) {
+            item->setBackground(QBrush(QColor(TBD_COLOR).lighter(130)));
+        } else {
+            item->setBackground(QBrush());
         }
     }
 
@@ -576,8 +600,8 @@ void MainOverLayOut::sortTrackTable(QTableWidget* tableWidget)
 
     // 自定义排序：无人机优先，相同类别按时间排序
     std::sort(allRows.begin(), allRows.end(), [this](const QStringList& a, const QStringList& b) {
-        unsigned short batchA = static_cast<unsigned short>(a[0].toInt());
-        unsigned short batchB = static_cast<unsigned short>(b[0].toInt());
+        unsigned int batchA = a[0].toUInt();
+        unsigned int batchB = b[0].toUInt();
 
         int typeA = m_targetTypes.value(batchA, 0);
         int typeB = m_targetTypes.value(batchB, 0);
@@ -1070,6 +1094,23 @@ void MainOverLayOut::monitorParamRef(MonitorParam res)
         break;
     }
 
+    // 处理目标识别软件状态
+    m_targetRecSta = res.targetRecSta;
+    switch(res.targetRecSta)
+    {
+    case 0:  // 正常
+        break;
+    case 1:  // 异常
+        normal = false;
+        break;
+    case 2:  // 启动成功
+        logCommand("目标识别软件启动成功", "");
+        break;
+    case 3:  // 启动失败
+        logCommand("目标识别软件启动失败", "");
+        break;
+    }
+
     // 更新系统整体状态
     m_systemNormal = normal;
 
@@ -1091,6 +1132,62 @@ void MainOverLayOut::monitorParamRef(MonitorParam res)
             "}"
         );
     }
+}
+
+void MainOverLayOut::onServoCtrlRet(ServoCtrlRet res)
+{
+    auto resultText = QString("%1").arg(res.result == 0 ? "失败" : (res.result == 1 ? "成功" : "执行中"));
+    QString cmdText;
+    switch (res.cmd) {
+    case 0: cmdText = "停转"; break;
+    case 1: cmdText = "转动"; break;
+    case 2: cmdText = "寻位"; break;
+    case 3: cmdText = "归北"; break;
+    default: cmdText = QString("未知(%1)").arg(res.cmd); break;
+    }
+
+    const double az = res.azCur / 100.0; // 0.01°
+    ui->stalabel1->setText("伺服命令");
+    ui->stamsg1->setText(QString("%1 | %2").arg(cmdText, resultText));
+    ui->stalabel2->setText("伺服速度(秒/转)");
+    ui->stamsg2->setText(QString::number(res.speed));
+    ui->stalabel3->setText("当前方位(°)");
+    ui->stamsg3->setText(QString::number(az, 'f', 2));
+
+    logCommand("伺服回送", QString("cmd=%1 result=%2 speed=%3 az=%4°")
+               .arg(cmdText)
+               .arg(resultText)
+               .arg(res.speed)
+               .arg(QString::number(az, 'f', 2)));
+}
+
+void MainOverLayOut::onBITReport(BITReport res)
+{
+    const double fpgaTemp = res.fpgaTemp / 10.0;   // 0.1°
+    const double panelTemp = res.panelTemp / 10.0; // 0.1°
+    const double yaw = res.yaw / 100.0;            // 0.01°
+    const QString powerState = res.powerState ? "开启" : "关闭";
+
+    ui->stalabel4->setText("BIT状态");
+    ui->stamsg4->setText(QString("电源:%1 FPGA:%2°C 面板:%3°C").arg(powerState)
+                         .arg(QString::number(fpgaTemp, 'f', 1))
+                         .arg(QString::number(panelTemp, 'f', 1)));
+
+    QString subArrayInfo;
+    for (int i = 0; i < 5; ++i) {
+        subArrayInfo += QString("%1").arg(res.subArrayPower[i]);
+        if (i != 4) subArrayInfo += ",";
+    }
+
+    ui->stalabel5->setText("方位/分阵供电");
+    ui->stamsg5->setText(QString("Yaw:%1° 阵列:%2").arg(QString::number(yaw, 'f', 2), subArrayInfo));
+
+    logCommand("BIT上报", QString("power=%1 fpga=%2°C panel=%3°C yaw=%4° sub=%5")
+               .arg(powerState)
+               .arg(QString::number(fpgaTemp, 'f', 1))
+               .arg(QString::number(panelTemp, 'f', 1))
+               .arg(QString::number(yaw, 'f', 2))
+               .arg(subArrayInfo));
 }
 
 /**
@@ -1131,7 +1228,7 @@ void MainOverLayOut::onRadarSystemClicked()
                        "font-weight: bold; "
                        "}";
 
-    // 创建三个状态按钮
+    // 创建四个状态按钮
     QPushButton* sigProBtn = new QPushButton("信号处理", contentWidget);
     sigProBtn->setEnabled(false);  // 不可选
     sigProBtn->setMinimumHeight(60);
@@ -1159,10 +1256,20 @@ void MainOverLayOut::onRadarSystemClicked()
         beamConBtn->setStyleSheet(redStyle);
     }
 
+    QPushButton* targetRecBtn = new QPushButton("目标识别", contentWidget);
+    targetRecBtn->setEnabled(false);
+    targetRecBtn->setMinimumHeight(60);
+    if (m_targetRecSta == 0) {
+        targetRecBtn->setStyleSheet(greenStyle);
+    } else {
+        targetRecBtn->setStyleSheet(redStyle);
+    }
+
     // 添加到布局
     mainLayout->addWidget(sigProBtn);
     mainLayout->addWidget(dataProBtn);
     mainLayout->addWidget(beamConBtn);
+    mainLayout->addWidget(targetRecBtn);
     mainLayout->addStretch();
 
     // 设置内容

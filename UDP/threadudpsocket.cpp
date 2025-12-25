@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-10-24 21:06:35
+ * @LastEditTime: 2025-12-25 16:19:35
  * @Description: 
  */
 /**
@@ -208,6 +208,15 @@ void ThreadedUdpSocket::handleDatagram(const QByteArray& data, int senderPort) {
             }
             break;
         }
+        case 0xEE02: {  // TBD 航迹信息消息
+            if(senderPort == CF_INS.port("DATA_PRO_2_DISP2",DATA_PRO_2_DISP2) &&
+               m_Port == CF_INS.port("DISP_GET_DATA_PORT2",DISP_GET_DATA_PORT2)) {
+                emit tbdInfo(data);
+            } else {
+                emit tbdInfo(data); // 容错：若端口配置不同仍转发
+            }
+            break;
+        }
         case 0xDD02: {  // 数据保存确认消息
             if(senderPort == CF_INS.port("SIG_2_DISP_PORT2",SIG_2_DISP_PORT2) &&
                m_Port == CF_INS.port("DISP_GET_SIG_PORT2",DISP_GET_SIG_PORT2)) {
@@ -249,6 +258,18 @@ void ThreadedUdpSocket::handleDatagram(const QByteArray& data, int senderPort) {
                 memcpy(&info, payload, sizeof(info));
                 emit monitorParamSend(info);
             }
+            break;
+        }
+        case 0xDE01: { // 伺服控制回送
+            ServoCtrlRet info;
+            memcpy(&info, payload, sizeof(info));
+            emit servoCtrlRet(info);
+            break;
+        }
+        case 0xDE02: { // BIT 上报
+            BITReport info;
+            memcpy(&info, payload, sizeof(info));
+            emit bitReport(info);
             break;
         }
         default:

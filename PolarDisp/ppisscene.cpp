@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-10-24 21:06:35
+ * @LastEditTime: 2025-12-25 16:19:35
  * @Description: 
  */
 /**
@@ -84,6 +84,10 @@ PPIScene::PPIScene(QObject *parent)
     // 从Controller接收航迹数据并添加到TrackManager
     connect(CON_INS, &Controller::traInfoProcess,
             m_track, &TrackManager::addTrackPoint);
+
+    // 从Controller接收TBD航迹数据并添加到TrackManager
+    connect(CON_INS, &Controller::tbdInfoProcess,
+        m_track, &TrackManager::addTrackPoint);
 }
 
 /**

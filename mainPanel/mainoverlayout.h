@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-10-24 21:06:35
+ * @LastEditTime: 2025-12-25 16:19:35
  * @Description: 
  */
 /**
@@ -186,7 +186,7 @@ private slots:
      * @param targetType 目标类型
      * @details 根据目标分类结果更新航迹显示类型
      */
-    void updateTargetClassification(unsigned short batchID, int targetType);
+    void updateTargetClassification(unsigned int batchID, int targetType);
 
     /**
      * @brief 清空所有航迹列表
@@ -264,6 +264,18 @@ private slots:
     void monitorParamRef(MonitorParam res);
 
     /**
+     * @brief 处理伺服控制回送
+     * @param res 伺服回送数据
+     */
+    void onServoCtrlRet(ServoCtrlRet res);
+
+    /**
+     * @brief 处理BIT上报
+     * @param res BIT上报数据
+     */
+    void onBITReport(BITReport res);
+
+    /**
      * @brief 打开雷达系统健康管理对话框
      * @details 显示信号处理、数据处理、波束调度三个子系统的运行状态
      */
@@ -279,8 +291,8 @@ private:
     mainviewTopLeft* m_topLeftWidget;   ///< PPI视图左上角控制面板，用于联动偏航和倾角
 
     // 航迹管理相关成员
-    QMap<unsigned short, int> m_targetTypes;  ///< 批次号到目标类型编号的映射
-    QMap<unsigned short, QDateTime> m_trackStartTimes; ///< 批次号到航迹开始时间的映射
+    QMap<unsigned int, int> m_targetTypes;  ///< 批次号到目标类型编号的映射
+    QMap<unsigned int, QDateTime> m_trackStartTimes; ///< 批次号到航迹开始时间的映射
 
     /**
      * @brief 初始化航迹管理功能
@@ -295,7 +307,7 @@ private:
      * @param targetType 目标类型文本
      * @return 更新的行号
      */
-    int addOrUpdateTrackRow(QTableWidget* tableWidget, const PointInfo& info, const QString& targetType);
+    int addOrUpdateTrackRow(QTableWidget* tableWidget, const PointInfo& info, const QString& targetType, bool isTBD);
 
     /**
      * @brief 对航迹表格进行排序
@@ -359,6 +371,7 @@ private:
     int m_sigProSta;                     ///< 信号处理软件状态
     int m_dataProSta;                    ///< 数据处理软件状态
     int m_beamConSta;                    ///< 波束调度软件状态
+    int m_targetRecSta;                  ///< 目标识别软件状态
 };
 
 #endif // MAINOVERLAYOUT_H

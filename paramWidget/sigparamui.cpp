@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 11:44:24
+ * @LastEditTime: 2025-12-25 16:19:35
  * @Description: 
  */
 #include "sigparamui.h"
@@ -32,6 +32,7 @@ ui->buttonBox->button(QDialogButtonBox::Ok)->setText("确定下发");
 void sigParamUI::onAccept()
 {
     SigProParam param;
+    param.algorithmSwitch = 0;
     param.noise = ui->noise->text().toFloat()/0.1f;
     param.thresh1 = ui->firstthresh->text().toFloat()/0.1f;
     param.thresh2 = ui->secondthre->text().toFloat()/0.1f;

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:44:53
+ * @LastEditTime: 2025-12-25 16:19:34
  * @Description: 
  */
 #ifndef PROTOCOL_H
@@ -27,6 +27,7 @@ constexpr unsigned short DATA_PRO_ID = 0xBB03;
 constexpr unsigned short DISP_CTRL_ID = 0xBB04;
 constexpr unsigned short TAR_CLA_ID = 0xBB05;
 constexpr unsigned short MONITOR_ID = 0xBB06;
+constexpr unsigned short RADAR_CTRL_ID = 0xBB07;   // 外部雷控软件ID
 
 constexpr unsigned short DISP_2_RES_PORT = 6012;
 constexpr unsigned short RES_GET_DISP_PORT = 8012;
@@ -241,17 +242,41 @@ typedef struct _PhotoElectricParamUp  //光电设备上报的设备状态
     }
 }PhotoElectricParamUp;
 
+// =========================
+// 外部雷控/调度链路占位结构（仅传输，不解析业务字段）
+// =========================
+
+struct ExternalSystemControl512 {
+    unsigned char data[512] = {0};
+};
+
+struct ExternalControlAck64 {
+    unsigned char data[64] = {0};
+};
+
+struct ExternalServoCmd32 {
+    unsigned char data[32] = {0};
+};
+
+struct ExternalServoAck32 {
+    unsigned char data[32] = {0};
+};
+
 typedef struct _TranRecvControl
 {
     unsigned short mesID;
     unsigned char recv;  //0关 1开
     unsigned char tran;
+    unsigned short tranStart;  //0.01°量化
+    unsigned short tranEnd;    //0.01°量化
 
     _TranRecvControl()  //default value
     {
         mesID = 0xAA02;
         tran = 0;
         recv = 1;
+        tranStart = 0;
+        tranEnd = 36000; // 360.00°
     }
 }TranRecControl;
 
@@ -675,6 +700,19 @@ typedef struct _TrackResult
     }
 }TrackResult;
 
+// TBD 航迹上报帧头
+typedef struct _TBDTrackHead
+{
+    unsigned short mesID;
+    unsigned short updateFlag;  // 显控更新标志位
+
+    _TBDTrackHead()
+    {
+        mesID = 0xEE02;
+        updateFlag = 0;
+    }
+}TBDTrackHead;
+
 typedef struct _trackInfo
 {
     unsigned short batch;
@@ -718,6 +756,59 @@ typedef struct _TBDPoint
     unsigned reserve2;
 }TBDPoint;
 
+// TBD 航迹节点（批号+长度）
+typedef struct _TBDTrackInfo
+{
+    unsigned batch;   // 航迹批号
+    unsigned length;  // 点迹数量
+}TBDTrackInfo;
+
+// 伺服控制回送 0xDE01
+typedef struct _ServoCtrlRet
+{
+    unsigned short mesID;
+    unsigned char result;   // 0 失败 1 成功 2 执行中
+    unsigned char cmd;      // 0 停转 1 转动 2 寻位 3 归北
+    unsigned char speed;    // 秒/转
+    unsigned short azCur;   // 0.01°
+    unsigned char reserve[6];
+
+    _ServoCtrlRet()
+    {
+        mesID = 0xDE01;
+        result = 0;
+        cmd = 0;
+        speed = 0;
+        azCur = 0;
+        memset(reserve, 0, sizeof(reserve));
+    }
+}ServoCtrlRet;
+
+// BIT 上报 0xDE02
+typedef struct _BITReport
+{
+    unsigned short mesID;
+    unsigned char bitGroup;     // 位标志组
+    unsigned char powerState;   // 波控板电源
+    unsigned short fpgaTemp;    // 0.1°
+    unsigned short panelTemp;   // 0.1°
+    unsigned short yaw;         // 0.01°
+    unsigned char subArrayPower[5];
+    unsigned char reserve[25];
+
+    _BITReport()
+    {
+        mesID = 0xDE02;
+        bitGroup = 0;
+        powerState = 0;
+        fpgaTemp = 0;
+        panelTemp = 0;
+        yaw = 0;
+        memset(subArrayPower, 0, sizeof(subArrayPower));
+        memset(reserve, 0, sizeof(reserve));
+    }
+}BITReport;
+
 typedef struct _PointInfo
 {
     unsigned type; //    det = 1,    trak = 2 , TBD = 3
@@ -728,14 +819,15 @@ typedef struct _PointInfo
     float speed;
     float altitute;
     float amp;
-    unsigned short batch;
+    unsigned int batch;
     unsigned char statMethod;
 }PointInfo;
 
 enum PointType
 {
     Detection = 1,
-    Track = 2
+    Track = 2,
+    TBDPointType = 3
 };
 
 typedef struct _SetTrackManual
@@ -768,6 +860,7 @@ typedef struct _MonitorParam
     unsigned char dataProSta;  //0运行状态正常 1运行状态异常
     unsigned char beamConSta;  //2 数据处理软件启动成功 3 数据处理软件启动失败
     unsigned char sigProSta;
+    unsigned char targetRecSta; // 目标识别软件状态 0正常 1异常 2启动成功 3启动失败
 
     _MonitorParam()  //default value
     {
@@ -775,6 +868,7 @@ typedef struct _MonitorParam
         dataProSta = 0;
         beamConSta = 0;
         sigProSta = 0;
+        targetRecSta = 0;
     };
 }MonitorParam;
 

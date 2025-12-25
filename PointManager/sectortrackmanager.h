@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 10:04:10
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:07
+ * @LastEditTime: 2025-12-25 16:19:34
  * @Description: 
  */
 /**
@@ -48,7 +48,7 @@ public:
      * @details 初始化扇形区域的可拖拽标签
      */
     SectorDraggableLabel(QGraphicsItem* parent = nullptr);
-    
+
     /**
      * @brief 设置锚点关联
      * @param anchor 锚点图形项（通常是航迹点）
@@ -100,6 +100,7 @@ struct SectorTrackSeries {
     QGraphicsLineItem* labelLine = nullptr;     ///< 标签到最新点的连线
     bool visible = true;                        ///< 航迹可见性标志
     QColor color;                               ///< 航迹颜色
+    PointType type = PointType::Track;          ///< 航迹类型（DBT/TBD）
 };
 
 /**
@@ -111,14 +112,14 @@ struct SectorTrackSeries {
  *          - 扇形区域的动态标签显示和交互
  *          - 扇形角度范围的实时过滤
  *          - 与主PPI航迹管理器的分离协作
- * 
+ *
  * 功能特点：
  * - 专门针对扇形显示区域优化
  * - 支持多航迹并发显示
  * - 航迹点自动连线
  * - 可拖拽的动态标签
  * - 扇形角度范围过滤
- * 
+ *
  * @example 基本使用：
  * @code
  * SectorTrackManager* mgr = new SectorTrackManager(scene, axis);
@@ -143,7 +144,7 @@ public:
      *          - 初始化航迹容器
      */
     explicit SectorTrackManager(QGraphicsScene* scene, PolarAxis* axis, QObject* parent = nullptr);
-    
+
     /**
      * @brief 虚析构函数
      * @details 清理所有扇形航迹对象和相关资源
@@ -161,7 +162,7 @@ public:
      *          5. 更新扇形区域的动态标签显示
      */
     void addTrackPoint(const PointInfo& info);
-    
+
     /**
      * @brief 刷新所有扇形航迹显示
      * @details 当坐标轴参数或扇形范围变化时调用：
@@ -171,7 +172,7 @@ public:
      *          - 更新标签位置和连线
      */
     void refreshAll();
-    
+
     /**
      * @brief 设置指定批次的可见性
      * @param batchID 批次ID
@@ -179,21 +180,21 @@ public:
      * @details 控制扇形区域内单条航迹的显示状态
      */
     void setBatchVisible(int batchID, bool visible);
-    
+
     /**
      * @brief 设置扇形区域全局可见性
      * @param visible true显示所有航迹，false隐藏所有航迹
      * @details 批量控制扇形区域内所有航迹的可见性
      */
     void setAllVisible(bool visible);
-    
+
     /**
      * @brief 设置扇形航迹点尺寸比例
      * @param ratio 缩放比例，1.0为默认大小
      * @details 批量调整扇形区域内所有航迹点的显示尺寸
      */
     void setPointSizeRatio(float ratio);
-    
+
     /**
      * @brief 设置指定批次的颜色
      * @param batchID 批次ID
@@ -201,7 +202,7 @@ public:
      * @details 定制扇形区域内单条航迹的颜色
      */
     void setBatchColor(int batchID, const QColor& color);
-    
+
     /**
      * @brief 设置扇形角度范围
      * @param minAngle 最小角度(度)
@@ -212,27 +213,27 @@ public:
      *          - 实时过滤现有和新增的航迹数据
      */
     void setAngleRange(float minAngle, float maxAngle);
-    
+
     /**
      * @brief 删除指定批次的航迹
      * @param batchID 要删除的批次ID
      * @details 完全删除扇形区域内一条航迹
      */
     void removeBatch(int batchID);
-    
+
     /**
      * @brief 清理所有扇形航迹
      * @details 删除扇形区域内的所有航迹对象
      */
     void clear();
-    
+
     /**
      * @brief 获取航迹批次数量
      * @return 当前扇形区域内的航迹批次总数
      * @details 用于状态查询和性能监控
      */
     int batchCount() const { return m_series.size(); }
-    
+
     /**
      * @brief 获取所有批次ID列表
      * @return 当前扇形区域内所有批次ID的列表
@@ -246,22 +247,22 @@ private:
      * @param batchID 批次ID
      * @details 根据批次ID查找或创建对应的扇形航迹序列
      */
-    void ensureSeries(int batchID);
-    
+    void ensureSeries(int batchID, PointType type = PointType::Track);
+
     /**
      * @brief 更新最新点标签
      * @param batchID 批次ID
      * @details 更新指定扇形航迹的动态标签显示和连线
      */
     void updateLatestLabel(int batchID);
-    
+
     /**
      * @brief 更新批次可见性
      * @param batchID 批次ID
      * @details 批量更新指定扇形航迹的所有元素可见性
      */
     void updateBatchVisibility(int batchID);
-    
+
     /**
      * @brief 更新连线几何形状
      * @param line 连线对象指针
@@ -270,7 +271,7 @@ private:
      * @details 更新扇形区域内连线的几何形状和层级设置
      */
     void updateLineGeometry(QGraphicsLineItem* line, const QPointF& a, const QPointF& b);
-    
+
     /**
      * @brief 极坐标转屏幕坐标
      * @param range 距离值(公里)
@@ -279,7 +280,7 @@ private:
      * @details 利用PolarAxis进行坐标变换
      */
     QPointF polarToPixel(float range, float azimuthDeg) const;
-    
+
     /**
      * @brief 检查距离是否在显示范围内
      * @param range 距离值(公里)
@@ -287,7 +288,7 @@ private:
      * @details 根据PolarAxis的最小/最大距离判断
      */
     bool inRange(float range) const;
-    
+
     /**
      * @brief 检查角度是否在扇形范围内
      * @param azimuthDeg 方位角(度)
@@ -295,7 +296,7 @@ private:
      * @details 判断航迹点是否在设置的扇形角度范围内
      */
     bool inAngle(float azimuthDeg) const;
-    
+
     /**
      * @brief 检查点是否应该可见
      * @param info 航迹点信息
@@ -308,13 +309,13 @@ private:
     // 核心组件引用
     QGraphicsScene* m_scene;                    ///< 图形场景指针
     PolarAxis* m_axis;                         ///< 极坐标轴指针
-    
+
     // 扇形航迹管理
     QMap<int, SectorTrackSeries> m_series;     ///< 批次ID到扇形航迹序列的映射
-    
+
     // 显示控制参数
     float m_pointSizeRatio = 1.0f;             ///< 点尺寸缩放比例
-    
+
     // 扇形角度范围参数
     float m_minAngle = -30.0f;                 ///< 扇形最小角度(度)
     float m_maxAngle = 30.0f;                  ///< 扇形最大角度(度)

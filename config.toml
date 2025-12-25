@@ -13,6 +13,8 @@ DATA_PRO_IP = "192.168.64.3"         # 数据处理主机IP地址
 SIG_PRO_IP = "192.168.64.5"          # 信号处理主机IP地址
 MONITOR_IP = "192.168.64.6"          # 监控主机IP地址
 TAR_CLA_IP = "192.168.64.7"          # 目标分类主机IP地址
+RADAR_CTRL_IP = "192.168.1.16"       # 外部雷控主机IP地址（默认单面阵）
+SCHED_IP = "192.168.1.5"             # 显控/调度自身IP（默认单面阵）
 
 [network.ports]
 # 端口配置
@@ -31,6 +33,9 @@ SIG_2_DISP_PORT1 = 8008              # 信号处理->显控端口1
 SIG_2_DISP_PORT2 = 8009              # 信号处理->显控端口2
 MONITOR_GET_DISP_PORT = 8010         # 监控接收显控端口
 TAR_2_DISP = 8011                    # 目标分类->显控端口
+EXT_SYSCTRL_SRC = 6001               # 外部系统控制/伺服发送源端口
+EXT_SYSCTRL_DST = 8001               # 外部系统控制/伺服目标端口（雷控）
+EXT_ACK_DST = 8002                   # 外部控制/伺服回送接收端口
 
 [network.ids]
 # 系统ID配置
@@ -39,6 +44,7 @@ DATA_PRO_ID = 2                      # 数据处理系统ID
 SIG_PRO_ID = 3                       # 信号处理系统ID
 MONITOR_ID = 4                       # 监控系统ID
 TAR_CLA_ID = 5                       # 目标分类系统ID
+RADAR_CTRL_ID = 7                    # 雷达控制软件ID（外部链路）
 
 # =============================================================================
 # 雷达系统参数配置 Radar System Parameters Configuration

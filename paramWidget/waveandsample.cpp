@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 11:44:24
+ * @LastEditTime: 2025-12-25 16:19:35
  * @Description: 
  */
 #include "waveandsample.h"
@@ -47,23 +47,6 @@ waveAndSample::waveAndSample(QWidget *parent) :
         ui->samplelen3->setText(QString::number(float(PRT-1.0f)));
     });
 
-    ui->enable3->setVisible(false);
-    ui->label_21->setVisible(false);
-    ui->pulseNum3->setVisible(false);
-    ui->label_10->setVisible(false);
-    ui->wave3->setVisible(false);
-    ui->label_11->setVisible(false);
-    ui->tran3->setVisible(false);
-    ui->label_12->setVisible(false);
-    ui->samplestart3->setVisible(false);
-    ui->label_13->setVisible(false);
-    ui->samplelen3->setVisible(false);
-    ui->label_29->setVisible(false);
-    ui->elestep3->setVisible(false);
-    ui->label_18->setVisible(false);
-    ui->elestart3->setVisible(false);
-    ui->label_19->setVisible(false);
-    ui->eleend3->setVisible(false);
 }
 
 void waveAndSample::onAccept()
