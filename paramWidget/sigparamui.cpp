@@ -1,12 +1,12 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2025-10-24 11:04:46
+ * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-10-24 21:06:36
+ * @LastEditTime: 2025-12-25 11:44:24
  * @Description: 
  */
-﻿#include "sigparamui.h"
+#include "sigparamui.h"
 #include "ui_sigparamui.h"
 #include <QPushButton>
 
