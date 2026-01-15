@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:35
+ * @LastEditTime: 2026-01-15 14:23:15
  * @Description: 
  */
 #include "tranrecvui.h"
@@ -47,12 +47,21 @@ void TranRecvUI::onAccept()
     param.tranEnd = static_cast<unsigned short>(ui->spinEnd->value());
 
     emit setParam(param);
-    parentWidget()->close();
+    // 保持窗口与布局，不关闭父窗口
 }
 
 void TranRecvUI::onCancel()
 {
-    parentWidget()->close();
+    // 向上查找 CusWindow 父窗口并关闭
+    QWidget* w = this;
+    while (w) {
+        if (w->objectName() == "CusWindow") {
+            w->close();
+            return;
+        }
+        w = w->parentWidget();
+    }
+    close();
 }
 
 

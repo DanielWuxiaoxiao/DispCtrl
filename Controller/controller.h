@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:34
+ * @LastEditTime: 2026-01-15 14:23:11
  * @Description: 
  */
 /**
@@ -190,6 +190,12 @@ signals:
      */
     void sendPEParam2(PhotoElectricParamSet2 param);
 
+    /**
+     * @brief 发送伺服控制参数
+     * @param param 伺服控制结构（0xAA03：指令/转速/方位角）
+     */
+    void sendServoControl(ServoControlParam param);
+
     // === 向信号系统发送参数 ===
 
     /**
@@ -282,6 +288,9 @@ signals:
      */
     void bitReport(BITReport res);
 
+    // 扫描航向角（来自控制表，单位度）
+    void scanHeadingChanged(double headingDeg);
+
     // === 外部雷控链路 ===
     void externalSystemCtrlAck(QByteArray ack64);
     void externalServoAck(ExternalServoAck32 ack32);
@@ -292,6 +301,9 @@ signals:
      * @param checked 是否选中状态
      */
     void minimizeWindow(bool checked = false);
+
+public slots:
+    void updateHeadingFromCtrlTable(double headingDeg);
 
 private:
     // === 子系统管理器实例 ===

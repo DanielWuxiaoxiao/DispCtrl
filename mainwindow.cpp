@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 15:56:15
+ * @LastEditTime: 2026-01-15 14:23:14
  * @Description: 
  */
 /**
@@ -38,6 +38,7 @@
 #include "mainwindow.h"
 #include "Basic/DispBasci.h"
 #include <QVBoxLayout>
+#include <QTimer>
 #include "mapDisp/mapprox.h"
 #include "mainPanel/mainoverlayout.h"
 #include "Controller/controller.h"
@@ -158,22 +159,21 @@ void FramelessMainWindow::setupOverlayUI()
     // 禁用鼠标事件透传：确保控制面板可正常接收鼠标交互
     m_overlayWidget->setAttribute(Qt::WA_TransparentForMouseEvents, false);
 
-    // === 窗口行为设置 ===
-    // 设置无边框和置顶标志：
-    // - FramelessWindowHint: 移除窗口边框和标题栏
-    // - WindowStaysOnTopHint: 确保覆盖层始终在最上层显示
-    m_overlayWidget->setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
-
-    // === 几何位置设置 ===
-    // 设置覆盖层几何位置，完全覆盖主窗口区域
-    m_overlayWidget->setGeometry(0, 0, width(), height());
-
     // === 层级管理 ===
     // 提升覆盖层到最前端，确保在所有其他组件之上
     m_overlayWidget->raise();
 
     // 显示覆盖层
     m_overlayWidget->show();
+
+    // === 延迟设置几何位置（跨平台兼容）===
+    // 使用 QTimer::singleShot 延迟设置，确保主窗口尺寸已正确初始化
+    // 这对于 Linux 平台特别重要，因为窗口尺寸在显示后才确定
+    QTimer::singleShot(0, this, [this]() {
+        if (m_overlayWidget) {
+            m_overlayWidget->setGeometry(0, 0, width(), height());
+        }
+    });
 
     // === 信号连接 ===
     // 连接PPI视图的地图类型变化信号到地图组件的地图选择方法
@@ -194,4 +194,20 @@ void FramelessMainWindow::setupOverlayUI()
         ppiView->calculateMapDisplayParameters(mapCenterLng, mapCenterLat, mapRange);
         m_map->syncRadarToMap(mapCenterLng, mapCenterLat, mapRange);
     }
+}
+
+/**
+ * @brief 窗口大小改变事件处理
+ * @param event 窗口大小改变事件对象
+ * @details 确保覆盖层始终与主窗口大小保持一致（跨平台兼容）
+ */
+void FramelessMainWindow::resizeEvent(QResizeEvent *event)
+{
+    QMainWindow::resizeEvent(event);
+    // 延迟更新覆盖层几何位置，避免在事件处理期间修改
+    QTimer::singleShot(0, this, [this]() {
+        if (m_overlayWidget) {
+            m_overlayWidget->setGeometry(0, 0, width(), height());
+        }
+    });
 }

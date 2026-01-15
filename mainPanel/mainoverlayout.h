@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:35
+ * @LastEditTime: 2026-01-15 14:23:13
  * @Description: 
  */
 /**
@@ -245,6 +245,11 @@ private slots:
     void onBatteryControlClicked();
 
     /**
+     * @brief 打开伺服控制对话框
+     */
+    void onServoControlClicked();
+
+    /**
      * @brief 打开方向图扫描控制对话框
      * @details 配置扫描范围参数
      */
@@ -358,6 +363,7 @@ private:
     SigProParam m_sigProParam;           ///< 信号处理参数
     DataProParam m_dataProParam;         ///< 数据处理参数
     ScanRange m_scanRange;               ///< 扫描范围参数
+    ServoControlParam m_servoControlParam;    ///< 伺服控制参数
 
     int m_maxLogLines;                   ///< 最大日志行数限制
 
@@ -372,6 +378,7 @@ private:
     int m_dataProSta;                    ///< 数据处理软件状态
     int m_beamConSta;                    ///< 波束调度软件状态
     int m_targetRecSta;                  ///< 目标识别软件状态
+    BITReport m_lastBITReport;           ///< 最新的BIT上报信息
 };
 
 #endif // MAINOVERLAYOUT_H

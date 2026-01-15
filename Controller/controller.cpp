@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:34
+ * @LastEditTime: 2026-01-15 14:23:11
  * @Description: 
  */
 /**
@@ -95,6 +95,7 @@ void Controller::init()
     // 向资源系统发送控制参数
     connect(this, &Controller::sendBCParam, resMgr, &Disp2ResManager::sendBCParam);
     connect(this, &Controller::sendTRParam, resMgr, &Disp2ResManager::sendTRParam);
+    connect(this, &Controller::sendServoControl, resMgr, &Disp2ResManager::sendServoControl);
     connect(this, &Controller::sendFCParam, resMgr, &Disp2ResManager::sendFCParam);
     connect(this, &Controller::sendSRParam, resMgr, &Disp2ResManager::sendSRParam);
     connect(this, &Controller::sendWCParam, resMgr, &Disp2ResManager::sendWCParam);
@@ -118,6 +119,10 @@ void Controller::init()
     connect(extCtrlMgr, &ExternalCtrlManager::systemCtrlAck, this, &Controller::externalSystemCtrlAck);
     connect(extCtrlMgr, &ExternalCtrlManager::servoCtrlAck, this, &Controller::externalServoAck);
     connect(extCtrlMgr, &ExternalCtrlManager::externalLog, this, &Controller::externalCtrlLog);
+
+    // 航向角（控制表解析）
+    connect(sigRecvMgr, &sig2dispmanager::headingUpdated,
+            this, &Controller::updateHeadingFromCtrlTable);
 }
 
 /**
@@ -136,4 +141,8 @@ bool Controller::sendExternalSystemControl(const QByteArray& frame512) {
 bool Controller::sendExternalServoControl(const QByteArray& frame32) {
     if (!extCtrlMgr) return false;
     return extCtrlMgr->sendServoControl(frame32);
+}
+
+void Controller::updateHeadingFromCtrlTable(double headingDeg) {
+    emit scanHeadingChanged(headingDeg);
 }

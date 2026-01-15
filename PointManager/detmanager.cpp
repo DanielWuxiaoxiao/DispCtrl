@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:03
+ * @LastEditTime: 2026-01-15 14:23:12
  * @Description: 
  */
 /**
@@ -21,6 +21,7 @@
 #include "detmanager.h"
 #include "Basic/DispBasci.h"
 #include "Controller/RadarDataManager.h"  // 雷达数据管理器头文件
+#include <QDebug>
 
 /**
  * @brief DetManager构造函数实现
@@ -38,11 +39,11 @@ DetManager::DetManager(QGraphicsScene* scene, PolarAxis* axis, QObject* parent)
 {
     // 注册到统一数据管理器，使用唯一标识符
     RADAR_DATA_MGR.registerView("DetManager_" + QString::number((quintptr)this), this);
-    
+
     // 连接统一数据管理器的信号到本地处理函数
-    connect(&RADAR_DATA_MGR, &RadarDataManager::detectionReceived, 
+    connect(&RADAR_DATA_MGR, &RadarDataManager::detectionReceived,
             this, &DetManager::addDetPoint);       // 接收检测点数据
-    connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared, 
+    connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared,
             this, &DetManager::clear);             // 响应数据清理
 }
 
@@ -76,7 +77,7 @@ void DetManager::addDetPoint(const PointInfo& info)
     // 创建检测点信息副本并设置类型
     PointInfo copy = info;
     copy.type = 1; // 标记为检测点类型
-    
+
     // 创建检测点对象并配置外观
     auto* pt = new DetPoint(copy);
     pt->resize(mPointSizeRatio);      // 应用当前缩放比例
@@ -85,11 +86,11 @@ void DetManager::addDetPoint(const PointInfo& info)
     // 计算屏幕坐标位置
     QPointF pos = polarToPixel(copy.range, copy.azimuth);
     pt->updatePosition(pos.x(), pos.y());
-    
+
     // 应用可见性过滤：全局可见性 && 距离范围 && 角度范围
     bool vis = mVisible && inRange(copy.range) && inAngle(copy.azimuth);
     pt->setVisible(vis);
-    
+
     // 添加到图形场景
     mScene->addItem(pt);
 
@@ -111,12 +112,12 @@ void DetManager::refreshAll()
 {
     for (auto& n : mNodes) {
         if (!n.point) continue;  // 跳过无效节点
-        
+
         // 获取检测点信息并重新计算位置
         const auto& pi = n.point->infoRef();
         QPointF pos = polarToPixel(pi.range, pi.azimuth);
         n.point->updatePosition(pos.x(), pos.y());
-        
+
         // 重新应用可见性过滤
         bool vis = mVisible && inRange(pi.range) && inAngle(pi.azimuth);
         n.point->setVisible(vis);
@@ -146,7 +147,7 @@ void DetManager::setAllVisible(bool vis)
 /**
  * @brief 设置角度显示范围
  * @param startDeg 起始角度(度)
- * @param endDeg 结束角度(度)  
+ * @param endDeg 结束角度(度)
  * @details 设置检测点的角度过滤扇区：
  *          - 保存新的角度范围参数
  *          - 刷新所有检测点的显示状态
@@ -174,12 +175,22 @@ bool DetManager::inAngle(float azimuthDeg) const
     // 归一化角度到 [0,360) 范围
     double a = fmod(azimuthDeg, 360.0);
     if (a < 0) a += 360.0;
-    
-    double s = fmod(m_angleStart, 360.0);
-    double e = fmod(m_angleEnd, 360.0);
-    if (s < 0) s += 360.0;
-    if (e < 0) e += 360.0;
-    
+
+    // 归一化起始和结束角度
+    // 注意：如果角度正好是360，应保持为360而不是0（表示全圆）
+    double s = m_angleStart;
+    double e = m_angleEnd;
+
+    // 只对非360的角度进行归一化
+    if (s != 360.0) {
+        s = fmod(s, 360.0);
+        if (s < 0) s += 360.0;
+    }
+    if (e != 360.0) {
+        e = fmod(e, 360.0);
+        if (e < 0) e += 360.0;
+    }
+
     // 处理两种情况：普通扇区和跨越0度的扇区
     if (s <= e) {
         return (a >= s && a <= e);      // 普通扇区：如90-270度
@@ -200,7 +211,7 @@ void DetManager::setPointSizeRatio(float ratio)
 {
     if (ratio <= 0.f) ratio = 1.f;  // 防护性检查
     mPointSizeRatio = ratio;
-    
+
     // 应用到所有检测点
     for (auto& n : mNodes) {
         if (n.point) n.point->resize(mPointSizeRatio);
@@ -219,7 +230,7 @@ void DetManager::setPointSizeRatio(float ratio)
 void DetManager::clear()
 {
     for (auto& n : mNodes) {
-        if (n.point) { 
+        if (n.point) {
             mScene->removeItem(n.point);  // 从场景移除
             delete n.point;               // 释放内存
             n.point = nullptr;            // 重置指针

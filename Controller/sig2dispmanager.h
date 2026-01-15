@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:01
+ * @LastEditTime: 2026-01-15 14:23:12
  * @Description: 
  */
 #ifndef SIG2DISPMANAGER_H
@@ -29,6 +29,7 @@ public slots:
 
 signals:
     void detInfoProcess(PointInfo info);
+    void headingUpdated(double headingDeg);
 
 private:
     ThreadedUdpSocket* socket;

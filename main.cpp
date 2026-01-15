@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:18
+ * @LastEditTime: 2026-01-15 14:23:13
  * @Description: 
  */
 /**
@@ -22,11 +22,13 @@
 #include <QApplication>
 #include <QDir>
 #include <QSurfaceFormat>
+#include <QAbstractSocket>
 #include "mainwindow.h"
 #include "Basic/bindThread.h"
 #include "Basic/DispBasci.h"
 #include "Basic/log.h"
 #include "Basic/ConfigManager.h"
+#include "Basic/Protocol.h"
 #include "Controller/ErrorHandler.h"
 #include <QLoggingCategory>
 #include "Controller/controller.h"
@@ -101,7 +103,7 @@ void bindMainThread() {
  *          1. Qt应用程序属性配置（必须在QApplication创建前）
  *          2. 创建QApplication实例
  *          3. 初始化错误处理框架
- *          4. 控制器系统初始化  
+ *          4. 控制器系统初始化
  *          5. UI配置（字体、OpenGL、样式）
  *          6. 日志系统配置
  *          7. 配置文件加载和验证
@@ -110,20 +112,26 @@ void bindMainThread() {
  */
 int main(int argc, char *argv[]) {
     // =============================================================================
+    // 第零步：注册Qt元类型（必须在任何线程操作之前）
+    // =============================================================================
+    qRegisterMetaType<QAbstractSocket::SocketState>("QAbstractSocket::SocketState");
+    qRegisterMetaType<MonitorParam>("MonitorParam");
+
+    // =============================================================================
     // 第一步：Qt应用程序属性配置（必须在QApplication实例化之前）
     // =============================================================================
-    
+
     // 启用高DPI缩放，确保在4K显示器上正常显示
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-    
+
     // 使用系统原生桌面OpenGL，避免ANGLE渲染器问题
     // 对QWebEngineView的性能和兼容性至关重要
     QApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
-    
+
     // 启用OpenGL上下文共享，提高多窗口渲染性能
     // QWebEngineView依赖独立进程，此设置增强稳定性
     QApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
-    
+
     // =============================================================================
     // 第二步：创建Qt应用程序实例
     // =============================================================================
@@ -162,7 +170,6 @@ int main(int argc, char *argv[]) {
     } else {
         LOG_INFO("Configuration loaded successfully from config.toml");
     }
-    
     // =============================================================================
     // 第八步：主窗口创建和显示
     // =============================================================================

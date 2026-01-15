@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:34
+ * @LastEditTime: 2026-01-15 14:23:12
  * @Description: 
  */
 #include "sig2dispmanager.h"
@@ -11,6 +11,7 @@
 #include "controller.h"
 #include "RadarDataManager.h"  // 雷达数据管理器头文件
 #include <QThread>
+#include <optional>
 
 sig2dispmanager::sig2dispmanager(QObject *parent) : QObject(parent)
 {
@@ -28,13 +29,15 @@ sig2dispmanager::sig2dispmanager(QObject *parent) : QObject(parent)
     port = CF_INS.port("SIG_2_DISP_PORT1",SIG_2_DISP_PORT1);
     connect(socket, &ThreadedUdpSocket::detInfo, this, &sig2dispmanager::detInfoDecode);
     connect(this,&sig2dispmanager::detInfoProcess,CON_INS, &Controller::detInfoProcess);
+    connect(this,&sig2dispmanager::headingUpdated,CON_INS, &Controller::updateHeadingFromCtrlTable);
 }
 
 sig2dispmanager2::sig2dispmanager2(QObject *parent) : QObject(parent)
 {
     src = CF_INS.id("SIG_PRO_ID",SIG_PRO_ID);
     dst = CF_INS.id("DISP_CTRL_ID",DISP_CTRL_ID);
-    socket = new ThreadedUdpSocket(CF_INS.ip("DISP_CTRL_IP",DISP_CTRL_IP), CF_INS.port("DISP_GET_SIG_PORT1",DISP_GET_SIG_PORT1));
+    // 第二路信号接收应使用独立端口，避免与 sig2dispmanager 共用 DISP_GET_SIG_PORT1
+    socket = new ThreadedUdpSocket(CF_INS.ip("DISP_CTRL_IP",DISP_CTRL_IP), CF_INS.port("DISP_GET_SIG_PORT2",DISP_GET_SIG_PORT2));
     socket->setSourceAndDestID(src, dst);
 
     thread = new QThread(this);
@@ -61,8 +64,25 @@ void sig2dispmanager::detInfoDecode(QByteArray data)
     const char* rawData = data.constData();
     // 跳过协议帧与消息ID
     rawData += sizeof(ProtocolFrame) + sizeof(unsigned short);
-    // 跳过 512B 控制表并读取雷达ID
-    rawData += 512;
+    // 解析 512B 控制表，提取航向角（阵面偏航，0.01°）
+    const int controlLen = 512;
+    const char* controlTable = rawData;
+
+    auto extractHeadingDeg = [](const char* buf, int len) -> std::optional<double> {
+        if (!buf || len < 2) return std::nullopt;
+        // 在控制表中查找 0xAA04（工作模式/阵面偏航）结构
+        for (int off = 0; off <= len - static_cast<int>(sizeof(ScanRange)); ++off) {
+
+        }
+        return std::nullopt;
+    };
+
+    if (auto heading = extractHeadingDeg(controlTable, controlLen)) {
+        emit headingUpdated(*heading);
+    }
+
+    // 跳过控制表并读取雷达ID
+    rawData += controlLen;
     auto radarId = *reinterpret_cast<const unsigned char*>(rawData);
     Q_UNUSED(radarId);
     rawData += sizeof(unsigned char);

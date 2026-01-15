@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 11:44:24
+ * @LastEditTime: 2026-01-15 14:23:15
  * @Description: 
  */
 #include "photoelectricparam.h"
@@ -84,12 +84,21 @@ void PhotoElectricParam::onAccept()
         emit setParam2(param2);
     };
 
-    parentWidget()->close();
+        // 保持窗口与布局，不关闭窗口
 }
 
 void PhotoElectricParam::onCancel()
 {
-    parentWidget()->close();
+    // 向上查找 CusWindow 父窗口并关闭
+    QWidget* w = this;
+    while (w) {
+        if (w->objectName() == "CusWindow") {
+            w->close();
+            return;
+        }
+        w = w->parentWidget();
+    }
+    close();
 }
 
 void PhotoElectricParam::restoreParam(const PhotoElectricParamSet &param)

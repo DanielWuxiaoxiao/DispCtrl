@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:35
+ * @LastEditTime: 2026-01-15 14:23:14
  * @Description: 
  */
 #include "freqcontrolui.h"
@@ -52,12 +52,21 @@ void FreqControlUI::onAccept()
     param.sampleLen = ui->sampleend->text().toFloat()/0.1f - ui->samplestart->text().toFloat()/0.1f;
     param.sampleStart =  ui->samplestart->text().toFloat()/0.1f;
     emit setParam(param);
-    parentWidget()->close();
+    // 保持窗口与布局，不关闭父窗口
 }
 
 void FreqControlUI::onCancel()
 {
-    parentWidget()->close();
+    // 向上查找 CusWindow 父窗口并关闭
+    QWidget* w = this;
+    while (w) {
+        if (w->objectName() == "CusWindow") {
+            w->close();
+            return;
+        }
+        w = w->parentWidget();
+    }
+    close();
 }
 
 

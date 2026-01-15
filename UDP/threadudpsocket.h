@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:35
+ * @LastEditTime: 2026-01-15 14:23:13
  * @Description: 
  */
 /**
@@ -61,6 +61,12 @@ public:
     ThreadedUdpSocket(QString ip, quint16 port, QObject* parent = nullptr);
 
     /**
+     * @brief 析构函数
+     * @details 清理UDP Socket资源，关闭连接
+     */
+    ~ThreadedUdpSocket();
+
+    /**
      * @brief 设置源和目标ID
      * @param src 源设备ID
      * @param dst 目标设备ID
@@ -111,6 +117,12 @@ public:
      * @details 控制雷达的收发状态
      */
     void sendTRParam(TranRecControl param);
+
+    /**
+     * @brief 发送伺服控制参数
+     * @param param 伺服控制（0xAA03 指令/速度/方位角）
+     */
+    void sendServoControl(ServoControlParam param);
 
     /**
      * @brief 发送频率控制参数
@@ -324,6 +336,17 @@ private:
      *          - 记录重连状态和错误
      */
     void attemptReconnect();
+
+    /**
+     * @brief 安全发送数据报（内部使用）
+     * @param data 要发送的数据
+     * @param size 数据大小
+     * @param host 目标主机地址
+     * @param port 目标端口
+     * @return true表示发送成功，false表示失败
+     * @details 在发送前检查socket状态，确保socket已绑定
+     */
+    bool safeWriteDatagram(const char* data, qint64 size, const QHostAddress& host, quint16 port);
 
     /**
      * @brief 报告错误到错误处理框架

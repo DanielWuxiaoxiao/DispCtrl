@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:34
+ * @LastEditTime: 2026-01-15 14:23:11
  * @Description: 
  */
 #ifndef DISPBASCI_H
@@ -14,9 +14,9 @@
 
 
 //COLOR
-constexpr int DET_COLOR = Qt::green;
-constexpr int TRA_COLOR = Qt::red;
-constexpr int TBD_COLOR = Qt::yellow;
+const QColor DET_COLOR = Qt::green;
+const QColor TRA_COLOR = Qt::red;
+const QColor TBD_COLOR = Qt::yellow;
 
 //STRING
 constexpr char APP_NAME[] = "雷达控制平台";

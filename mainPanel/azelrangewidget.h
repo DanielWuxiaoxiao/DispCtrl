@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-10-24 21:06:35
+ * @LastEditTime: 2026-01-15 14:23:13
  * @Description: 
  */
 /**
@@ -91,6 +91,12 @@ public:
      * 正值表示向上仰角，负值表示向下俯角
      */
     void setElRange(int minDeg, int maxDeg);
+
+    /**
+     * @brief 控制信号是否发射
+     * @param enabled true=发射(默认)，false=静默（用于初始化赋值）
+     */
+    void setSignalMuted(bool enabled) { m_emitSignals = !enabled ? false : true; }
 
 signals:
     /**
@@ -194,6 +200,8 @@ private:
      * @details 将内部角度值同步显示到各个输入框中
      */
     void syncEditors();
+
+    bool m_emitSignals = true; ///< 控制是否发射范围变更信号
 
     /**
      * @brief 连接编辑框信号

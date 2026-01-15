@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:11
+ * @LastEditTime: 2026-01-15 14:23:12
  * @Description: 
  */
 #include "scanlayer.h"
@@ -148,6 +148,15 @@ void ScanLayer::advanceSweep() {
     }
 
     update(); // 触发重绘
+}
+
+void ScanLayer::setHeadingAngle(double deg) {
+    // 停止内部扫掠，直接按照外部航向角指向
+    if (m_timer && m_timer->isActive()) {
+        m_timer->stop();
+    }
+    m_angle = deg;
+    update();
 }
 
 void ScanLayer::setSweepSpeed(int msPerStep) {

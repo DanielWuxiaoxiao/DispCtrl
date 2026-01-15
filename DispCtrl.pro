@@ -28,6 +28,15 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 # C++版本设置 - 更新为C++17以匹配CMakeLists.txt
 CONFIG += c++17
 
+# 确保 MOC、UIC、RCC 正确处理
+CONFIG += moc uic resources
+
+# MOC 和 UI 输出目录（确保跨平台一致性）
+MOC_DIR = build/moc
+UI_DIR = build/ui
+OBJECTS_DIR = build/obj
+RCC_DIR = build/rcc
+
 # 调试配置 - 保证release模式也有行号和文件名用于错误追踪
 DEFINES += QT_MESSAGELOGCONTEXT
 # 不要关闭调试输出宏（否则 qDebug 在 Release 也会被编译掉）
@@ -40,6 +49,14 @@ QT += webengine webenginewidgets webchannel
 
 # MSVC编译器编码设置 - 解决中文编码问题
 msvc:QMAKE_CXXFLAGS += /utf-8  # 统一源/执行字符集，避免 C4819
+
+# Linux/Unix 平台特定设置
+unix:!macx {
+    # 确保正确的链接顺序
+    QMAKE_LFLAGS += -Wl,--no-undefined
+    # 确保 MOC 文件被正确处理
+    QMAKE_MOC = $$[QT_INSTALL_BINS]/moc
+}
 
 # 编译器警告设置
 # The following define makes your compiler emit warnings if you use
@@ -88,6 +105,7 @@ SOURCES += \
     paramWidget/waveandsample.cpp \
     paramWidget/scanrangeui.cpp \
     paramWidget/photoelectricparam.cpp \
+    paramWidget/servocontrol.cpp \
     \
     # 点管理模块 - 检测点和航迹管理
     PointManager/detmanager.cpp \
@@ -120,6 +138,8 @@ SOURCES += \
     cusWidgets/cuswindow.cpp \
     cusWidgets/detachablewidget.cpp \
     cusWidgets/customcombobox.cpp \
+    cusWidgets/customspinbox.cpp \
+    cusWidgets/customspinboxstyle.cpp \
     \
     # 主程序和主界面
     main.cpp \
@@ -171,6 +191,7 @@ HEADERS += \
     paramWidget/waveandsample.h \
     paramWidget/scanrangeui.h \
     paramWidget/photoelectricparam.h \
+    paramWidget/servocontrol.h \
     \
     # 点管理模块头文件
     PointManager/detmanager.h \
@@ -203,6 +224,8 @@ HEADERS += \
     cusWidgets/cuswindow.h \
     cusWidgets/detachablewidget.h \
     cusWidgets/customcombobox.h \
+    cusWidgets/customspinbox.h \
+    cusWidgets/customspinboxstyle.h \
     \
     # 主界面头文件
     mainwindow.h \
@@ -234,7 +257,8 @@ FORMS += \
     paramWidget/freqcontrolui.ui \
     paramWidget/waveandsample.ui \
     paramWidget/scanrangeui.ui \
-    paramWidget/photoelectricparam.ui
+    paramWidget/photoelectricparam.ui \
+    paramWidget/servocontrol.ui
 
 ##############################################################################
 # 资源文件配置

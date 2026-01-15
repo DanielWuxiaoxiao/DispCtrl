@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:35
+ * @LastEditTime: 2026-01-15 14:23:12
  * @Description: 
  */
 /**
@@ -72,6 +72,10 @@ PPIScene::PPIScene(QObject *parent)
     addItem(m_scan);
     m_scan->setSweepRange(-30, 30);    // 固定粉色扇区（30°~60°）
     m_scan->setScanMode(ScanLayer::Loop);
+
+    // 航向角更新：由控制表驱动，直接更新扫描线指向
+    connect(CON_INS, &Controller::scanHeadingChanged,
+        m_scan, &ScanLayer::setHeadingAngle);
 
     // ensure axis->rangeChanged is forwarded
     connect(m_axis, &PolarAxis::rangeChanged, this, &PPIScene::rangeChanged);
@@ -164,7 +168,11 @@ void PPIScene::initLayerObjects()
     m_grid = new PolarGrid(this, m_axis);
     m_det = new DetManager(this, m_axis);
     m_track = new TrackManager(this, m_axis);
-    m_tooltip = new Tooltip(); //
+    m_tooltip = new Tooltip();
+
+    // 将 Tooltip 添加到场景中
+    addItem(TOOL_TIP);
+
     // 联动：有 range 改变时，网格重绘，点迹重定位/隐藏
     connect(this, &PPIScene::rangeChanged, m_grid, &PolarGrid::updateGrid);
     connect(this, &PPIScene::rangeChanged, m_det, &DetManager::refreshAll);

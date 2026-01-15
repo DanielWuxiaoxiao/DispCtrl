@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:34
+ * @LastEditTime: 2026-01-15 14:23:11
  * @Description: 
  */
 #ifndef PROTOCOL_H
@@ -243,23 +243,57 @@ typedef struct _PhotoElectricParamUp  //光电设备上报的设备状态
 }PhotoElectricParamUp;
 
 // =========================
-// 外部雷控/调度链路占位结构（仅传输，不解析业务字段）
+// 外部雷控/调度链路协议（系统控制 + AD 数据）
 // =========================
 
+// 基本常量
+constexpr unsigned EXTERNAL_SYSCTRL_HEAD = 0xFA55FA55;
+constexpr unsigned EXTERNAL_SYSCTRL_TAIL = 0x55FA55FA;
+constexpr unsigned EXTERNAL_SYSCTRL_CONTENT_LEN = 504;   // 4(头)+504(内容)+4(尾)=512B
+constexpr unsigned EXTERNAL_SYSCTRL_FRAME_LEN = 512;
+
+constexpr unsigned EXTERNAL_AD_HEAD = 0x7FFFBC1C;
+constexpr unsigned EXTERNAL_AD_TAIL = 0x7FFF5A5A;
+constexpr unsigned EXTERNAL_AD_HEADER_RESERVE_LEN = 19;
+constexpr unsigned EXTERNAL_AD_TRAILER_RESERVE_LEN = 12;
+
+// 系统控制帧：显控→外部雷控，长度固定 512B
 struct ExternalSystemControl512 {
-    unsigned char data[512] = {0};
+    unsigned head{EXTERNAL_SYSCTRL_HEAD};
+    unsigned char content[EXTERNAL_SYSCTRL_CONTENT_LEN]{};
+    unsigned tail{EXTERNAL_SYSCTRL_TAIL};
 };
 
+// 外部雷控回执 64B（仍按长度透传）
 struct ExternalControlAck64 {
     unsigned char data[64] = {0};
 };
 
+// 伺服控制 32B（显控→外部雷控）
 struct ExternalServoCmd32 {
     unsigned char data[32] = {0};
 };
 
+// 伺服回执 32B（外部雷控→显控）
 struct ExternalServoAck32 {
     unsigned char data[32] = {0};
+};
+
+// AD 数据头（固定部分，不含复数采样和尾部预留）
+struct ExternalAdHeader {
+    unsigned head{EXTERNAL_AD_HEAD};          // 0x7FFFBC1C
+    unsigned char arrayId{0};                 // 传输链路/阵面编号 0~3
+    unsigned char dataWaveId{0};              // 数据波形 ID，数字阵场景使用
+    unsigned short beamCount{0};              // 波束数量（相控阵 4，数字阵 3×波束指向）
+    unsigned short pulseId{0};                // 脉冲 ID
+    unsigned short samplesPerPulse{0};        // 单脉冲采样点数（距离单元个数）
+    unsigned char waveformIndex{0};           // 控制表内的波形编号（1~3）
+    unsigned char reserved[EXTERNAL_AD_HEADER_RESERVE_LEN]{}; // 19B 预留
+};
+
+// AD 数据尾部预留（12B）
+struct ExternalAdTrailerReserve {
+    unsigned char reserved[EXTERNAL_AD_TRAILER_RESERVE_LEN]{};
 };
 
 typedef struct _TranRecvControl
@@ -305,74 +339,79 @@ typedef struct _DirGramScan
     }
 }DirGramScan;
 
+// 伺服控制（显控→资源调度→雷达控制），信息编号 0xAA03
+// 字段：指令/转速/方位角(0.01°)，预留7字节
+typedef struct _ServoControlParam
+{
+    unsigned short mesID;
+    unsigned char cmd;    // 0停转 1转动 2寻位 3归北
+    unsigned char speed;  // 秒/转
+    unsigned short az;    // 0.01°量化 [0,36000]
+    unsigned char reserve[7];
+
+    _ServoControlParam()
+    {
+        memset(this, 0, sizeof(_ServoControlParam));
+        mesID = 0xAA03;
+    }
+} ServoControlParam;
+
 typedef struct _ScanRange
 {
     unsigned short mesID;
-    unsigned char place;  //0水平放置  1竖直放置
-    unsigned char method;  // 0先列后行 1先行后列
     unsigned char workMode; // 0 TWS 1 TAS
-    short azi; //阵面的物理指向姿态设置 0.01°
-    short ele;
 
     _ScanRange()  //default value
     {
         memset(this,0,sizeof (_ScanRange));
         mesID = 0xAA04;
-        place = 0;
-        method = 0;
         workMode = 0;
-        azi = 2000;
-        ele = 1500;
     }
 }ScanRange;
 
 typedef struct _BeamControl
 {
     unsigned short mesID;
-    //unsigned short pulseNum1;
-    unsigned char freqID;  //0-9 15.6GHZ~16.5GHz
+    unsigned char freqID;  //0-80: 9.0GHz~9.8GHz (界面0-8映射到下发0-80)
     unsigned char type;  // 1 线性负调频，2 线性正调频
-    short aziStart;
+    short aziStart;      // 0.01°量化
     short aziEnd;
     short aziStep;
-    unsigned char flagNum;
+    unsigned char flagNum;  // 波形起效数量
     unsigned char beam1Flag; //0不起效 1起效
     unsigned char beam1Code; //波形码 0~11
 
-    unsigned short pulseNum1;
-    unsigned short tranStart1; // 0.1us
-    unsigned short sampleStart1;
-    unsigned short sampleLen1;
-    short elestart1; // 0.01°量化
-    short eleend1;
-    short elestep1;
+    unsigned short pulseNum1;      // 积累脉冲数
+    unsigned short sampleStart1;   // 采样起始 0.1us量化
+    unsigned short sampleEnd1;     // 采样终止 0.1us量化
+    short elestart1; // 俯仰起始 0.01°量化
+    short eleend1;   // 俯仰终止
+    short elestep1;  // 俯仰间隔
 
     unsigned char beam2Flag; //0不起效 1起效
     unsigned char beam2Code; //波形码 0~11
-    unsigned short pulseNum2;
-    unsigned short tranStart2; // 0.1us
-    unsigned short sampleStart2;
-    unsigned short sampleLen2;
-    short elestart2; // 0.01°量化
-    short eleend2;
-    short elestep2;
+    unsigned short pulseNum2;      // 积累脉冲数
+    unsigned short sampleStart2;   // 采样起始 0.1us量化
+    unsigned short sampleEnd2;     // 采样终止 0.1us量化
+    short elestart2; // 俯仰起始 0.01°量化
+    short eleend2;   // 俯仰终止
+    short elestep2;  // 俯仰间隔
 
     unsigned char beam3Flag; //0不起效 1起效
     unsigned char beam3Code; //波形码 0~11
-    unsigned short pulseNum3;
-    unsigned short tranStart3; // 0.1us
-    unsigned short sampleStart3;
-    unsigned short sampleLen3;
-    short elestart3; // 0.01°量化
-    short eleend3;
-    short elestep3;
+    unsigned short pulseNum3;      // 积累脉冲数
+    unsigned short sampleStart3;   // 采样起始 0.1us量化
+    unsigned short sampleEnd3;     // 采样终止 0.1us量化
+    short elestart3; // 俯仰起始 0.01°量化
+    short eleend3;   // 俯仰终止
+    short elestep3;  // 俯仰间隔
 
     _BeamControl()  //default value
     {
         memset(this,0,sizeof (_BeamControl));
         flagNum = 2;
         mesID = 0xAA05;
-        freqID = 2;
+        freqID = 20;  // 界面默认选中第2项(9.2GHz)，下发值为2*10=20
         type = 2;
         pulseNum1 = 256;
         pulseNum2 = 256;
@@ -384,27 +423,24 @@ typedef struct _BeamControl
 
         beam1Flag = 1;
         beam1Code = 6;
-        tranStart1 = 10;
         sampleStart1 = 30;
-        sampleLen1 = 100; //都需要配置，全部是界面的默认参数，需要进行计算
+        sampleEnd1 = 130;  // 原来是 start=30, len=100, 所以 end=130
         elestart1 = 0;
         eleend1 = 6000;
         elestep1 = 600;
 
         beam2Flag = 1;
         beam2Code = 9;
-        tranStart2 = 10;
         sampleStart2 = 120;
-        sampleLen2 = 370;
+        sampleEnd2 = 490;  // 原来是 start=120, len=370, 所以 end=490
         elestart2 = 0;
         eleend2 = 2000;
         elestep2 = 600;
 
         beam3Flag = 0;
         beam3Code = 10;
-        tranStart3 = 10;
         sampleStart3 = 270;
-        sampleLen3 = 350;
+        sampleEnd3 = 620;  // 原来是 start=270, len=350, 所以 end=620
         elestart3 = -1400;
         eleend3 = -800;
         elestep3 = 600;
@@ -788,12 +824,20 @@ typedef struct _ServoCtrlRet
 typedef struct _BITReport
 {
     unsigned short mesID;
-    unsigned char bitGroup;     // 位标志组
-    unsigned char powerState;   // 波控板电源
-    unsigned short fpgaTemp;    // 0.1°
-    unsigned short panelTemp;   // 0.1°
-    unsigned short yaw;         // 0.01°
-    unsigned char subArrayPower[5];
+    unsigned char bitGroup;     // BIT状态信息组（位标志）
+    // [7]: 阵面发射开启=1，不开启=0
+    // [6]: 发射占空比报警=1，正常=0
+    // [5]: 发射脉宽报警=1，正常=0
+    // [4]: 阵面接收开启=1，不开启=0
+    // [3]: 频率源正常=1，不正常=0
+    // [2]: 数字收发板建链=1，断链=0
+    // [1]: 伺服正常工作=1，不正常=0
+    // [0]: 北斗正常工作=1，不正常=0
+    unsigned char powerState;   // 波控板电源状态：正常=1，不正常=0
+    unsigned short fpgaTemp;    // 扩展：FPGA温度 0.1°
+    unsigned short panelTemp;   // 扩展：阵面温度 0.1°
+    unsigned short yaw;         // 扩展：方位角 0.01°
+    unsigned char subArrayPower[5];  // 扩展：分阵供电状态
     unsigned char reserve[25];
 
     _BITReport()

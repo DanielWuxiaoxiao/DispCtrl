@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 11:44:24
+ * @LastEditTime: 2026-01-15 14:23:15
  * @Description: 
  */
 #include "scanrangeui.h"
@@ -23,10 +23,6 @@ ScanRangeUI::ScanRangeUI(QWidget *parent) :
 ui->buttonBox->button(QDialogButtonBox::Ok)->setText("确定下发");
     ui->buttonBox->button(QDialogButtonBox::Cancel)->setText("取消");
 
-    ui->eleend->setVisible(false);
-    ui->elestart->setVisible(false);
-    ui->label_7->setVisible(false);
-    ui->label_8->setVisible(false);
     // 连接按钮信号到自定义槽
 
     connect(ui->buttonBox->button(QDialogButtonBox::Ok), &QPushButton::clicked, this, &ScanRangeUI::onAccept);
@@ -37,29 +33,34 @@ ui->buttonBox->button(QDialogButtonBox::Ok)->setText("确定下发");
 void ScanRangeUI::onAccept()
 {
     ScanRange param;
-    param.place = ui->place->currentIndex();
-    param.method = ui->scan->currentIndex();
+
     param.workMode = ui->workMode->currentIndex();
-    param.azi = (ui->dir->text()).toFloat()/0.01f;
-    param.ele = (ui->ele->text()).toFloat()/0.01f;
+
 
     emit setParam(param);
-    parentWidget()->close();
+    // 保持窗口与布局，不关闭父窗口
 }
 
 void ScanRangeUI::onCancel()
 {
-    parentWidget()->close();
+    // 向上查找 CusWindow 父窗口并关闭
+    QWidget* w = this;
+    while (w) {
+        if (w->objectName() == "CusWindow") {
+            w->close();
+            return;
+        }
+        w = w->parentWidget();
+    }
+    close();
 }
 
 
 void ScanRangeUI::restoreParam(const ScanRange &param)
 {
-    ui->place->setCurrentIndex(param.place);
-    ui->scan->setCurrentIndex(param.method);
+
     ui->workMode->setCurrentIndex(param.workMode);
-    ui->dir->setText(QString::number(param.azi*0.01f));
-    ui->ele->setText(QString::number(param.ele*0.01f));
+
 }
 
 ScanRangeUI::~ScanRangeUI()

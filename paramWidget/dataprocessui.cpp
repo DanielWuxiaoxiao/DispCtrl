@@ -3,12 +3,13 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:35
+ * @LastEditTime: 2026-01-15 14:23:14
  * @Description: 
  */
 #include "dataprocessui.h"
 #include "ui_dataprocessui.h"
 #include <QPushButton>
+#include <QDebug>
 
 DataProcessUI::DataProcessUI(QWidget *parent) :
     QDialog(parent),
@@ -32,6 +33,7 @@ ui->buttonBox->button(QDialogButtonBox::Ok)->setText("确定下发");
 
 void DataProcessUI::onAccept()
 {
+    qDebug() << "[DataProcessUI] onAccept() called";
     DataProParam param;
     param.startWinLen = ui->batchwinlen->text().toFloat();
     param.startPoint = ui->batchnum->text().toFloat();
@@ -49,13 +51,23 @@ void DataProcessUI::onAccept()
     param.accuEleGate = ui->elegate->text().toFloat()*10;
     param.accuVelGate = ui->dopgate->text().toFloat()*10;
 
+    qDebug() << "[DataProcessUI] emitting setParam signal";
     emit setParam(param);
-    parentWidget()->close();
+    // 保持窗口与布局，不关闭父窗口
 }
 
 void DataProcessUI::onCancel()
 {
-    parentWidget()->close();
+    // 向上查找 CusWindow 父窗口并关闭
+    QWidget* w = this;
+    while (w) {
+        if (w->objectName() == "CusWindow") {
+            w->close();
+            return;
+        }
+        w = w->parentWidget();
+    }
+    close();
 }
 
 /**

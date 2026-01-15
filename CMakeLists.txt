@@ -42,11 +42,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # 编译器配置 - 最简化设置，避免环境冲突
 ##############################################################################
 
-# 暂时移除MSVC编码设置以确保编译正常
-# TODO: 中文编码问题可以通过其他方式解决
+# MSVC编码设置：确保正确处理UTF-8源文件和中文注释
 if(MSVC)
-    add_compile_options(/execution-charset:utf-8)
-    add_compile_options(/source-charset:utf-8)
+    # 使用 /utf-8 选项强制MSVC使用UTF-8编码
+    # 这会同时设置源文件编码和执行字符集为UTF-8
+    add_compile_options(/utf-8)
+
+    # 禁用 C4819 警告（代码页警告）
+    add_compile_options(/wd4819)
 endif()
 
 ##############################################################################
@@ -152,6 +155,8 @@ set(SRC_FILES
     cusWidgets/cuswindow.cpp                   # 自定义窗口
     cusWidgets/custommessagebox.cpp            # 自定义消息框
     cusWidgets/customcombobox.cpp              # 自定义ComboBox组件
+    cusWidgets/customspinbox.cpp               # 自定义SpinBox组件
+    cusWidgets/customspinboxstyle.cpp          # 自定义SpinBox样式
 
     # 参数配置模块 - 雷达参数配置对话框
     paramWidget/batterycontrol.cpp             # 一键全数配置
@@ -163,6 +168,7 @@ set(SRC_FILES
     paramWidget/waveandsample.cpp              # 电调控制
     paramWidget/scanrangeui.cpp                # 方向图扫描控制
     paramWidget/photoelectricparam.cpp         # 光电系统控制
+    paramWidget/servocontrol.cpp               # 伺服控制
 
     # 基础模块 - 系统基础功能
     Basic/log.cpp                              # 日志系统
@@ -198,6 +204,8 @@ set(HDR_FILES
     cusWidgets/cuswindow.h                     # 自定义窗口
     cusWidgets/custommessagebox.h              # 自定义消息框
     cusWidgets/customcombobox.h                # 自定义ComboBox组件
+    cusWidgets/customspinbox.h                 # 自定义SpinBox组件
+    cusWidgets/customspinboxstyle.h            # 自定义SpinBox样式
 
     # 参数配置模块头文件 - 雷达参数配置对话框
     paramWidget/batterycontrol.h               # 一键全数配置
@@ -209,6 +217,7 @@ set(HDR_FILES
     paramWidget/waveandsample.h                # 电调控制
     paramWidget/scanrangeui.h                  # 方向图扫描控制
     paramWidget/photoelectricparam.h           # 光电系统控制
+    paramWidget/servocontrol.h                 # 伺服控制
 
     # 基础模块头文件 - 系统基础功能
     Basic/bindThread.h                         # 线程绑定工具
@@ -272,6 +281,7 @@ set(UI_FILES
     paramWidget/waveandsample.ui               # 电调控制界面
     paramWidget/scanrangeui.ui                 # 方向图扫描控制界面
     paramWidget/photoelectricparam.ui          # 光电系统控制界面
+    paramWidget/servocontrol.ui                # 伺服控制界面
 )
 
 # Qt资源文件 - 图标、样式表、静态文件等
@@ -365,11 +375,19 @@ message(STATUS "二进制输出目录: ${CMAKE_BINARY_DIR}/bin")
 ##############################################################################
 
 # 复制配置文件到输出目录
+# 对于多配置生成器（如Visual Studio），需要复制到 bin/Debug 和 bin/Release
+# 对于单配置生成器（如Ninja），复制到 bin 目录即可
 add_custom_target(copy_config ALL
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_SOURCE_DIR}/config.toml
         ${CMAKE_BINARY_DIR}/bin/config.toml
-    COMMENT "Copying config.toml to output directory"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_SOURCE_DIR}/config.toml
+        ${CMAKE_BINARY_DIR}/bin/Debug/config.toml
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_SOURCE_DIR}/config.toml
+        ${CMAKE_BINARY_DIR}/bin/Release/config.toml
+    COMMENT "Copying config.toml to output directories (bin, bin/Debug, bin/Release)"
     VERBATIM
 )
 

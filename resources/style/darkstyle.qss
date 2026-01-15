@@ -1305,7 +1305,8 @@ sigParamUI QLabel,
 FreqControlUI QLabel,
 waveAndSample QLabel,
 ScanRangeUI QLabel,
-PhotoElectricParam QLabel {
+PhotoElectricParam QLabel,
+ServoControl QLabel {
     background-color: transparent;
     color: #66ffcc;
     font-size: 14px;
@@ -1322,7 +1323,8 @@ sigParamUI QCheckBox,
 FreqControlUI QCheckBox,
 waveAndSample QCheckBox,
 ScanRangeUI QCheckBox,
-PhotoElectricParam QCheckBox {
+PhotoElectricParam QCheckBox,
+ServoControl QCheckBox {
     color: #66ffcc;
     font-size: 14px;
     font-weight: bold;
@@ -1338,7 +1340,8 @@ sigParamUI QCheckBox::indicator,
 FreqControlUI QCheckBox::indicator,
 waveAndSample QCheckBox::indicator,
 ScanRangeUI QCheckBox::indicator,
-PhotoElectricParam QCheckBox::indicator {
+PhotoElectricParam QCheckBox::indicator,
+ServoControl QCheckBox::indicator {
     width: 20px;
     height: 20px;
     border: 2px solid #66ffcc;
@@ -1355,7 +1358,8 @@ sigParamUI QCheckBox::indicator:checked,
 FreqControlUI QCheckBox::indicator:checked,
 waveAndSample QCheckBox::indicator:checked,
 ScanRangeUI QCheckBox::indicator:checked,
-PhotoElectricParam QCheckBox::indicator:checked {
+PhotoElectricParam QCheckBox::indicator:checked,
+ServoControl QCheckBox::indicator:checked {
     background-color: #66ffcc;
     border: 2px solid #66ffcc;
     border-radius: 4px;
@@ -1371,9 +1375,93 @@ sigParamUI QCheckBox::indicator:hover,
 FreqControlUI QCheckBox::indicator:hover,
 waveAndSample QCheckBox::indicator:hover,
 ScanRangeUI QCheckBox::indicator:hover,
-PhotoElectricParam QCheckBox::indicator:hover {
+PhotoElectricParam QCheckBox::indicator:hover,
+ServoControl QCheckBox::indicator:hover {
     border-color: rgba(102, 255, 204, 0.8);
     background-color: rgba(102, 255, 204, 0.1);
+}
+
+/* QSpinBox / QDoubleSpinBox - 使用默认箭头，仅应用配色 */
+BatteryControl QSpinBox,
+TranRecvUI QSpinBox,
+DataSaveUI QSpinBox,
+DataProcessUI QSpinBox,
+sigParamUI QSpinBox,
+FreqControlUI QSpinBox,
+waveAndSample QSpinBox,
+ScanRangeUI QSpinBox,
+PhotoElectricParam QSpinBox,
+ServoControl QSpinBox,
+BatteryControl QDoubleSpinBox,
+TranRecvUI QDoubleSpinBox,
+DataSaveUI QDoubleSpinBox,
+DataProcessUI QDoubleSpinBox,
+sigParamUI QDoubleSpinBox,
+FreqControlUI QDoubleSpinBox,
+waveAndSample QDoubleSpinBox,
+ScanRangeUI QDoubleSpinBox,
+PhotoElectricParam QDoubleSpinBox,
+ServoControl QDoubleSpinBox {
+    background-color: rgba(16, 24, 24, 0.9);
+    color: #66ffcc;
+    font-size: 14px;
+    font-weight: bold;
+    border: 2px solid #66ffcc;
+    border-radius: 4px;
+    padding: 2px 6px;
+    min-height: 24px;
+}
+
+/* hover 提示（默认箭头样式保持不变） */
+BatteryControl QSpinBox:hover,
+TranRecvUI QSpinBox:hover,
+DataSaveUI QSpinBox:hover,
+DataProcessUI QSpinBox:hover,
+sigParamUI QSpinBox:hover,
+FreqControlUI QSpinBox:hover,
+waveAndSample QSpinBox:hover,
+ScanRangeUI QSpinBox:hover,
+PhotoElectricParam QSpinBox:hover,
+ServoControl QSpinBox:hover,
+BatteryControl QDoubleSpinBox:hover,
+TranRecvUI QDoubleSpinBox:hover,
+DataSaveUI QDoubleSpinBox:hover,
+DataProcessUI QDoubleSpinBox:hover,
+sigParamUI QDoubleSpinBox:hover,
+FreqControlUI QDoubleSpinBox:hover,
+waveAndSample QDoubleSpinBox:hover,
+ScanRangeUI QDoubleSpinBox:hover,
+PhotoElectricParam QDoubleSpinBox:hover,
+ServoControl QDoubleSpinBox:hover {
+    border-color: rgba(102, 255, 204, 0.8);
+    background-color: rgba(102, 255, 204, 0.08);
+}
+
+/* 按钮背景透明，保留默认箭头 */
+BatteryControl QAbstractSpinBox::up-button,
+TranRecvUI QAbstractSpinBox::up-button,
+DataSaveUI QAbstractSpinBox::up-button,
+DataProcessUI QAbstractSpinBox::up-button,
+sigParamUI QAbstractSpinBox::up-button,
+FreqControlUI QAbstractSpinBox::up-button,
+waveAndSample QAbstractSpinBox::up-button,
+ScanRangeUI QAbstractSpinBox::up-button,
+PhotoElectricParam QAbstractSpinBox::up-button,
+ServoControl QAbstractSpinBox::up-button,
+BatteryControl QAbstractSpinBox::down-button,
+TranRecvUI QAbstractSpinBox::down-button,
+DataSaveUI QAbstractSpinBox::down-button,
+DataProcessUI QAbstractSpinBox::down-button,
+sigParamUI QAbstractSpinBox::down-button,
+FreqControlUI QAbstractSpinBox::down-button,
+waveAndSample QAbstractSpinBox::down-button,
+ScanRangeUI QAbstractSpinBox::down-button,
+PhotoElectricParam QAbstractSpinBox::down-button,
+ServoControl QAbstractSpinBox::down-button {
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
 }
 
 /* QComboBox - combobox style */
@@ -1385,15 +1473,16 @@ sigParamUI QComboBox,
 FreqControlUI QComboBox,
 waveAndSample QComboBox,
 ScanRangeUI QComboBox,
-PhotoElectricParam QComboBox {
+PhotoElectricParam QComboBox,
+ServoControl QComboBox {
     background-color: rgba(16, 24, 24, 0.9);
     color: #66ffcc;
     font-size: 14px;
     font-weight: bold;
     border: 2px solid #66ffcc;
     border-radius: 4px;
-    padding: 4px 8px;
-    min-height: 28px;
+    padding: 2px 6px;
+    max-height: 20px;
 }
 
 /* QComboBox hover */
@@ -1405,7 +1494,8 @@ sigParamUI QComboBox:hover,
 FreqControlUI QComboBox:hover,
 waveAndSample QComboBox:hover,
 ScanRangeUI QComboBox:hover,
-PhotoElectricParam QComboBox:hover {
+PhotoElectricParam QComboBox:hover,
+ServoControl QComboBox:hover {
     border-color: rgba(102, 255, 204, 0.8);
     background-color: rgba(102, 255, 204, 0.1);
 }
@@ -1419,7 +1509,8 @@ sigParamUI QComboBox::drop-down,
 FreqControlUI QComboBox::drop-down,
 waveAndSample QComboBox::drop-down,
 ScanRangeUI QComboBox::drop-down,
-PhotoElectricParam QComboBox::drop-down {
+PhotoElectricParam QComboBox::drop-down,
+ServoControl QComboBox::drop-down {
     border: none;
     width: 30px;
     background: transparent;
@@ -1434,7 +1525,8 @@ sigParamUI QComboBox::down-arrow,
 FreqControlUI QComboBox::down-arrow,
 waveAndSample QComboBox::down-arrow,
 ScanRangeUI QComboBox::down-arrow,
-PhotoElectricParam QComboBox::down-arrow {
+PhotoElectricParam QComboBox::down-arrow,
+ServoControl QComboBox::down-arrow {
     width: 0;
     height: 0;
     /* 使用border技巧绘制向下的三角形 */
@@ -1453,7 +1545,8 @@ sigParamUI QComboBox::down-arrow:hover,
 FreqControlUI QComboBox::down-arrow:hover,
 waveAndSample QComboBox::down-arrow:hover,
 ScanRangeUI QComboBox::down-arrow:hover,
-PhotoElectricParam QComboBox::down-arrow:hover {
+PhotoElectricParam QComboBox::down-arrow:hover,
+ServoControl QComboBox::down-arrow:hover {
     border-top-color: #99ffdd;
 }
 
@@ -1466,7 +1559,8 @@ sigParamUI QComboBox QAbstractItemView,
 FreqControlUI QComboBox QAbstractItemView,
 waveAndSample QComboBox QAbstractItemView,
 ScanRangeUI QComboBox QAbstractItemView,
-PhotoElectricParam QComboBox QAbstractItemView {
+PhotoElectricParam QComboBox QAbstractItemView,
+ServoControl QComboBox QAbstractItemView {
     background-color: rgba(16, 24, 24, 0.95);
     color: #66ffcc;
     font-size: 14px;
@@ -1485,7 +1579,8 @@ sigParamUI QComboBox QAbstractItemView::item,
 FreqControlUI QComboBox QAbstractItemView::item,
 waveAndSample QComboBox QAbstractItemView::item,
 ScanRangeUI QComboBox QAbstractItemView::item,
-PhotoElectricParam QComboBox QAbstractItemView::item {
+PhotoElectricParam QComboBox QAbstractItemView::item,
+ServoControl QComboBox QAbstractItemView::item {
     padding: 6px 10px;
     min-height: 28px;
 }
@@ -1499,7 +1594,8 @@ sigParamUI QComboBox QAbstractItemView::item:hover,
 FreqControlUI QComboBox QAbstractItemView::item:hover,
 waveAndSample QComboBox QAbstractItemView::item:hover,
 ScanRangeUI QComboBox QAbstractItemView::item:hover,
-PhotoElectricParam QComboBox QAbstractItemView::item:hover {
+PhotoElectricParam QComboBox QAbstractItemView::item:hover,
+ServoControl QComboBox QAbstractItemView::item:hover {
     background-color: rgba(102, 255, 204, 0.2);
 }
 
@@ -1521,6 +1617,7 @@ PhotoElectricParam QLineEdit {
     border-radius: 4px;
     padding: 4px 8px;
 }
+
 
 /* QDialogButtonBox button */
 BatteryControl QDialogButtonBox QPushButton,

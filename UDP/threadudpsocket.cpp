@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:35
+ * @LastEditTime: 2026-01-15 14:23:12
  * @Description: 
  */
 /**
@@ -18,14 +18,16 @@
  */
 
 #include "threadudpsocket.h"
-#include "Basic/Protocol.h"
-#include "Controller/ErrorHandler.h"
-#include <QNetworkDatagram>
+
 #include <QDateTime>
 #include <QDebug>
+#include <QNetworkDatagram>
 #include <QTimer>
-#include <cstring>
 #include <cstdlib>
+#include <cstring>
+
+#include "Basic/Protocol.h"
+#include "Controller/ErrorHandler.h"
 #include "Controller/controller.h"
 
 /**
@@ -43,8 +45,7 @@
  * - 连接定时器超时信号到重连槽函数
  */
 ThreadedUdpSocket::ThreadedUdpSocket(QString ip, quint16 port, QObject* parent)
-    : QObject(parent), m_Ip(ip), m_Port(port), m_reconnectAttempts(0)
-{
+    : QObject(parent), m_Ip(ip), m_Port(port), m_reconnectAttempts(0) {
     // 初始化重连定时器
     m_reconnectTimer = new QTimer(this);
     m_reconnectTimer->setSingleShot(true);
@@ -88,22 +89,24 @@ void ThreadedUdpSocket::start() {
     try {
         if (m_socket) {
             m_socket->close();
-            delete m_socket;
+            m_socket->deleteLater();  // 使用 deleteLater 而不是 delete，确保线程安全
+            m_socket = nullptr;
         }
 
-        m_socket = new QUdpSocket(this);
+        // 不指定 parent，避免跨线程问题
+        m_socket = new QUdpSocket();
 
         // 连接错误处理信号 - Qt5兼容版本
-        connect(m_socket, QOverload<QAbstractSocket::SocketError>::of(&QUdpSocket::error),
-                this, &ThreadedUdpSocket::onSocketError);
-        connect(m_socket, &QUdpSocket::stateChanged,
-                this, &ThreadedUdpSocket::onSocketStateChanged);
+        connect(m_socket, QOverload<QAbstractSocket::SocketError>::of(&QUdpSocket::error), this,
+                &ThreadedUdpSocket::onSocketError);
+        connect(m_socket, &QUdpSocket::stateChanged, this,
+                &ThreadedUdpSocket::onSocketStateChanged);
         connect(m_socket, &QUdpSocket::readyRead, this, &ThreadedUdpSocket::onReadyRead);
 
         if (!m_socket->bind(QHostAddress::Any, m_Port)) {
-            reportError("UDP_BIND_FAILED",
-                       QString("Failed to bind UDP socket to port %1: %2")
-                       .arg(m_Port).arg(m_socket->errorString()));
+            reportError("UDP_BIND_FAILED", QString("Failed to bind UDP socket to port %1: %2")
+                                               .arg(m_Port)
+                                               .arg(m_socket->errorString()));
             attemptReconnect();
             return;
         }
@@ -113,8 +116,7 @@ void ThreadedUdpSocket::start() {
         qInfo() << "UDP socket successfully bound to port" << m_Port;
 
     } catch (const std::exception& e) {
-        reportError("UDP_START_EXCEPTION",
-                   QString("Exception in UDP start: %1").arg(e.what()));
+        reportError("UDP_START_EXCEPTION", QString("Exception in UDP start: %1").arg(e.what()));
     }
 }
 
@@ -147,8 +149,7 @@ void ThreadedUdpSocket::onReadyRead() {
             }
         }
     } catch (const std::exception& e) {
-        reportError("UDP_READ_EXCEPTION",
-                   QString("Exception in UDP read: %1").arg(e.what()));
+        reportError("UDP_READ_EXCEPTION", QString("Exception in UDP read: %1").arg(e.what()));
     }
 }
 
@@ -180,13 +181,13 @@ void ThreadedUdpSocket::handleDatagram(const QByteArray& data, int senderPort) {
     try {
         if (!validateFrame(data)) {
             reportError("UDP_INVALID_FRAME",
-                       QString("Invalid frame received from port %1").arg(senderPort));
+                        QString("Invalid frame received from port %1").arg(senderPort));
             return;
         }
 
         if (data.size() < sizeof(ProtocolFrame) + sizeof(quint16)) {
             reportError("UDP_INSUFFICIENT_DATA",
-                       QString("Datagram too small: %1 bytes").arg(data.size()));
+                        QString("Datagram too small: %1 bytes").arg(data.size()));
             return;
         }
 
@@ -194,91 +195,91 @@ void ThreadedUdpSocket::handleDatagram(const QByteArray& data, int senderPort) {
         const char* payload = data.constData() + sizeof(ProtocolFrame);
 
         switch (msgID) {
-        case 0xDD01: {  // 检测点信息消息
-            if(senderPort == CF_INS.port("SIG_2_DISP_PORT1",SIG_2_DISP_PORT1) &&
-               m_Port == CF_INS.port("DISP_GET_SIG_PORT1",DISP_GET_SIG_PORT1)) {
-                emit detInfo(data);
+            case 0xDD01: {  // 检测点信息消息
+                if (senderPort == CF_INS.port("SIG_2_DISP_PORT1", SIG_2_DISP_PORT1) &&
+                    m_Port == CF_INS.port("DISP_GET_SIG_PORT1", DISP_GET_SIG_PORT1)) {
+                    emit detInfo(data);
+                }
+                break;
             }
-            break;
-        }
-        case 0xEE01: {  // 航迹信息消息
-            if(senderPort == CF_INS.port("DATA_PRO_2_DISP",DATA_PRO_2_DISP) &&
-               m_Port == CF_INS.port("DISP_GET_DATA_PORT",DISP_GET_DATA_PORT)) {
-                emit traInfo(data);
+            case 0xEE01: {  // 航迹信息消息
+                if (senderPort == CF_INS.port("DATA_PRO_2_DISP", DATA_PRO_2_DISP) &&
+                    m_Port == CF_INS.port("DISP_GET_DATA_PORT", DISP_GET_DATA_PORT)) {
+                    emit traInfo(data);
+                }
+                break;
             }
-            break;
-        }
-        case 0xEE02: {  // TBD 航迹信息消息
-            if(senderPort == CF_INS.port("DATA_PRO_2_DISP2",DATA_PRO_2_DISP2) &&
-               m_Port == CF_INS.port("DISP_GET_DATA_PORT2",DISP_GET_DATA_PORT2)) {
-                emit tbdInfo(data);
-            } else {
-                emit tbdInfo(data); // 容错：若端口配置不同仍转发
+            case 0xEE02: {  // TBD 航迹信息消息
+                if (senderPort == CF_INS.port("DATA_PRO_2_DISP2", DATA_PRO_2_DISP2) &&
+                    m_Port == CF_INS.port("DISP_GET_DATA_PORT2", DISP_GET_DATA_PORT2)) {
+                    emit tbdInfo(data);
+                } else {
+                    emit tbdInfo(data);  // 容错：若端口配置不同仍转发
+                }
+                break;
             }
-            break;
-        }
-        case 0xDD02: {  // 数据保存确认消息
-            if(senderPort == CF_INS.port("SIG_2_DISP_PORT2",SIG_2_DISP_PORT2) &&
-               m_Port == CF_INS.port("DISP_GET_SIG_PORT2",DISP_GET_SIG_PORT2)) {
-                DataSaveOK info;
+            case 0xDD02: {  // 数据保存确认消息
+                if (senderPort == CF_INS.port("SIG_2_DISP_PORT2", SIG_2_DISP_PORT2) &&
+                    m_Port == CF_INS.port("DISP_GET_SIG_PORT2", DISP_GET_SIG_PORT2)) {
+                    DataSaveOK info;
+                    memcpy(&info, payload, sizeof(info));
+                    emit dataSaveOK(info);
+                }
+                break;
+            }
+            case 0xDD03: {  // 数据删除确认消息
+                if (senderPort == CF_INS.port("SIG_2_DISP_PORT2", SIG_2_DISP_PORT2) &&
+                    m_Port == CF_INS.port("DISP_GET_SIG_PORT2", DISP_GET_SIG_PORT2)) {
+                    DataDelOK info;
+                    memcpy(&info, payload, sizeof(info));
+                    emit dataDelOK(info);
+                }
+                break;
+            }
+            case 0xDD04: {  // 离线状态信息消息
+                if (senderPort == CF_INS.port("SIG_2_DISP_PORT2", SIG_2_DISP_PORT2) &&
+                    m_Port == CF_INS.port("DISP_GET_SIG_PORT2", DISP_GET_SIG_PORT2)) {
+                    OfflineStat info;
+                    memcpy(&info, payload, sizeof(info));
+                    emit offLineStat(info);
+                }
+                break;
+            }
+            case 0xDB01: {  // 目标分类结果消息
+                if (m_Port == CF_INS.port("DISP_GET_TARGET_PORT", DISP_GET_TARGET_PORT)) {
+                    TargetClaRes info;
+                    memcpy(&info, payload, sizeof(info));
+                    emit targetClaRes(info);
+                }
+                break;
+            }
+            case 0xCF01: {  // 监控参数消息
+                if (m_Port == CF_INS.port("DISP_GET_MONITOR_PORT", DISP_GET_TARGET_PORT)) {
+                    MonitorParam info;
+                    memcpy(&info, payload, sizeof(info));
+                    emit monitorParamSend(info);
+                }
+                break;
+            }
+            case 0xDE01: {  // 伺服控制回送
+                ServoCtrlRet info;
                 memcpy(&info, payload, sizeof(info));
-                emit dataSaveOK(info);
+                emit servoCtrlRet(info);
+                break;
             }
-            break;
-        }
-        case 0xDD03: {  // 数据删除确认消息
-            if(senderPort == CF_INS.port("SIG_2_DISP_PORT2",SIG_2_DISP_PORT2) &&
-               m_Port == CF_INS.port("DISP_GET_SIG_PORT2",DISP_GET_SIG_PORT2)) {
-                DataDelOK info;
+            case 0xDE02: {  // BIT 上报
+                BITReport info;
                 memcpy(&info, payload, sizeof(info));
-                emit dataDelOK(info);
+                emit bitReport(info);
+                break;
             }
-            break;
-        }
-        case 0xDD04: {  // 离线状态信息消息
-            if(senderPort == CF_INS.port("SIG_2_DISP_PORT2",SIG_2_DISP_PORT2) &&
-               m_Port == CF_INS.port("DISP_GET_SIG_PORT2",DISP_GET_SIG_PORT2)) {
-                OfflineStat info;
-                memcpy(&info, payload, sizeof(info));
-                emit offLineStat(info);
-            }
-            break;
-        }
-        case 0xDB01: {  // 目标分类结果消息
-            if(m_Port == CF_INS.port("DISP_GET_TARGET_PORT",DISP_GET_TARGET_PORT)) {
-                TargetClaRes info;
-                memcpy(&info, payload, sizeof(info));
-                emit targetClaRes(info);
-            }
-            break;
-        }
-        case 0xDC01: {  // 监控参数消息
-            if(m_Port == CF_INS.port("DISP_GET_MONITOR_PORT",DISP_GET_MONITOR_PORT)) {
-                MonitorParam info;
-                memcpy(&info, payload, sizeof(info));
-                emit monitorParamSend(info);
-            }
-            break;
-        }
-        case 0xDE01: { // 伺服控制回送
-            ServoCtrlRet info;
-            memcpy(&info, payload, sizeof(info));
-            emit servoCtrlRet(info);
-            break;
-        }
-        case 0xDE02: { // BIT 上报
-            BITReport info;
-            memcpy(&info, payload, sizeof(info));
-            emit bitReport(info);
-            break;
-        }
-        default:
-            qDebug() << "Unknown message ID:" << QString::number(msgID, 16);
-            break;
+            default:
+                qDebug() << "Unknown message ID:" << QString::number(msgID, 16);
+                break;
         }
     } catch (const std::exception& e) {
         reportError("UDP_HANDLE_EXCEPTION",
-                   QString("Exception handling datagram: %1").arg(e.what()));
+                    QString("Exception handling datagram: %1").arg(e.what()));
     }
 }
 
@@ -295,13 +296,13 @@ void ThreadedUdpSocket::handleDatagram(const QByteArray& data, int senderPort) {
  *
  * @note 使用memcmp进行字节级别的精确比较
  */
-bool ThreadedUdpSocket::validateFrame(const QByteArray& data)
-{
+bool ThreadedUdpSocket::validateFrame(const QByteArray& data) {
     if (data.size() < sizeof(ProtocolFrame) + sizeof(ProtocolEnd)) {
         return false;
     }
     auto frame = reinterpret_cast<const ProtocolFrame*>(data.constData());
-    auto end = reinterpret_cast<const ProtocolEnd*>(data.constData() + data.size() - sizeof(ProtocolEnd));
+    auto end =
+        reinterpret_cast<const ProtocolEnd*>(data.constData() + data.size() - sizeof(ProtocolEnd));
     return (memcmp(&HEADCODE, &frame->head, sizeof(HEADCODE)) == 0 &&
             memcmp(&ENDCODE, &end->end, sizeof(ENDCODE)) == 0);
 }
@@ -325,22 +326,30 @@ bool ThreadedUdpSocket::validateFrame(const QByteArray& data)
  *
  * @note 函数是线程安全的，可在多线程环境中调用
  */
-void ThreadedUdpSocket::writeData(const QByteArray &datagram, const QHostAddress &host, quint16 port)
-{
+void ThreadedUdpSocket::writeData(const QByteArray& datagram, const QHostAddress& host,
+                                  quint16 port) {
     try {
         if (!m_socket) {
             reportError("UDP_WRITE_NO_SOCKET", "Attempted to write data but socket is null");
             return;
         }
 
+        // 检查 socket 状态，只有在已绑定状态才能发送数据
+        if (m_socket->state() != QAbstractSocket::BoundState) {
+            reportError("UDP_WRITE_NOT_BOUND",
+                        QString("Attempted to write data but socket is not bound (state: %1, port: %2)")
+                        .arg(m_socket->state())
+                        .arg(m_Port));
+            return;
+        }
+
         qint64 bytesWritten = m_socket->writeDatagram(datagram, host, port);
         if (bytesWritten == -1) {
             reportError("UDP_WRITE_FAILED",
-                       QString("Failed to write UDP datagram: %1").arg(m_socket->errorString()));
+                        QString("Failed to write UDP datagram: %1").arg(m_socket->errorString()));
         }
     } catch (const std::exception& e) {
-        reportError("UDP_WRITE_EXCEPTION",
-                   QString("Exception writing UDP data: %1").arg(e.what()));
+        reportError("UDP_WRITE_EXCEPTION", QString("Exception writing UDP data: %1").arg(e.what()));
     }
 }
 
@@ -362,11 +371,10 @@ void ThreadedUdpSocket::writeData(const QByteArray &datagram, const QHostAddress
  * @note 自动重连机制有最大尝试次数限制
  */
 // 错误处理方法
-void ThreadedUdpSocket::onSocketError(QAbstractSocket::SocketError socketError)
-{
+void ThreadedUdpSocket::onSocketError(QAbstractSocket::SocketError socketError) {
     QString errorString = m_socket ? m_socket->errorString() : "Unknown error";
     reportError("UDP_SOCKET_ERROR",
-               QString("Socket error %1: %2").arg(socketError).arg(errorString));
+                QString("Socket error %1: %2").arg(socketError).arg(errorString));
 
     // 对于严重错误，尝试重连
     if (socketError == QAbstractSocket::NetworkError ||
@@ -392,8 +400,7 @@ void ThreadedUdpSocket::onSocketError(QAbstractSocket::SocketError socketError)
  *
  * @note 使用BoundState作为UDP连接成功的标志
  */
-void ThreadedUdpSocket::onSocketStateChanged(QAbstractSocket::SocketState socketState)
-{
+void ThreadedUdpSocket::onSocketStateChanged(QAbstractSocket::SocketState socketState) {
     bool isConnected = (socketState == QAbstractSocket::BoundState);
     emit connectionStatusChanged(isConnected);
 
@@ -424,11 +431,10 @@ void ThreadedUdpSocket::onSocketStateChanged(QAbstractSocket::SocketState socket
  *
  * @note 使用QTimer::singleShot避免阻塞主线程
  */
-void ThreadedUdpSocket::attemptReconnect()
-{
+void ThreadedUdpSocket::attemptReconnect() {
     if (m_reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
         reportError("UDP_RECONNECT_FAILED",
-                   QString("Failed to reconnect after %1 attempts").arg(MAX_RECONNECT_ATTEMPTS));
+                    QString("Failed to reconnect after %1 attempts").arg(MAX_RECONNECT_ATTEMPTS));
         return;
     }
 
@@ -438,9 +444,7 @@ void ThreadedUdpSocket::attemptReconnect()
     m_reconnectTimer->start(RECONNECT_INTERVAL_MS);
 
     // 延迟执行重连
-    QTimer::singleShot(100, this, [this]() {
-        start();
-    });
+    QTimer::singleShot(10000, this, [this]() { start(); });
 }
 
 /**
@@ -462,10 +466,9 @@ void ThreadedUdpSocket::attemptReconnect()
  *
  * @note 错误信息会被记录到系统日志中，便于问题诊断
  */
-void ThreadedUdpSocket::reportError(const QString& code, const QString& message)
-{
+void ThreadedUdpSocket::reportError(const QString& code, const QString& message) {
     ERROR_HANDLER.reportError(code, message, ErrorSeverity::Error, ErrorCategory::Network,
-                             {{"port", m_Port}, {"ip", m_Ip}});
+                              {{"port", m_Port}, {"ip", m_Ip}});
     emit socketError(QString("%1: %2").arg(code, message));
 }
 
@@ -476,7 +479,7 @@ void ThreadedUdpSocket::reportError(const QString& code, const QString& message)
  * @param len 数据长度
  * @return 校验码
  */
-char ThreadedUdpSocket::checkAccusation(const char *data, int len) {
+char ThreadedUdpSocket::checkAccusation(const char* data, int len) {
     char checksum = 0;
     for (int i = 0; i < len; i++) {
         checksum ^= data[i];
@@ -490,10 +493,10 @@ char ThreadedUdpSocket::checkAccusation(const char *data, int len) {
  */
 void ThreadedUdpSocket::enableHeartBeat() {
     // 构造心跳包
-    char* sendData = (char *)malloc(sizeof(HeartbeatPacket));
+    char* sendData = (char*)malloc(sizeof(HeartbeatPacket));
     HeartbeatPacket param;
-    param.dataLen = sizeof(HeartbeatPacket) - sizeof(param.versionNumber) -
-                    sizeof(param.head) - sizeof(param.dataLen) - sizeof(param.checkCode);
+    param.dataLen = sizeof(HeartbeatPacket) - sizeof(param.versionNumber) - sizeof(param.head) -
+                    sizeof(param.dataLen) - sizeof(param.checkCode);
 
     memcpy(sendData, &param, sizeof(param) - sizeof(param.checkCode));
     char checksum = checkAccusation(sendData, sizeof(param) - sizeof(param.checkCode));
@@ -513,14 +516,46 @@ void ThreadedUdpSocket::enableHeartBeat() {
 }
 
 /**
+ * @brief 安全发送数据报（内部使用）
+ * @param data 要发送的数据
+ * @param size 数据大小
+ * @param host 目标主机地址
+ * @param port 目标端口
+ * @return true表示发送成功，false表示失败
+ * @details 在发送前检查socket状态，确保socket已绑定
+ */
+bool ThreadedUdpSocket::safeWriteDatagram(const char* data, qint64 size, const QHostAddress& host, quint16 port) {
+    if (!m_socket) {
+        reportError("UDP_WRITE_NO_SOCKET", "Attempted to write data but socket is null");
+        return false;
+    }
+
+    if (m_socket->state() != QAbstractSocket::BoundState) {
+        reportError("UDP_WRITE_NOT_BOUND",
+                    QString("Attempted to write data but socket is not bound (state: %1, port: %2)")
+                    .arg(m_socket->state())
+                    .arg(m_Port));
+        return false;
+    }
+
+    qint64 bytesWritten = m_socket->writeDatagram(data, size, host, port);
+    if (bytesWritten == -1) {
+        reportError("UDP_WRITE_FAILED",
+                    QString("Failed to write UDP datagram: %1").arg(m_socket->errorString()));
+        return false;
+    }
+
+    return true;
+}
+
+/**
  * @brief 发送心跳包
  * @details 定时器触发，向光电系统发送心跳包
  */
 void ThreadedUdpSocket::sendHeartbeat() {
-    if (!heartbeatPacket.isEmpty() && m_socket) {
-        m_socket->writeDatagram(heartbeatPacket,
-                               QHostAddress(PHOTO_ELE_IP),
-                               PHOTO_GET_DISP_PORT);
+    if (!heartbeatPacket.isEmpty()) {
+        safeWriteDatagram(heartbeatPacket.constData(), heartbeatPacket.size(),
+                         QHostAddress(PHOTO_ELE_IP), PHOTO_GET_DISP_PORT);
     }
 }
 
@@ -530,7 +565,7 @@ void ThreadedUdpSocket::sendHeartbeat() {
  * @details 向光电系统发送目标引导信息（经纬高坐标）
  */
 void ThreadedUdpSocket::sendPEParam(PhotoElectricParamSet param) {
-    char *sendData = (char *)malloc(sizeof(PhotoElectricParamSet));
+    char* sendData = (char*)malloc(sizeof(PhotoElectricParamSet));
     param.dataLen = sizeof(PhotoElectricParamSet) - sizeof(param.versionNumber) -
                     sizeof(param.head) - sizeof(param.dataLen) - sizeof(param.checkCode);
 
@@ -542,9 +577,7 @@ void ThreadedUdpSocket::sendPEParam(PhotoElectricParamSet param) {
     param.checkCode = checksum;
     memcpy(sendData, &param, sizeof(param));
 
-    QByteArray byteArray = QByteArray::fromRawData(sendData, sizeof(param));
-    m_socket->writeDatagram(sendData, sizeof(param),
-                           QHostAddress(PHOTO_ELE_IP), PHOTO_GET_DISP_PORT);
+    safeWriteDatagram(sendData, sizeof(param), QHostAddress(PHOTO_ELE_IP), PHOTO_GET_DISP_PORT);
     free(sendData);
 }
 
@@ -554,7 +587,7 @@ void ThreadedUdpSocket::sendPEParam(PhotoElectricParamSet param) {
  * @details 向光电系统发送目标引导信息（极坐标）
  */
 void ThreadedUdpSocket::sendPEParam2(PhotoElectricParamSet2 param) {
-    char *sendData = (char *)malloc(sizeof(PhotoElectricParamSet2));
+    char* sendData = (char*)malloc(sizeof(PhotoElectricParamSet2));
     param.dataLen = sizeof(PhotoElectricParamSet2) - sizeof(param.versionNumber) -
                     sizeof(param.head) - sizeof(param.dataLen) - sizeof(param.checkCode);
 
@@ -566,9 +599,7 @@ void ThreadedUdpSocket::sendPEParam2(PhotoElectricParamSet2 param) {
     param.checkCode = checksum;
     memcpy(sendData, &param, sizeof(param));
 
-    QByteArray byteArray = QByteArray::fromRawData(sendData, sizeof(param));
-    m_socket->writeDatagram(sendData, sizeof(param),
-                           QHostAddress(PHOTO_ELE_IP), PHOTO_GET_DISP_PORT);
+    safeWriteDatagram(sendData, sizeof(param), QHostAddress(PHOTO_ELE_IP), PHOTO_GET_DISP_PORT);
     free(sendData);
 }
 
@@ -578,15 +609,13 @@ void ThreadedUdpSocket::sendPEParam2(PhotoElectricParamSet2 param) {
  * @details 控制雷达阵地各象限的开关状态
  */
 void ThreadedUdpSocket::sendBCParam(BatteryControlM param) {
-    auto data = packData(reinterpret_cast<char *>(&param), sizeof(param),
-                        srcID, destID, commCount);
+    auto data = packData(reinterpret_cast<char*>(&param), sizeof(param), srcID, destID, commCount);
     commCount++;
 
-    QByteArray byteArray = QByteArray::fromRawData(data,
-                          sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
-    m_socket->writeDatagram(data,
-                           sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
-                           QHostAddress(RES_DIS_IP), RES_GET_DISP_PORT);
+    QByteArray byteArray =
+        QByteArray::fromRawData(data, sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
+    safeWriteDatagram(data, sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
+                            QHostAddress(RES_DIS_IP), RES_GET_DISP_PORT);
     free(data);
 }
 
@@ -596,15 +625,24 @@ void ThreadedUdpSocket::sendBCParam(BatteryControlM param) {
  * @details 控制雷达的收发状态
  */
 void ThreadedUdpSocket::sendTRParam(TranRecControl param) {
-    auto data = packData(reinterpret_cast<char *>(&param), sizeof(param),
-                        srcID, destID, commCount);
+    auto data = packData(reinterpret_cast<char*>(&param), sizeof(param), srcID, destID, commCount);
     commCount++;
 
-    QByteArray byteArray = QByteArray::fromRawData(data,
-                          sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
-    m_socket->writeDatagram(data,
-                           sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
-                           QHostAddress(RES_DIS_IP), RES_GET_DISP_PORT);
+    QByteArray byteArray =
+        QByteArray::fromRawData(data, sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
+    safeWriteDatagram(data, sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
+                            QHostAddress(RES_DIS_IP), RES_GET_DISP_PORT);
+    free(data);
+}
+
+void ThreadedUdpSocket::sendServoControl(ServoControlParam param) {
+    auto data = packData(reinterpret_cast<char*>(&param), sizeof(param), srcID, destID, commCount);
+    commCount++;
+
+    QByteArray byteArray =
+        QByteArray::fromRawData(data, sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
+    safeWriteDatagram(data, sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
+                            QHostAddress(RES_DIS_IP), RES_GET_DISP_PORT);
     free(data);
 }
 
@@ -614,15 +652,13 @@ void ThreadedUdpSocket::sendTRParam(TranRecControl param) {
  * @details 控制雷达的频率和扫描参数
  */
 void ThreadedUdpSocket::sendFCParam(DirGramScan param) {
-    auto data = packData(reinterpret_cast<char *>(&param), sizeof(param),
-                        srcID, destID, commCount);
+    auto data = packData(reinterpret_cast<char*>(&param), sizeof(param), srcID, destID, commCount);
     commCount++;
 
-    QByteArray byteArray = QByteArray::fromRawData(data,
-                          sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
-    m_socket->writeDatagram(data,
-                           sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
-                           QHostAddress(RES_DIS_IP), RES_GET_DISP_PORT);
+    QByteArray byteArray =
+        QByteArray::fromRawData(data, sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
+    safeWriteDatagram(data, sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
+                            QHostAddress(RES_DIS_IP), RES_GET_DISP_PORT);
     free(data);
 }
 
@@ -632,15 +668,13 @@ void ThreadedUdpSocket::sendFCParam(DirGramScan param) {
  * @details 设置雷达的扫描范围和工作方式
  */
 void ThreadedUdpSocket::sendSRParam(ScanRange param) {
-    auto data = packData(reinterpret_cast<char *>(&param), sizeof(param),
-                        srcID, destID, commCount);
+    auto data = packData(reinterpret_cast<char*>(&param), sizeof(param), srcID, destID, commCount);
     commCount++;
 
-    QByteArray byteArray = QByteArray::fromRawData(data,
-                          sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
-    m_socket->writeDatagram(data,
-                           sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
-                           QHostAddress(RES_DIS_IP), RES_GET_DISP_PORT);
+    QByteArray byteArray =
+        QByteArray::fromRawData(data, sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
+    safeWriteDatagram(data, sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
+                            QHostAddress(RES_DIS_IP), RES_GET_DISP_PORT);
     free(data);
 }
 
@@ -650,15 +684,13 @@ void ThreadedUdpSocket::sendSRParam(ScanRange param) {
  * @details 控制雷达波束的参数
  */
 void ThreadedUdpSocket::sendWCParam(BeamControl param) {
-    auto data = packData(reinterpret_cast<char *>(&param), sizeof(param),
-                        srcID, destID, commCount);
+    auto data = packData(reinterpret_cast<char*>(&param), sizeof(param), srcID, destID, commCount);
     commCount++;
 
-    QByteArray byteArray = QByteArray::fromRawData(data,
-                          sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
-    m_socket->writeDatagram(data,
-                           sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
-                           QHostAddress(RES_DIS_IP), RES_GET_DISP_PORT);
+    QByteArray byteArray =
+        QByteArray::fromRawData(data, sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
+    safeWriteDatagram(data, sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
+                            QHostAddress(RES_DIS_IP), RES_GET_DISP_PORT);
     free(data);
 }
 
@@ -668,15 +700,13 @@ void ThreadedUdpSocket::sendWCParam(BeamControl param) {
  * @details 配置信号处理算法参数
  */
 void ThreadedUdpSocket::sendSPParam(SigProParam param) {
-    auto data = packData(reinterpret_cast<char *>(&param), sizeof(param),
-                        srcID, destID, commCount);
+    auto data = packData(reinterpret_cast<char*>(&param), sizeof(param), srcID, destID, commCount);
     commCount++;
 
-    QByteArray byteArray = QByteArray::fromRawData(data,
-                          sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
-    m_socket->writeDatagram(data,
-                           sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
-                           QHostAddress(RES_DIS_IP), RES_GET_DISP_PORT);
+    QByteArray byteArray =
+        QByteArray::fromRawData(data, sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
+    safeWriteDatagram(data, sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
+                            QHostAddress(RES_DIS_IP), RES_GET_DISP_PORT);
     free(data);
 }
 
@@ -686,15 +716,13 @@ void ThreadedUdpSocket::sendSPParam(SigProParam param) {
  * @details 配置数据处理算法参数
  */
 void ThreadedUdpSocket::sendDPParam(DataProParam param) {
-    auto data = packData(reinterpret_cast<char *>(&param), sizeof(param),
-                        srcID, destID, commCount);
+    auto data = packData(reinterpret_cast<char*>(&param), sizeof(param), srcID, destID, commCount);
     commCount++;
 
-    QByteArray byteArray = QByteArray::fromRawData(data,
-                          sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
-    m_socket->writeDatagram(data,
-                           sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
-                           QHostAddress(RES_DIS_IP), RES_GET_DISP_PORT);
+    QByteArray byteArray =
+        QByteArray::fromRawData(data, sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
+    safeWriteDatagram(data, sizeof(param) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
+                            QHostAddress(RES_DIS_IP), RES_GET_DISP_PORT);
     free(data);
 }
 
@@ -705,41 +733,41 @@ void ThreadedUdpSocket::sendDPParam(DataProParam param) {
  */
 void ThreadedUdpSocket::sendDSParam(DataSet param) {
     if (param.ifsave == 1) {
-        auto data = packData(reinterpret_cast<char *>(&param.save), sizeof(param.save),
-                            srcID, destID, commCount);
+        auto data = packData(reinterpret_cast<char*>(&param.save), sizeof(param.save), srcID,
+                             destID, commCount);
         commCount++;
 
-        QByteArray byteArray = QByteArray::fromRawData(data,
-                              sizeof(param.save) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
-        m_socket->writeDatagram(data,
-                               sizeof(param.save) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
-                               QHostAddress(SIG_PRO_IP), SIG_GET_DISP_PORT);
+        QByteArray byteArray = QByteArray::fromRawData(
+            data, sizeof(param.save) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
+        safeWriteDatagram(data,
+                                sizeof(param.save) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
+                                QHostAddress(SIG_PRO_IP), SIG_GET_DISP_PORT);
         free(data);
     }
 
     if (param.ifdel == 1) {
-        auto data = packData(reinterpret_cast<char *>(&param.del), sizeof(param.del),
-                            srcID, destID, commCount);
+        auto data = packData(reinterpret_cast<char*>(&param.del), sizeof(param.del), srcID, destID,
+                             commCount);
         commCount++;
 
-        QByteArray byteArray = QByteArray::fromRawData(data,
-                              sizeof(param.del) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
-        m_socket->writeDatagram(data,
-                               sizeof(param.del) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
-                               QHostAddress(SIG_PRO_IP), SIG_GET_DISP_PORT);
+        QByteArray byteArray = QByteArray::fromRawData(
+            data, sizeof(param.del) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
+        safeWriteDatagram(data,
+                                sizeof(param.del) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
+                                QHostAddress(SIG_PRO_IP), SIG_GET_DISP_PORT);
         free(data);
     }
 
     if (param.ifoffline == 1) {
-        auto data = packData(reinterpret_cast<char *>(&param.off), sizeof(param.off),
-                            srcID, destID, commCount);
+        auto data = packData(reinterpret_cast<char*>(&param.off), sizeof(param.off), srcID, destID,
+                             commCount);
         commCount++;
 
-        QByteArray byteArray = QByteArray::fromRawData(data,
-                              sizeof(param.off) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
-        m_socket->writeDatagram(data,
-                               sizeof(param.off) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
-                               QHostAddress(SIG_PRO_IP), SIG_GET_DISP_PORT);
+        QByteArray byteArray = QByteArray::fromRawData(
+            data, sizeof(param.off) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
+        safeWriteDatagram(data,
+                                sizeof(param.off) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
+                                QHostAddress(SIG_PRO_IP), SIG_GET_DISP_PORT);
         free(data);
     }
 }
@@ -750,15 +778,14 @@ void ThreadedUdpSocket::sendDSParam(DataSet param) {
  * @details 向监控系统发送启动命令
  */
 void ThreadedUdpSocket::sendSysStart(StartSysParam data) {
-    auto sendData = packData(reinterpret_cast<char *>(&data), sizeof(data),
-                            srcID, destID, commCount);
+    auto sendData =
+        packData(reinterpret_cast<char*>(&data), sizeof(data), srcID, destID, commCount);
     commCount++;
 
-    QByteArray byteArray = QByteArray::fromRawData(sendData,
-                          sizeof(data) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
-    m_socket->writeDatagram(sendData,
-                           sizeof(data) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
-                           QHostAddress(MONITOR_IP), MONITOR_GET_DISP_PORT);
+    QByteArray byteArray = QByteArray::fromRawData(
+        sendData, sizeof(data) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
+    safeWriteDatagram(sendData, sizeof(data) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
+                            QHostAddress(MONITOR_IP), MONITOR_GET_DISP_PORT);
     free(sendData);
 }
 
@@ -768,15 +795,14 @@ void ThreadedUdpSocket::sendSysStart(StartSysParam data) {
  * @details 手动设置目标航迹
  */
 void ThreadedUdpSocket::setManual(SetTrackManual data) {
-    auto sendData = packData(reinterpret_cast<char *>(&data), sizeof(data),
-                            srcID, destID, commCount);
+    auto sendData =
+        packData(reinterpret_cast<char*>(&data), sizeof(data), srcID, destID, commCount);
     commCount++;
 
-    QByteArray byteArray = QByteArray::fromRawData(sendData,
-                          sizeof(data) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
-    m_socket->writeDatagram(sendData,
-                           sizeof(data) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
-                           QHostAddress(DATA_PRO_IP), DATA_GET_DISP);
+    QByteArray byteArray = QByteArray::fromRawData(
+        sendData, sizeof(data) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
+    safeWriteDatagram(sendData, sizeof(data) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
+                            QHostAddress(DATA_PRO_IP), DATA_GET_DISP);
     free(sendData);
 }
 
@@ -787,21 +813,40 @@ void ThreadedUdpSocket::setManual(SetTrackManual data) {
  *          用于目标确认、引导光电跟踪或数据分析
  */
 void ThreadedUdpSocket::reportPointInfo(PointInfo info) {
-    auto sendData = packData(reinterpret_cast<char *>(&info), sizeof(info),
-                            srcID, destID, commCount);
+    auto sendData =
+        packData(reinterpret_cast<char*>(&info), sizeof(info), srcID, destID, commCount);
     commCount++;
 
-    QByteArray byteArray = QByteArray::fromRawData(sendData,
-                          sizeof(info) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
-    m_socket->writeDatagram(sendData,
-                           sizeof(info) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
-                           QHostAddress(DATA_PRO_IP), DATA_GET_DISP);
+    QByteArray byteArray = QByteArray::fromRawData(
+        sendData, sizeof(info) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd));
+    safeWriteDatagram(sendData, sizeof(info) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
+                            QHostAddress(DATA_PRO_IP), DATA_GET_DISP);
 
-    qInfo() << "Reported point info - Type:" << info.type
-            << "Range:" << info.range
-            << "Azimuth:" << info.azimuth
-            << "Elevation:" << info.elevation
+    qInfo() << "Reported point info - Type:" << info.type << "Range:" << info.range
+            << "Azimuth:" << info.azimuth << "Elevation:" << info.elevation
             << "Batch:" << info.batch;
 
     free(sendData);
+}
+
+/**
+ * @brief ThreadedUdpSocket析构函数
+ * @details 安全清理UDP套接字资源，关闭连接并释放内存
+ *
+ * 清理步骤：
+ * 1. 停止重连定时器
+ * 2. 关闭并删除UDP套接字
+ *
+ * @note 析构函数会在对象删除时自动调用
+ */
+ThreadedUdpSocket::~ThreadedUdpSocket() {
+    if (m_reconnectTimer) {
+        m_reconnectTimer->stop();
+    }
+
+    if (m_socket) {
+        m_socket->close();
+        m_socket->deleteLater();
+        m_socket = nullptr;
+    }
 }

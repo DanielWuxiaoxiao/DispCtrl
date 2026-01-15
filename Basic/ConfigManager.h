@@ -3,13 +3,11 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 15:56:15
+ * @LastEditTime: 2026-01-15 14:23:11
  * @Description: 
  */
 #ifndef CONFIGMANAGER_H
 #define CONFIGMANAGER_H
-#include <QJsonObject>
-#include <QJsonDocument>
 #include <QFile>
 #include <QDebug>
 #include <QString>
@@ -27,24 +25,7 @@ public:
     }
 
     bool load(const QString& path = "config.toml") {
-        // 首先尝试加载TOML文件
-        if (path.endsWith(".toml")) {
-            return loadToml(path);
-        }
-        // 向后兼容，支持JSON文件
-        else if (path.endsWith(".json")) {
-            return loadJson(path);
-        }
-        // 默认尝试TOML
-        else {
-            QString tomlPath = path + ".toml";
-            if (QFile::exists(tomlPath)) {
-                return loadToml(tomlPath);
-            } else {
-                QString jsonPath = path + ".json";
-                return loadJson(jsonPath);
-            }
-        }
+        return loadToml(path);
     }
 
     QString ip(const QString& key, const QString& def = "127.0.0.1") const {
@@ -86,6 +67,19 @@ public:
     }
 
     double altitude(const QString& key = "altitude", double def = 400.0) const {
+        return getValue("radar." + key, def).toDouble();
+    }
+
+    // 雷达姿态相关配置
+    double azimuth(const QString& key = "azimuth", double def = 0.0) const {
+        return getValue("radar." + key, def).toDouble();
+    }
+
+    double pitch(const QString& key = "pitch", double def = 0.0) const {
+        return getValue("radar." + key, def).toDouble();
+    }
+
+    double roll(const QString& key = "roll", double def = 0.0) const {
         return getValue("radar." + key, def).toDouble();
     }
 
@@ -149,7 +143,6 @@ public:
 
 private:
     QMap<QString, QVariant> configData;
-    QJsonObject root; // 保持向后兼容
 
     // TOML文件加载
     bool loadToml(const QString& path) {
@@ -163,27 +156,11 @@ private:
         QString content = in.readAll();
         file.close();
 
-        return parseToml(content);
-    }
-
-    // JSON文件加载（向后兼容）
-    bool loadJson(const QString& path) {
-        QFile file(path);
-        if (!file.open(QIODevice::ReadOnly)) {
-            qWarning() << "JSON config file not found:" << path << ", using defaults.";
-            return false;
+        bool success = parseToml(content);
+        if (success) {
+            qInfo() << "Successfully loaded TOML config:" << path << "with" << configData.size() << "entries";
         }
-
-        QByteArray data = file.readAll();
-        QJsonDocument doc = QJsonDocument::fromJson(data);
-        if (doc.isNull() || !doc.isObject()) {
-            qWarning() << "Invalid config.json format, using defaults.";
-            return false;
-        }
-
-        root = doc.object();
-        convertJsonToMap(root, "");
-        return true;
+        return success;
     }
 
     // 简单的TOML解析器（基础实现）
@@ -250,19 +227,6 @@ private:
         }
 
         return true;
-    }
-
-    // 将JSON对象转换为扁平化的Map
-    void convertJsonToMap(const QJsonObject& obj, const QString& prefix) {
-        for (auto it = obj.begin(); it != obj.end(); ++it) {
-            QString key = prefix.isEmpty() ? it.key() : prefix + "." + it.key();
-
-            if (it.value().isObject()) {
-                convertJsonToMap(it.value().toObject(), key);
-            } else {
-                configData[key] = it.value().toVariant();
-            }
-        }
     }
 
     // 统一的值获取方法

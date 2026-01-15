@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-10-24 21:06:35
+ * @LastEditTime: 2026-01-15 14:23:13
  * @Description: 
  */
 #include "azelrangewidget.h"
@@ -15,6 +15,7 @@
 #include <QtMath>
 #include <QLabel>
 #include <QPushButton>
+#include <QPainterPath>
 
 namespace {
 // 默认值，可通过config.toml中的polarDisp.elevationRange和polarDisp.azimuthRange配置
@@ -194,7 +195,7 @@ void AzElRangeWidget::setAzRange(int minDeg, int maxDeg)
     mAzMax = norm360(maxDeg);
     syncEditors();
     update();
-    emit azRangeChanged(mAzMin, mAzMax);
+    if (m_emitSignals) emit azRangeChanged(mAzMin, mAzMax);
 }
 void AzElRangeWidget::setElRange(int minDeg, int maxDeg)
 {
@@ -203,7 +204,7 @@ void AzElRangeWidget::setElRange(int minDeg, int maxDeg)
     if (mElMin > mElMax) std::swap(mElMin, mElMax);
     syncEditors();
     update();
-    emit elRangeChanged(mElMin, mElMax);
+    if (m_emitSignals) emit elRangeChanged(mElMin, mElMax);
 }
 void AzElRangeWidget::syncEditors()
 {

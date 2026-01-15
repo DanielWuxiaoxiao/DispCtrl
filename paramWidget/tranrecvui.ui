@@ -71,7 +71,7 @@
             </widget>
           </item>
           <item row="1" column="1">
-            <widget class="QSpinBox" name="spinStart">
+            <widget class="CustomSpinBox" name="spinStart">
               <property name="suffix">
                 <string> (0.01°)</string>
               </property>
@@ -91,7 +91,7 @@
             </widget>
           </item>
           <item row="2" column="1">
-            <widget class="QSpinBox" name="spinEnd">
+            <widget class="CustomSpinBox" name="spinEnd">
               <property name="suffix">
                 <string> (0.01°)</string>
               </property>
@@ -126,39 +126,12 @@
       <extends>QComboBox</extends>
       <header>cusWidgets/customcombobox.h</header>
     </customwidget>
+    <customwidget>
+      <class>CustomSpinBox</class>
+      <extends>QSpinBox</extends>
+      <header>cusWidgets/customspinbox.h</header>
+    </customwidget>
   </customwidgets>
   <resources />
-  <connections>
-    <connection>
-      <sender>buttonBox</sender>
-      <signal>accepted()</signal>
-      <receiver>TranRecvUI</receiver>
-      <slot>accept()</slot>
-      <hints>
-        <hint type="sourcelabel">
-          <x>248</x>
-          <y>254</y>
-        </hint>
-        <hint type="destinationlabel">
-          <x>157</x>
-          <y>274</y>
-        </hint>
-      </hints>
-    </connection>
-    <connection>
-      <sender>buttonBox</sender>
-      <signal>rejected()</signal>
-      <receiver>TranRecvUI</receiver>
-      <slot>reject()</slot>
-      <hints>
-        <hint type="sourcelabel">
-          <x>316</x>
-          <y>260</y>
-        </hint>
-        <hint type="destinationlabel">
-          <x>286</x>
-          <y>274</y>
-        </hint>
-      </hints>
-    </connection></connections>
+  <connections/>
 </ui>

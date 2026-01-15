@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2025-10-24 11:04:46
+ * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-10-24 21:06:35
+ * @LastEditTime: 2026-01-15 14:23:14
  * @Description: 
  */
 #include "batterycontrol.h"
@@ -59,10 +59,18 @@ void BatteryControl::onAccept()
 
 void BatteryControl::onCancel()
 {
-    // 关闭父窗口（CusWindow）
-    if (QWidget* parentWindow = window()) {
-        parentWindow->close();
+    // 向上查找 CusWindow 父窗口并关闭
+    QWidget* w = this;
+    while (w) {
+        // 通过 objectName 或类名查找 CusWindow
+        if (w->objectName() == "CusWindow") {
+            w->close();
+            return;
+        }
+        w = w->parentWidget();
     }
+    // 如果没找到，关闭自身
+    close();
 }
 
 void BatteryControl::restoreParam(const BatteryControlM &param)

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:12
+ * @LastEditTime: 2026-01-15 14:23:12
  * @Description: 
  */
 #ifndef SCANLAYER_H
@@ -32,6 +32,10 @@ public:
     void setSweepSpeed(int msPerStep);
     void setSweepRange(double startDeg, double endDeg);
     void setScanMode(ScanMode mode);
+
+public slots:
+    // 外部航向角更新（单位：度，极坐标方位）
+    void setHeadingAngle(double deg);
 
 private slots:
     void advanceSweep();

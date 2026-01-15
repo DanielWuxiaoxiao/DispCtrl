@@ -2,14 +2,6 @@
 <ui version="4.0">
  <class>MainOverLayOut</class>
  <widget class="QWidget" name="MainOverLayOut">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>1399</width>
-    <height>935</height>
-   </rect>
-  </property>
   <property name="windowTitle">
    <string>Form</string>
   </property>
@@ -304,204 +296,6 @@
            </item>
           </layout>
          </widget>
-         <widget class="QWidget" name="workModeTab">
-          <property name="styleSheet">
-           <string notr="true">QWidget#workModeTab {
-    background: rgba(16, 24, 24, 0.8);
-    border-radius: 8px;
-}</string>
-          </property>
-          <attribute name="icon">
-           <iconset>
-            <normaloff>:/resources/icon/setting.png</normaloff>:/resources/icon/setting.png</iconset>
-          </attribute>
-          <attribute name="title">
-           <string>工作方式</string>
-          </attribute>
-          <attribute name="toolTip">
-           <string>雷达工作方式设置</string>
-          </attribute>
-          <layout class="QVBoxLayout" name="workModeLayout">
-           <property name="spacing">
-            <number>3</number>
-           </property>
-           <property name="leftMargin">
-            <number>3</number>
-           </property>
-           <property name="topMargin">
-            <number>3</number>
-           </property>
-           <property name="rightMargin">
-            <number>3</number>
-           </property>
-           <property name="bottomMargin">
-            <number>3</number>
-           </property>
-           <item>
-            <layout class="QHBoxLayout" name="workModeCenterLayout">
-             <property name="spacing">
-              <number>3</number>
-             </property>
-             <property name="topMargin">
-              <number>3</number>
-             </property>
-             <item>
-              <layout class="QGridLayout" name="workModeGrid">
-               <property name="horizontalSpacing">
-                <number>20</number>
-               </property>
-               <property name="verticalSpacing">
-                <number>15</number>
-               </property>
-               <item row="0" column="0">
-                <widget class="QLabel" name="placementLabel">
-                 <property name="minimumSize">
-                  <size>
-                   <width>80</width>
-                   <height>30</height>
-                  </size>
-                 </property>
-                 <property name="text">
-                  <string>阵面摆放</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                 </property>
-                </widget>
-               </item>
-               <item row="0" column="1">
-                <widget class="CustomComboBox" name="placementCombo">
-                 <property name="minimumSize">
-                  <size>
-                   <width>120</width>
-                   <height>30</height>
-                  </size>
-                 </property>
-                 <property name="toolTip">
-                  <string>选择阵面摆放方式</string>
-                 </property>
-                 <item>
-                  <property name="text">
-                   <string>水平放置</string>
-                  </property>
-                 </item>
-                 <item>
-                  <property name="text">
-                   <string>竖直放置</string>
-                  </property>
-                 </item>
-                </widget>
-               </item>
-               <item row="1" column="0">
-                <widget class="QLabel" name="scanMethodLabel">
-                 <property name="minimumSize">
-                  <size>
-                   <width>80</width>
-                   <height>30</height>
-                  </size>
-                 </property>
-                 <property name="text">
-                  <string>扫描方式</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                 </property>
-                </widget>
-               </item>
-               <item row="1" column="1">
-                <widget class="CustomComboBox" name="scanMethodCombo">
-                 <property name="minimumSize">
-                  <size>
-                   <width>120</width>
-                   <height>30</height>
-                  </size>
-                 </property>
-                 <property name="toolTip">
-                  <string>选择扫描方式</string>
-                 </property>
-                 <item>
-                  <property name="text">
-                   <string>先俯仰后方位</string>
-                  </property>
-                 </item>
-                 <item>
-                  <property name="text">
-                   <string>先方位后俯仰</string>
-                  </property>
-                 </item>
-                </widget>
-               </item>
-               <item row="2" column="0">
-                <widget class="QLabel" name="workModeLabel">
-                 <property name="minimumSize">
-                  <size>
-                   <width>80</width>
-                   <height>30</height>
-                  </size>
-                 </property>
-                 <property name="text">
-                  <string>工作方式</string>
-                 </property>
-                 <property name="alignment">
-                  <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                 </property>
-                </widget>
-               </item>
-               <item row="2" column="1">
-                <widget class="CustomComboBox" name="workModeCombo">
-                 <property name="minimumSize">
-                  <size>
-                   <width>120</width>
-                   <height>30</height>
-                  </size>
-                 </property>
-                 <property name="toolTip">
-                  <string>选择工作方式</string>
-                 </property>
-                 <item>
-                  <property name="text">
-                   <string>TWS</string>
-                  </property>
-                 </item>
-                 <item>
-                  <property name="text">
-                   <string>TAS</string>
-                  </property>
-                 </item>
-                </widget>
-               </item>
-              </layout>
-             </item>
-             <item>
-              <spacer name="workModeRightSpacer">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>40</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-            </layout>
-           </item>
-           <item>
-            <spacer name="workModeBottomSpacer">
-             <property name="orientation">
-              <enum>Qt::Vertical</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>20</width>
-               <height>40</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-          </layout>
-         </widget>
         </widget>
        </item>
        <item>
@@ -777,6 +571,22 @@
                </property>
                <property name="text">
                 <string>光电系统控制</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0">
+              <widget class="QPushButton" name="btnServoControl">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="cursor">
+                <cursorShape>PointingHandCursor</cursorShape>
+               </property>
+               <property name="text">
+                <string>伺服控制</string>
                </property>
               </widget>
              </item>
@@ -1294,13 +1104,6 @@
    </item>
   </layout>
  </widget>
- <customwidgets>
-  <customwidget>
-   <class>CustomComboBox</class>
-   <extends>QComboBox</extends>
-   <header>cusWidgets/customcombobox.h</header>
-  </customwidget>
- </customwidgets>
  <resources>
   <include location="../resource.qrc"/>
  </resources>

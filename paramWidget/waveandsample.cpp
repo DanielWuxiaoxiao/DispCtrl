@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:35
+ * @LastEditTime: 2026-01-15 14:23:16
  * @Description: 
  */
 #include "waveandsample.h"
@@ -18,6 +18,11 @@ waveAndSample::waveAndSample(QWidget *parent) :
     setFixedSize(1200,600);
 
     setWindowTitle(tr("波形及采样控制"));
+
+    // 断开UI文件中的默认连接
+    disconnect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    disconnect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
     ui->buttonBox->button(QDialogButtonBox::Ok)->setText("确定下发");
     ui->buttonBox->button(QDialogButtonBox::Cancel)->setText("取消");
     // 连接按钮信号到自定义槽
@@ -29,21 +34,22 @@ waveAndSample::waveAndSample(QWidget *parent) :
     connect(ui->wave1,static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),this,[this](int index){
         auto timeWidth = timeWidths[index];
         auto PRT = PRTs[index];
-        ui->samplestart1->setText(QString::number(ui->tran1->text().toFloat()+timeWidth+1.0f)); //采样时间是发射起始＋时宽�?us
-        ui->samplelen1->setText(QString::number(float(PRT-1.0f)));  //采样终止�?重复周期-1.0f s
+        // 采样起始 = 1.0us(固定发射起始) + 时宽 + 1.0us
+        ui->samplestart1->setText(QString::number(1.0f + timeWidth + 1.0f));
+        ui->samplelen1->setText(QString::number(float(PRT-1.0f)));  //采样终止 = 重复周期-1.0f
     });
 
     connect(ui->wave2,static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),this,[this](int index){
         auto timeWidth = timeWidths[index];
         auto PRT = PRTs[index];
-        ui->samplestart2->setText(QString::number(ui->tran2->text().toFloat()+timeWidth+1.0f));
+        ui->samplestart2->setText(QString::number(1.0f + timeWidth + 1.0f));
         ui->samplelen2->setText(QString::number(float(PRT-1.0f)));
     });
 
     connect(ui->wave3,static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),this,[this](int index){
         auto timeWidth = timeWidths[index];
         auto PRT = PRTs[index];
-        ui->samplestart3->setText(QString::number(ui->tran3->text().toFloat()+timeWidth+1.0f));
+        ui->samplestart3->setText(QString::number(1.0f + timeWidth + 1.0f));
         ui->samplelen3->setText(QString::number(float(PRT-1.0f)));
     });
 
@@ -74,7 +80,7 @@ void waveAndSample::onAccept()
         param.flagNum++;
     }
 
-    param.freqID = ui->freq->currentIndex();
+    param.freqID = ui->freq->currentIndex() * 10;  // 0-8 映射到 0-80 的频点值
     param.type = ui->type->currentIndex() + 1;
 
     param.aziStart = ui->azistart->text().toFloat() / 0.01f;
@@ -99,17 +105,13 @@ void waveAndSample::onAccept()
     param.pulseNum2 = ui->pulseNum2->currentText().toUInt();
     param.pulseNum3 = ui->pulseNum3->currentText().toUInt();
 
-    param.tranStart1 = ui->tran1->text().toFloat()/0.1f;
-    param.tranStart2 = ui->tran2->text().toFloat()/0.1f;
-    param.tranStart3 = ui->tran3->text().toFloat()/0.1f;
-
     param.sampleStart1 = ui->samplestart1->text().toFloat()/0.1f;
     param.sampleStart2 = ui->samplestart2->text().toFloat()/0.1f;
     param.sampleStart3 = ui->samplestart3->text().toFloat()/0.1f;
 
-    param.sampleLen1 = ui->samplelen1->text().toFloat()/0.1f - ui->samplestart1->text().toFloat()/0.1f;
-    param.sampleLen2 = ui->samplelen2->text().toFloat()/0.1f - ui->samplestart2->text().toFloat()/0.1f;
-    param.sampleLen3 = ui->samplelen3->text().toFloat()/0.1f - ui->samplestart3->text().toFloat()/0.1f;
+    param.sampleEnd1 = ui->samplelen1->text().toFloat()/0.1f;  // UI中的samplelen实际是采样终止
+    param.sampleEnd2 = ui->samplelen2->text().toFloat()/0.1f;
+    param.sampleEnd3 = ui->samplelen3->text().toFloat()/0.1f;
 
     param.elestart1 = ui->elestart1->text().toFloat()/0.01f;
     param.elestart2 = ui->elestart2->text().toFloat()/0.01f;
@@ -123,15 +125,24 @@ void waveAndSample::onAccept()
     param.elestep2 = ui->elestep2->text().toFloat()/0.01f;
     param.elestep3 = ui->elestep3->text().toFloat()/0.01f;
     emit setParam(param);
-    parentWidget()->close();
+    // 保持窗口与布局，不关闭父窗口
 }
 
 void waveAndSample::onCancel()
 {
-    parentWidget()->close();
+    // 向上查找 CusWindow 父窗口并关闭
+    QWidget* w = this;
+    while (w) {
+        if (w->objectName() == "CusWindow") {
+            w->close();
+            return;
+        }
+        w = w->parentWidget();
+    }
+    close();
 }
 
-//根据默认结构体的值，来实现界面的默认�?
+//根据默认结构体的值，来实现界面的默认值
 void waveAndSample::restoreParam(const BeamControl &param)
 {
     if(param.beam1Flag == 0)
@@ -174,7 +185,7 @@ void waveAndSample::restoreParam(const BeamControl &param)
 //    ui->samplestart3->setText(QString::number(ui->tran3->text().toFloat()+timeWidth+1.0f));
 //    ui->samplelen3->setText(QString::number(float(PRT-1)));
 
-    ui->freq->setCurrentIndex(param.freqID);
+    ui->freq->setCurrentIndex(param.freqID / 10);  // 0-80 映射回 0-8 的索引
     ui->type->setCurrentIndex(param.type - 1);
     ui->azistart->setText(QString::number(param.aziStart*0.01f));
     ui->aziend->setText(QString::number(param.aziEnd*0.01f));
@@ -184,14 +195,10 @@ void waveAndSample::restoreParam(const BeamControl &param)
     ui->pulseNum2->setCurrentText(QString::number(param.pulseNum2));
     ui->pulseNum3->setCurrentText(QString::number(param.pulseNum3));
 
-    ui->tran1->setText(QString::number(param.tranStart1*0.1f));
-    ui->tran2->setText(QString::number(param.tranStart2*0.1f));
-    ui->tran3->setText(QString::number(param.tranStart3*0.1f));
-
-    //获取保存的�?
-    ui->samplelen1->setText(QString::number(param.sampleLen1*0.1f + param.sampleStart1*0.1f));
-    ui->samplelen2->setText(QString::number(param.sampleLen2*0.1f + param.sampleStart2*0.1f));
-    ui->samplelen3->setText(QString::number(param.sampleLen3*0.1f + param.sampleStart3*0.1f));
+    //获取保存的值 - UI中的samplelen实际显示的是采样终止
+    ui->samplelen1->setText(QString::number(param.sampleEnd1*0.1f));
+    ui->samplelen2->setText(QString::number(param.sampleEnd2*0.1f));
+    ui->samplelen3->setText(QString::number(param.sampleEnd3*0.1f));
 
     ui->elestart1->setText(QString::number(param.elestart1*0.01f));
     ui->elestart2->setText(QString::number(param.elestart2*0.01f));

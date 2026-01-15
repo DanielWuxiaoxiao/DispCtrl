@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:35
+ * @LastEditTime: 2026-01-15 14:23:13
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -30,9 +30,11 @@
 #include "paramWidget/waveandsample.h"
 #include "paramWidget/scanrangeui.h"
 #include "paramWidget/photoelectricparam.h"
+#include "paramWidget/servocontrol.h"
 #include <QTimer>
 #include <QDateTime>
 #include <QVBoxLayout>
+#include <QGridLayout>
 #include <QLabel>
 #include <QComboBox>
 #include <QLineEdit>
@@ -113,6 +115,7 @@ MainOverLayOut::MainOverLayOut(QWidget *parent) :
     // 隐藏方向图扫描控制按钮，功能已集成到"范围设置"tab中
     // ui->btnScanRange->setVisible(false);
     connect(ui->btnScanRange, &QPushButton::clicked, this, &MainOverLayOut::onScanRangeClicked);
+    connect(ui->btnServoControl, &QPushButton::clicked, this, &MainOverLayOut::onServoControlClicked);
     connect(ui->btnPhotoelectric, &QPushButton::clicked, this, &MainOverLayOut::onPhotoelectricClicked);
 
     // 连接雷达系统健康管理按钮
@@ -152,8 +155,10 @@ void MainOverLayOut::topRightSet()
     connect(ui->minButton, &QPushButton::clicked, CON_INS, &Controller::minimizeWindow);
     connect(ui->CloseButton, &QPushButton::clicked, this, [this]()
     {
-        if (CustomMessageBox::showConfirm(this, "退出确认", "是否确认退出程序？")) {
-            QApplication::quit();
+        // 使用 nullptr 作为父窗口，避免在 quit 时对话框与主窗口的释放顺序冲突
+        if (CustomMessageBox::showConfirm(nullptr, "退出确认", "是否确认退出程序？")) {
+            // 延迟退出，确保对话框完全关闭后再退出
+            QTimer::singleShot(0, qApp, &QApplication::quit);
         }
     });
 
@@ -174,7 +179,7 @@ void MainOverLayOut::topRightSet()
 
 void MainOverLayOut::mainPView()
 {
-    mView = new PPIView();
+    mView = new PPIView(this);  // 添加父对象，确保正确释放
     mView->setObjectName("mainPview");
     mScene = new PPIScene(this);
     mView->setPPIScene(mScene);
@@ -185,7 +190,7 @@ void MainOverLayOut::mainPView()
 
     QVBoxLayout *layout1 = new QVBoxLayout(ui->pviewFitW);
     layout1->setContentsMargins(0,0,0,0);
-    m_zoomView = new ZoomViewWidget();
+    m_zoomView = new ZoomViewWidget(this);  // 添加父对象
     // 设置窗口属性
     layout1->addWidget(new DetachableWidget("P显", m_zoomView, QIcon(":/resources/icon/scan.png"), this));
 
@@ -202,7 +207,7 @@ void MainOverLayOut::mainPView()
     });
 
     // 添加独立的扇区显示（和 pviewFitW 一样的风格）到 pviewZoomW
-    m_sectorWidget = new SectorWidget();
+    m_sectorWidget = new SectorWidget(this);  // 添加父对象
     // 默认与主场景同步（如果需要独立场景，可以删除下面一行）
     // m_sectorWidget->setSector(-30, 30, 0, 5000); // 可按需初始化
     QVBoxLayout *layout2 = new QVBoxLayout(ui->pviewSectorW);
@@ -255,56 +260,41 @@ void MainOverLayOut::setupRangeSettings()
     )");
 
     // 连接信号槽，当角度范围改变时下发到雷达控制系统
-    connect(m_azElRangeWidget, &AzElRangeWidget::azRangeChanged,
-            this, [this](int minAz, int maxAz) {
-        qDebug() << "方位角范围变更:" << minAz << "°到" << maxAz << "°";
+    // connect(m_azElRangeWidget, &AzElRangeWidget::azRangeChanged,
+    //         this, [this](int minAz, int maxAz) {
+    //     qDebug() << "方位角范围变更:" << minAz << "°到" << maxAz << "°";
 
-        // 构造ScanRange参数并下发
-        ScanRange param;
-        // 保持其他参数为默认值或从当前设置获取
-        param.place = 0;     // 默认水平放置
-        param.method = 0;    // 默认先列后行
-        param.workMode = 0;  // 默认TWS模式
+    //     // 构造ScanRange参数并下发
+    //     ScanRange param;
+    //     // 保持其他参数为默认值或从当前设置获取
+    //     param.workMode = 0;  // 默认TWS模式
 
-        // 计算扫描范围中心点（方位角）
-        int azCenter;
-        if (maxAz >= minAz) {
-            azCenter = (minAz + maxAz) / 2;
-        } else {
-            // 跨越0度的情况
-            azCenter = ((minAz + maxAz + 360) / 2) % 360;
-        }
-        param.azi = azCenter * 100;  // 转换为0.01度单位
+    //     // 计算扫描范围中心点（方位角）
+    //     int azCenter;
+    //     if (maxAz >= minAz) {
+    //         azCenter = (minAz + maxAz) / 2;
+    //     } else {
+    //         // 跨越0度的情况
+    //         azCenter = ((minAz + maxAz + 360) / 2) % 360;
+    //     }
+    //     // 下发参数到Controller
+    //     CON_INS->sendSRParam(param);
+    //     qDebug() << "下发方位角扫描范围: center=" << azCenter << "°";
+    // });
 
-        // 俯仰角保持当前设置（可以从成员变量获取）
-        param.ele = 1500;  // 默认15度
+    // connect(m_azElRangeWidget, &AzElRangeWidget::elRangeChanged,
+    //         this, [this](int minEl, int maxEl) {
+    //     qDebug() << "俯仰角范围变更:" << minEl << "°到" << maxEl << "°";
 
-        // 下发参数到Controller
-        CON_INS->sendSRParam(param);
-        qDebug() << "下发方位角扫描范围: center=" << azCenter << "°";
-    });
+    //     // 构造ScanRange参数并下发
+    //     ScanRange param;
+    //     param.workMode = 0;
 
-    connect(m_azElRangeWidget, &AzElRangeWidget::elRangeChanged,
-            this, [this](int minEl, int maxEl) {
-        qDebug() << "俯仰角范围变更:" << minEl << "°到" << maxEl << "°";
-
-        // 构造ScanRange参数并下发
-        ScanRange param;
-        param.place = 0;
-        param.method = 0;
-        param.workMode = 0;
-
-        // 方位角保持当前设置（可以从成员变量获取）
-        param.azi = 2000;  // 默认20度
-
-        // 计算俯仰角中心点
-        int elCenter = (minEl + maxEl) / 2;
-        param.ele = elCenter * 100;  // 转换为0.01度单位
-
-        // 下发参数到Controller
-        CON_INS->sendSRParam(param);
-        qDebug() << "下发俯仰角扫描范围: center=" << elCenter << "°";
-    });
+    //     // 方位角保持当前设置（可以从成员变量获取）
+    //     // 下发参数到Controller
+    //     CON_INS->sendSRParam(param);
+    //     qDebug() << "下发俯仰角扫描范围: center=" << elCenter << "°";
+    // });
 
     // 连接"设置"按钮点击信号，打开详细设置对话框
     connect(m_azElRangeWidget, &AzElRangeWidget::settingsButtonClicked,
@@ -316,16 +306,16 @@ void MainOverLayOut::setupRangeSettings()
     int defaultElMin = CF_INS.elevationRange("min", -10); // 从配置读取，默认-10°
     int defaultElMax = CF_INS.elevationRange("max", 45);  // 从配置读取，默认45°
 
+    // 初始化时静默更新，避免自动下发
+    m_azElRangeWidget->setSignalMuted(true);
     m_azElRangeWidget->setAzRange(defaultAzMin, defaultAzMax);
     m_azElRangeWidget->setElRange(defaultElMin, defaultElMax);
+    m_azElRangeWidget->setSignalMuted(false);
 }
 
 void MainOverLayOut::setupWorkModeSettings()
 {
     // 设置组合框默认值
-    ui->placementCombo->setCurrentIndex(0);  // 默认水平放置
-    ui->scanMethodCombo->setCurrentIndex(0); // 默认先列后行
-    ui->workModeCombo->setCurrentIndex(0);   // 默认TWS
 
     // 寻找并连接PpiView topleft的输入框（用于联动）
     // 这里需要在mainPView()方法创建后才能找到topleft控件
@@ -357,14 +347,6 @@ void MainOverLayOut::sendScanRangeParams()
     // 创建ScanRange参数结构
     ScanRange scanParam;
 
-    // 设置阵面摆放方式 (0水平放置 1竖直放置)
-    scanParam.place = static_cast<unsigned char>(ui->placementCombo->currentIndex());
-
-    // 设置扫描方式 (0先列后行 1先行后列)
-    scanParam.method = static_cast<unsigned char>(ui->scanMethodCombo->currentIndex());
-
-    // 设置工作方式 (0 TWS 1 TAS)
-    scanParam.workMode = static_cast<unsigned char>(ui->workModeCombo->currentIndex());
 
     // 使用topleft控件中的阵面指北角和倾角
     double aziValue = 0.0;
@@ -373,33 +355,6 @@ void MainOverLayOut::sendScanRangeParams()
     if (m_topLeftWidget) {
         QLineEdit* yawEdit = m_topLeftWidget->findChild<QLineEdit*>("yaw");
         QLineEdit* rollEdit = m_topLeftWidget->findChild<QLineEdit*>("roll");
-
-        if (yawEdit && !yawEdit->text().isEmpty()) {
-            aziValue = yawEdit->text().toDouble();
-            qDebug() << "阵面指北角值:" << aziValue;
-        }
-
-        if (rollEdit && !rollEdit->text().isEmpty()) {
-            eleValue = rollEdit->text().toDouble();
-            qDebug() << "阵面倾角值:" << eleValue;
-        }
-    }
-
-    // 设置方位角和俯仰角 (0.01°量化)
-    scanParam.azi = static_cast<short>(aziValue * 100);  // 转换为0.01°量化
-    scanParam.ele = static_cast<short>(eleValue * 100);  // 转换为0.01°量化
-
-    // 通过Controller发送ScanRange参数
-    if (CON_INS) {
-        CON_INS->sendSRParam(scanParam);
-        qDebug() << QString("发送扫描范围参数: 摆放方式=%1, 扫描方式=%2, 工作方式=%3, 阵面指北角=%.2f°, 阵面倾角=%.2f°")
-                    .arg(scanParam.place)
-                    .arg(scanParam.method)
-                    .arg(scanParam.workMode)
-                    .arg(aziValue)
-                    .arg(eleValue);
-    } else {
-        qWarning() << "Controller实例不可用，无法发送扫描范围参数";
     }
 }
 
@@ -881,7 +836,33 @@ void MainOverLayOut::onBatteryControlClicked()
     });
 
     window->show();
-}/**
+}
+
+
+void MainOverLayOut::onServoControlClicked()
+{
+    CusWindow* window = new CusWindow("伺服控制", QIcon(":/resources/icon/radararray.png"), this);
+    window->setAttribute(Qt::WA_DeleteOnClose);
+
+    ServoControl* dialog = new ServoControl(window);
+    dialog->setWindowFlags(Qt::Widget);
+    window->setContentWidget(dialog);
+
+    dialog->restoreParam(m_servoControlParam);
+
+    connect(dialog, &ServoControl::setParam, this, [this](const ServoControlParam param) {
+        m_servoControlParam = param;
+    });
+
+    connect(dialog, &ServoControl::setParam, CON_INS, &Controller::sendServoControl);
+
+    connect(dialog, &ServoControl::setParam, this, [this]() {
+        logCommand("伺服控制", "");
+    });
+
+    window->show();
+}
+/**
  * @brief 打开方向图扫描控制对话框
  * @details 配置扫描范围参数
  */
@@ -1163,10 +1144,13 @@ void MainOverLayOut::onServoCtrlRet(ServoCtrlRet res)
 
 void MainOverLayOut::onBITReport(BITReport res)
 {
+    // 保存最新的BIT报告
+    m_lastBITReport = res;
+
     const double fpgaTemp = res.fpgaTemp / 10.0;   // 0.1°
     const double panelTemp = res.panelTemp / 10.0; // 0.1°
     const double yaw = res.yaw / 100.0;            // 0.01°
-    const QString powerState = res.powerState ? "开启" : "关闭";
+    const QString powerState = res.powerState ? "正常" : "异常";
 
     ui->stalabel4->setText("BIT状态");
     ui->stamsg4->setText(QString("电源:%1 FPGA:%2°C 面板:%3°C").arg(powerState)
@@ -1199,7 +1183,7 @@ void MainOverLayOut::onRadarSystemClicked()
     // 创建自定义窗口
     CusWindow* window = new CusWindow("雷达系统健康管理", QIcon(":/resources/icon/radararray.png"), this);
     window->setAttribute(Qt::WA_DeleteOnClose);
-    window->setMinimumSize(400, 300);
+    window->setMinimumSize(500, 600);
 
     // 创建内容Widget
     QWidget* contentWidget = new QWidget(window);
@@ -1228,10 +1212,15 @@ void MainOverLayOut::onRadarSystemClicked()
                        "font-weight: bold; "
                        "}";
 
-    // 创建四个状态按钮
+    // ===== 软件状态区域 =====
+    QLabel* softwareLabel = new QLabel("软件运行状态", contentWidget);
+    softwareLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #66ffcc;");
+    mainLayout->addWidget(softwareLabel);
+
+    // 创建四个软件状态按钮
     QPushButton* sigProBtn = new QPushButton("信号处理", contentWidget);
     sigProBtn->setEnabled(false);  // 不可选
-    sigProBtn->setMinimumHeight(60);
+    sigProBtn->setMinimumHeight(50);
     if (m_sigProSta == 0) {
         sigProBtn->setStyleSheet(greenStyle);
     } else {
@@ -1240,7 +1229,7 @@ void MainOverLayOut::onRadarSystemClicked()
 
     QPushButton* dataProBtn = new QPushButton("数据处理", contentWidget);
     dataProBtn->setEnabled(false);  // 不可选
-    dataProBtn->setMinimumHeight(60);
+    dataProBtn->setMinimumHeight(50);
     if (m_dataProSta == 0) {
         dataProBtn->setStyleSheet(greenStyle);
     } else {
@@ -1249,7 +1238,7 @@ void MainOverLayOut::onRadarSystemClicked()
 
     QPushButton* beamConBtn = new QPushButton("波束调度", contentWidget);
     beamConBtn->setEnabled(false);  // 不可选
-    beamConBtn->setMinimumHeight(60);
+    beamConBtn->setMinimumHeight(50);
     if (m_beamConSta == 0) {
         beamConBtn->setStyleSheet(greenStyle);
     } else {
@@ -1258,18 +1247,107 @@ void MainOverLayOut::onRadarSystemClicked()
 
     QPushButton* targetRecBtn = new QPushButton("目标识别", contentWidget);
     targetRecBtn->setEnabled(false);
-    targetRecBtn->setMinimumHeight(60);
+    targetRecBtn->setMinimumHeight(50);
     if (m_targetRecSta == 0) {
         targetRecBtn->setStyleSheet(greenStyle);
     } else {
         targetRecBtn->setStyleSheet(redStyle);
     }
 
-    // 添加到布局
     mainLayout->addWidget(sigProBtn);
     mainLayout->addWidget(dataProBtn);
     mainLayout->addWidget(beamConBtn);
     mainLayout->addWidget(targetRecBtn);
+
+    // ===== BIT状态区域 =====
+    mainLayout->addSpacing(20);
+    QLabel* bitLabel = new QLabel("BIT 状态信息", contentWidget);
+    bitLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #66ffcc;");
+    mainLayout->addWidget(bitLabel);
+
+    // 创建BIT状态网格布局
+    QGridLayout* bitGrid = new QGridLayout();
+    bitGrid->setSpacing(10);
+
+    // 定义小按钮样式
+    QString smallGreenStyle = "QPushButton { "
+                              "background-color: #00ff00; "
+                              "color: #101818; "
+                              "border: 1px solid #66ffcc; "
+                              "border-radius: 5px; "
+                              "padding: 8px; "
+                              "font-size: 13px; "
+                              "}";
+
+    QString smallRedStyle = "QPushButton { "
+                            "background-color: #ff0000; "
+                            "color: #ffffff; "
+                            "border: 1px solid #ff6666; "
+                            "border-radius: 5px; "
+                            "padding: 8px; "
+                            "font-size: 13px; "
+                            "}";
+
+    // 解析BIT状态位
+    unsigned char bitGroup = m_lastBITReport.bitGroup;
+
+    // 第一行
+    QPushButton* btnTxOpen = new QPushButton((bitGroup & 0x80) ? "阵面发射开启" : "阵面发射关闭", contentWidget);
+    btnTxOpen->setEnabled(false);
+    btnTxOpen->setStyleSheet((bitGroup & 0x80) ? smallGreenStyle : smallRedStyle);
+    bitGrid->addWidget(btnTxOpen, 0, 0);
+
+    QPushButton* btnDutyCycle = new QPushButton((bitGroup & 0x40) ? "占空比报警" : "占空比正常", contentWidget);
+    btnDutyCycle->setEnabled(false);
+    btnDutyCycle->setStyleSheet((bitGroup & 0x40) ? smallRedStyle : smallGreenStyle);
+    bitGrid->addWidget(btnDutyCycle, 0, 1);
+
+    // 第二行
+    QPushButton* btnPulseWidth = new QPushButton((bitGroup & 0x20) ? "脉宽报警" : "脉宽正常", contentWidget);
+    btnPulseWidth->setEnabled(false);
+    btnPulseWidth->setStyleSheet((bitGroup & 0x20) ? smallRedStyle : smallGreenStyle);
+    bitGrid->addWidget(btnPulseWidth, 1, 0);
+
+    QPushButton* btnRxOpen = new QPushButton((bitGroup & 0x10) ? "阵面接收开启" : "阵面接收关闭", contentWidget);
+    btnRxOpen->setEnabled(false);
+    btnRxOpen->setStyleSheet((bitGroup & 0x10) ? smallGreenStyle : smallRedStyle);
+    bitGrid->addWidget(btnRxOpen, 1, 1);
+
+    // 第三行
+    QPushButton* btnFreqSrc = new QPushButton((bitGroup & 0x08) ? "频率源正常" : "频率源异常", contentWidget);
+    btnFreqSrc->setEnabled(false);
+    btnFreqSrc->setStyleSheet((bitGroup & 0x08) ? smallGreenStyle : smallRedStyle);
+    bitGrid->addWidget(btnFreqSrc, 2, 0);
+
+    QPushButton* btnDigBoard = new QPushButton((bitGroup & 0x04) ? "收发板建链" : "收发板断链", contentWidget);
+    btnDigBoard->setEnabled(false);
+    btnDigBoard->setStyleSheet((bitGroup & 0x04) ? smallGreenStyle : smallRedStyle);
+    bitGrid->addWidget(btnDigBoard, 2, 1);
+
+    // 第四行
+    QPushButton* btnServo = new QPushButton((bitGroup & 0x02) ? "伺服正常" : "伺服异常", contentWidget);
+    btnServo->setEnabled(false);
+    btnServo->setStyleSheet((bitGroup & 0x02) ? smallGreenStyle : smallRedStyle);
+    bitGrid->addWidget(btnServo, 3, 0);
+
+    QPushButton* btnBeidou = new QPushButton((bitGroup & 0x01) ? "北斗正常" : "北斗异常", contentWidget);
+    btnBeidou->setEnabled(false);
+    btnBeidou->setStyleSheet((bitGroup & 0x01) ? smallGreenStyle : smallRedStyle);
+    bitGrid->addWidget(btnBeidou, 3, 1);
+
+    mainLayout->addLayout(bitGrid);
+
+    // ===== 波控板电源状态 =====
+    mainLayout->addSpacing(10);
+    QPushButton* btnPowerState = new QPushButton(
+        m_lastBITReport.powerState ? "波控板电源正常" : "波控板电源异常",
+        contentWidget
+    );
+    btnPowerState->setEnabled(false);
+    btnPowerState->setMinimumHeight(50);
+    btnPowerState->setStyleSheet(m_lastBITReport.powerState ? greenStyle : redStyle);
+    mainLayout->addWidget(btnPowerState);
+
     mainLayout->addStretch();
 
     // 设置内容

@@ -3,13 +3,14 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 15:56:16
+ * @LastEditTime: 2026-01-15 14:23:14
  * @Description: 
  */
 #include "mapprox.h"
 #include <QWebEngineSettings>
 #include <QWebEngineProfile>
 #include <QTimer>
+#include <QDir>
 #include "../Basic/ConfigManager.h"
 
 MapProxyWidget::MapProxyWidget()
@@ -22,8 +23,34 @@ MapProxyWidget::MapProxyWidget()
     m_currentLatitude = CF_INS.latitude();
     m_currentRange = CF_INS.range("max", 5);  // 默认使用最大显示距离
 
+    // 检查必需的瓦片文件夹是否存在
+    QString appDir = QCoreApplication::applicationDirPath();
+    QStringList requiredTileDirs = {"mapNoL", "map16", "map16S"};
+    bool tilesAvailable = false;
+
+    for (const QString& tileDir : requiredTileDirs) {
+        QDir dir(appDir + "/" + tileDir);
+        if (dir.exists()) {
+            tilesAvailable = true;
+            qDebug() << "Found tile directory:" << tileDir;
+            break;
+        }
+    }
+
+    //创建地图view
+    mView = new QWebEngineView();
+
+    if (!tilesAvailable) {
+        // 瓦片文件夹不存在，设置为透明黑色背景
+        qWarning() << "Map tile directories not found. Setting transparent black background.";
+        mView->setStyleSheet("background-color: rgba(16, 24, 24, 0.9);");
+        mView->setHtml("<html><body style='background-color: rgba(16, 24, 24, 0.9); margin: 0; padding: 0;'></body></html>");
+        return;
+    }
+
+    // 瓦片存在，继续正常加载地图
     // 设置工作目录为包含index.html的目录,即index.html的绝对目录
-    QString htmlFile = QCoreApplication::applicationDirPath() + "/indexNoL.html"; // 替换为实际路径
+    QString htmlFile = appDir + "/indexNoL.html"; // 替换为实际路径
     qDebug() << htmlFile;
 
     // 从配置文件读取WebEngine调试设置
@@ -35,9 +62,6 @@ MapProxyWidget::MapProxyWidget()
     } else {
         qDebug() << "WebEngine remote debugging disabled. Set webengine.enable_debug=true in config.toml to enable.";
     }
-
-    //创建地图view
-    mView = new QWebEngineView();
 
     //开启WebGL支持
     QWebEngineSettings *settings = mView->settings();
@@ -59,11 +83,31 @@ MapProxyWidget::MapProxyWidget()
 
 void MapProxyWidget::chooseMap(int index)
 {
+    // 检查瓦片文件夹是否存在
+    QString appDir = QCoreApplication::applicationDirPath();
+    QStringList requiredTileDirs = {"mapNoL", "map16", "map16S"};
+    bool tilesAvailable = false;
+
+    for (const QString& tileDir : requiredTileDirs) {
+        QDir dir(appDir + "/" + tileDir);
+        if (dir.exists()) {
+            tilesAvailable = true;
+            break;
+        }
+    }
+
+    // 如果瓦片不存在，仅设置透明黑色背景
+    if (!tilesAvailable) {
+        qWarning() << "Map tiles not available. Cannot switch map.";
+        mView->setHtml("<html><body style='background-color: rgba(16, 24, 24, 0.9); margin: 0; padding: 0;'></body></html>");
+        return;
+    }
+
     QString htmlFile;
 
     if(index == 0)
     {
-        htmlFile = QCoreApplication::applicationDirPath() + "/black.html"; // 替换为实际路径
+        htmlFile = appDir + "/black.html"; // 替换为实际路径
     }
     else
     {
@@ -71,19 +115,19 @@ void MapProxyWidget::chooseMap(int index)
 
         if(index == 1)
         {
-            htmlFile = QCoreApplication::applicationDirPath() + "/indexNoL.html"; // 替换为实际路径
+            htmlFile = appDir + "/indexNoL.html"; // 替换为实际路径
         }
         else if(index == 2)
         {
-            htmlFile = QCoreApplication::applicationDirPath() + "/index.html"; // 替换为实际路径
+            htmlFile = appDir + "/index.html"; // 替换为实际路径
         }
         else if(index == 3)
         {
-            htmlFile = QCoreApplication::applicationDirPath() + "/indexS.html"; // 替换为实际路径
+            htmlFile = appDir + "/indexS.html"; // 替换为实际路径
         }
         else if(index == 4)
         {
-            htmlFile = QCoreApplication::applicationDirPath() + "/index3d.html"; // 替换为实际路径
+            htmlFile = appDir + "/index3d.html"; // 替换为实际路径
         }
     }
 

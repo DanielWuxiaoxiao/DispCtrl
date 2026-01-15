@@ -3,12 +3,13 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:35
+ * @LastEditTime: 2026-01-15 14:23:15
  * @Description: 
  */
 #include "sigparamui.h"
 #include "ui_sigparamui.h"
 #include <QPushButton>
+#include <QDebug>
 
 sigParamUI::sigParamUI(QWidget *parent) :
     QDialog(parent),
@@ -31,6 +32,7 @@ ui->buttonBox->button(QDialogButtonBox::Ok)->setText("确定下发");
 
 void sigParamUI::onAccept()
 {
+    qDebug() << "[sigParamUI] onAccept() called";
     SigProParam param;
     param.algorithmSwitch = 0;
     param.noise = ui->noise->text().toFloat()/0.1f;
@@ -63,13 +65,23 @@ void sigParamUI::onAccept()
     else
         param.algorithmSwitch &= ~(1 << 2);
 
+    qDebug() << "[sigParamUI] emitting setParam signal";
     emit setParam(param);
-    parentWidget()->close();
+    // 保持窗口与布局，不关闭父窗口
 }
 
 void sigParamUI::onCancel()
 {
-    parentWidget()->close();
+    // 向上查找 CusWindow 父窗口并关闭
+    QWidget* w = this;
+    while (w) {
+        if (w->objectName() == "CusWindow") {
+            w->close();
+            return;
+        }
+        w = w->parentWidget();
+    }
+    close();
 }
 
 

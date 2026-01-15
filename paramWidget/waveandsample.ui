@@ -86,16 +86,6 @@
               </property>
             </widget>
           </item>
-          <item row="16" column="1">
-            <widget class="QLineEdit" name="tran3">
-              <property name="text">
-                <string>1</string>
-              </property>
-              <property name="readOnly">
-                <bool>true</bool>
-              </property>
-            </widget>
-          </item>
           <item row="5" column="2">
             <widget class="QLabel" name="label_4">
               <property name="text">
@@ -285,26 +275,6 @@
             <widget class="QLineEdit" name="elestep1">
               <property name="text">
                 <string>6</string>
-              </property>
-            </widget>
-          </item>
-          <item row="10" column="0">
-            <widget class="QLabel" name="label_7">
-              <property name="text">
-                <string>发射起始(us)</string>
-              </property>
-              <property name="alignment">
-                <set>Qt::AlignCenter</set>
-              </property>
-            </widget>
-          </item>
-          <item row="5" column="0">
-            <widget class="QLabel" name="label_3">
-              <property name="text">
-                <string>发射起始(us)</string>
-              </property>
-              <property name="alignment">
-                <set>Qt::AlignCenter</set>
               </property>
             </widget>
           </item>
@@ -610,16 +580,6 @@
               </property>
             </widget>
           </item>
-          <item row="10" column="1">
-            <widget class="QLineEdit" name="tran2">
-              <property name="text">
-                <string>1</string>
-              </property>
-              <property name="readOnly">
-                <bool>true</bool>
-              </property>
-            </widget>
-          </item>
           <item row="17" column="1">
             <widget class="QLineEdit" name="samplelen3">
               <property name="text">
@@ -762,42 +722,47 @@
               </property>
               <item>
                 <property name="text">
-                  <string>15.6</string>
+                  <string>9.0</string>
                 </property>
               </item>
               <item>
                 <property name="text">
-                  <string>15.7</string>
+                  <string>9.1</string>
                 </property>
               </item>
               <item>
                 <property name="text">
-                  <string>15.8</string>
+                  <string>9.2</string>
                 </property>
               </item>
               <item>
                 <property name="text">
-                  <string>15.9</string>
+                  <string>9.3</string>
                 </property>
               </item>
               <item>
                 <property name="text">
-                  <string>16.0</string>
+                  <string>9.4</string>
                 </property>
               </item>
               <item>
                 <property name="text">
-                  <string>16.1</string>
+                  <string>9.5</string>
                 </property>
               </item>
               <item>
                 <property name="text">
-                  <string>16.2</string>
+                  <string>9.6</string>
                 </property>
               </item>
               <item>
                 <property name="text">
-                  <string>16.3</string>
+                  <string>9.7</string>
+                </property>
+              </item>
+              <item>
+                <property name="text">
+                  <string>9.8</string>
                 </property>
               </item>
             </widget>
@@ -863,16 +828,6 @@
               </item>
             </widget>
           </item>
-          <item row="5" column="1">
-            <widget class="QLineEdit" name="tran1">
-              <property name="text">
-                <string>1</string>
-              </property>
-              <property name="readOnly">
-                <bool>true</bool>
-              </property>
-            </widget>
-          </item>
           <item row="1" column="0">
             <widget class="QLabel" name="label_24">
               <property name="text">
@@ -905,37 +860,5 @@
     </customwidget>
   </customwidgets>
   <resources />
-  <connections>
-    <connection>
-      <sender>buttonBox</sender>
-      <signal>accepted()</signal>
-      <receiver>waveAndSample</receiver>
-      <slot>accept()</slot>
-      <hints>
-        <hint type="sourcelabel">
-          <x>248</x>
-          <y>254</y>
-        </hint>
-        <hint type="destinationlabel">
-          <x>157</x>
-          <y>274</y>
-        </hint>
-      </hints>
-    </connection>
-    <connection>
-      <sender>buttonBox</sender>
-      <signal>rejected()</signal>
-      <receiver>waveAndSample</receiver>
-      <slot>reject()</slot>
-      <hints>
-        <hint type="sourcelabel">
-          <x>316</x>
-          <y>260</y>
-        </hint>
-        <hint type="destinationlabel">
-          <x>286</x>
-          <y>274</y>
-        </hint>
-      </hints>
-    </connection></connections>
+  <connections/>
 </ui>

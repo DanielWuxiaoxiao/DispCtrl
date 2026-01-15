@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:04
+ * @LastEditTime: 2026-01-15 14:23:12
  * @Description: 
  */
 /**
@@ -15,7 +15,7 @@
  *          - TrackPoint：航迹点的具体显示实现
  *          - 统一的悬停效果和工具提示机制
  * @author DispCtrl Team
- * @date 2024  
+ * @date 2024
  */
 
 #include "point.h"
@@ -79,7 +79,7 @@ Point::Point(PointInfo &pi) : info(pi)
  */
 void Point::updatePosition(float x, float y)
 {
-    mX = x; 
+    mX = x;
     mY = y;
     setSmallRect();  // 以新位置为中心重新设置矩形
 }
@@ -94,7 +94,9 @@ void Point::updatePosition(float x, float y)
  */
 void Point::hoverEnterEvent(QGraphicsSceneHoverEvent *event)
 {
-    TOOL_TIP->showTooltip(event->screenPos(), text);  // 显示工具提示
+    // 使用场景坐标而不是屏幕坐标，并偏移一点避免遮挡鼠标
+    QPointF tooltipPos = event->scenePos() + QPointF(15, 15);
+    TOOL_TIP->showTooltip(tooltipPos, text);  // 显示工具提示
     setBigRect();  // 切换到放大尺寸
     QGraphicsEllipseItem::hoverEnterEvent(event);
 }
@@ -108,7 +110,9 @@ void Point::hoverEnterEvent(QGraphicsSceneHoverEvent *event)
  */
 void Point::hoverMoveEvent(QGraphicsSceneHoverEvent *event)
 {
-    TOOL_TIP->showTooltip(event->screenPos(), text);  // 更新工具提示位置
+    // 使用场景坐标而不是屏幕坐标，并偏移一点避免遮挡鼠标
+    QPointF tooltipPos = event->scenePos() + QPointF(15, 15);
+    TOOL_TIP->showTooltip(tooltipPos, text);  // 更新工具提示位置
     setBigRect();  // 确保保持放大状态
     QGraphicsEllipseItem::hoverMoveEvent(event);
 }
@@ -124,7 +128,7 @@ void Point::hoverMoveEvent(QGraphicsSceneHoverEvent *event)
 void Point::hoverLeaveEvent(QGraphicsSceneHoverEvent *event)
 {
 #ifdef Q_OS_LINUX
-    TOOL_TIP->setHoldingState(false);  // Linux特殊处理
+    TOOL_TIP->setVisible(false);  // Linux特殊处理
 #else
     TOOL_TIP->setVisible(false);       // 直接隐藏工具提示
 #endif
@@ -170,11 +174,11 @@ DetPoint::DetPoint  (PointInfo &info) : Point(info)
     // 设置检测点的基础尺寸参数
     baseSmallW = baseSmallH = DET_SIZE;        // 普通状态：小尺寸显示
     baseBigW   = baseBigH   = DET_BIG_SIZE;    // 悬停状态：适中放大尺寸
-    
+
     // 初始化当前显示尺寸
     w = baseSmallW; h = baseSmallH;  // 普通尺寸
     W = baseBigW;   H = baseBigH;    // 放大尺寸
-    
+
     // 应用检测点默认颜色
     setColor(DET_COLOR);
 }
@@ -192,13 +196,13 @@ void DetPoint::resize(float ratio)
 {
     if (ratio <= 0) ratio = 1.f;  // 防护性检查
     curRatio = ratio;              // 记录当前缩放比例
-    
+
     // 根据缩放比例计算新尺寸(反比关系：视图放大时点相对变小)
     w = baseSmallW / ratio;
     h = baseSmallH / ratio;
     W = baseBigW   / ratio;
     H = baseBigH   / ratio;
-    
+
     setSmallRect();  // 以新尺寸更新显示矩形
 }
 
@@ -252,11 +256,11 @@ TrackPoint::TrackPoint(PointInfo &info) : Point(info)
     // 设置航迹点的基础尺寸参数(比检测点更大更醒目)
     baseSmallW = baseSmallH = TRA_SIZE;        // 普通状态：中等尺寸
     baseBigW   = baseBigH   = TRA_BIG_SIZE;    // 悬停状态：大尺寸显示
-    
+
     // 初始化当前显示尺寸
     w = baseSmallW; h = baseSmallH;  // 普通尺寸
     W = baseBigW;   H = baseBigH;    // 放大尺寸
-    
+
     // 应用航迹点默认颜色
     setColor(TRA_COLOR);
 }
@@ -274,13 +278,13 @@ void TrackPoint::resize(float ratio)
 {
     if (ratio <= 0) ratio = 1.f;  // 防护性检查
     curRatio = ratio;              // 记录当前缩放比例
-    
+
     // 航迹点也做等比缩放，避免显示问题
     w = baseSmallW / ratio;
     h = baseSmallH / ratio;
     W = baseBigW   / ratio;
     H = baseBigH   / ratio;
-    
+
     setSmallRect();  // 以新尺寸更新显示矩形
 }
 

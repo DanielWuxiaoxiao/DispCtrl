@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:11
+ * @LastEditTime: 2026-01-15 14:23:12
  * @Description: 
  */
 #include "pviewtopleft.h"
@@ -17,11 +17,11 @@ mainviewTopLeft::mainviewTopLeft(QWidget *parent) :
     ui(new Ui::mainviewTopLeft)
 {
     ui->setupUi(this);
-    
+
     // 设置简化的tooltip
     ui->label->setToolTip("雷达经度");
     ui->lineEdit->setToolTip("经度(-180°~180°)");
-    ui->label_2->setToolTip("雷达纬度"); 
+    ui->label_2->setToolTip("雷达纬度");
     ui->lat->setToolTip("纬度(-90°~90°)");
     ui->label_3->setToolTip("海拔高度");
     ui->height->setToolTip("高度(米)");
@@ -31,14 +31,14 @@ mainviewTopLeft::mainviewTopLeft(QWidget *parent) :
     ui->yaw->setToolTip("俯仰倾角(度)");
     ui->label_7->setToolTip("横滚");
     ui->roll->setToolTip("横滚角(度)");
-    
+
     // 从配置文件初始化雷达位置信息
     ui->lineEdit->setText(QString::number(CF_INS.longitude(), 'f', 6));   // 经度
     ui->lat->setText(QString::number(CF_INS.latitude(), 'f', 6));         // 纬度
     ui->height->setText(QString::number(CF_INS.altitude(), 'f', 1));      // 高度
-    ui->dir->setText("0.0");      // 阵面指北角（暂时固定）
-    ui->yaw->setText("0.0");      // 倾角（暂时固定）
-    ui->roll->setText("0.0");     // 横滚（暂时固定）
+    ui->dir->setText(QString::number(CF_INS.azimuth(), 'f', 1));          // 阵面指北角
+    ui->yaw->setText(QString::number(CF_INS.pitch(), 'f', 1));            // 倾角（俯仰角）
+    ui->roll->setText(QString::number(CF_INS.roll(), 'f', 1));            // 横滚
 }
 
 void mainviewTopLeft::paintEvent(QPaintEvent* event) {
