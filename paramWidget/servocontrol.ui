@@ -66,6 +66,13 @@
     </layout>
    </item>
    <item>
+    <widget class="QPushButton" name="saveButton">
+     <property name="text">
+      <string>保存参数</string>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="standardButtons">
       <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>

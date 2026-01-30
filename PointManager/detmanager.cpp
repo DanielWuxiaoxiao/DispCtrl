@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:12
+ * @LastEditTime: 2026-01-30 11:45:45
  * @Description: 
  */
 /**
@@ -98,6 +98,17 @@ void DetManager::addDetPoint(const PointInfo& info)
     DetNode node;
     node.point = pt;
     mNodes.push_back(node);
+
+    // 检查是否超出最大数量限制
+    while (mNodes.size() > m_maxPoints) {
+        // 删除最旧的检测点（FIFO策略）
+        DetNode& oldNode = mNodes.first();
+        if (oldNode.point) {
+            mScene->removeItem(oldNode.point);
+            delete oldNode.point;
+        }
+        mNodes.removeFirst();
+    }
 }
 
 /**
@@ -159,6 +170,33 @@ void DetManager::setAngleRange(double startDeg, double endDeg)
     m_angleEnd = endDeg;
     // 更新所有点的显隐状态
     refreshAll();
+}
+
+/**
+ * @brief 设置最大监测点数量限制
+ * @param maxPoints 最大监测点数量
+ * @details 设置监测点数量上限，超出时自动删除最旧的监测点：
+ *          - 更新最大数量限制
+ *          - 立即清理超出限制的旧监测点
+ *          - 采用FIFO策略，删除最先添加的点
+ */
+void DetManager::setMaxPoints(int maxPoints)
+{
+    if (maxPoints < 100) maxPoints = 100;  // 最小值保护
+    m_maxPoints = maxPoints;
+
+    // 立即清理超出限制的旧监测点
+    while (mNodes.size() > m_maxPoints) {
+        DetNode& oldNode = mNodes.first();
+        if (oldNode.point) {
+            mScene->removeItem(oldNode.point);
+            delete oldNode.point;
+        }
+        mNodes.removeFirst();
+    }
+
+    qDebug() << "DetManager: Max points limit set to" << m_maxPoints
+             << ", current count:" << mNodes.size();
 }
 
 /**

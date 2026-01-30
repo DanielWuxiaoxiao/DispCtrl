@@ -9,6 +9,6 @@
 见项目根目录下 `config.toml`，并对常用字段做了示例注释。
 
 ## 常用命令
-- 配置与构建：`cmake ..` / `cmake --build .`  
-- 运行：`./build/bin/Debug/DispCtrl.exe`  
+- 配置与构建：`cmake ..` / `cmake --build .`
+- 运行：`./build/bin/Debug/DispCtrl.exe`
 - 清理：`git clean -fd`（慎用）

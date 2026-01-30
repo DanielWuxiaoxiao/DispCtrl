@@ -58,6 +58,11 @@
          <string>TAS</string>
         </property>
        </item>
+       <item>
+        <property name="text">
+         <string>待机</string>
+        </property>
+       </item>
       </widget>
      </item>
      <item row="0" column="0">
@@ -68,6 +73,13 @@
       </widget>
      </item>
     </layout>
+   </item>
+   <item>
+    <widget class="QPushButton" name="saveButton">
+     <property name="text">
+      <string>保存参数</string>
+     </property>
+    </widget>
    </item>
    <item>
     <widget class="QDialogButtonBox" name="buttonBox">

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 15:56:15
+ * @LastEditTime: 2026-01-30 11:45:46
  * @Description: 
  */
 /**
@@ -209,6 +209,41 @@ public slots:
      * @details 响应PPIVisualSettings组件的测距模式切换，修改鼠标交互行为
      */
     void onMeasureModeChanged(bool enabled);
+
+    /**
+     * @brief 处理最大检测点数量变化
+     * @param maxPoints 新的最大检测点数量
+     * @details 响应PPIVisualSettings组件的最大检测点数量变化，转发给DetManager
+     */
+    void onMaxPointsChanged(int maxPoints);
+
+    /**
+     * @brief 处理清除P显数据请求
+     * @details 响应PPIVisualSettings组件的清除请求，清除检测点和航迹点数据
+     */
+    void onClearDisplayRequested();
+
+    /**
+     * @brief 处理检测点可见性变化
+     * @param visible true表示显示，false表示隐藏
+     * @details 响应MousePositionInfo组件的checkbox变化，控制检测点显示/隐藏
+     */
+    void onDetectionVisibilityChanged(bool visible);
+
+    /**
+     * @brief 处理跟踪点可见性变化
+     * @param visible true表示显示，false表示隐藏
+     * @details 响应MousePositionInfo组件的checkbox变化，控制跟踪点显示/隐藏
+     */
+    void onTrackVisibilityChanged(bool visible);
+
+    /**
+     * @brief 获取鼠标位置信息组件
+     * @return MousePositionInfo指针
+     * @details 提供对左下角鼠标位置信息显示组件的访问接口，
+     *          用于外部组件连接信号或获取状态信息
+     */
+    MousePositionInfo* getMousePositionInfo() const { return mousePositionInfo; }
 
 protected:
     /**

@@ -2,6 +2,14 @@
 <ui version="4.0">
  <class>MainOverLayOut</class>
  <widget class="QWidget" name="MainOverLayOut">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>841</width>
+    <height>772</height>
+   </rect>
+  </property>
   <property name="windowTitle">
    <string>Form</string>
   </property>
@@ -66,194 +74,6 @@
          <property name="movable">
           <bool>true</bool>
          </property>
-         <widget class="QWidget" name="tab1">
-          <property name="styleSheet">
-           <string notr="true"/>
-          </property>
-          <attribute name="icon">
-           <iconset resource="../resource.qrc">
-            <normaloff>:/resources/icon/info.png</normaloff>:/resources/icon/info.png</iconset>
-          </attribute>
-          <attribute name="title">
-           <string>状态信息</string>
-          </attribute>
-          <attribute name="toolTip">
-           <string>显示雷达状态信息</string>
-          </attribute>
-          <layout class="QVBoxLayout" name="verticalLayout_9">
-           <property name="spacing">
-            <number>0</number>
-           </property>
-           <property name="leftMargin">
-            <number>0</number>
-           </property>
-           <property name="topMargin">
-            <number>0</number>
-           </property>
-           <property name="rightMargin">
-            <number>0</number>
-           </property>
-           <property name="bottomMargin">
-            <number>0</number>
-           </property>
-           <item>
-            <widget class="QWidget" name="infoWidget" native="true">
-             <property name="autoFillBackground">
-              <bool>false</bool>
-             </property>
-             <layout class="QHBoxLayout" name="horizontalLayout_2">
-              <item>
-               <widget class="QLabel" name="label">
-                <property name="maximumSize">
-                 <size>
-                  <width>150</width>
-                  <height>150</height>
-                 </size>
-                </property>
-                <property name="text">
-                 <string/>
-                </property>
-                <property name="pixmap">
-                 <pixmap resource="../resource.qrc">:/resources/icon/radararray.png</pixmap>
-                </property>
-                <property name="scaledContents">
-                 <bool>true</bool>
-                </property>
-                <property name="textInteractionFlags">
-                 <set>Qt::NoTextInteraction</set>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <layout class="QGridLayout" name="gridLayout">
-                <item row="3" column="1">
-                 <widget class="QLabel" name="stamsg4">
-                  <property name="text">
-                   <string/>
-                  </property>
-                  <property name="labelGroup" stdset="0">
-                   <string>B</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="0" column="0">
-                 <widget class="QLabel" name="stalabel1">
-                  <property name="text">
-                   <string>型号</string>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignCenter</set>
-                  </property>
-                  <property name="labelGroup" stdset="0">
-                   <string>A</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="2" column="0">
-                 <widget class="QLabel" name="stalabel3">
-                  <property name="text">
-                   <string>波形</string>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignCenter</set>
-                  </property>
-                  <property name="labelGroup" stdset="0">
-                   <string>A</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="3" column="0">
-                 <widget class="QLabel" name="stalabel4">
-                  <property name="text">
-                   <string>带宽</string>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignCenter</set>
-                  </property>
-                  <property name="labelGroup" stdset="0">
-                   <string>A</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="2" column="1">
-                 <widget class="QLabel" name="stamsg3">
-                  <property name="text">
-                   <string/>
-                  </property>
-                  <property name="labelGroup" stdset="0">
-                   <string>B</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="0" column="1">
-                 <widget class="QLabel" name="stamsg1">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="text">
-                   <string/>
-                  </property>
-                  <property name="labelGroup" stdset="0">
-                   <string>B</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="1" column="0">
-                 <widget class="QLabel" name="stalabel2">
-                  <property name="text">
-                   <string>功率</string>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignCenter</set>
-                  </property>
-                  <property name="labelGroup" stdset="0">
-                   <string>A</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="1" column="1">
-                 <widget class="QLabel" name="stamsg2">
-                  <property name="text">
-                   <string/>
-                  </property>
-                  <property name="labelGroup" stdset="0">
-                   <string>B</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="4" column="0">
-                 <widget class="QLabel" name="stalabel5">
-                  <property name="text">
-                   <string>脉宽</string>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignCenter</set>
-                  </property>
-                  <property name="labelGroup" stdset="0">
-                   <string>A</string>
-                  </property>
-                 </widget>
-                </item>
-                <item row="4" column="1">
-                 <widget class="QLabel" name="stamsg5">
-                  <property name="text">
-                   <string/>
-                  </property>
-                  <property name="labelGroup" stdset="0">
-                   <string>B</string>
-                  </property>
-                 </widget>
-                </item>
-               </layout>
-              </item>
-             </layout>
-            </widget>
-           </item>
-          </layout>
-         </widget>
          <widget class="QWidget" name="tab_2">
           <attribute name="icon">
            <iconset resource="../resource.qrc">
@@ -296,6 +116,7 @@
            </item>
           </layout>
          </widget>
+
         </widget>
        </item>
        <item>
@@ -316,7 +137,7 @@
           <enum>QTabWidget::Rounded</enum>
          </property>
          <property name="currentIndex">
-          <number>1</number>
+          <number>0</number>
          </property>
          <property name="documentMode">
           <bool>false</bool>
@@ -327,18 +148,6 @@
          <property name="tabBarAutoHide">
           <bool>false</bool>
          </property>
-         <widget class="QWidget" name="tab_3">
-          <attribute name="icon">
-           <iconset resource="../resource.qrc">
-            <normaloff>:/resources/icon/scan.png</normaloff>:/resources/icon/scan.png</iconset>
-          </attribute>
-          <attribute name="title">
-           <string>范围设置</string>
-          </attribute>
-          <attribute name="toolTip">
-           <string>设置雷达方位和俯仰的扫描范围</string>
-          </attribute>
-         </widget>
          <widget class="QWidget" name="tab_4">
           <attribute name="icon">
            <iconset resource="../resource.qrc">
@@ -369,22 +178,6 @@
               <number>8</number>
              </property>
              <item row="0" column="0">
-              <widget class="QPushButton" name="btnSetParam">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>40</height>
-                </size>
-               </property>
-               <property name="cursor">
-                <cursorShape>PointingHandCursor</cursorShape>
-               </property>
-               <property name="text">
-                <string>一键参数配置</string>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="1">
               <widget class="QPushButton" name="btnStartSoftware">
                <property name="minimumSize">
                 <size>
@@ -400,7 +193,71 @@
                </property>
               </widget>
              </item>
+             <item row="0" column="1">
+              <widget class="QPushButton" name="btnStopSoftware">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="cursor">
+                <cursorShape>PointingHandCursor</cursorShape>
+               </property>
+               <property name="text">
+                <string>处理软件关闭</string>
+               </property>
+              </widget>
+             </item>
              <item row="1" column="0">
+              <widget class="QPushButton" name="btnTWSMode">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="cursor">
+                <cursorShape>PointingHandCursor</cursorShape>
+               </property>
+               <property name="text">
+                <string>TWS模式设置</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QPushButton" name="btnTASMode">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="cursor">
+                <cursorShape>PointingHandCursor</cursorShape>
+               </property>
+               <property name="text">
+                <string>TAS模式设置</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
+              <widget class="QPushButton" name="btnServoControl">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="cursor">
+                <cursorShape>PointingHandCursor</cursorShape>
+               </property>
+               <property name="text">
+                <string>伺服控制</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
               <widget class="QPushButton" name="btnDataStorage">
                <property name="minimumSize">
                 <size>
@@ -412,11 +269,11 @@
                 <cursorShape>PointingHandCursor</cursorShape>
                </property>
                <property name="text">
-                <string>数据存储/删除</string>
+                <string>数据存储管理</string>
                </property>
               </widget>
              </item>
-             <item row="1" column="1">
+             <item row="3" column="0">
               <widget class="QPushButton" name="btnTransmitControl">
                <property name="minimumSize">
                 <size>
@@ -428,7 +285,23 @@
                 <cursorShape>PointingHandCursor</cursorShape>
                </property>
                <property name="text">
-                <string>发射接收控制</string>
+                <string>发射开关</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="1">
+              <widget class="QPushButton" name="btnRadarStandby">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>40</height>
+                </size>
+               </property>
+               <property name="cursor">
+                <cursorShape>PointingHandCursor</cursorShape>
+               </property>
+               <property name="text">
+                <string>雷达待机</string>
                </property>
               </widget>
              </item>
@@ -538,7 +411,7 @@
                 <cursorShape>PointingHandCursor</cursorShape>
                </property>
                <property name="text">
-                <string>电源控制</string>
+                <string>阵面开启控制</string>
                </property>
               </widget>
              </item>
@@ -554,39 +427,7 @@
                 <cursorShape>PointingHandCursor</cursorShape>
                </property>
                <property name="text">
-                <string>方向图扫描控制</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="1">
-              <widget class="QPushButton" name="btnPhotoelectric">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>40</height>
-                </size>
-               </property>
-               <property name="cursor">
-                <cursorShape>PointingHandCursor</cursorShape>
-               </property>
-               <property name="text">
-                <string>光电系统控制</string>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="0">
-              <widget class="QPushButton" name="btnServoControl">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>40</height>
-                </size>
-               </property>
-               <property name="cursor">
-                <cursorShape>PointingHandCursor</cursorShape>
-               </property>
-               <property name="text">
-                <string>伺服控制</string>
+                <string>工作模式设置</string>
                </property>
               </widget>
              </item>

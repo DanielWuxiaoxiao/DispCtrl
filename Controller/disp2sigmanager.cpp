@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:44:57
+ * @LastEditTime: 2026-01-30 11:45:45
  * @Description: 
  */
 #include "disp2sigmanager.h"
@@ -15,7 +15,7 @@ Disp2SigManager::Disp2SigManager(QObject *parent) : QObject(parent)
 {
     src = CF_INS.id("DISP_CTRL_ID",DISP_CTRL_ID);
     dst = CF_INS.id("SIG_PRO_ID",SIG_PRO_ID);
-    socket = new ThreadedUdpSocket(CF_INS.ip("DISP_CTRL_IP",DISP_CTRL_IP),CF_INS.port("DISP_2_PHOTO_PORT",DISP_2_PHOTO_PORT));
+    socket = new ThreadedUdpSocket(CF_INS.ip("DISP_CTRL_IP",DISP_CTRL_IP),CF_INS.port("DISP_2_SIG_PORT",DISP_2_SIG_PORT));
     socket->setSourceAndDestID(src, dst);
 
     thread = new QThread(this);
@@ -25,8 +25,8 @@ Disp2SigManager::Disp2SigManager(QObject *parent) : QObject(parent)
     thread->start();
     commCount = 1;
 
-    host = QHostAddress(CF_INS.ip("PHOTO_ELE_IP",PHOTO_ELE_IP));
-    port = CF_INS.port("PHOTO_GET_DISP_PORT",PHOTO_GET_DISP_PORT);
+    host = QHostAddress(CF_INS.ip("SIG_PRO_IP",SIG_PRO_IP));
+    port = CF_INS.port("SIG_GET_DISP_PORT",SIG_GET_DISP_PORT);
 }
 
 void Disp2SigManager::sendParam(char* paramData, unsigned paramSize)
@@ -60,4 +60,3 @@ Disp2SigManager::~Disp2SigManager() {
     thread->quit();
     thread->wait();
 }
-

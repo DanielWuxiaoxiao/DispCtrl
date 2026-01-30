@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:14
+ * @LastEditTime: 2026-01-30 11:45:48
  * @Description: 
  */
 #include "freqcontrolui.h"
@@ -23,8 +23,11 @@ FreqControlUI::FreqControlUI(QWidget *parent) :
     disconnect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
     disconnect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
-ui->buttonBox->button(QDialogButtonBox::Ok)->setText("确定下发");
-    ui->buttonBox->button(QDialogButtonBox::Cancel)->setText("取消");
+    connect(ui->buttonBox->button(QDialogButtonBox::Ok), &QPushButton::clicked, this, &FreqControlUI::onAccept);
+    connect(ui->buttonBox->button(QDialogButtonBox::Cancel), &QPushButton::clicked, this, &FreqControlUI::onCancel);
+
+    ui->buttonBox->button(QDialogButtonBox::Ok)->setText(tr("确定下发"));
+    ui->buttonBox->button(QDialogButtonBox::Cancel)->setText(tr("取消"));
 
     connect(ui->wave,static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),this,[this](int index){
         auto timeWidth = timeWidths[index];
@@ -32,11 +35,7 @@ ui->buttonBox->button(QDialogButtonBox::Ok)->setText("确定下发");
         ui->samplestart->setText(QString::number(ui->transtart->text().toFloat()+timeWidth+1.0f));
         ui->sampleend->setText(QString::number(float(PRT-1)));
     });
-    // 连接按钮信号到自定义槽
-
-    connect(ui->buttonBox->button(QDialogButtonBox::Ok), &QPushButton::clicked, this, &FreqControlUI::onAccept);
-    // 连接按钮信号到自定义槽
-    connect(ui->buttonBox->button(QDialogButtonBox::Cancel), &QPushButton::clicked, this, &FreqControlUI::onCancel);
+    // 按钮信号已在上方统一连接
 }
 
 

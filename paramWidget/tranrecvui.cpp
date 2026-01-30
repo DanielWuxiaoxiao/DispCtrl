@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:15
+ * @LastEditTime: 2026-01-30 11:45:48
  * @Description: 
  */
 #include "tranrecvui.h"
@@ -21,12 +21,12 @@ TranRecvUI::TranRecvUI(QWidget *parent) :
     disconnect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
     disconnect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
-    ui->buttonBox->button(QDialogButtonBox::Ok)->setText("确定下发");
-    ui->buttonBox->button(QDialogButtonBox::Cancel)->setText("取消");
-
-    // 连接按钮信号到自定义槽
+    // 自定义按钮信号，与 ServoControl 保持一致
     connect(ui->buttonBox->button(QDialogButtonBox::Ok), &QPushButton::clicked, this, &TranRecvUI::onAccept);
     connect(ui->buttonBox->button(QDialogButtonBox::Cancel), &QPushButton::clicked, this, &TranRecvUI::onCancel);
+
+    ui->buttonBox->button(QDialogButtonBox::Ok)->setText(tr("确定下发"));
+    ui->buttonBox->button(QDialogButtonBox::Cancel)->setText(tr("取消"));
 }
 
 void TranRecvUI::onAccept()
@@ -42,9 +42,9 @@ void TranRecvUI::onAccept()
     else
         param.tran = 1;
 
-    // 角度以 0.01° 量化
-    param.tranStart = static_cast<unsigned short>(ui->spinStart->value());
-    param.tranEnd = static_cast<unsigned short>(ui->spinEnd->value());
+    // 注意：tranStart 和 tranEnd 已从协议中移除
+    // param.tranStart = static_cast<unsigned short>(ui->spinStart->value());
+    // param.tranEnd = static_cast<unsigned short>(ui->spinEnd->value());
 
     emit setParam(param);
     // 保持窗口与布局，不关闭父窗口
@@ -77,8 +77,9 @@ void TranRecvUI::restoreParam(const TranRecControl &param)
     else
         ui->t->setChecked(false);
 
-    ui->spinStart->setValue(param.tranStart);
-    ui->spinEnd->setValue(param.tranEnd);
+    // 注意：tranStart 和 tranEnd 已从协议中移除
+    // ui->spinStart->setValue(param.tranStart);
+    // ui->spinEnd->setValue(param.tranEnd);
 }
 
 TranRecvUI::~TranRecvUI()

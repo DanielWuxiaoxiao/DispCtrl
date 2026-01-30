@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:12
+ * @LastEditTime: 2026-01-30 11:45:46
  * @Description: 
  */
 #include "scanlayer.h"
@@ -15,12 +15,13 @@
 
 ScanLayer::ScanLayer(PolarAxis* axis, QGraphicsItem* parent)
     : QGraphicsItem(parent), m_axis(axis),
-      m_angle(30), m_fixedStart(30), m_fixedEnd(150), // 初始角度和范围
+      m_angle(0), m_fixedStart(0), m_fixedEnd(360), // 初始化为0度，全圆范围
       m_direction(1), m_mode(Loop) // 初始方向和模式
 {
     m_timer = new QTimer(this);
     connect(m_timer, &QTimer::timeout, this, &ScanLayer::advanceSweep);
-    m_timer->start(50); // 默认 50ms 更新一次
+    // 不要立即启动定时器，等待实时数据或外部控制
+    // m_timer->start(50); // 注释掉自动启动，避免初始化竞争
 }
 
 QRectF ScanLayer::boundingRect() const {
@@ -32,6 +33,17 @@ void ScanLayer::paint(QPainter* painter,
                       const QStyleOptionGraphicsItem*,
                       QWidget*)
 {
+    // 【关键修复】在paint()开始时立即保存m_angle的快照
+    // 避免在绘制过程中m_angle被onBITReport()修改导致余晖和扫描线不一致
+    double currentAngle = m_angle;
+
+    static int paintCount = 0;
+    if (paintCount % 50 == 0) {  // 每50次打印一次，避免刷屏
+        qDebug() << "[ScanLayer::paint] Called, currentAngle=" << currentAngle
+                 << "m_useRealTimeAngle=" << m_useRealTimeAngle;
+    }
+    paintCount++;
+
     double r = m_axis->rangeToPixel(m_axis->maxRange());
     painter->setRenderHint(QPainter::Antialiasing);
 
@@ -55,7 +67,7 @@ void ScanLayer::paint(QPainter* painter,
     // === 2. 绘制扫描余晖效果 ===
     // 余晖从当前扫描线位置向后延伸
     double afterglowAngle = 60.0; // 余晖延伸的角度范围
-    double qtCurrentAngle = 90 - m_angle; // 转换到Qt坐标系
+    double qtCurrentAngle = 90 - currentAngle; // 使用快照值，转换到Qt坐标系
 
     // 创建余晖扇形路径
     QPainterPath afterglowPath;
@@ -96,17 +108,20 @@ void ScanLayer::paint(QPainter* painter,
 
     afterglowPath.closeSubpath();
 
-    // 设置裁剪区域为扫描范围
+    // 设置裁剪区域为扫描范围（仅用于余晖绘制）
     painter->save();
     painter->setClipPath(scanAreaPath);
 
-    // 绘制余晖
+    // 绘制余晖（在裁剪区域内）
     painter->setBrush(gradient);
     painter->setPen(Qt::NoPen);
     painter->drawPath(afterglowPath);
 
-    // === 3. 绘制扫描线 ===
-    double rad = qDegreesToRadians(m_angle);
+    painter->restore();  // 恢复裁剪，让扫描线可以在任意角度显示
+
+    // === 3. 绘制扫描线（不受裁剪区域限制，可以超出扫描范围） ===
+    // 使用快照值currentAngle，确保与余辉一致
+    double rad = qDegreesToRadians(currentAngle);
     double x = r * qSin(rad);
     double y = -r * qCos(rad);
 
@@ -115,8 +130,6 @@ void ScanLayer::paint(QPainter* painter,
     painter->setPen(linePen);
     painter->drawLine(QPointF(0, 0), QPointF(x, y));
 
-    painter->restore();
-
     // === 4. 可选：绘制扫描区域边界线 ===
     painter->setPen(QPen(QColor(251, 159, 147, 100), 3));
     painter->setBrush(Qt::NoBrush);
@@ -124,6 +137,11 @@ void ScanLayer::paint(QPainter* painter,
 }
 
 void ScanLayer::advanceSweep() {
+    // 如果使用实时角度更新，则不执行自动扫描
+    if (m_useRealTimeAngle) {
+        return;
+    }
+
     // 根据扫描模式更新角度
     if (m_mode == Loop) {
         m_angle += m_direction * 2; // 每次转2度
@@ -155,8 +173,47 @@ void ScanLayer::setHeadingAngle(double deg) {
     if (m_timer && m_timer->isActive()) {
         m_timer->stop();
     }
+
+    // 禁用实时角度，改用外部设置
+    m_useRealTimeAngle = false;
     m_angle = deg;
+
+    qDebug() << "[ScanLayer::setHeadingAngle] Set to" << deg
+             << "degrees, timer stopped, m_useRealTimeAngle=false";
+
     update();
+}
+
+void ScanLayer::onBITReport(BITReport report) {
+    // 使用实时扫描角度更新波束指向
+    // scanAngle是0.01度量化，转换为度
+    double scanDegree = report.scanAngle * 0.01;
+
+    qDebug() << "[ScanLayer] onBITReport called!";
+    qDebug() << "  - Raw scanAngle:" << report.scanAngle;
+    qDebug() << "  - Converted scanDegree:" << scanDegree;
+    qDebug() << "  - Current m_angle:" << m_angle;
+    qDebug() << "  - m_useRealTimeAngle before:" << m_useRealTimeAngle;
+
+    // 【关键修复】首先停止定时器，避免与实时数据竞争
+    if (m_timer && m_timer->isActive()) {
+        m_timer->stop();
+        qDebug() << "  - Timer stopped to avoid race condition";
+    }
+
+    // 启用实时角度模式（停止自动扫描）
+    m_useRealTimeAngle = true;
+
+    // 更新角度（可以超出预设范围）
+    m_angle = scanDegree;
+
+    qDebug() << "  - New m_angle:" << m_angle;
+    qDebug() << "  - m_useRealTimeAngle after:" << m_useRealTimeAngle;
+
+    // 触发重绘
+    update();
+
+    qDebug() << "[ScanLayer] update() called, expecting repaint...";
 }
 
 void ScanLayer::setSweepSpeed(int msPerStep) {

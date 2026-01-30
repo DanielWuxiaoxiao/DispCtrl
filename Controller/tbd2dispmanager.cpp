@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2025-12-25 14:14:13
+ * @Date: 2025-12-25 16:19:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:34
+ * @LastEditTime: 2026-01-30 11:45:45
  * @Description: 
  */
 #include "tbd2dispmanager.h"
@@ -31,7 +31,7 @@ Tbd2DispManager::Tbd2DispManager(QObject *parent) : QObject(parent)
 
     connect(socket, &ThreadedUdpSocket::tbdInfo, this, &Tbd2DispManager::tbdInfoDecode);
     connect(socket, &ThreadedUdpSocket::servoCtrlRet, CON_INS, &Controller::servoCtrlRet);
-    connect(socket, &ThreadedUdpSocket::bitReport, CON_INS, &Controller::bitReport);
+    connect(socket, &ThreadedUdpSocket::bitReport, CON_INS, &Controller::onBITReport);
     connect(this, &Tbd2DispManager::tbdInfoProcess, CON_INS, &Controller::tbdInfoProcess);
 }
 

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:12
+ * @LastEditTime: 2026-01-30 11:45:47
  * @Description: 
  */
 #ifndef SCANLAYER_H
@@ -12,6 +12,7 @@
 #include <QGraphicsItem>
 #include <QTimer>
 #include <QObject>
+#include "Basic/Protocol.h"
 
 class PolarAxis;
 //object必须在前面
@@ -37,6 +38,9 @@ public slots:
     // 外部航向角更新（单位：度，极坐标方位）
     void setHeadingAngle(double deg);
 
+    // 接收BIT上报信息，更新扫描角度（实时波束指向）
+    void onBITReport(BITReport report);
+
 private slots:
     void advanceSweep();
 
@@ -48,6 +52,8 @@ private:
 
     ScanMode m_mode = Loop;
     int m_direction = +1; // 1=顺时针，-1=逆时针  每次转动度数
+
+    bool m_useRealTimeAngle = false; // 是否使用实时角度（来自BIT上报）
 };
 
 #endif // SCANLAYER_H

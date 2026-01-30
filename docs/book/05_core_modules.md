@@ -7,11 +7,11 @@
 - 功能：协调 Managers、桥接 UI 信号、提供系统级控制（最小化、退出、外部链路控制等）。
 
 ## UDP 与 ThreadedUdpSocket
-- 负责多线程接收与数据队列管理。  
+- 负责多线程接收与数据队列管理。
 - 核心函数：`handleDatagram()`，在接收端识别消息 ID 并通过 `memcpy` 解析到结构体，随后发射信号（如 `bitReport()`）。
 
 ## RadarDataManager 与 Manager 系列
-- 作用：统一缓存、合并重复帧、按订阅分发。  
+- 作用：统一缓存、合并重复帧、按订阅分发。
 - API 示例：`addDetPoint()`, `addTrackPoint()` 等；上层通过信号连接到 PPI 或表格视图。
 
 ## PolarDisp（PPI/扇区显示）

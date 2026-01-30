@@ -115,6 +115,8 @@ set(SRC_FILES
     PolarDisp/sectorwidget.cpp                 # 扇区部件
     PolarDisp/sectorscene.cpp                  # 扇区场景
     PolarDisp/sectorpolargrid.cpp              # 扇区极坐标网格
+    PolarDisp/rangeazimuthwidget.cpp           # 距离-方位显示部件
+    PolarDisp/rangeazimuthchart.cpp            # 距离-方位图表（直角坐标系）
     PolarDisp/pviewtopleft.cpp                 # 左上角视图
     PolarDisp/mousepositioninfo.cpp            # 鼠标位置信息
     PolarDisp/ppivisualsettings.cpp            # PPI视觉设置
@@ -143,6 +145,7 @@ set(SRC_FILES
     Controller/ErrorHandler.cpp                # 错误处理框架
     Controller/disp2sigmanager.cpp             # 显示到信号管理
     Controller/disp2resmanager.cpp             # 显示到资源管理
+    Controller/res2dispmanager.cpp             # 资源到显示管理
     Controller/disp2photomanager.cpp           # 显示到照片管理
     Controller/disp2datamanager.cpp            # 显示到数据管理
 
@@ -157,6 +160,7 @@ set(SRC_FILES
     cusWidgets/customcombobox.cpp              # 自定义ComboBox组件
     cusWidgets/customspinbox.cpp               # 自定义SpinBox组件
     cusWidgets/customspinboxstyle.cpp          # 自定义SpinBox样式
+    cusWidgets/customlinechart.cpp             # 自定义直角坐标图表基类
 
     # 参数配置模块 - 雷达参数配置对话框
     paramWidget/batterycontrol.cpp             # 一键全数配置
@@ -169,6 +173,8 @@ set(SRC_FILES
     paramWidget/scanrangeui.cpp                # 方向图扫描控制
     paramWidget/photoelectricparam.cpp         # 光电系统控制
     paramWidget/servocontrol.cpp               # 伺服控制
+    paramWidget/twsmodedialog.cpp              # TWS模式设置对话框
+    paramWidget/tasmodedialog.cpp              # TAS模式设置对话框
 
     # 基础模块 - 系统基础功能
     Basic/log.cpp                              # 日志系统
@@ -191,6 +197,7 @@ set(HDR_FILES
     Controller/ErrorHandler.h                  # 错误处理框架
     Controller/disp2sigmanager.h               # 显示到信号管理器
     Controller/disp2resmanager.h               # 显示到资源管理器
+    Controller/res2dispmanager.h               # 资源到显示管理器
     Controller/disp2photomanager.h             # 显示到照片管理器
     Controller/disp2monmanager.h               # 显示到监控管理器
     Controller/disp2datamanager.h              # 显示到数据管理器
@@ -206,6 +213,7 @@ set(HDR_FILES
     cusWidgets/customcombobox.h                # 自定义ComboBox组件
     cusWidgets/customspinbox.h                 # 自定义SpinBox组件
     cusWidgets/customspinboxstyle.h            # 自定义SpinBox样式
+    cusWidgets/customlinechart.h               # 自定义直角坐标图表基类
 
     # 参数配置模块头文件 - 雷达参数配置对话框
     paramWidget/batterycontrol.h               # 一键全数配置
@@ -240,6 +248,8 @@ set(HDR_FILES
     PolarDisp/sectorwidget.h                  # 扇区部件
     PolarDisp/sectorscene.h                   # 扇区场景
     PolarDisp/sectorpolargrid.h               # 扇区极坐标网格
+    PolarDisp/rangeazimuthwidget.h            # 距离-方位显示部件
+    PolarDisp/rangeazimuthchart.h             # 距离-方位图表（直角坐标系）
     PolarDisp/ppiview.h                       # PPI主视图
     PolarDisp/ppisscene.h                     # PPI场景管理
 
@@ -374,20 +384,25 @@ message(STATUS "二进制输出目录: ${CMAKE_BINARY_DIR}/bin")
 # 配置文件部署
 ##############################################################################
 
-# 复制配置文件到输出目录
-# 对于多配置生成器（如Visual Studio），需要复制到 bin/Debug 和 bin/Release
-# 对于单配置生成器（如Ninja），复制到 bin 目录即可
+# 复制配置文件到输出目录（仅在目标不存在时复制，避免覆盖用户修改）
+# 使用自定义脚本实现"如果不存在则复制"的逻辑
 add_custom_target(copy_config ALL
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_SOURCE_DIR}/config.toml
-        ${CMAKE_BINARY_DIR}/bin/config.toml
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_SOURCE_DIR}/config.toml
-        ${CMAKE_BINARY_DIR}/bin/Debug/config.toml
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_SOURCE_DIR}/config.toml
-        ${CMAKE_BINARY_DIR}/bin/Release/config.toml
-    COMMENT "Copying config.toml to output directories (bin, bin/Debug, bin/Release)"
+    # bin目录 - 只在文件不存在时复制
+    COMMAND ${CMAKE_COMMAND}
+        "-DSRC_FILE=${CMAKE_SOURCE_DIR}/config.toml"
+        "-DDST_FILE=${CMAKE_BINARY_DIR}/bin/config.toml"
+        -P "${CMAKE_SOURCE_DIR}/scripts/copy_if_not_exists.cmake"
+    # Debug目录 - 只在文件不存在时复制
+    COMMAND ${CMAKE_COMMAND}
+        "-DSRC_FILE=${CMAKE_SOURCE_DIR}/config.toml"
+        "-DDST_FILE=${CMAKE_BINARY_DIR}/bin/Debug/config.toml"
+        -P "${CMAKE_SOURCE_DIR}/scripts/copy_if_not_exists.cmake"
+    # Release目录 - 只在文件不存在时复制
+    COMMAND ${CMAKE_COMMAND}
+        "-DSRC_FILE=${CMAKE_SOURCE_DIR}/config.toml"
+        "-DDST_FILE=${CMAKE_BINARY_DIR}/bin/Release/config.toml"
+        -P "${CMAKE_SOURCE_DIR}/scripts/copy_if_not_exists.cmake"
+    COMMENT "Copying config.toml to output directories (only if not exists)"
     VERBATIM
 )
 

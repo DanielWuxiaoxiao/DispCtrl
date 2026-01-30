@@ -3,10 +3,9 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-23 09:44:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 15:56:15
+ * @LastEditTime: 2026-01-30 11:45:46
  * @Description: 
  */
-
 /**
  * @file ppivisualsettings.h
  * @brief PPI视觉设置组件头文件
@@ -113,9 +112,23 @@ public:
     /**
      * @brief 设置地图类型
      * @param index 地图类型索引
-     * @details 程序化设置地图类型，更新UI显示但不触发信号
+     * @details 程序化设置地图类型,更新UI显示但不触发信号
      */
     void setMapType(int index);
+
+    /**
+     * @brief 获取当前最大检测点数量设置
+     * @return 最大检测点数量
+     * @details 返回用户设置的最大检测点数量，用于限制内存占用
+     */
+    int getMaxPoints() const;
+
+    /**
+     * @brief 设置最大检测点数量
+     * @param maxPoints 最大检测点数量
+     * @details 程序化设置最大检测点数量，更新UI显示但不触发信号
+     */
+    void setMaxPoints(int maxPoints);
 
 signals:
     /**
@@ -138,6 +151,19 @@ signals:
      * @details 当用户切换测距模式时发出，通知PPI视图启用/禁用测距功能
      */
     void measureModeChanged(bool enabled);
+
+    /**
+     * @brief 最大检测点数量变化信号
+     * @param maxPoints 新的最大检测点数量
+     * @details 当用户修改最大检测点数量设置时发出，通知DetManager更新限制
+     */
+    void maxPointsChanged(int maxPoints);
+
+    /**
+     * @brief 请求清除P显数据信号
+     * @details 当用户点击"显清"按钮并确认后发出，通知PPIView清除检测点和航迹点
+     */
+    void clearDisplayRequested();
 
 protected:
     /**
@@ -176,6 +202,18 @@ private slots:
      * @details 响应用户点击测距按钮，切换测距模式状态
      */
     void onMeasureToggled(bool checked);
+
+    /**
+     * @brief 最大检测点数量输入回车处理
+     * @details 响应用户在检测点数量输入框中按下回车键，验证并应用新的数量限制
+     */
+    void onMaxPointsEditReturnPressed();
+
+    /**
+     * @brief 显清按钮点击处理
+     * @details 响应用户点击"显清"按钮，弹出确认对话框后清除P显数据
+     */
+    void onClearDisplayClicked();
 
 private:
     Ui::PPIVisualSettings *ui;  ///< UI界面对象指针

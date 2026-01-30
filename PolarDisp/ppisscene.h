@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:09
+ * @LastEditTime: 2026-01-30 11:45:46
  * @Description: 
  */
 /**
@@ -40,7 +40,7 @@ class ScanLayer;    ///< 扫描层组件
  *          - 协调组件间的交互和数据传递
  *          - 处理场景范围和尺寸变化
  *          - 提供统一的图形渲染管理
- * 
+ *
  * 组件层次结构：
  * PPIScene (场景容器)
  *  ├── PolarAxis (极坐标轴)
@@ -49,7 +49,7 @@ class ScanLayer;    ///< 扫描层组件
  *  ├── DetManager (检测点管理)
  *  ├── TrackManager (航迹管理)
  *  └── Tooltip (工具提示)
- * 
+ *
  * @example 基本使用：
  * @code
  * PPIScene* scene = new PPIScene();
@@ -59,7 +59,7 @@ class ScanLayer;    ///< 扫描层组件
  */
 class PPIScene : public QGraphicsScene {
     Q_OBJECT
-    
+
 public:
     /**
      * @brief 构造函数
@@ -70,28 +70,36 @@ public:
      *          - 设置扫描层和工具提示
      */
     explicit PPIScene(QObject* parent=nullptr);
-    
+
+    /**
+     * @brief 析构函数
+     * @details 清理场景资源，特别注意：
+     *          - 移除单例 Tooltip（但不删除它，因为它是全局静态对象）
+     *          - 其他组件由 Qt 对象树自动管理
+     */
+    ~PPIScene() override;
+
     /**
      * @defgroup ComponentAccessors 组件访问器
      * @brief 获取场景中各个组件的访问器方法
      * @{
      */
-    
+
     /// 获取极坐标轴组件
     PolarAxis* axis() const { return m_axis; }
-    
+
     /// 获取极坐标网格组件
     PolarGrid* grid() const { return m_grid; }
-    
+
     /// 获取航迹管理器组件
     TrackManager* track() const { return m_track; }
-    
+
     /// 获取检测点管理器组件
     DetManager* det() const { return m_det; }
-    
+
     /// 获取工具提示组件
     Tooltip* tooltip() const { return m_tooltip; }
-    
+
     /** @} */ // end of ComponentAccessors group
 
 public slots:
@@ -105,7 +113,7 @@ public slots:
      *          - 发送范围变化信号通知其他组件
      */
     void setRange(float minR, float maxR);
-    
+
     /**
      * @brief 更新场景尺寸
      * @param newSize 新的场景尺寸
@@ -133,9 +141,9 @@ private:
     DetManager* m_det;       ///< 检测点管理器 - 管理雷达检测点显示
     Tooltip* m_tooltip;      ///< 工具提示 - 鼠标悬停信息显示
     ScanLayer* m_scan;       ///< 扫描层 - 雷达扫描线显示
-    
+
     int pviewMargin = 30;    ///< 视图边距(像素) - 预留显示边界
-    
+
     /**
      * @brief 初始化图层对象
      * @details 创建并配置所有显示组件：

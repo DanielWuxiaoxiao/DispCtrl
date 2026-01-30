@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:14
+ * @LastEditTime: 2026-01-30 11:45:47
  * @Description: 
  */
 #include "batterycontrol.h"
@@ -15,18 +15,18 @@ BatteryControl::BatteryControl(QWidget *parent) :
     ui(new Ui::BatteryControl)
 {
     ui->setupUi(this);
-    setWindowTitle(tr("象限电源控制"));
+    setWindowTitle(tr("阵面开启控制"));
 
     // 断开UI文件中的默认连接
     disconnect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
     disconnect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
-    // 连接按钮信号到自定义槽
+    // 自定义按钮信号，与 ServoControl 保持一致
     connect(ui->buttonBox->button(QDialogButtonBox::Ok), &QPushButton::clicked, this, &BatteryControl::onAccept);
     connect(ui->buttonBox->button(QDialogButtonBox::Cancel), &QPushButton::clicked, this, &BatteryControl::onCancel);
 
-    ui->buttonBox->button(QDialogButtonBox::Ok)->setText("确定下发");
-    ui->buttonBox->button(QDialogButtonBox::Cancel)->setText("取消");
+    ui->buttonBox->button(QDialogButtonBox::Ok)->setText(tr("确定下发"));
+    ui->buttonBox->button(QDialogButtonBox::Cancel)->setText(tr("取消"));
 }
 
 void BatteryControl::onAccept()

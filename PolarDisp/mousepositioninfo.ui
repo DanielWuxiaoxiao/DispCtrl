@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>160</width>
-    <height>80</height>
+    <width>233</width>
+    <height>192</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -21,76 +21,214 @@
   </property>
   <layout class="QHBoxLayout" name="horizontalLayout">
    <property name="spacing">
-    <number>3</number>
+    <number>5</number>
    </property>
    <property name="leftMargin">
-    <number>3</number>
+    <number>5</number>
    </property>
    <property name="topMargin">
-    <number>3</number>
+    <number>5</number>
    </property>
    <property name="rightMargin">
-    <number>3</number>
+    <number>5</number>
    </property>
    <property name="bottomMargin">
-    <number>3</number>
+    <number>5</number>
    </property>
    <item>
-    <layout class="QGridLayout" name="gridLayout">
-     <property name="leftMargin">
-      <number>6</number>
-     </property>
-     <property name="topMargin">
-      <number>6</number>
-     </property>
-     <property name="rightMargin">
-      <number>6</number>
-     </property>
-     <property name="bottomMargin">
-      <number>6</number>
-     </property>
+    <layout class="QVBoxLayout" name="verticalLayout">
      <property name="spacing">
       <number>3</number>
      </property>
-     <item row="0" column="0">
-      <widget class="QLabel" name="label_distance">
-       <property name="text">
-        <string>鼠标距离</string>
+     <item>
+      <layout class="QGridLayout" name="gridLayout">
+       <property name="leftMargin">
+        <number>6</number>
        </property>
-       <property name="alignment">
-        <set>Qt::AlignCenter</set>
+       <property name="topMargin">
+        <number>2</number>
        </property>
-      </widget>
+       <property name="rightMargin">
+        <number>3</number>
+       </property>
+       <property name="bottomMargin">
+        <number>2</number>
+       </property>
+       <property name="horizontalSpacing">
+        <number>3</number>
+       </property>
+       <property name="verticalSpacing">
+        <number>2</number>
+       </property>
+       <item row="0" column="0">
+        <widget class="QLabel" name="label_distance">
+         <property name="text">
+          <string>鼠标距离</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="label_azimuth">
+         <property name="text">
+          <string>方位角</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QLabel" name="distanceValue">
+         <property name="text">
+          <string>0.0 km</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QLabel" name="azimuthValue">
+         <property name="text">
+          <string>0.0°</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="label_azimuth">
-       <property name="text">
-        <string>方位角</string>
+     <item>
+      <layout class="QHBoxLayout" name="checkboxLayout">
+       <property name="spacing">
+        <number>8</number>
        </property>
-       <property name="alignment">
-        <set>Qt::AlignCenter</set>
-       </property>
-      </widget>
+       <item>
+        <widget class="QCheckBox" name="checkBoxDetection">
+         <property name="toolTip">
+          <string>显示/隐藏检测点</string>
+         </property>
+         <property name="text">
+          <string>检测点</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QCheckBox" name="checkBoxTrack">
+         <property name="toolTip">
+          <string>显示/隐藏跟踪点</string>
+         </property>
+         <property name="text">
+          <string>跟踪点</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
-     <item row="0" column="1">
-      <widget class="QLabel" name="distanceValue">
-       <property name="text">
-        <string>0.0 km</string>
+     <item>
+      <layout class="QGridLayout" name="sizeControlLayout">
+       <property name="spacing">
+        <number>3</number>
        </property>
-       <property name="alignment">
-        <set>Qt::AlignCenter</set>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="1">
-      <widget class="QLabel" name="azimuthValue">
-       <property name="text">
-        <string>0.0°</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignCenter</set>
-       </property>
-      </widget>
+       <item row="0" column="0">
+        <widget class="QLabel" name="label_detSize">
+         <property name="toolTip">
+          <string>调整检测点的显示大小</string>
+         </property>
+         <property name="text">
+          <string>检测点大小</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QDoubleSpinBox" name="spinBoxDetSize">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="toolTip">
+          <string>检测点大小倍数 (0.5~3.0)</string>
+         </property>
+         <property name="suffix">
+          <string>x</string>
+         </property>
+         <property name="decimals">
+          <number>1</number>
+         </property>
+         <property name="minimum">
+          <double>0.500000000000000</double>
+         </property>
+         <property name="maximum">
+          <double>3.000000000000000</double>
+         </property>
+         <property name="singleStep">
+          <double>0.100000000000000</double>
+         </property>
+         <property name="value">
+          <double>1.000000000000000</double>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="label_trackSize">
+         <property name="toolTip">
+          <string>调整航迹点的显示大小</string>
+         </property>
+         <property name="text">
+          <string>航迹点大小</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QDoubleSpinBox" name="spinBoxTrackSize">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="toolTip">
+          <string>航迹点大小倍数 (0.5~3.0)</string>
+         </property>
+         <property name="suffix">
+          <string>x</string>
+         </property>
+         <property name="decimals">
+          <number>1</number>
+         </property>
+         <property name="minimum">
+          <double>0.500000000000000</double>
+         </property>
+         <property name="maximum">
+          <double>3.000000000000000</double>
+         </property>
+         <property name="singleStep">
+          <double>0.100000000000000</double>
+         </property>
+         <property name="value">
+          <double>1.000000000000000</double>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
     </layout>
    </item>

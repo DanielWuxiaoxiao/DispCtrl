@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:12
+ * @LastEditTime: 2026-01-30 11:45:45
  * @Description: 
  */
 /**
@@ -197,11 +197,11 @@ void DetPoint::resize(float ratio)
     if (ratio <= 0) ratio = 1.f;  // 防护性检查
     curRatio = ratio;              // 记录当前缩放比例
 
-    // 根据缩放比例计算新尺寸(反比关系：视图放大时点相对变小)
-    w = baseSmallW / ratio;
-    h = baseSmallH / ratio;
-    W = baseBigW   / ratio;
-    H = baseBigH   / ratio;
+    // 根据缩放比例计算新尺寸(正比关系：ratio越大点越大)
+    w = baseSmallW * ratio;
+    h = baseSmallH * ratio;
+    W = baseBigW   * ratio;
+    H = baseBigH   * ratio;
 
     setSmallRect();  // 以新尺寸更新显示矩形
 }
@@ -279,11 +279,11 @@ void TrackPoint::resize(float ratio)
     if (ratio <= 0) ratio = 1.f;  // 防护性检查
     curRatio = ratio;              // 记录当前缩放比例
 
-    // 航迹点也做等比缩放，避免显示问题
-    w = baseSmallW / ratio;
-    h = baseSmallH / ratio;
-    W = baseBigW   / ratio;
-    H = baseBigH   / ratio;
+    // 航迹点也做正比缩放，ratio越大点越大
+    w = baseSmallW * ratio;
+    h = baseSmallH * ratio;
+    W = baseBigW   * ratio;
+    H = baseBigH   * ratio;
 
     setSmallRect();  // 以新尺寸更新显示矩形
 }

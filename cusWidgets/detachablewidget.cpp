@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:17
+ * @LastEditTime: 2026-01-30 11:45:47
  * @Description: 
  */
 #include "detachablewidget.h"
@@ -48,6 +48,19 @@ DetachableWidget::DetachableWidget(QString name , QWidget* childWidget, QIcon ic
     setLayout(m_layout);
 }
 
+DetachableWidget::~DetachableWidget()
+{
+    m_destroying = true;
+    if (m_floatWindow) {
+        // 防止浮动窗关闭时的reattach在析构阶段操作已销毁的this
+        disconnect(m_floatWindow, nullptr, this, nullptr);
+        m_floatWindow->close();
+        m_child->setParent(this);
+        m_floatWindow = nullptr;
+    }
+    // m_child 会作为普通子控件随父窗口一起析构
+}
+
 void DetachableWidget::detach() {
     if (m_floatWindow) return; // 已经在外面了
 
@@ -64,7 +77,7 @@ void DetachableWidget::detach() {
 }
 
 void DetachableWidget::reattach() {
-    if (!m_floatWindow) return;
+    if (!m_floatWindow || m_destroying) return;
 
     m_child->setParent(this);
     m_layout->addWidget(m_child); // 加回布局

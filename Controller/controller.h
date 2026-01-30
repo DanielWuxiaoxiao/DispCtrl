@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:11
+ * @LastEditTime: 2026-01-30 11:45:45
  * @Description: 
  */
 /**
@@ -47,6 +47,7 @@
 
 // 前向声明 - 各子系统管理器
 class Disp2ResManager;    ///< 显示到资源管理器
+class Res2DispManager;    ///< 资源到显示管理器
 class Disp2SigManager;    ///< 显示到信号管理器
 class sig2dispmanager;    ///< 信号到显示管理器
 class sig2dispmanager2;   ///< 信号到显示管理器2
@@ -288,8 +289,23 @@ signals:
      */
     void bitReport(BITReport res);
 
+    /**
+     * @brief 扫描角度变化信号（来自BIT上报，单位：度）
+     * @param angleDeg 扫描角度（0-360度）
+     * @details 用于实时更新显控扫描线的位置
+     */
+    void scanAngleChanged(double angleDeg);
+
     // 扫描航向角（来自控制表，单位度）
     void scanHeadingChanged(double headingDeg);
+
+    /**
+     * @brief 扫描范围变化信号（来自工作模式参数，单位：度）
+     * @param startDeg 扫描起始角度
+     * @param endDeg 扫描结束角度
+     * @details 用于更新显控扫描范围
+     */
+    void scanRangeChanged(double startDeg, double endDeg);
 
     // === 外部雷控链路 ===
     void externalSystemCtrlAck(QByteArray ack64);
@@ -305,9 +321,17 @@ signals:
 public slots:
     void updateHeadingFromCtrlTable(double headingDeg);
 
+    /**
+     * @brief 处理BIT上报信息
+     * @param res BIT上报数据
+     * @details 解析扫描角度并发送scanAngleChanged信号
+     */
+    void onBITReport(BITReport res);
+
 private:
     // === 子系统管理器实例 ===
     Disp2ResManager* resMgr;       ///< 显示到资源管理器
+    Res2DispManager* resRecvMgr;   ///< 资源到显示管理器
     Disp2SigManager* sigMgr;       ///< 显示到信号管理器
     Disp2PhotoManager* photoMgr;   ///< 显示到光电管理器
     sig2dispmanager* sigRecvMgr;   ///< 信号到显示管理器

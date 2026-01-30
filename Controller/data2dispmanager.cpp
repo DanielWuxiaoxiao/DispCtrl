@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:34
+ * @LastEditTime: 2026-01-30 11:45:45
  * @Description: 
  */
 #include "data2dispmanager.h"
@@ -28,7 +28,7 @@ Data2DispManager::Data2DispManager(QObject *parent) : QObject(parent)
     port = CF_INS.port("DATA_PRO_2_DISP",DATA_PRO_2_DISP);
     connect(socket, &ThreadedUdpSocket::traInfo, this, &Data2DispManager::traInfoDecode);
     connect(socket, &ThreadedUdpSocket::servoCtrlRet, CON_INS, &Controller::servoCtrlRet);
-    connect(socket, &ThreadedUdpSocket::bitReport, CON_INS, &Controller::bitReport);
+    connect(socket, &ThreadedUdpSocket::bitReport, CON_INS, &Controller::onBITReport);
     connect(this,&Data2DispManager::traInfoProcess,CON_INS, &Controller::traInfoProcess);
 }
 

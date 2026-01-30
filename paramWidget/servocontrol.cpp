@@ -1,13 +1,15 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-01-09 15:09:57
+ * @Date: 2026-01-15 14:23:10
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:15
+ * @LastEditTime: 2026-01-30 11:45:48
  * @Description: 
  */
 #include "servocontrol.h"
 #include "ui_servocontrol.h"
+#include "Basic/ConfigManager.h"
+#include "cusWidgets/custommessagebox.h"
 #include <QPushButton>
 #include <algorithm>
 
@@ -33,10 +35,25 @@ ServoControl::ServoControl(QWidget *parent) :
     ui->cmdCombo->addItem(tr("方位归北"), 3);
 
     ui->speedSpin->setRange(0, 255);
-    ui->speedSpin->setValue(10);
     ui->angleSpin->setRange(0.0, 360.0);
     ui->angleSpin->setDecimals(2);
     ui->angleSpin->setSingleStep(0.1);
+
+    // 从配置文件加载默认值
+    qInfo() << "ServoControl: Loading from ConfigManager...";
+    qInfo() << "  Config file path:" << CF_INS.getConfigFilePath();
+    qInfo() << "  servoCmd:" << CF_INS.servoCmd(0);
+    qInfo() << "  servoSpeed:" << CF_INS.servoSpeed(10);
+    qInfo() << "  servoAz:" << CF_INS.servoAz(0);
+
+    ui->cmdCombo->setCurrentIndex(CF_INS.servoCmd(0));
+    ui->speedSpin->setValue(CF_INS.servoSpeed(10));
+    ui->angleSpin->setValue(CF_INS.servoAz(0) / 100.0);
+
+    // 连接保存按钮
+    if (ui->saveButton) {
+        connect(ui->saveButton, &QPushButton::clicked, this, &ServoControl::onSaveToConfig);
+    }
 }
 
 ServoControl::~ServoControl()
@@ -77,4 +94,33 @@ void ServoControl::onCancel()
         w = w->parentWidget();
     }
     close();
+}
+
+void ServoControl::onSaveToConfig()
+{
+    // 弹出确认对话框
+    if (!CustomMessageBox::showConfirm(this, tr("确认保存"),
+                                       tr("是否将当前参数保存到配置文件？\n下次启动将自动加载这些参数。"))) {
+        return;
+    }
+
+    // 获取当前UI参数
+    unsigned char cmd = static_cast<unsigned char>(ui->cmdCombo->currentData().toInt());
+    unsigned char speed = static_cast<unsigned char>(ui->speedSpin->value());
+    double angleDeg = ui->angleSpin->value();
+    int angle = static_cast<int>(angleDeg * 100.0 + 0.5);
+    angle = std::clamp(angle, 0, 36000);
+    unsigned short az = static_cast<unsigned short>(angle);
+
+    // 保存到ConfigManager
+    CF_INS.saveServoParam(cmd, speed, az);
+
+    // 保存到文件
+    if (CF_INS.save()) {
+        CustomMessageBox::showInfo(this, tr("保存成功"),
+                                  tr("伺服控制参数已保存到配置文件！\n下次启动将自动加载这些参数。"));
+    } else {
+        CustomMessageBox::showWarning(this, tr("保存失败"),
+                                     tr("无法保存配置文件，请检查文件权限。"));
+    }
 }

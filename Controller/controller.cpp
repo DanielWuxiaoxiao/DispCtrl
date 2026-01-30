@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:11
+ * @LastEditTime: 2026-01-30 11:45:45
  * @Description: 
  */
 /**
@@ -24,6 +24,7 @@
 
 #include "controller.h"
 #include "disp2resmanager.h"
+#include "res2dispmanager.h"
 #include "disp2sigmanager.h"
 #include "disp2photomanager.h"
 #include "sig2dispmanager.h"
@@ -78,6 +79,7 @@ void Controller::init()
 {
     // === 创建子系统管理器实例 ===
     resMgr = new Disp2ResManager(this);        // 显示到资源管理器
+    resRecvMgr = new Res2DispManager(this);    // 资源到显示管理器
     sigMgr = new Disp2SigManager(this);        // 显示到信号管理器
     photoMgr = new Disp2PhotoManager(this);    // 显示到光电管理器
     sigRecvMgr = new sig2dispmanager(this);    // 信号到显示管理器
@@ -145,4 +147,20 @@ bool Controller::sendExternalServoControl(const QByteArray& frame32) {
 
 void Controller::updateHeadingFromCtrlTable(double headingDeg) {
     emit scanHeadingChanged(headingDeg);
+}
+
+void Controller::onBITReport(BITReport res) {
+    qDebug() << "[Controller] onBITReport called - yaw:" << res.yaw
+             << "scanAngle:" << res.scanAngle;
+
+    // 转发BIT上报信号
+    emit bitReport(res);
+
+    qDebug() << "[Controller] bitReport signal emitted";
+
+    // 解析扫描角度（量化单位0.01度）
+    double scanAngle = res.scanAngle * 0.01;  // 转换为度
+
+    // 发送扫描角度变化信号，用于更新显控扫描线位置
+    emit scanAngleChanged(scanAngle);
 }

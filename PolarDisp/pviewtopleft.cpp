@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:12
+ * @LastEditTime: 2026-01-30 11:45:46
  * @Description: 
  */
 #include "pviewtopleft.h"
@@ -25,12 +25,10 @@ mainviewTopLeft::mainviewTopLeft(QWidget *parent) :
     ui->lat->setToolTip("纬度(-90°~90°)");
     ui->label_3->setToolTip("海拔高度");
     ui->height->setToolTip("高度(米)");
-    ui->label_4->setToolTip("阵面指北角");
+    ui->label_4->setToolTip("阵面偏航");
     ui->dir->setToolTip("指北角(0°~360°)");
     ui->label_6->setToolTip("倾角");
     ui->yaw->setToolTip("俯仰倾角(度)");
-    ui->label_7->setToolTip("横滚");
-    ui->roll->setToolTip("横滚角(度)");
 
     // 从配置文件初始化雷达位置信息
     ui->lineEdit->setText(QString::number(CF_INS.longitude(), 'f', 6));   // 经度
@@ -38,7 +36,6 @@ mainviewTopLeft::mainviewTopLeft(QWidget *parent) :
     ui->height->setText(QString::number(CF_INS.altitude(), 'f', 1));      // 高度
     ui->dir->setText(QString::number(CF_INS.azimuth(), 'f', 1));          // 阵面指北角
     ui->yaw->setText(QString::number(CF_INS.pitch(), 'f', 1));            // 倾角（俯仰角）
-    ui->roll->setText(QString::number(CF_INS.roll(), 'f', 1));            // 横滚
 }
 
 void mainviewTopLeft::paintEvent(QPaintEvent* event) {
@@ -51,6 +48,13 @@ void mainviewTopLeft::paintEvent(QPaintEvent* event) {
     // 绘制背景色和圆角
     // 注意：这里直接使用 QStyle 绘制，可以更好地处理样式表中的属性
     style()->drawPrimitive(QStyle::PE_Widget, &o, &painter, this);
+}
+
+void mainviewTopLeft::onBITReport(BITReport report) {
+    // 更新阵面指北角（偏航角）
+    // yaw是0.01度量化，转换为度
+    double yawDegree = report.yaw * 0.01;
+    ui->dir->setText(QString::number(yawDegree, 'f', 2));
 }
 
 mainviewTopLeft::~mainviewTopLeft()

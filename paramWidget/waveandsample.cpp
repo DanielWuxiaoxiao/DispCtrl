@@ -3,11 +3,13 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:16
+ * @LastEditTime: 2026-01-30 11:45:49
  * @Description: 
  */
 #include "waveandsample.h"
 #include "ui_waveandsample.h"
+#include "Basic/ConfigManager.h"
+#include "cusWidgets/custommessagebox.h"
 #include <QPushButton>
 
 waveAndSample::waveAndSample(QWidget *parent) :
@@ -15,7 +17,7 @@ waveAndSample::waveAndSample(QWidget *parent) :
     ui(new Ui::waveAndSample)
 {
     ui->setupUi(this);
-    setFixedSize(1200,600);
+    setFixedSize(1200, 900);  // 增加高度从600到900，给控件足够的空间
 
     setWindowTitle(tr("波形及采样控制"));
 
@@ -23,13 +25,11 @@ waveAndSample::waveAndSample(QWidget *parent) :
     disconnect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
     disconnect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
-    ui->buttonBox->button(QDialogButtonBox::Ok)->setText("确定下发");
-    ui->buttonBox->button(QDialogButtonBox::Cancel)->setText("取消");
-    // 连接按钮信号到自定义槽
-
     connect(ui->buttonBox->button(QDialogButtonBox::Ok), &QPushButton::clicked, this, &waveAndSample::onAccept);
-    // 连接按钮信号到自定义槽
     connect(ui->buttonBox->button(QDialogButtonBox::Cancel), &QPushButton::clicked, this, &waveAndSample::onCancel);
+
+    ui->buttonBox->button(QDialogButtonBox::Ok)->setText(tr("确定下发"));
+    ui->buttonBox->button(QDialogButtonBox::Cancel)->setText(tr("取消"));
 
     connect(ui->wave1,static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),this,[this](int index){
         auto timeWidth = timeWidths[index];
@@ -52,6 +52,17 @@ waveAndSample::waveAndSample(QWidget *parent) :
         ui->samplestart3->setText(QString::number(1.0f + timeWidth + 1.0f));
         ui->samplelen3->setText(QString::number(float(PRT-1.0f)));
     });
+
+    // 连接保存按钮
+    if (ui->saveButton) {
+        connect(ui->saveButton, &QPushButton::clicked, this, &waveAndSample::onSaveToConfig);
+    }
+
+    // 统一设置所有LineEdit的最小高度，使其与ComboBox协调
+    QList<QLineEdit*> lineEdits = findChildren<QLineEdit*>();
+    for (QLineEdit* lineEdit : lineEdits) {
+        lineEdit->setMinimumHeight(32);
+    }
 
 }
 
@@ -80,13 +91,6 @@ void waveAndSample::onAccept()
         param.flagNum++;
     }
 
-    param.freqID = ui->freq->currentIndex() * 10;  // 0-8 映射到 0-80 的频点值
-    param.type = ui->type->currentIndex() + 1;
-
-    param.aziStart = ui->azistart->text().toFloat() / 0.01f;
-    param.aziEnd = ui->aziend->text().toFloat() / 0.01f;
-    param.aziStep = ui->azistep->text().toFloat() / 0.01f;
-
     if(ui->enable3->checkState() == 0)
     {
         param.beam3Flag = 0;
@@ -97,13 +101,19 @@ void waveAndSample::onAccept()
         param.flagNum++;
     }
 
+    param.freqID = ui->freq->currentIndex() * 10;  // 0-7 直接使用索引值（协议 2.2.1.5）
+    param.type = ui->type->currentIndex() + 1;
+
+    param.aziStart = ui->azistart->text().toFloat() / 0.01f;
+    param.aziEnd = ui->aziend->text().toFloat() / 0.01f;
+    param.aziStep = ui->azistep->text().toFloat() / 0.01f;
+
     param.beam1Code = ui->wave1->currentIndex();
     param.beam2Code = ui->wave2->currentIndex();
     param.beam3Code = ui->wave3->currentIndex();
 
-    param.pulseNum1 = ui->pulseNum1->currentText().toUInt();
-    param.pulseNum2 = ui->pulseNum2->currentText().toUInt();
-    param.pulseNum3 = ui->pulseNum3->currentText().toUInt();
+    // 统一的积累脉冲数（从任一波形的输入框读取，三个波形共用）
+    param.pulseNum = ui->pulseNum1->currentText().toUInt();
 
     param.sampleStart1 = ui->samplestart1->text().toFloat()/0.1f;
     param.sampleStart2 = ui->samplestart2->text().toFloat()/0.1f;
@@ -160,7 +170,7 @@ void waveAndSample::restoreParam(const BeamControl &param)
     else
         ui->enable3->setCheckState(Qt::Checked);
 
-    //获取保存的�?
+    //获取保存的值
     ui->samplestart1->setText(QString::number(param.sampleStart1*0.1f));
     ui->samplestart2->setText(QString::number(param.sampleStart2*0.1f));
     ui->samplestart3->setText(QString::number(param.sampleStart3*0.1f));
@@ -169,31 +179,14 @@ void waveAndSample::restoreParam(const BeamControl &param)
     ui->wave2->setCurrentIndex(param.beam2Code);
     ui->wave3->setCurrentIndex(param.beam3Code);
 
-    //此时不会触发combobox的函数，必须在默认值结构体里写出这个�?
-//    auto timeWidth = timeWidths[param.beam1Code];
-//    auto PRT = PRTs[param.beam1Code];
-//    ui->samplestart1->setText(QString::number(ui->tran1->text().toFloat()+timeWidth+1.0f));
-//    ui->samplelen1->setText(QString::number(float(PRT-1))); //ui的samplelen实际是终止�?
-
-//    timeWidth = timeWidths[param.beam2Code];
-//    PRT = PRTs[param.beam2Code];
-//    ui->samplestart2->setText(QString::number(ui->tran2->text().toFloat()+timeWidth+1.0f));
-//    ui->samplelen2->setText(QString::number(float(PRT-1)));
-
-//    timeWidth = timeWidths[param.beam3Code];
-//    PRT = PRTs[param.beam3Code];
-//    ui->samplestart3->setText(QString::number(ui->tran3->text().toFloat()+timeWidth+1.0f));
-//    ui->samplelen3->setText(QString::number(float(PRT-1)));
-
-    ui->freq->setCurrentIndex(param.freqID / 10);  // 0-80 映射回 0-8 的索引
+    ui->freq->setCurrentIndex(param.freqID / 10);  // 0-7 直接使用索引值（协议 2.2.1.5）
     ui->type->setCurrentIndex(param.type - 1);
     ui->azistart->setText(QString::number(param.aziStart*0.01f));
     ui->aziend->setText(QString::number(param.aziEnd*0.01f));
     ui->azistep->setText(QString::number(param.aziStep*0.01f));
 
-    ui->pulseNum1->setCurrentText(QString::number(param.pulseNum1));
-    ui->pulseNum2->setCurrentText(QString::number(param.pulseNum2));
-    ui->pulseNum3->setCurrentText(QString::number(param.pulseNum3));
+    // 统一的积累脉冲数
+    ui->pulseNum1->setCurrentText(QString::number(param.pulseNum));
 
     //获取保存的值 - UI中的samplelen实际显示的是采样终止
     ui->samplelen1->setText(QString::number(param.sampleEnd1*0.1f));
@@ -211,6 +204,56 @@ void waveAndSample::restoreParam(const BeamControl &param)
     ui->elestep1->setText(QString::number(param.elestep1*0.01f));
     ui->elestep2->setText(QString::number(param.elestep2*0.01f));
     ui->elestep3->setText(QString::number(param.elestep3*0.01f));
+}
+
+void waveAndSample::onSaveToConfig()
+{
+    // 弹出确认对话框
+    if (!CustomMessageBox::showConfirm(this, tr("确认保存"),
+                                       tr("是否将当前波形参数保存到配置文件？\n下次启动将自动加载这些参数。"))) {
+        return;
+    }
+
+    // 提取UI值 - 从UI控件读取所有参数
+    unsigned char freqID = ui->freq->currentIndex() * 10;
+    unsigned char type = ui->type->currentIndex() + 1;
+    short aziStart = ui->azistart->text().toFloat() / 0.01f;
+    short aziEnd = ui->aziend->text().toFloat() / 0.01f;
+    short aziStep = ui->azistep->text().toFloat() / 0.01f;
+
+    unsigned char flagNum = 0;
+    unsigned char beam1Flag = (ui->enable1->checkState() == Qt::Checked) ? 1 : 0;
+    unsigned char beam2Flag = (ui->enable2->checkState() == Qt::Checked) ? 1 : 0;
+    unsigned char beam3Flag = (ui->enable3->checkState() == Qt::Checked) ? 1 : 0;
+    if (beam1Flag) flagNum++;
+    if (beam2Flag) flagNum++;
+    if (beam3Flag) flagNum++;
+
+    unsigned short pulseNum = ui->pulseNum1->currentText().toUInt();
+
+    // 保存波形参数到配置
+    CF_INS.saveBeamControlParam(freqID, type, aziStart, aziEnd, aziStep, flagNum, pulseNum,
+                               beam1Flag, ui->wave1->currentIndex(),
+                               ui->samplestart1->text().toFloat() / 0.1f, ui->samplelen1->text().toFloat() / 0.1f,
+                               ui->elestart1->text().toFloat() / 0.01f, ui->eleend1->text().toFloat() / 0.01f,
+                               ui->elestep1->text().toFloat() / 0.01f,
+                               beam2Flag, ui->wave2->currentIndex(),
+                               ui->samplestart2->text().toFloat() / 0.1f, ui->samplelen2->text().toFloat() / 0.1f,
+                               ui->elestart2->text().toFloat() / 0.01f, ui->eleend2->text().toFloat() / 0.01f,
+                               ui->elestep2->text().toFloat() / 0.01f,
+                               beam3Flag, ui->wave3->currentIndex(),
+                               ui->samplestart3->text().toFloat() / 0.1f, ui->samplelen3->text().toFloat() / 0.1f,
+                               ui->elestart3->text().toFloat() / 0.01f, ui->eleend3->text().toFloat() / 0.01f,
+                               ui->elestep3->text().toFloat() / 0.01f);
+
+    // 保存到文件
+    if (CF_INS.save()) {
+        CustomMessageBox::showInfo(this, tr("保存成功"),
+                                  tr("波形参数已保存到配置文件！\n下次启动将自动加载这些参数。"));
+    } else {
+        CustomMessageBox::showWarning(this, tr("保存失败"),
+                                     tr("无法保存配置文件，请检查文件权限。"));
+    }
 }
 
 waveAndSample::~waveAndSample()

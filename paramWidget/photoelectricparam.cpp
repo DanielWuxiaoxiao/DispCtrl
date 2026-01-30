@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:15
+ * @LastEditTime: 2026-01-30 11:45:48
  * @Description: 
  */
 #include "photoelectricparam.h"
@@ -17,22 +17,21 @@ PhotoElectricParam::PhotoElectricParam(QWidget *parent) :
     ui->setupUi(this);
     setWindowTitle(tr("光电系统控制"));
         // 断开UI文件中的默认连接
-    disconnect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
-    disconnect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
+        disconnect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
+        disconnect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
-ui->buttonBox->button(QDialogButtonBox::Ok)->setText("确定下发");
-    ui->buttonBox->button(QDialogButtonBox::Cancel)->setText("取消");
+        connect(ui->buttonBox->button(QDialogButtonBox::Ok), &QPushButton::clicked, this, &PhotoElectricParam::onAccept);
+        connect(ui->buttonBox->button(QDialogButtonBox::Cancel), &QPushButton::clicked, this, &PhotoElectricParam::onCancel);
+
+        ui->buttonBox->button(QDialogButtonBox::Ok)->setText(tr("确定下发"));
+        ui->buttonBox->button(QDialogButtonBox::Cancel)->setText(tr("取消"));
 
     connect(ui->comboBox, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, [this](int index)
     {
         emit changePhotoParam(index);
         ui->photoTab->setCurrentIndex(index);
     });
-    // 连接按钮信号到自定义槽
-
-    connect(ui->buttonBox->button(QDialogButtonBox::Ok), &QPushButton::clicked, this, &PhotoElectricParam::onAccept);
-    // 连接按钮信号到自定义槽
-    connect(ui->buttonBox->button(QDialogButtonBox::Cancel), &QPushButton::clicked, this, &PhotoElectricParam::onCancel);
+    // 按钮信号已在上方统一连接
 
 
 //    ui->buttonBox->button(QDialogButtonBox::Ok)->setVisible(false);

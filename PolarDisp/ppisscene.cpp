@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:12
+ * @LastEditTime: 2026-01-30 11:45:46
  * @Description: 
  */
 /**
@@ -70,12 +70,19 @@ PPIScene::PPIScene(QObject *parent)
 
     m_scan = new ScanLayer(m_axis);
     addItem(m_scan);
-    m_scan->setSweepRange(-30, 30);    // 固定粉色扇区（30°~60°）
+    m_scan->setSweepRange(-30, 30);    // 默认扫描范围（-30°~30°），后续会根据工作模式更新
     m_scan->setScanMode(ScanLayer::Loop);
 
-    // 航向角更新：由控制表驱动，直接更新扫描线指向
-    connect(CON_INS, &Controller::scanHeadingChanged,
-        m_scan, &ScanLayer::setHeadingAngle);
+    // 连接BIT上报信号，实时更新扫描角度（波束指向）
+    connect(CON_INS, &Controller::bitReport,
+        m_scan, &ScanLayer::onBITReport);
+
+    // 扫描范围更新：从工作模式参数（TWS/TAS）设置的扫描范围
+    connect(CON_INS, &Controller::scanRangeChanged,
+        m_scan, &ScanLayer::setSweepRange);
+
+    // 注意：不再连接scanAngleChanged和scanHeadingChanged，避免与onBITReport冲突
+    // 扫描角度由BIT上报的scanAngle直接驱动
 
     // ensure axis->rangeChanged is forwarded
     connect(m_axis, &PolarAxis::rangeChanged, this, &PPIScene::rangeChanged);
@@ -92,6 +99,24 @@ PPIScene::PPIScene(QObject *parent)
     // 从Controller接收TBD航迹数据并添加到TrackManager
     connect(CON_INS, &Controller::tbdInfoProcess,
         m_track, &TrackManager::addTrackPoint);
+}
+
+/**
+ * @brief 析构函数
+ * @details 清理场景资源，特别处理单例 Tooltip：
+ *          - Tooltip 是 Q_GLOBAL_STATIC 创建的单例，不能被删除
+ *          - 必须在 QGraphicsScene 析构前将其从场景中移除
+ *          - 否则 QGraphicsScene 会尝试删除它，导致崩溃
+ */
+PPIScene::~PPIScene() {
+    // 从场景中移除 Tooltip 单例，但不删除它
+    // Tooltip 是全局静态对象，其生命周期由 Q_GLOBAL_STATIC 管理
+    if (m_tooltip) {
+        removeItem(m_tooltip);
+        m_tooltip = nullptr;  // 清空指针，避免悬空引用
+    }
+    // 其他组件（m_grid, m_det, m_track, m_scan, m_axis）
+    // 都是 QGraphicsItem 或 QObject 的子类，Qt 会自动管理它们的生命周期
 }
 
 /**
@@ -168,10 +193,14 @@ void PPIScene::initLayerObjects()
     m_grid = new PolarGrid(this, m_axis);
     m_det = new DetManager(this, m_axis);
     m_track = new TrackManager(this, m_axis);
-    m_tooltip = new Tooltip();
 
-    // 将 Tooltip 添加到场景中
-    addItem(TOOL_TIP);
+    // 使用单例 Tooltip，不要创建新实例
+    // Tooltip 是 Q_GLOBAL_STATIC 管理的全局单例
+    m_tooltip = TOOL_TIP;
+
+    // 将 Tooltip 单例添加到场景中
+    // 注意：析构时必须先 removeItem，否则 QGraphicsScene 会尝试删除它导致崩溃
+    addItem(m_tooltip);
 
     // 联动：有 range 改变时，网格重绘，点迹重定位/隐藏
     connect(this, &PPIScene::rangeChanged, m_grid, &PolarGrid::updateGrid);

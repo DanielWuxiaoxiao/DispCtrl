@@ -3,11 +3,13 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:14
+ * @LastEditTime: 2026-01-30 11:45:47
  * @Description: 
  */
 #include "dataprocessui.h"
 #include "ui_dataprocessui.h"
+#include "Basic/ConfigManager.h"
+#include "cusWidgets/custommessagebox.h"
 #include <QPushButton>
 #include <QDebug>
 
@@ -21,13 +23,16 @@ DataProcessUI::DataProcessUI(QWidget *parent) :
     disconnect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
     disconnect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
-ui->buttonBox->button(QDialogButtonBox::Ok)->setText("确定下发");
-    ui->buttonBox->button(QDialogButtonBox::Cancel)->setText("取消");
-    // 连接按钮信号到自定义槽
-
     connect(ui->buttonBox->button(QDialogButtonBox::Ok), &QPushButton::clicked, this, &DataProcessUI::onAccept);
-    // 连接按钮信号到自定义槽
     connect(ui->buttonBox->button(QDialogButtonBox::Cancel), &QPushButton::clicked, this, &DataProcessUI::onCancel);
+
+    ui->buttonBox->button(QDialogButtonBox::Ok)->setText(tr("确定下发"));
+    ui->buttonBox->button(QDialogButtonBox::Cancel)->setText(tr("取消"));
+
+    // 连接保存按钮
+    if (ui->saveButton) {
+        connect(ui->saveButton, &QPushButton::clicked, this, &DataProcessUI::onSaveToConfig);
+    }
 }
 
 
@@ -96,6 +101,43 @@ void DataProcessUI::restoreParam(const DataProParam &param)
     ui->azigate->setText(QString::number(float(param.accuAziGate)*0.1f));
     ui->elegate->setText(QString::number(float(param.accuEleGate)*0.1f));
     ui->dopgate->setText(QString::number(float(param.accuVelGate)*0.1f));
+}
+
+void DataProcessUI::onSaveToConfig()
+{
+    // 弹出确认对话框
+    if (!CustomMessageBox::showConfirm(this, tr("确认保存"),
+                                       tr("是否将当前数据处理参数保存到配置文件？\n下次启动将自动加载这些参数。"))) {
+        return;
+    }
+
+    // 提取UI值（必须与onAccept()保持完全一致的转换逻辑）
+    CF_INS.saveDataProParam(
+        ui->batchwinlen->text().toFloat(),              // startWinLen (unsigned char)
+        ui->batchnum->text().toFloat(),                 // startPoint (unsigned char)
+        ui->endlen->text().toFloat(),                   // endWinLen (unsigned char)
+        ui->endnum->text().toFloat(),                   // endPoint (unsigned char)
+        ui->noisevar->text().toFloat() * 100,           // noiseVar (unsigned short)
+        ui->trackdown->text().toFloat() * 10,           // trackDisLower (unsigned short)
+        ui->trackup->text().toFloat() * 10,             // trackDisUpper (unsigned short)
+        ui->trackazithr->text().toFloat() * 10,         // trackAziThresh (unsigned short)
+        ui->trackelethr->text().toFloat() * 10,         // trackEleThresh (unsigned short)
+        ui->trackvelthr->text().toFloat() * 10,         // trackVelThresh (unsigned short)
+        ui->trackgatedisthr->text().toFloat() * 10,     // trackStatThresh (unsigned short)
+        ui->disgate->text().toFloat(),                  // accuDisGate (unsigned char) - 不乘10
+        ui->azigate->text().toFloat() * 10,             // accuAziGate (unsigned char) - 乘10
+        ui->elegate->text().toFloat() * 10,             // accuEleGate (unsigned char) - 乘10
+        ui->dopgate->text().toFloat() * 10              // accuVelGate (unsigned char) - 乘10
+    );
+
+    // 保存到文件
+    if (CF_INS.save()) {
+        CustomMessageBox::showInfo(this, tr("保存成功"),
+                                  tr("数据处理参数已保存到配置文件！\n下次启动将自动加载这些参数。"));
+    } else {
+        CustomMessageBox::showWarning(this, tr("保存失败"),
+                                     tr("无法保存配置文件，请检查文件权限。"));
+    }
 }
 
 DataProcessUI::~DataProcessUI()

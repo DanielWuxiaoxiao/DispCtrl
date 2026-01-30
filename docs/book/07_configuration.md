@@ -28,5 +28,5 @@ mode = "standard"  # standard | satellite | none
 - `webengine.remote_debug`：是否启用 WebEngine 远程调试（布署时谨慎开启）。
 
 ## 部署建议
-- 将 `config.toml` 放在可写目录并与二进制一同部署。  
+- 将 `config.toml` 放在可写目录并与二进制一同部署。
 - 在集中化管理场景下，可把 `config.toml` 做成环境特定模板并使用 CI 填充。

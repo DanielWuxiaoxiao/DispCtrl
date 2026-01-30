@@ -86,6 +86,7 @@ SOURCES += \
     Controller/disp2monmanager.cpp \
     Controller/disp2photomanager.cpp \
     Controller/disp2resmanager.cpp \
+    Controller/res2dispmanager.cpp \
     Controller/disp2sigmanager.cpp \
     Controller/mon2dispmanager.cpp \
     Controller/sig2dispmanager.cpp \
@@ -106,6 +107,8 @@ SOURCES += \
     paramWidget/scanrangeui.cpp \
     paramWidget/photoelectricparam.cpp \
     paramWidget/servocontrol.cpp \
+    paramWidget/twsmodedialog.cpp \
+    paramWidget/tasmodedialog.cpp \
     \
     # 点管理模块 - 检测点和航迹管理
     PointManager/detmanager.cpp \
@@ -127,6 +130,8 @@ SOURCES += \
     PolarDisp/sectorpolargrid.cpp \
     PolarDisp/sectorscene.cpp \
     PolarDisp/sectorwidget.cpp \
+    PolarDisp/rangeazimuthwidget.cpp \
+    PolarDisp/rangeazimuthchart.cpp \
     PolarDisp/tooltip.cpp \
     PolarDisp/zoomview.cpp \
     \
@@ -140,6 +145,7 @@ SOURCES += \
     cusWidgets/customcombobox.cpp \
     cusWidgets/customspinbox.cpp \
     cusWidgets/customspinboxstyle.cpp \
+    cusWidgets/customlinechart.cpp \
     \
     # 主程序和主界面
     main.cpp \
@@ -172,6 +178,7 @@ HEADERS += \
     Controller/disp2monmanager.h \
     Controller/disp2photomanager.h \
     Controller/disp2resmanager.h \
+    Controller/res2dispmanager.h \
     Controller/disp2sigmanager.h \
     Controller/mon2dispmanager.h \
     Controller/sig2dispmanager.h \
@@ -192,6 +199,8 @@ HEADERS += \
     paramWidget/scanrangeui.h \
     paramWidget/photoelectricparam.h \
     paramWidget/servocontrol.h \
+    paramWidget/twsmodedialog.h \
+    paramWidget/tasmodedialog.h \
     \
     # 点管理模块头文件
     PointManager/detmanager.h \
@@ -213,6 +222,8 @@ HEADERS += \
     PolarDisp/sectorpolargrid.h \
     PolarDisp/sectorscene.h \
     PolarDisp/sectorwidget.h \
+    PolarDisp/rangeazimuthwidget.h \
+    PolarDisp/rangeazimuthchart.h \
     PolarDisp/tooltip.h \
     PolarDisp/zoomview.h \
     \
@@ -226,6 +237,7 @@ HEADERS += \
     cusWidgets/customcombobox.h \
     cusWidgets/customspinbox.h \
     cusWidgets/customspinboxstyle.h \
+    cusWidgets/customlinechart.h \
     \
     # 主界面头文件
     mainwindow.h \
@@ -258,7 +270,9 @@ FORMS += \
     paramWidget/waveandsample.ui \
     paramWidget/scanrangeui.ui \
     paramWidget/photoelectricparam.ui \
-    paramWidget/servocontrol.ui
+    paramWidget/servocontrol.ui \
+    paramWidget/twsmodedialog.ui \
+    paramWidget/tasmodedialog.ui
 
 ##############################################################################
 # 资源文件配置

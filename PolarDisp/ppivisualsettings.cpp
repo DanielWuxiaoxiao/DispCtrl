@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-23 09:44:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 15:56:15
+ * @LastEditTime: 2026-01-30 11:45:46
  * @Description: 
  */
 /**
@@ -27,6 +27,7 @@
 #include "ui_ppivisualsettings.h"
 #include "Basic/ConfigManager.h"
 #include "Basic/DispBasci.h" // for MAX_RANGE and other display constants
+#include "cusWidgets/custommessagebox.h"
 #include <QDoubleValidator>
 #include <QPainter>
 #include <QStyleOption>
@@ -71,6 +72,10 @@ PPIVisualSettings::PPIVisualSettings(QWidget *parent)
     QDoubleValidator* distanceValidator = new QDoubleValidator(1.0, 99999.0, 2, this);
     ui->maxDistanceEdit->setValidator(distanceValidator);
 
+    // 为监测点数量输入框设置验证器（整数）
+    QIntValidator* pointsValidator = new QIntValidator(100, 1000000, this);
+    ui->maxPointsEdit->setValidator(pointsValidator);
+
     // 连接信号槽
     connectSignals();
 
@@ -81,9 +86,14 @@ PPIVisualSettings::PPIVisualSettings(QWidget *parent)
     int defaultMapType = CF_INS.mapType("default_type", 1);
     ui->mapTypeCombo->setCurrentIndex(defaultMapType); // 使用配置的默认地图类型
 
+    // 设置默认最大监测点数量
+    int maxPoints = CF_INS.displayConfig("max_points", 10000);
+    ui->maxPointsEdit->setText(QString::number(maxPoints));
+
     // 设置工具提示
     ui->maxDistanceEdit->setToolTip("设置雷达显示的最大距离范围");
     ui->mapTypeCombo->setToolTip("选择背景地图显示类型");
+    ui->maxPointsEdit->setToolTip("设置最大检测点数量，超出后删除旧数据");
 
     // 样式设置完成
 }
@@ -140,6 +150,26 @@ void PPIVisualSettings::setMapType(int index)
 }
 
 /**
+ * @brief 获取当前最大监测点数量设置
+ * @return 最大监测点数量
+ * @details 从UI控件读取当前的最大监测点数量配置
+ */
+int PPIVisualSettings::getMaxPoints() const
+{
+    return ui->maxPointsEdit->text().toInt();
+}
+
+/**
+ * @brief 设置最大监测点数量
+ * @param maxPoints 最大监测点数量
+ * @details 程序化设置最大监测点数量，更新UI显示但不触发信号
+ */
+void PPIVisualSettings::setMaxPoints(int maxPoints)
+{
+    ui->maxPointsEdit->setText(QString::number(maxPoints));
+}
+
+/**
  * @brief 距离输入回车处理
  * @details 响应用户在距离输入框中按下回车键，验证并应用新的距离设置
  *
@@ -167,6 +197,32 @@ void PPIVisualSettings::onDistanceEditReturnPressed()
         QMessageBox::warning(this, "输入错误", "请输入有效的距离值 (1-99999 km)");
         ui->maxDistanceEdit->selectAll();
         ui->maxDistanceEdit->setFocus();
+    }
+}
+
+/**
+ * @brief 最大监测点数量输入回车处理
+ * @details 响应用户在监测点数量输入框中按下回车键，验证并应用新的数量限制
+ *
+ * 处理流程：
+ * 1. 获取输入值：从LineEdit控件读取用户输入
+ * 2. 数值转换：将文本转换为int类型数值
+ * 3. 有效性验证：检查是否在合理范围内 (100-1000000)
+ * 4. 信号发射：如果有效，发出maxPointsChanged信号
+ * 5. 错误处理：如果无效，显示错误提示并恢复原值
+ */
+void PPIVisualSettings::onMaxPointsEditReturnPressed()
+{
+    bool ok;
+    int maxPoints = ui->maxPointsEdit->text().toInt(&ok);
+
+    if (ok && maxPoints >= 100 && maxPoints <= 1000000) {
+        emit maxPointsChanged(maxPoints);
+    } else {
+        // 输入无效，提示用户
+        QMessageBox::warning(this, "输入错误", "请输入有效的监测点数量 (100-1000000)");
+        ui->maxPointsEdit->selectAll();
+        ui->maxPointsEdit->setFocus();
     }
 }
 
@@ -207,9 +263,12 @@ void PPIVisualSettings::setupStyle()
     setObjectName("PPIVisualSettings");
     ui->label_distance->setObjectName("PPIDistanceLabel");
     ui->label_map->setObjectName("PPIMapLabel");
+    ui->label_maxPoints->setObjectName("PPIMaxPointsLabel");
     ui->maxDistanceEdit->setObjectName("PPIDistanceEdit");
     ui->mapTypeCombo->setObjectName("PPIMapCombo");
+    ui->maxPointsEdit->setObjectName("PPIMaxPointsEdit");
     ui->measureBtn->setObjectName("PPIMeasureBtn");
+    ui->clearDisplayBtn->setObjectName("PPIClearDisplayBtn");
 }
 
 /**
@@ -270,11 +329,17 @@ void PPIVisualSettings::connectSignals()
     connect(ui->maxDistanceEdit, &QLineEdit::returnPressed,
             this, &PPIVisualSettings::onDistanceEditReturnPressed);
 
+    connect(ui->maxPointsEdit, &QLineEdit::returnPressed,
+            this, &PPIVisualSettings::onMaxPointsEditReturnPressed);
+
     connect(ui->mapTypeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &PPIVisualSettings::onMapTypeChanged);
 
     connect(ui->measureBtn, &QPushButton::toggled,
             this, &PPIVisualSettings::onMeasureToggled);
+
+    connect(ui->clearDisplayBtn, &QPushButton::clicked,
+            this, &PPIVisualSettings::onClearDisplayClicked);
 }
 
 /**
@@ -311,4 +376,26 @@ bool PPIVisualSettings::validateDistance(double distance) const
 void PPIVisualSettings::onMeasureToggled(bool checked)
 {
     emit measureModeChanged(checked);
+}
+
+/**
+ * @brief 显清按钮点击处理
+ * @details 响应用户点击"显清"按钮，弹出确认对话框后清除P显数据
+ *
+ * 处理流程：
+ * 1. 弹出确认对话框：询问用户是否确认清除P显数据
+ * 2. 用户确认：如果用户点击"确认"按钮
+ * 3. 发出清除信号：通知PPIView清除检测点和航迹点数据
+ * 4. 不影响后续：清除仅针对现有数据，新数据可正常添加
+ *
+ * 安全设计：
+ * - 二次确认：避免误操作导致数据丢失
+ * - 清晰提示：明确告知用户操作后果
+ * - 信号解耦：通过信号槽实现与PPIView的松耦合
+ */
+void PPIVisualSettings::onClearDisplayClicked()
+{
+    if (CustomMessageBox::showConfirm(this, "清除P显确认", "是否确认清除P显数据？")) {
+        emit clearDisplayRequested();
+    }
 }

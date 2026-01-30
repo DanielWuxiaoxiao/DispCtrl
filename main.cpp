@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:13
+ * @LastEditTime: 2026-01-30 11:45:47
  * @Description: 
  */
 /**
@@ -116,6 +116,15 @@ int main(int argc, char *argv[]) {
     // =============================================================================
     qRegisterMetaType<QAbstractSocket::SocketState>("QAbstractSocket::SocketState");
     qRegisterMetaType<MonitorParam>("MonitorParam");
+
+    // 注册数据存储管理相关类型（用于跨线程信号传递）
+    qRegisterMetaType<DataSaveOK>("DataSaveOK");
+    qRegisterMetaType<DataDelOK>("DataDelOK");
+    qRegisterMetaType<OfflineStat>("OfflineStat");
+
+    // 注册BIT上报和伺服控制相关类型（用于跨线程信号传递）
+    qRegisterMetaType<BITReport>("BITReport");
+    qRegisterMetaType<ServoCtrlRet>("ServoCtrlRet");
 
     // =============================================================================
     // 第一步：Qt应用程序属性配置（必须在QApplication实例化之前）

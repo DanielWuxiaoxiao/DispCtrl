@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 15:56:15
+ * @LastEditTime: 2026-01-30 11:45:46
  * @Description: 
  */
 /**
@@ -24,6 +24,9 @@
 #include "ppivisualsettings.h"
 #include "polaraxis.h"
 #include "../Basic/log.h"
+#include "../PointManager/detmanager.h"
+#include "../PointManager/trackmanager.h"
+#include "../Controller/controller.h"
 
 #include <QMouseEvent>
 #include <QtMath>
@@ -259,6 +262,12 @@ void PPIView::setupOverlay() {
     mousePositionInfo = new MousePositionInfo(this);
     visualSettings = new PPIVisualSettings(this);
 
+    // 连接鼠标位置信息的可见性信号
+    connect(mousePositionInfo, &MousePositionInfo::detectionVisibilityChanged,
+            this, &PPIView::onDetectionVisibilityChanged);
+    connect(mousePositionInfo, &MousePositionInfo::trackVisibilityChanged,
+            this, &PPIView::onTrackVisibilityChanged);
+
     // 连接视觉设置信号
     connect(visualSettings, &PPIVisualSettings::maxDistanceChanged,
             this, &PPIView::onMaxDistanceChanged);
@@ -266,6 +275,14 @@ void PPIView::setupOverlay() {
             this, &PPIView::onMapTypeChanged);
     connect(visualSettings, &PPIVisualSettings::measureModeChanged,
             this, &PPIView::onMeasureModeChanged);
+    connect(visualSettings, &PPIVisualSettings::maxPointsChanged,
+            this, &PPIView::onMaxPointsChanged);
+    connect(visualSettings, &PPIVisualSettings::clearDisplayRequested,
+            this, &PPIView::onClearDisplayRequested);
+
+    // 连接Controller的BIT上报信号到雷达信息显示组件
+    connect(CON_INS, &Controller::bitReport,
+            radarInfoW, &mainviewTopLeft::onBITReport);
 
     layoutOverlay();
 }
@@ -813,6 +830,102 @@ void PPIView::onMeasureModeChanged(bool enabled)
         setDragMode(m_rubberBandZoom ? QGraphicsView::RubberBandDrag : QGraphicsView::ScrollHandDrag);
         setCursor(Qt::ArrowCursor);
         clearMeasureLine();  // 清除测距线
+    }
+}
+
+/**
+ * @brief 处理最大检测点数量变化
+ * @param maxPoints 新的最大检测点数量
+ * @details 响应PPIVisualSettings组件的最大检测点数量变化，转发给DetManager限制内存占用
+ */
+void PPIView::onMaxPointsChanged(int maxPoints)
+{
+    if (m_scene && m_scene->det()) {
+        m_scene->det()->setMaxPoints(maxPoints);
+        LOG_INFO(QString("Max detection points limit updated: %1").arg(maxPoints));
+    }
+}
+
+/**
+ * @brief 处理清除P显数据请求
+ * @details 清除检测点和航迹点数据，但不影响后续新数据的添加
+ *
+ * 清除内容：
+ * 1. 检测点数据：调用DetManager的clear()清除所有检测点
+ * 2. 航迹点数据：调用TrackManager的clear()清除所有航迹点
+ * 3. 保留配置：不影响最大点数限制等配置参数
+ * 4. 后续不影响：清除后可正常接收和显示新数据
+ *
+ * 实现要点：
+ * - 检查场景有效性：确保scene对象存在
+ * - 分别清除：检测点和航迹点独立清除
+ * - 日志记录：记录清除操作，便于追踪
+ */
+void PPIView::onClearDisplayRequested()
+{
+    if (!m_scene) {
+        LOG_WARNING("PPIView::onClearDisplayRequested - scene is null");
+        return;
+    }
+
+    // 清除检测点
+    if (m_scene->det()) {
+        m_scene->det()->clear();
+        LOG_INFO("Detection points cleared");
+    }
+
+    // 清除航迹点
+    if (m_scene->track()) {
+        m_scene->track()->clear();
+        LOG_INFO("Track points cleared");
+    }
+
+    LOG_INFO("P display data cleared");
+}
+
+/**
+ * @brief 处理检测点可见性变化
+ * @param visible true表示显示，false表示隐藏
+ * @details 响应MousePositionInfo组件的checkbox变化，控制检测点显示/隐藏
+ *
+ * 功能说明：
+ * - 调用DetManager的setAllVisible()方法
+ * - 立即生效，不需要刷新场景
+ * - 记录日志便于追踪用户操作
+ */
+void PPIView::onDetectionVisibilityChanged(bool visible)
+{
+    if (!m_scene) {
+        LOG_WARNING("PPIView::onDetectionVisibilityChanged - scene is null");
+        return;
+    }
+
+    if (m_scene->det()) {
+        m_scene->det()->setAllVisible(visible);
+        LOG_INFO(QString("Detection points visibility changed: %1").arg(visible ? "visible" : "hidden"));
+    }
+}
+
+/**
+ * @brief 处理跟踪点可见性变化
+ * @param visible true表示显示，false表示隐藏
+ * @details 响应MousePositionInfo组件的checkbox变化，控制跟踪点显示/隐藏
+ *
+ * 功能说明：
+ * - 调用TrackManager的setAllVisible()方法
+ * - 立即生效，不需要刷新场景
+ * - 记录日志便于追踪用户操作
+ */
+void PPIView::onTrackVisibilityChanged(bool visible)
+{
+    if (!m_scene) {
+        LOG_WARNING("PPIView::onTrackVisibilityChanged - scene is null");
+        return;
+    }
+
+    if (m_scene->track()) {
+        m_scene->track()->setAllVisible(visible);
+        LOG_INFO(QString("Track points visibility changed: %1").arg(visible ? "visible" : "hidden"));
     }
 }
 

@@ -52,13 +52,27 @@
      <property name="spacing">
       <number>3</number>
      </property>
-     <item row="4" column="0">
-      <widget class="QLabel" name="label_6">
+     <item row="1" column="0">
+      <widget class="QLabel" name="label_2">
        <property name="text">
-        <string>倾角</string>
+        <string>纬度</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignCenter</set>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="1">
+      <widget class="QLineEdit" name="dir">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="1">
+      <widget class="QLineEdit" name="yaw">
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
@@ -82,53 +96,46 @@
        </property>
       </widget>
      </item>
-     <item row="5" column="0">
-      <widget class="QLabel" name="label_7">
-       <property name="text">
-        <string>横滚</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignCenter</set>
+     <item row="1" column="1">
+      <widget class="QLineEdit" name="lat">
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="label_2">
-       <property name="text">
-        <string>纬度</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignCenter</set>
+     <item row="0" column="1">
+      <widget class="QLineEdit" name="lineEdit">
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
      <item row="3" column="0">
       <widget class="QLabel" name="label_4">
        <property name="text">
-        <string>阵面指北角</string>
+        <string>阵面偏航</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignCenter</set>
        </property>
       </widget>
      </item>
-     <item row="0" column="1">
-      <widget class="QLineEdit" name="lineEdit"/>
-     </item>
-     <item row="1" column="1">
-      <widget class="QLineEdit" name="lat"/>
+     <item row="4" column="0">
+      <widget class="QLabel" name="label_6">
+       <property name="text">
+        <string>倾角</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
+      </widget>
      </item>
      <item row="2" column="1">
-      <widget class="QLineEdit" name="height"/>
-     </item>
-     <item row="3" column="1">
-      <widget class="QLineEdit" name="dir"/>
-     </item>
-     <item row="4" column="1">
-      <widget class="QLineEdit" name="yaw"/>
-     </item>
-     <item row="5" column="1">
-      <widget class="QLineEdit" name="roll"/>
+      <widget class="QLineEdit" name="height">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
      </item>
     </layout>
    </item>

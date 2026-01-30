@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:03
+ * @LastEditTime: 2026-01-30 11:45:45
  * @Description: 
  */
 /**
@@ -49,13 +49,13 @@ struct DetNode {
  *          - 角度范围和距离范围的过滤
  *          - 显示状态和尺寸的批量控制
  *          - 性能优化的批量操作
- * 
+ *
  * 功能特点：
  * - 高效的大量点对象管理
  * - 实时坐标变换
  * - 角度扇区过滤
  * - 动态显示控制
- * 
+ *
  * @example 基本使用：
  * @code
  * DetManager* mgr = new DetManager(scene, axis);
@@ -67,7 +67,7 @@ struct DetNode {
 class DetManager : public QObject
 {
     Q_OBJECT
-    
+
 public:
     /**
      * @brief 构造函数
@@ -80,7 +80,7 @@ public:
      *          - 初始化点容器
      */
     explicit DetManager(QGraphicsScene* scene, PolarAxis* axis, QObject* parent = nullptr);
-    
+
     /**
      * @brief 析构函数
      * @details 清理所有检测点对象和相关资源
@@ -106,7 +106,7 @@ public:
      *          - 更新点的显示位置
      *          - 应用距离和角度过滤
      *          - 重新应用可见性设置
-     * 
+     *
      * 调用时机：
      * - PolarAxis的最小/最大距离变化
      * - 像素范围(pixelRange)变化
@@ -153,13 +153,30 @@ public:
      *          - 支持任意角度范围(如90-270度)
      *          - 实时过滤现有检测点
      *          - 影响后续添加的检测点
-     * 
+     *
      * @example 前方半圆显示：
      * @code
      * manager->setAngleRange(270, 90);  // 显示前方180度
      * @endcode
      */
     void setAngleRange(double startDeg, double endDeg);
+
+    /**
+     * @brief 设置最大监测点数量限制
+     * @param maxPoints 最大监测点数量
+     * @details 设置监测点数量上限，超出时自动删除最旧的监测点：
+     *          - 防止内存无限增长导致卡死
+     *          - 采用FIFO策略删除旧数据
+     *          - 立即清理超出部分
+     */
+    void setMaxPoints(int maxPoints);
+
+    /**
+     * @brief 获取当前监测点数量
+     * @return 当前存储的监测点数量
+     * @details 返回mNodes容器中的检测点总数
+     */
+    int getPointCount() const { return mNodes.size(); }
 
 private:
     /**
@@ -173,7 +190,7 @@ private:
      *          - 处理坐标系旋转和偏移
      */
     QPointF polarToPixel(float range, float azimuthDeg) const;
-    
+
     /**
      * @brief 检查距离是否在显示范围内
      * @param range 距离值(公里)
@@ -196,17 +213,20 @@ private:
     // 核心组件引用
     QGraphicsScene* mScene = nullptr;     ///< 图形场景指针
     PolarAxis* mAxis = nullptr;          ///< 极坐标轴指针
-    
+
     // 检测点管理
     QVector<DetNode> mNodes;             ///< 检测点节点容器
-    
+
     // 显示控制参数
     float mPointSizeRatio = 1.f;         ///< 点尺寸缩放比例
     bool mVisible = true;                ///< 全局可见性标志
-    
+
     // 角度过滤参数
     double m_angleStart = 0.0;           ///< 起始角度(度)
     double m_angleEnd = 360.0;           ///< 结束角度(度)
+
+    // 数量限制参数
+    int m_maxPoints = 10000;             ///< 最大监测点数量限制(默认10000)
 };
 
 #endif // DET_MANAGER_H

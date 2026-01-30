@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:11
+ * @LastEditTime: 2026-01-30 11:45:45
  * @Description: 
  */
 #ifndef PROTOCOL_H
@@ -300,17 +300,13 @@ typedef struct _TranRecvControl
 {
     unsigned short mesID;
     unsigned char recv;  //0关 1开
-    unsigned char tran;
-    unsigned short tranStart;  //0.01°量化
-    unsigned short tranEnd;    //0.01°量化
+    unsigned char tran;  //0关 1开
 
     _TranRecvControl()  //default value
     {
         mesID = 0xAA02;
         tran = 0;
         recv = 1;
-        tranStart = 0;
-        tranEnd = 36000; // 360.00°
     }
 }TranRecControl;
 
@@ -372,80 +368,88 @@ typedef struct _ScanRange
 typedef struct _BeamControl
 {
     unsigned short mesID;
-    unsigned char freqID;  //0-80: 9.0GHz~9.8GHz (界面0-8映射到下发0-80)
-    unsigned char type;  // 1 线性负调频，2 线性正调频
-    short aziStart;      // 0.01°量化
-    short aziEnd;
-    short aziStep;
+    unsigned char freqID;  //0-7: 9.0GHz~9.8GHz (默认5:9.4GHz)
+    unsigned char type;  // 1 线性负调频，2 线性正调频（默认）
+    int aziStart;      // 0.01°量化 (默认-4500)
+    int aziEnd;        // 0.01°量化 (默认4500)
+    short aziStep;       // 0.01°量化 (默认400)
     unsigned char flagNum;  // 波形起效数量
-    unsigned char beam1Flag; //0不起效 1起效
-    unsigned char beam1Code; //波形码 0~11
+    unsigned short pulseNum;  // 积累脉冲数 32,64,128,256,512,1024 (默认128)
 
-    unsigned short pulseNum1;      // 积累脉冲数
+    unsigned char beam1Flag; //0不起效 1起效（默认1）
+    unsigned char beam1Code; //波形码 0~11 (默认6)
     unsigned short sampleStart1;   // 采样起始 0.1us量化
     unsigned short sampleEnd1;     // 采样终止 0.1us量化
-    short elestart1; // 俯仰起始 0.01°量化
-    short eleend1;   // 俯仰终止
-    short elestep1;  // 俯仰间隔
+    short elestart1; // 俯仰起始 0.01°量化 (默认0)
+    short eleend1;   // 俯仰终止 0.01°量化 (默认3000)
+    short elestep1;  // 俯仰间隔 0.01°量化 (默认400)
 
-    unsigned char beam2Flag; //0不起效 1起效
-    unsigned char beam2Code; //波形码 0~11
-    unsigned short pulseNum2;      // 积累脉冲数
+    unsigned char beam2Flag; //0不起效 1起效（默认1）
+    unsigned char beam2Code; //波形码 0~11 (默认9)
     unsigned short sampleStart2;   // 采样起始 0.1us量化
     unsigned short sampleEnd2;     // 采样终止 0.1us量化
-    short elestart2; // 俯仰起始 0.01°量化
-    short eleend2;   // 俯仰终止
-    short elestep2;  // 俯仰间隔
+    short elestart2; // 俯仰起始 0.01°量化 (默认0)
+    short eleend2;   // 俯仰终止 0.01°量化 (默认1500)
+    short elestep2;  // 俯仰间隔 0.01°量化 (默认400)
 
-    unsigned char beam3Flag; //0不起效 1起效
-    unsigned char beam3Code; //波形码 0~11
-    unsigned short pulseNum3;      // 积累脉冲数
+    unsigned char beam3Flag; //0不起效 1起效（默认0）
+    unsigned char beam3Code; //波形码 0~11 (默认11)
     unsigned short sampleStart3;   // 采样起始 0.1us量化
     unsigned short sampleEnd3;     // 采样终止 0.1us量化
-    short elestart3; // 俯仰起始 0.01°量化
-    short eleend3;   // 俯仰终止
-    short elestep3;  // 俯仰间隔
+    short elestart3; // 俯仰起始 0.01°量化 (默认0)
+    short eleend3;   // 俯仰终止 0.01°量化 (默认400)
+    short elestep3;  // 俯仰间隔 0.01°量化 (默认400)
 
     _BeamControl()  //default value
     {
         memset(this,0,sizeof (_BeamControl));
-        flagNum = 2;
         mesID = 0xAA05;
-        freqID = 20;  // 界面默认选中第2项(9.2GHz)，下发值为2*10=20
-        type = 2;
-        pulseNum1 = 256;
-        pulseNum2 = 256;
-        pulseNum3 = 256;
-
-        aziStart = 4500;
-        aziEnd = 13500;
-        aziStep = 300;
+        freqID = 5;      // 默认5: 9.4GHz
+        type = 2;        // 默认线性正调频
+        aziStart = -4500;  // -45°
+        aziEnd = 4500;     // 45°
+        aziStep = 400;     // 4°
+        flagNum = 2;
+        pulseNum = 128;  // 统一的积累脉冲数，默认128
 
         beam1Flag = 1;
-        beam1Code = 6;
+        beam1Code = 6;   // 1-15-15
         sampleStart1 = 30;
-        sampleEnd1 = 130;  // 原来是 start=30, len=100, 所以 end=130
+        sampleEnd1 = 130;
         elestart1 = 0;
-        eleend1 = 6000;
-        elestep1 = 600;
+        eleend1 = 3000;  // 30°
+        elestep1 = 400;  // 4°
 
         beam2Flag = 1;
-        beam2Code = 9;
+        beam2Code = 9;   // 10-15-50
         sampleStart2 = 120;
-        sampleEnd2 = 490;  // 原来是 start=120, len=370, 所以 end=490
+        sampleEnd2 = 490;
         elestart2 = 0;
-        eleend2 = 2000;
-        elestep2 = 600;
+        eleend2 = 1500;  // 15°
+        elestep2 = 400;  // 4°
 
-        beam3Flag = 0;
-        beam3Code = 10;
+        beam3Flag = 0;   // 默认不起效
+        beam3Code = 11;  // 35-15-175
         sampleStart3 = 270;
-        sampleEnd3 = 620;  // 原来是 start=270, len=350, 所以 end=620
-        elestart3 = -1400;
-        eleend3 = -800;
-        elestep3 = 600;
+        sampleEnd3 = 1730;
+        elestart3 = 0;
+        eleend3 = 400;   // 4°
+        elestep3 = 400;  // 4°
     }
 }BeamControl;
+
+// TWS模式参数结构体（整合三个子参数）
+typedef struct _TWSModeParam
+{
+    ScanRange scanRange;           // 工作模式
+    BeamControl beamControl;       // 波形及采样控制
+    ServoControlParam servoControl; // 伺服控制
+
+    _TWSModeParam()
+    {
+        // 使用各自结构体的默认值
+    }
+} TWSModeParam;
 
 typedef struct _SigProParam
 {
@@ -833,12 +837,13 @@ typedef struct _BITReport
     // [2]: 数字收发板建链=1，断链=0
     // [1]: 伺服正常工作=1，不正常=0
     // [0]: 北斗正常工作=1，不正常=0
-    unsigned char powerState;   // 波控板电源状态：正常=1，不正常=0
-    unsigned short fpgaTemp;    // 扩展：FPGA温度 0.1°
-    unsigned short panelTemp;   // 扩展：阵面温度 0.1°
-    unsigned short yaw;         // 扩展：方位角 0.01°
-    unsigned char subArrayPower[5];  // 扩展：分阵供电状态
-    unsigned char reserve[25];
+    unsigned char powerState;   // BIT状态信息1：[1]=蓝牙正常，[0]=波控板电源正常
+    unsigned short fpgaTemp;    // BIT状态信息2：数字收发板FPGA温度，0.1°量化
+    unsigned short panelTemp;   // BIT状态信息3：阵面温度，0.1°量化
+    unsigned short yaw;         // 阵面偏航角度 [0,360]，0.01°量化
+    unsigned char subArrayPower[5];  // 子阵电源BIT信息（36bit，5字节）
+    unsigned short scanAngle;   // 扫描角度 [0,360]，0.01°量化（用于显控扫描线绘制）
+    unsigned char reserve[22];  // 预留22字节
 
     _BITReport()
     {
@@ -849,6 +854,7 @@ typedef struct _BITReport
         panelTemp = 0;
         yaw = 0;
         memset(subArrayPower, 0, sizeof(subArrayPower));
+        scanAngle = 0;
         memset(reserve, 0, sizeof(reserve));
     }
 }BITReport;

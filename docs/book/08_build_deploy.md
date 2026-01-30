@@ -15,8 +15,8 @@ cmake --build . --config Debug
 - 常见问题：大小写敏感（确保 CMakeLists.txt 包含所有实现 cpp 文件）、MOC 未生成（确认 HEADERS 列表）。
 
 ## 跨平台问题与解决策略
-- UI 固定 geometry：在 Linux 上常导致控件在左上角堆叠，应删除固定 geometry 并使用布局管理器。  
-- overlay 初始化时机：不要在构造函数使用父窗口的 width()/height()，改为使用 `QTimer::singleShot(0, ...)` 延迟设置几何。  
+- UI 固定 geometry：在 Linux 上常导致控件在左上角堆叠，应删除固定 geometry 并使用布局管理器。
+- overlay 初始化时机：不要在构造函数使用父窗口的 width()/height()，改为使用 `QTimer::singleShot(0, ...)` 延迟设置几何。
 - 链接错误（undefined vtable）：检查 CMakeLists 是否包含实现文件（例如 customspinboxstyle.cpp）。
 
 ## 部署

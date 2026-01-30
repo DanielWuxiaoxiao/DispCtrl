@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:13
+ * @LastEditTime: 2026-01-30 11:45:47
  * @Description: 
  */
 /**
@@ -52,9 +52,14 @@ class PPIView;        ///< PPI雷达显示视图
 class PPIScene;       ///< PPI雷达场景管理器
 class ZoomViewWidget; ///< 缩放视图控制器
 class SectorWidget;   ///< 扇区控制面板
+class RangeAzimuthChartWidget; ///< 距离-方位图表显示面板
 class AzElRangeWidget; ///< 方位角和俯仰角范围控制部件
 class mainviewTopLeft; ///< PPI视图左上角控制面板
 class CustomComboBox;  ///< 自定义组合框
+class CusWindow;       ///< 自定义窗口
+class QPushButton;     ///< Qt按钮
+class QLabel;          ///< Qt标签
+class DataSaveUI;      ///< 数据存储管理对话框
 
 
 namespace Ui {
@@ -165,6 +170,12 @@ public:
      */
     PPIView* getPPIView() const { return mView; }
 
+signals:
+    // TWS/TAS模式设置信号
+    void sig_SetScanRangeParam(const ScanRange param);
+    void sig_SetBeamControlParam(const BeamControl param);
+    void sig_SetServoControlParam(const ServoControlParam param);
+
 private slots:
     /**
      * @brief 更新航迹显示列表
@@ -196,28 +207,40 @@ private slots:
 
     // 雷达控制槽函数
     /**
-     * @brief 打开一键全数配置对话框
-     * @details 配置阵地控制参数
-     */
-    void onSetParamClicked();
-
-    /**
      * @brief 打开处理软件启动对话框
      * @details 发送系统启动命令
      */
     void onStartSoftwareClicked();
 
     /**
-     * @brief 打开数据存储/删除对话框
+     * @brief 打开处理软件关闭对话框
+     * @details 发送系统关闭命令
+     */
+    void onStopSoftwareClicked();
+
+    /**
+     * @brief 打开TWS模式设置对话框
+     * @details 配置TWS（Track-While-Scan）模式参数
+     */
+    void onTWSModeClicked();
+
+    /**
+     * @brief 打开TAS模式设置对话框
+     * @details 配置TAS（Target Alert System）模式参数
+     */
+    void onTASModeClicked();
+
+    /**
+     * @brief 打开伺服控制对话框
+     * @details 配置伺服控制参数
+     */
+    void onServoControlClicked();
+
+    /**
+     * @brief 打开数据存储管理对话框
      * @details 配置数据保存和删除参数
      */
     void onDataStorageClicked();
-
-    /**
-     * @brief 打开发射接收控制对话框
-     * @details 配置收发控制参数
-     */
-    void onTransmitControlClicked();
 
     // 参数设置槽函数
     /**
@@ -243,11 +266,6 @@ private slots:
      * @details 配置波束控制参数
      */
     void onBatteryControlClicked();
-
-    /**
-     * @brief 打开伺服控制对话框
-     */
-    void onServoControlClicked();
 
     /**
      * @brief 打开方向图扫描控制对话框
@@ -286,12 +304,25 @@ private slots:
      */
     void onRadarSystemClicked();
 
+    /**
+     * @brief 处理发射开关按钮点击
+     * @details 弹出确认对话框，确认后下发发射开关命令（接收默认开启）
+     */
+    void onTransmitControlClicked();
+
+    /**
+     * @brief 处理雷达待机按钮点击
+     * @details 设置雷达工作模式为待机模式（workMode=2）
+     */
+    void onRadarStandbyClicked();
+
 private:
     Ui::MainOverLayOut *ui;           ///< UI界面对象指针
     PPIView* mView;                   ///< PPI雷达显示视图
     PPIScene* mScene;                 ///< PPI雷达场景管理器
     ZoomViewWidget* m_zoomView;       ///< 缩放视图控制器
     SectorWidget* m_sectorWidget;     ///< 扇区显示控制器
+    RangeAzimuthChartWidget* m_rangeAzimuthWidget; ///< 距离-方位图表显示控制器
     AzElRangeWidget* m_azElRangeWidget; ///< 方位角和俯仰角范围控制器
     mainviewTopLeft* m_topLeftWidget;   ///< PPI视图左上角控制面板，用于联动偏航和倾角
 
@@ -379,6 +410,59 @@ private:
     int m_beamConSta;                    ///< 波束调度软件状态
     int m_targetRecSta;                  ///< 目标识别软件状态
     BITReport m_lastBITReport;           ///< 最新的BIT上报信息
+
+    // 健康管理窗口相关
+    CusWindow* m_healthWindow;           ///< 雷达系统健康管理窗口指针
+    QPushButton* m_sigProBtn;            ///< 信号处理状态按钮
+    QPushButton* m_dataProBtn;           ///< 数据处理状态按钮
+    QPushButton* m_beamConBtn;           ///< 波束调度状态按钮
+    QPushButton* m_targetRecBtn;         ///< 目标识别状态按钮
+
+    // 数据存储管理窗口相关
+    CusWindow* m_dataStorageWindow;      ///< 数据存储管理窗口指针
+    DataSaveUI* m_dataStorageDialog;     ///< 数据存储管理对话框指针
+
+    // BIT状态按钮
+    QPushButton* m_btnTxOpen;            ///< 阵面发射开启状态
+    QPushButton* m_btnDutyCycle;         ///< 占空比状态
+    QPushButton* m_btnPulseWidth;        ///< 脉宽状态
+    QPushButton* m_btnRxOpen;            ///< 阵面接收状态
+    QPushButton* m_btnFreqSrc;           ///< 频率源状态
+    QPushButton* m_btnDigBoard;          ///< 收发板状态
+    QPushButton* m_btnServo;             ///< 伺服状态
+    QPushButton* m_btnBeidou;            ///< 北斗状态
+    QPushButton* m_btnBluetooth;         ///< 蓝牙状态
+    QPushButton* m_btnPowerBoard;        ///< 波控板电源状态
+
+    // 温度和角度标签
+    QLabel* m_tempLabel;                 ///< 温度信息标签
+    QLabel* m_angleLabel;                ///< 角度信息标签
+
+    // BIT更新控制
+    QDateTime m_lastBITUpdateTime;       ///< 上次BIT信息更新到界面的时间
+    static constexpr int BIT_UPDATE_INTERVAL_SEC = 60;  ///< BIT信息更新间隔（秒）
+
+    /**
+     * @brief 更新健康管理窗口显示
+     * @details 根据最新的监控参数和BIT信息更新窗口控件
+     */
+    void updateHealthWindow();
+
+    // 雷达控制状态成员
+    bool m_isTransmitting;               ///< 发射状态（true=发射开启，false=发射关闭）
+    bool m_isStandby;                    ///< 待机状态（true=待机模式，false=工作模式）
+
+    /**
+     * @brief 更新发射按钮的显示状态
+     * @details 根据当前发射状态更新按钮的颜色和文本
+     */
+    void updateTransmitButton();
+
+    /**
+     * @brief 更新待机按钮的显示状态
+     * @details 根据当前待机状态更新按钮的颜色和文本
+     */
+    void updateStandbyButton();
 };
 
 #endif // MAINOVERLAYOUT_H

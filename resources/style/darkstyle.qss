@@ -1324,7 +1324,8 @@ FreqControlUI QCheckBox,
 waveAndSample QCheckBox,
 ScanRangeUI QCheckBox,
 PhotoElectricParam QCheckBox,
-ServoControl QCheckBox {
+ServoControl QCheckBox,
+MousePositionInfo QCheckBox {
     color: #66ffcc;
     font-size: 14px;
     font-weight: bold;
@@ -1341,7 +1342,8 @@ FreqControlUI QCheckBox::indicator,
 waveAndSample QCheckBox::indicator,
 ScanRangeUI QCheckBox::indicator,
 PhotoElectricParam QCheckBox::indicator,
-ServoControl QCheckBox::indicator {
+ServoControl QCheckBox::indicator,
+MousePositionInfo QCheckBox::indicator {
     width: 20px;
     height: 20px;
     border: 2px solid #66ffcc;
@@ -1359,7 +1361,8 @@ FreqControlUI QCheckBox::indicator:checked,
 waveAndSample QCheckBox::indicator:checked,
 ScanRangeUI QCheckBox::indicator:checked,
 PhotoElectricParam QCheckBox::indicator:checked,
-ServoControl QCheckBox::indicator:checked {
+ServoControl QCheckBox::indicator:checked,
+MousePositionInfo QCheckBox::indicator:checked {
     background-color: #66ffcc;
     border: 2px solid #66ffcc;
     border-radius: 4px;
@@ -1376,9 +1379,40 @@ FreqControlUI QCheckBox::indicator:hover,
 waveAndSample QCheckBox::indicator:hover,
 ScanRangeUI QCheckBox::indicator:hover,
 PhotoElectricParam QCheckBox::indicator:hover,
-ServoControl QCheckBox::indicator:hover {
+ServoControl QCheckBox::indicator:hover,
+MousePositionInfo QCheckBox::indicator:hover {
     border-color: rgba(102, 255, 204, 0.8);
     background-color: rgba(102, 255, 204, 0.1);
+}
+
+/* ============================================
+ * 状态信息栏专属样式 - 更大更醒目的开关控件
+ * ============================================ */
+#infoWidget QCheckBox {
+    color: #66ffcc;              /* 青绿色科技感文字 */
+    font-size: 18px;             /* 更大字体：18px（普通14px） */
+    font-weight: bold;           /* 粗体 */
+    spacing: 10px;               /* 文字与复选框间距 */
+}
+
+#infoWidget QCheckBox::indicator {
+    width: 24px;                               /* 更大指示器：24x24（普通20x20） */
+    height: 24px;
+    border: 2px solid #66ffcc;                 /* 青绿色边框 */
+    border-radius: 4px;                        /* 圆角 */
+    background-color: rgba(16, 24, 24, 0.8);   /* 深色半透明背景 */
+}
+
+#infoWidget QCheckBox::indicator:checked {
+    background-color: #66ffcc;                 /* 选中时青绿色填充 */
+    border: 2px solid #66ffcc;
+    border-radius: 4px;
+    image: url(:/resources/images/checkbox_checked.svg);  /* 对勾图标 */
+}
+
+#infoWidget QCheckBox::indicator:hover {
+    border-color: rgba(102, 255, 204, 0.8);    /* 悬停时边框半透明 */
+    background-color: rgba(102, 255, 204, 0.1); /* 轻微高亮背景 */
 }
 
 /* QSpinBox / QDoubleSpinBox - 使用默认箭头，仅应用配色 */
@@ -1618,39 +1652,379 @@ PhotoElectricParam QLineEdit {
     padding: 4px 8px;
 }
 
+/* =============================================================================
+ * TWS/TAS模式对话框样式 - 工作模式配置对话框
+ * =============================================================================
+ */
 
-/* QDialogButtonBox button */
-BatteryControl QDialogButtonBox QPushButton,
-TranRecvUI QDialogButtonBox QPushButton,
-DataSaveUI QDialogButtonBox QPushButton,
-DataProcessUI QDialogButtonBox QPushButton,
-sigParamUI QDialogButtonBox QPushButton,
-FreqControlUI QDialogButtonBox QPushButton,
-waveAndSample QDialogButtonBox QPushButton,
-ScanRangeUI QDialogButtonBox QPushButton,
-PhotoElectricParam QDialogButtonBox QPushButton {
+/**
+ * TWSModeDialog / TASModeDialog - TWS/TAS模式配置对话框
+ * 功能：配置TWS(Track While Scan)和TAS(Track After Scan)工作模式参数
+ * 特点：
+ * - 深色背景#1a1a1a与系统整体风格一致
+ * - 青绿色#00ff88主题色突出重要控件
+ * - 统一的圆角和边框设计
+ */
+#TWSModeDialog,
+#TASModeDialog {
+    background-color: #1a1a1a;
+}
+
+/**
+ * TWS/TAS对话框内的QGroupBox - 参数分组容器
+ * 功能：将相关参数分组（波形控制、采样参数、伺服控制等）
+ * 特点：
+ * - 青绿色边框和标题文字
+ * - 8px圆角提供现代化外观
+ * - 顶部留白确保标题不被遮挡
+ */
+#TWSModeDialog QGroupBox,
+#TASModeDialog QGroupBox {
+    color: #00ff88;
+    font-size: 14px;
+    font-weight: bold;
+    border: 2px solid #00ff88;
+    border-radius: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+}
+
+/**
+ * TWS/TAS对话框内的QGroupBox标题
+ * 功能：显示分组名称
+ * 特点：
+ * - 左侧15px偏移避免与圆角重叠
+ * - 上边距定位确保标题位于边框上方
+ */
+#TWSModeDialog QGroupBox::title,
+#TASModeDialog QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 15px;
+    padding: 0 5px;
+}
+
+/**
+ * TWS/TAS对话框内的QLabel - 参数标签
+ * 功能：显示参数名称和说明文字
+ * 特点：
+ * - 青绿色文字与系统主题一致
+ * - 13px适中字体大小
+ */
+#TWSModeDialog QLabel,
+#TASModeDialog QLabel {
+    color: #00ff88;
+    font-size: 13px;
+}
+
+/**
+ * TWS/TAS对话框内的QLineEdit - 参数输入框
+ * 功能：用户输入数值参数（距离、角度、采样时间等）
+ * 特点：
+ * - 深色背景#2a2a2a与对话框背景区分
+ * - 半透明青绿色边框，hover时变实色
+ * - 5px圆角和内边距提供舒适的输入体验
+ */
+#TWSModeDialog QLineEdit,
+#TASModeDialog QLineEdit {
+    background-color: #2a2a2a;
+    color: #ffffff;
+    border: 2px solid rgba(0, 255, 136, 0.5);
+    border-radius: 5px;
+    padding: 5px;
+    font-size: 13px;
+}
+
+/**
+ * TWS/TAS对话框内的QLineEdit悬停状态
+ * 特点：边框变为实色青绿色，提示可交互
+ */
+#TWSModeDialog QLineEdit:hover,
+#TASModeDialog QLineEdit:hover {
+    border: 2px solid #00ff88;
+}
+
+/**
+ * TWS/TAS对话框内的QLineEdit焦点状态
+ * 特点：
+ * - 边框颜色变亮#00ffaa
+ * - 背景略微变亮#2f2f2f，突出当前输入框
+ */
+#TWSModeDialog QLineEdit:focus,
+#TASModeDialog QLineEdit:focus {
+    border: 2px solid #00ffaa;
+    background-color: #2f2f2f;
+}
+
+/**
+ * TWS/TAS对话框内的QCheckBox - 使能开关
+ * 功能：控制波形使能、功能开关等
+ * 特点：
+ * - 青绿色文字和边框
+ * - 8px间距确保复选框与文字不贴合
+ */
+#TWSModeDialog QCheckBox,
+#TASModeDialog QCheckBox {
+    color: #00ff88;
+    font-size: 13px;
+    spacing: 8px;
+}
+
+/**
+ * TWS/TAS对话框内的QCheckBox指示器
+ * 特点：
+ * - 18x18像素正方形
+ * - 青绿色边框，4px圆角
+ * - 深色背景#2a2a2a
+ */
+#TWSModeDialog QCheckBox::indicator,
+#TASModeDialog QCheckBox::indicator {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #00ff88;
+    border-radius: 4px;
+    background-color: #2a2a2a;
+}
+
+/**
+ * TWS/TAS对话框内的QCheckBox选中状态
+ * 特点：背景填充为青绿色#00ff88，形成实心方块
+ */
+#TWSModeDialog QCheckBox::indicator:checked,
+#TASModeDialog QCheckBox::indicator:checked {
+    background-color: #00ff88;
+}
+
+/**
+ * TWS/TAS对话框内的QCheckBox悬停状态
+ * 特点：边框颜色变亮#00ffaa，提示可交互
+ */
+#TWSModeDialog QCheckBox::indicator:hover,
+#TASModeDialog QCheckBox::indicator:hover {
+    border: 2px solid #00ffaa;
+}
+
+/**
+ * TWS/TAS对话框内的ComboBox - 下拉选择框
+ * 功能：选择工作模式、波形编码、频率等
+ * 特点：
+ * - 与LineEdit相同的视觉风格
+ * - 深色背景#2a2a2a，半透明青绿色边框
+ * - 支持CustomComboBox和QComboBox两种类型
+ */
+#TWSModeDialog CustomComboBox,
+#TWSModeDialog QComboBox,
+#TASModeDialog CustomComboBox,
+#TASModeDialog QComboBox {
+    background-color: #2a2a2a;
+    color: #ffffff;
+    border: 2px solid rgba(0, 255, 136, 0.5);
+    border-radius: 5px;
+    padding: 5px;
+    font-size: 13px;
+}
+
+/**
+ * TWS/TAS对话框内的ComboBox悬停状态
+ */
+#TWSModeDialog CustomComboBox:hover,
+#TWSModeDialog QComboBox:hover,
+#TASModeDialog CustomComboBox:hover,
+#TASModeDialog QComboBox:hover {
+    border: 2px solid #00ff88;
+}
+
+/**
+ * TWS/TAS对话框内的ComboBox焦点状态
+ */
+#TWSModeDialog CustomComboBox:focus,
+#TWSModeDialog QComboBox:focus,
+#TASModeDialog CustomComboBox:focus,
+#TASModeDialog QComboBox:focus {
+    border: 2px solid #00ffaa;
+}
+
+/**
+ * TWS/TAS对话框内的ComboBox下拉按钮
+ * 特点：
+ * - 无边框设计
+ * - 20px固定宽度
+ */
+#TWSModeDialog CustomComboBox::drop-down,
+#TWSModeDialog QComboBox::drop-down,
+#TASModeDialog CustomComboBox::drop-down,
+#TASModeDialog QComboBox::drop-down {
+    border: none;
+    width: 20px;
+}
+
+/**
+ * TWS/TAS对话框内的ComboBox下拉列表
+ * 特点：
+ * - 深色背景#2a2a2a
+ * - 青绿色边框
+ * - 选中项使用青绿色背景和黑色文字
+ */
+#TWSModeDialog CustomComboBox QAbstractItemView,
+#TWSModeDialog QComboBox QAbstractItemView,
+#TASModeDialog CustomComboBox QAbstractItemView,
+#TASModeDialog QComboBox QAbstractItemView {
+    background-color: #2a2a2a;
+    color: #ffffff;
+    border: 2px solid #00ff88;
+    selection-background-color: #00ff88;
+    selection-color: #000000;
+}
+
+/**
+ * TWS/TAS对话框内的ComboBox列表项
+ * 特点：5px内边距确保文字不贴边
+ */
+#TWSModeDialog CustomComboBox QAbstractItemView::item,
+#TWSModeDialog QComboBox QAbstractItemView::item,
+#TASModeDialog CustomComboBox QAbstractItemView::item,
+#TASModeDialog QComboBox QAbstractItemView::item {
+    padding: 5px;
+}
+
+/**
+ * TWS/TAS对话框内的ComboBox列表项悬停状态
+ * 特点：半透明青绿色背景提示可选择
+ */
+#TWSModeDialog CustomComboBox QAbstractItemView::item:hover,
+#TWSModeDialog QComboBox QAbstractItemView::item:hover,
+#TASModeDialog CustomComboBox QAbstractItemView::item:hover,
+#TASModeDialog QComboBox QAbstractItemView::item:hover {
+    background-color: rgba(0, 255, 136, 0.3);
+}
+
+/* QDialogButtonBox buttons use the global QPushButton style so all dialogs stay consistent. */
+
+/* =============================================================================
+ * 距离-方位图表组件样式 - Range-Azimuth Chart Widget
+ * =============================================================================
+ */
+
+/**
+ * RangeAzimuthChartToolBar - 图表工具栏
+ * 特点：
+ * - 深色背景融入整体设计
+ * - 底部边框分隔工具栏和图表区域
+ */
+#RangeAzimuthChartToolBar {
+    background-color: #2b2b2b;
+    border-bottom: 1px solid #3c3c3c;
+    padding: 5px;
+}
+
+/**
+ * RangeAzimuthChart - 图表主体
+ * 特点：
+ * - 深色背景匹配整体主题
+ * - 边框提供视觉边界
+ */
+#RangeAzimuthChart {
+    background-color: #1e1e1e;
+    border: 1px solid #3c3c3c;
+}
+
+/**
+ * 工具栏标签样式
+ * 特点：浅色文字确保可读性
+ */
+#RangeAzimuthChartToolBar QLabel {
+    color: #dcdcdc;
+    font-size: 11pt;
+    background: transparent;
+}
+
+/**
+ * 工具栏按钮样式
+ * 特点：
+ * - 深灰色背景
+ * - 悬停时变亮
+ * - 按下时变暗
+ */
+#RangeAzimuthChartToolBar QPushButton {
+    background-color: #3c3c3c;
+    color: #dcdcdc;
+    border: 1px solid #555555;
+    border-radius: 3px;
+    padding: 4px 12px;
+    font-size: 10pt;
+    min-width: 60px;
+}
+
+#RangeAzimuthChartToolBar QPushButton:hover {
+    background-color: #4a4a4a;
+    border-color: #00ff88;
+}
+
+#RangeAzimuthChartToolBar QPushButton:pressed {
+    background-color: #2a2a2a;
+}
+
+/**
+ * 工具栏输入框样式
+ * 特点：
+ * - 深色输入框背景
+ * - 青色边框与系统主题一致
+ * - 聚焦时高亮边框
+ */
+#RangeAzimuthChartToolBar QLineEdit {
+    background-color: #2b2b2b;
+    color: #dcdcdc;
+    border: 1px solid #555555;
+    border-radius: 3px;
+    padding: 3px 6px;
+    selection-background-color: #00ff88;
+    selection-color: #000000;
+}
+
+#RangeAzimuthChartToolBar QLineEdit:focus {
+    border-color: #00ff88;
+    background-color: #333333;
+}
+
+#RangeAzimuthChartToolBar QLineEdit:disabled {
+    background-color: #1e1e1e;
+    color: #666666;
+}
+
+/**
+ * 工具栏分隔符
+ * 特点：细线分隔不同功能区域
+ */
+#RangeAzimuthChartToolBar QFrame[frameShape="4"] {  /* VLine */
+    background-color: #555555;
+    max-width: 1px;
+    margin: 2px 5px;
+}
+
+/* =============================================================================
+ * MousePositionInfo SpinBox 样式
+ * 描述：检测点和航迹点大小控制的spinbox样式
+ * ========================================================================== */
+
+/**
+ * MousePositionInfo QDoubleSpinBox - 与参数对话框保持一致的风格
+ */
+#MousePositionInfo QDoubleSpinBox {
     background-color: rgba(16, 24, 24, 0.9);
     color: #66ffcc;
     font-size: 13px;
-    font-weight: bold;
-    border: 2px solid #66ffcc;
+    font-weight: normal;
+    border: 1px solid #005533;
     border-radius: 4px;
-    padding: 4px 12px;
-    min-width: 70px;
-    min-height: 26px;
-    max-height: 28px;
+    padding: 3px 5px;
+    min-height: 22px;
 }
 
-/* button hover */
-BatteryControl QDialogButtonBox QPushButton:hover,
-TranRecvUI QDialogButtonBox QPushButton:hover,
-DataSaveUI QDialogButtonBox QPushButton:hover,
-DataProcessUI QDialogButtonBox QPushButton:hover,
-sigParamUI QDialogButtonBox QPushButton:hover,
-FreqControlUI QDialogButtonBox QPushButton:hover,
-waveAndSample QDialogButtonBox QPushButton:hover,
-ScanRangeUI QDialogButtonBox QPushButton:hover,
-PhotoElectricParam QDialogButtonBox QPushButton:hover {
-    background-color: rgba(102, 255, 204, 0.2);
-    border-color: rgba(102, 255, 204, 0.8);
+/**
+ * MousePositionInfo QDoubleSpinBox hover - 悬停高亮
+ */
+#MousePositionInfo QDoubleSpinBox:hover {
+    border: 1px solid #00aa66;
 }
+
+/* 不设置按钮样式，让Qt使用默认的原生箭头按钮 */
