@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:44:53
+ * @LastEditTime: 2026-02-25 11:47:30
  * @Description: 
  */
 #include "log.h"
@@ -38,26 +38,67 @@ void enhancedLog(QtMsgType type, const QMessageLogContext &context, const QStrin
     }
 
 
-    static QFile logFile(getLogFileName());
+    static QFile logFile;
     static QMutex logMutex;
-    static int logFileIndex = 0;
+    static int logFileIndex = 0;   // 当前卷号（0 ~ MAX_LOG_FILE_COUNT-1，循环使用）
+    static bool firstTime = true;
 
     QMutexLocker locker(&logMutex);
 
-    // 检查是否需要分卷
-    if (logFile.isOpen() && logFile.size() >= MAX_LOG_FILE_SIZE) {
-        logFile.close();
-        logFileIndex++;
-        logFile.setFileName(getLogFileName(logFileIndex));
-    }
+    // ——— 辅助：打开指定卷号的日志文件 ———
+    // 若目标文件已存在则先删除（循环覆盖旧日志），再以追加模式创建
+    auto openLogFile = [&](int idx) -> bool {
+        if (logFile.isOpen()) logFile.close();
 
-    // 打开文件
-    if (!logFile.isOpen()) {
-        logFile.open(QIODevice::WriteOnly | QIODevice::Append);
+        QString logPath = QDir::currentPath() + "/" + getLogFileName(idx);
+        logFile.setFileName(logPath);
+
+        // 覆盖写：截断旧文件内容
+        if (!logFile.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+            // 回退到临时目录
+            logPath = QDir::temp().filePath(getLogFileName(idx));
+            logFile.setFileName(logPath);
+            if (!logFile.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text))
+                return false;
+        }
+
         QTextStream out(&logFile);
         out << "\n=== Log Session Started at "
             << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss")
-            << " ===\n" << Qt::endl;
+            << " (file " << (idx + 1) << "/" << MAX_LOG_FILE_COUNT << ") ===\n"
+            << "Log file location: " << logFile.fileName() << "\n" << Qt::endl;
+        out.flush();
+
+        fprintf(stderr, "\n========================================\n");
+        fprintf(stderr, "Log file: %s  [%d/%d]\n",
+                logFile.fileName().toLocal8Bit().constData(),
+                idx + 1, MAX_LOG_FILE_COUNT);
+        fprintf(stderr, "========================================\n\n");
+        fflush(stderr);
+        return true;
+    };
+
+    // 首次运行时打开第0卷
+    if (firstTime) {
+        firstTime = false;
+        logFileIndex = 0;
+        if (!openLogFile(logFileIndex)) {
+            fprintf(stderr, "[ERROR] Failed to create log file\n");
+            fflush(stderr);
+        }
+    }
+
+    // 检查是否需要分卷
+    if (logFile.isOpen() && logFile.size() >= MAX_LOG_FILE_SIZE) {
+        // 循环到下一卷（超出上限则回绕到 0，覆盖最旧的那个）
+        logFileIndex = (logFileIndex + 1) % MAX_LOG_FILE_COUNT;
+        openLogFile(logFileIndex);
+    }
+
+    // 如果文件未打开，尝试重新打开当前卷
+    if (!logFile.isOpen()) {
+        if (!openLogFile(logFileIndex))
+            return;
     }
 
     QTextStream out(&logFile);
@@ -116,7 +157,7 @@ void enhancedLog(QtMsgType type, const QMessageLogContext &context, const QStrin
                         .arg(functionName.leftJustified(15))
                         .arg(msg);
 
-    // 写入文件
+    // 写入文件（始终写入，不受构建模式影响）
     out << logMessage << Qt::endl;
     out.flush();
 
@@ -125,6 +166,11 @@ void enhancedLog(QtMsgType type, const QMessageLogContext &context, const QStrin
     static QTextStream console(stdout);
     QString consoleMessage = QString("%1%2\033[0m").arg(colorCode).arg(logMessage);
     console << consoleMessage << Qt::endl;
+    console.flush();
+#else
+    // Release模式也输出到控制台（无颜色）
+    static QTextStream console(stdout);
+    console << logMessage << Qt::endl;
     console.flush();
 #endif
 }

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:44:54
+ * @LastEditTime: 2026-02-25 11:47:30
  * @Description: 
  */
 #ifndef LOG_H
@@ -16,11 +16,13 @@
 #include <QMutex>
 #include <QThread>
 #include <QDebug>
+#include <QDir>
 
 // ================== 日志配置 ==================
-const qint64 MAX_LOG_FILE_SIZE = 10 * 1024 * 1024; // 10 MB 分卷大小
-const QString LOG_FILE_BASENAME = "disp_ctrl_log"; // 日志文件基础名
-const QString LOG_FILE_SUFFIX   = ".txt";          // 日志后缀
+const qint64 MAX_LOG_FILE_SIZE  = 10 * 1024 * 1024; // 10 MB 分卷大小
+const int    MAX_LOG_FILE_COUNT = 5;                 // 本地最多保留的日志文件数量
+const QString LOG_FILE_BASENAME = "disp_ctrl_log";  // 日志文件基础名
+const QString LOG_FILE_SUFFIX   = ".txt";            // 日志后缀
 
 // 预留的环境设置函数 - 可根据需要调用
 [[maybe_unused]] static void setEarlyEnv()
@@ -38,13 +40,9 @@ const QString LOG_FILE_SUFFIX   = ".txt";          // 日志后缀
             QByteArray("--disable-logging --log-level=3"));
 }
 
-// 获取日志文件名（带分卷编号）
-inline QString getLogFileName(int index = -1) {
-    if (index < 0) {
-        return LOG_FILE_BASENAME + LOG_FILE_SUFFIX;
-    } else {
-        return LOG_FILE_BASENAME + "_" + QString::number(index) + LOG_FILE_SUFFIX;
-    }
+// 获取日志文件名（按分卷编号，统一格式 disp_ctrl_log_N.txt，N = 0..MAX_LOG_FILE_COUNT-1）
+inline QString getLogFileName(int index = 0) {
+    return LOG_FILE_BASENAME + "_" + QString::number(index) + LOG_FILE_SUFFIX;
 }
 // ================== 日志函数 ==================
 void enhancedLog(QtMsgType type, const QMessageLogContext &context, const QString &msg);
