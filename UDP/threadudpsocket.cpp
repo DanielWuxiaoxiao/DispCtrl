@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:47
+ * @LastEditTime: 2026-02-25 10:58:13
  * @Description: 
  */
 /**
@@ -45,11 +45,11 @@
  * - 连接定时器超时信号到重连槽函数
  */
 ThreadedUdpSocket::ThreadedUdpSocket(QString ip, quint16 port, QObject* parent)
-    : QObject(parent), m_Ip(ip), m_Port(port), m_reconnectAttempts(0) {
-    // 初始化重连定时器
+    : QObject(parent), m_Ip(ip), m_Port(port), m_reconnectAttempts(0), m_reconnectGiveUp(false) {
+    // 初始化重连定时器：超时后执行实际重连（调用 start()）
     m_reconnectTimer = new QTimer(this);
     m_reconnectTimer->setSingleShot(true);
-    connect(m_reconnectTimer, &QTimer::timeout, this, &ThreadedUdpSocket::attemptReconnect);
+    connect(m_reconnectTimer, &QTimer::timeout, this, [this]() { start(); });
 }
 
 /**
@@ -433,19 +433,29 @@ void ThreadedUdpSocket::onSocketStateChanged(QAbstractSocket::SocketState socket
  * @note 使用QTimer::singleShot避免阻塞主线程
  */
 void ThreadedUdpSocket::attemptReconnect() {
+    // 已放弃重连（冷却期内），忽略本次调用
+    if (m_reconnectGiveUp) {
+        return;
+    }
+
     if (m_reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
         reportError("UDP_RECONNECT_FAILED",
                     QString("Failed to reconnect after %1 attempts").arg(MAX_RECONNECT_ATTEMPTS));
+        m_reconnectGiveUp = true;
+        // 冷却 60 秒后重置，允许再次尝试
+        QTimer::singleShot(RECONNECT_COOLDOWN_MS, this, [this]() {
+            m_reconnectAttempts = 0;
+            m_reconnectGiveUp = false;
+            qInfo() << "UDP reconnect cooldown expired, will retry on next disconnect event";
+        });
         return;
     }
 
     m_reconnectAttempts++;
     qInfo() << "Attempting UDP reconnect" << m_reconnectAttempts << "of" << MAX_RECONNECT_ATTEMPTS;
 
+    // 延迟 RECONNECT_INTERVAL_MS 后执行实际重连
     m_reconnectTimer->start(RECONNECT_INTERVAL_MS);
-
-    // 延迟执行重连
-    QTimer::singleShot(10000, this, [this]() { start(); });
 }
 
 /**

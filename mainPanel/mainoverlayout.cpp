@@ -3,13 +3,14 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:47
+ * @LastEditTime: 2026-02-25 10:58:14
  * @Description: 
  */
 #include "mainoverlayout.h"
 
 #include "Basic/ConfigManager.h"
 #include "Basic/DispBasci.h"
+#include "Basic/log.h"
 #include "Controller/RadarDataManager.h"
 #include "Controller/controller.h"
 #include "PointManager/detmanager.h"
@@ -23,6 +24,7 @@
 #include "cusWidgets/custommessagebox.h"
 #include "cusWidgets/cuswindow.h"
 #include "cusWidgets/detachablewidget.h"
+#include "cusWidgets/frozentablewidget.h"
 // 参数配置对话框头文件
 #include <QApplication>
 #include <QComboBox>
@@ -203,8 +205,7 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
 
     // 连接伺服回送与BIT上报
     connect(CON_INS, &Controller::servoCtrlRet, this, &MainOverLayOut::onServoCtrlRet);
-    bool connected = connect(CON_INS, &Controller::bitReport, this, &MainOverLayOut::onBITReport);
-    qDebug() << "[MainOverLayOut] BIT signal connection result:" << connected;
+    connect(CON_INS, &Controller::bitReport, this, &MainOverLayOut::onBITReport);
 
     // 连接雷达控制按钮
     connect(ui->btnBatteryControl, &QPushButton::clicked, this,
@@ -250,6 +251,9 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
 
     // 从Controller接收TBD航迹数据并更新无人机表格
     connect(CON_INS, &Controller::tbdInfoProcess, this, &MainOverLayOut::updateDroneTrackList);
+
+    // 从Controller接收航迹删除信号（statMethod==2时）
+    connect(CON_INS, &Controller::trackRemoved, this, &MainOverLayOut::onTrackRemoved);
 
     // ========== 数据存储管理全局反馈连接 ==========
     // 数据保存成功反馈（全局连接，不依赖窗口）
@@ -425,7 +429,15 @@ void MainOverLayOut::mainPView() {
 
     // 添加独立的扇区显示和距离-方位显示（使用Tab组织）
     m_sectorWidget = new SectorWidget(this);  // 添加父对象
+    m_sectorWidget->setVisible(false);
     m_rangeAzimuthWidget = new RangeAzimuthChartWidget(this);  // 新的直角坐标系图表显示
+
+    // 从配置文件读取并应用初始最大检测点数量
+    if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
+        int initMaxPoints = CF_INS.displayConfig("max_points", 1000);
+        m_rangeAzimuthWidget->chart()->setMaxDetectionPoints(initMaxPoints);
+        LOG_INFO(QString("[MainOverLayOut] B显初始最大检测点数量: %1").arg(initMaxPoints));
+    }
 
     // 创建Tab Widget来容纳扇区显示和距离-方位显示
     QTabWidget* displayTabWidget = new QTabWidget(this);
@@ -439,16 +451,16 @@ void MainOverLayOut::mainPView() {
     );
 
     // 将扇区显示包装为可分离的widget
-    DetachableWidget* sectorDetachable = new DetachableWidget(
-        "扇区显示", m_sectorWidget, QIcon(":/resources/icon/scan.png"), this);
+    // DetachableWidget* sectorDetachable = new DetachableWidget(
+    //     "扇区显示", m_sectorWidget, QIcon(":/resources/icon/scan.png"), this);
 
     // 将距离-方位显示包装为可分离的widget
     DetachableWidget* rangeAzDetachable = new DetachableWidget(
-        "距离-方位", m_rangeAzimuthWidget, QIcon(":/resources/icon/radararray.png"), this);
+        "B显", m_rangeAzimuthWidget, QIcon(":/resources/icon/radararray.png"), this);
 
     // 添加到TabWidget
-    displayTabWidget->addTab(sectorDetachable, "扇区显示");
-    displayTabWidget->addTab(rangeAzDetachable, "距离-方位");
+    //displayTabWidget->addTab(sectorDetachable, "扇区显示");
+    displayTabWidget->addTab(rangeAzDetachable, "B显");
 
     // 将TabWidget添加到布局
     QVBoxLayout* layout2 = new QVBoxLayout(ui->pviewSectorW);
@@ -493,6 +505,25 @@ void MainOverLayOut::mainPView() {
                 m_rangeAzimuthWidget->chart()->addPointInfo(info);
             }
         });
+    }
+
+    // ========== 连接PPIView的清除信号到距离-方位图表 ==========
+    // 当PPIVisualSettings的"显清"按钮被点击时，同时清除RangeAzimuthChart的数据
+    if (mView && m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
+        connect(mView, &PPIView::clearDisplayTriggered,
+                m_rangeAzimuthWidget->chart(), &RangeAzimuthChart::clearRadarData);
+
+        // ========== 连接最大检测点数量变化到距离-方位图表 ==========
+        // 当用户修改最大检测点数量时，同步更新 RangeAzimuthChart 的限制
+        connect(mView, &PPIView::maxPointsSettingChanged,
+                m_rangeAzimuthWidget->chart(), &RangeAzimuthChart::setMaxDetectionPoints);
+    }
+
+    // ========== 连接航迹删除信号到距离-方位图表 ==========
+    // 当收到 statMethod==2 时，删除距离-方位图表中对应批号的航迹
+    if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
+        connect(&RADAR_DATA_MGR, &RadarDataManager::trackBatchRemoved,
+                m_rangeAzimuthWidget->chart(), &RangeAzimuthChart::removeBatch);
     }
 
     // ========== 同步主视图的距离范围到所有辅助视图 ==========
@@ -597,12 +628,10 @@ void MainOverLayOut::setupWorkModeSettings() {
                 if (yawEdit) {
                     connect(yawEdit, &QLineEdit::returnPressed, this,
                             &MainOverLayOut::sendScanRangeParams);
-                    qDebug() << "已连接topleft偏航输入框";
                 }
                 if (rollEdit) {
                     connect(rollEdit, &QLineEdit::returnPressed, this,
                             &MainOverLayOut::sendScanRangeParams);
-                    qDebug() << "已连接topleft倾角输入框";
                 }
             }
         }
@@ -691,37 +720,65 @@ void MainOverLayOut::setupTrackManagement() {
         droneHeaderView->setSectionResizeMode(i, QHeaderView::ResizeToContents);
     }
 
+    // 初始化冻结首列辅助类
+    // 冻结批次号列（第1列），使其在横向滚动时始终可见
+    m_trackTableFrozenHelper = new FrozenColumnHelper(trackTable, 1, this);
+    m_droneTableFrozenHelper = new FrozenColumnHelper(droneTable, 1, this);
+
+    // 显式同步冻结列内容
+    if (m_trackTableFrozenHelper) {
+        m_trackTableFrozenHelper->syncFrozenContent();
+    }
+    if (m_droneTableFrozenHelper) {
+        m_droneTableFrozenHelper->syncFrozenContent();
+    }
+
     // 连接RadarDataManager的信号
     connect(&RADAR_DATA_MGR, &RadarDataManager::trackReceived, this,
             &MainOverLayOut::updateTrackList);
     connect(&RADAR_DATA_MGR, &RadarDataManager::trackReceived, this,
             &MainOverLayOut::updateDroneTrackList);
     connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared, this, &MainOverLayOut::clearAllTracks);
+    connect(&RADAR_DATA_MGR, &RadarDataManager::trackBatchRemoved, this, &MainOverLayOut::onTrackRemoved);
 
     // 连接Controller的目标分类信号
     if (CON_INS) {
         connect(CON_INS, &Controller::targetClaRes, this,
                 [this](TargetClaRes res) { updateTargetClassification(res.batchID, res.claRes); });
     }
-
-    qDebug() << "航迹管理功能初始化完成";
 }
 
 void MainOverLayOut::updateTrackList(const PointInfo& info) {
+    // statMethod==2 是消批指令，不应插入/更新行（由 onTrackRemoved 处理删除）
+    if (info.statMethod == 2) return;
+
     bool isTBD = (info.type == PointType::TBDPointType);
     QString targetType =
         isTBD ? QStringLiteral("TBD") : getTargetTypeText(m_targetTypes.value(info.batch, 0));
     addOrUpdateTrackRow(ui->tableWidget, info, targetType, isTBD);
     sortTrackTable(ui->tableWidget);
+
+    // 同步冻结列内容
+    if (m_trackTableFrozenHelper) {
+        m_trackTableFrozenHelper->syncFrozenContent();
+    }
 }
 
 void MainOverLayOut::updateDroneTrackList(const PointInfo& info) {
+    // statMethod==2 是消批指令，不应插入/更新行
+    if (info.statMethod == 2) return;
+
     // 只显示无人机类型的航迹
     if (m_targetTypes.value(info.batch, 0) == 1) {  // 1 = 无人机
         QString targetType = getTargetTypeText(1);
         addOrUpdateTrackRow(ui->droneTableWidget, info, targetType,
                             info.type == PointType::TBDPointType);
         sortTrackTable(ui->droneTableWidget);
+
+        // 同步冻结列内容
+        if (m_droneTableFrozenHelper) {
+            m_droneTableFrozenHelper->syncFrozenContent();
+        }
     }
 }
 
@@ -772,6 +829,69 @@ void MainOverLayOut::updateTargetClassification(unsigned int batchID, int target
     // 重新排序两个表格
     sortTrackTable(ui->tableWidget);
     sortTrackTable(ui->droneTableWidget);
+
+    // 同步冻结列内容
+    if (m_trackTableFrozenHelper) {
+        m_trackTableFrozenHelper->syncFrozenContent();
+    }
+    if (m_droneTableFrozenHelper) {
+        m_droneTableFrozenHelper->syncFrozenContent();
+    }
+}
+
+void MainOverLayOut::onTrackRemoved(int batchID) {
+    LOG_INFO(QString("[MainOverLayOut::onTrackRemoved] CALLED batchID=%1, trackTable rows=%2, droneTable rows=%3")
+             .arg(batchID).arg(ui->tableWidget->rowCount()).arg(ui->droneTableWidget->rowCount()));
+
+    // 从总航迹表格中删除
+    QTableWidget* trackTable = ui->tableWidget;
+
+    for (int row = trackTable->rowCount() - 1; row >= 0; --row) {
+        if (trackTable->item(row, 0)) {
+            int rowBatchID = trackTable->item(row, 0)->text().toInt();
+
+            if (rowBatchID == batchID) {
+                trackTable->removeRow(row);
+                LOG_INFO(QString("[MainOverLayOut::onTrackRemoved] Removed row %1 from trackTable (batch=%2)").arg(row).arg(batchID));
+
+                // 同步冻结列
+                if (m_trackTableFrozenHelper) {
+                    m_trackTableFrozenHelper->syncFrozenContent();
+                }
+                break;
+            }
+        }
+    }
+
+    // 从无人机表格中删除
+    QTableWidget* droneTable = ui->droneTableWidget;
+    for (int row = droneTable->rowCount() - 1; row >= 0; --row) {
+        if (droneTable->item(row, 0) && droneTable->item(row, 0)->text().toInt() == batchID) {
+            droneTable->removeRow(row);
+            LOG_INFO(QString("[MainOverLayOut::onTrackRemoved] Removed row %1 from droneTable (batch=%2)").arg(row).arg(batchID));
+
+            // 同步冻结列
+            if (m_droneTableFrozenHelper) {
+                m_droneTableFrozenHelper->syncFrozenContent();
+            }
+            break;
+        }
+    }
+
+    // 从内部映射中删除
+    m_targetTypes.remove(batchID);
+    m_trackStartTimes.remove(batchID);
+
+    LOG_INFO(QString("[MainOverLayOut::onTrackRemoved] DONE batchID=%1, trackTable rows=%2, droneTable rows=%3")
+             .arg(batchID).arg(ui->tableWidget->rowCount()).arg(ui->droneTableWidget->rowCount()));
+
+    // 同步冻结列内容
+    if (m_trackTableFrozenHelper) {
+        m_trackTableFrozenHelper->syncFrozenContent();
+    }
+    if (m_droneTableFrozenHelper) {
+        m_droneTableFrozenHelper->syncFrozenContent();
+    }
 }
 
 void MainOverLayOut::clearAllTracks() {
@@ -779,6 +899,24 @@ void MainOverLayOut::clearAllTracks() {
     ui->droneTableWidget->setRowCount(0);
     m_targetTypes.clear();
     m_trackStartTimes.clear();
+
+    // 同步冻结列内容
+    if (m_trackTableFrozenHelper) {
+        m_trackTableFrozenHelper->syncFrozenContent();
+    }
+    if (m_droneTableFrozenHelper) {
+        m_droneTableFrozenHelper->syncFrozenContent();
+    }
+}
+
+/**
+ * @brief 清除航迹表格数据
+ * @details 响应"显清"按钮，清除航迹列表和无人机航迹列表的所有数据
+ *          与clearAllTracks()功能相同，但作为公共槽函数供外部调用
+ */
+void MainOverLayOut::clearTrackTables() {
+    clearAllTracks();
+    //LOG_INFO("Track tables cleared by user request");
 }
 
 int MainOverLayOut::addOrUpdateTrackRow(QTableWidget* tableWidget, const PointInfo& info,

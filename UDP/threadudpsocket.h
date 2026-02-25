@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:13
+ * @LastEditTime: 2026-02-25 10:58:14
  * @Description: 
  */
 /**
@@ -289,8 +289,10 @@ private:
     // 错误处理和重连机制
     QTimer* m_reconnectTimer;                    ///< 重连定时器
     int m_reconnectAttempts;                     ///< 当前重连尝试次数
+    bool m_reconnectGiveUp;                      ///< 是否已放弃重连（等待长间隔冷却）
     static const int MAX_RECONNECT_ATTEMPTS = 5; ///< 最大重连尝试次数
-    static const int RECONNECT_INTERVAL_MS = 3000; ///< 重连间隔时间(毫秒)
+    static const int RECONNECT_INTERVAL_MS = 10000; ///< 重连间隔时间(毫秒)，每次尝试间隔10秒
+    static const int RECONNECT_COOLDOWN_MS = 60000; ///< 放弃重连后的冷却时间(毫秒)，60秒后重置
 
     // 心跳机制
     QTimer* heartbeatTimer = nullptr;            ///< 心跳定时器
