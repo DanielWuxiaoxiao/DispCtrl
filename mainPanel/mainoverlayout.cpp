@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-25 10:58:14
+ * @LastEditTime: 2026-02-27 17:58:57
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -2202,7 +2202,6 @@ void MainOverLayOut::updateTransmitButton()
             "    color: #101818;"
             "    border: 2px solid #66ffcc;"
             "    border-radius: 8px;"
-            "    font-size: 12px;"
             "}"
             "QPushButton:hover {"
             "    background-color: #33ff33;"
@@ -2220,7 +2219,6 @@ void MainOverLayOut::updateTransmitButton()
             "    color: #ffffff;"
             "    border: 2px solid #ff6666;"
             "    border-radius: 8px;"
-            "    font-size: 12px;"
             "}"
             "QPushButton:hover {"
             "    background-color: #ff3333;"
@@ -2247,7 +2245,6 @@ void MainOverLayOut::updateStandbyButton()
             "    color: #ffffff;"
             "    border: 2px solid #ff6666;"
             "    border-radius: 8px;"
-            "    font-size: 12px;"
             "    font-weight: bold;"
             "}"
             "QPushButton:hover {"
@@ -2266,7 +2263,6 @@ void MainOverLayOut::updateStandbyButton()
             "    color: #101818;"
             "    border: 2px solid #66ffcc;"
             "    border-radius: 8px;"
-            "    font-size: 12px;"
             "    font-weight: bold;"
             "}"
             "QPushButton:hover {"
