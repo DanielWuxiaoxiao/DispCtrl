@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 10:04:10
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:34
+ * @LastEditTime: 2026-02-28 16:46:31
  * @Description: 
  */
 /**
@@ -240,6 +240,14 @@ public:
      * @details 用于遍历和管理所有航迹批次
      */
     QList<int> batchIDs() const { return m_series.keys(); }
+
+signals:
+    /**
+     * @brief 航迹被删除信号
+     * @param batchID 被删除的批次ID
+     * @details 当航迹因 statMethod==2 被删除时发出此信号
+     */
+    void trackRemoved(int batchID);
 
 private:
     /**

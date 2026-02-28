@@ -3,12 +3,13 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:48
+ * @LastEditTime: 2026-02-28 16:46:34
  * @Description: 
  */
 #include "scanrangeui.h"
 #include "ui_scanrangeui.h"
 #include "Basic/ConfigManager.h"
+#include "Basic/DispBasci.h"
 #include "cusWidgets/custommessagebox.h"
 #include <QPushButton>
 
@@ -18,6 +19,8 @@ ScanRangeUI::ScanRangeUI(QWidget *parent) :
 {
     ui->setupUi(this);
     setWindowTitle(tr("搜索范围控制"));
+    // 窗口居中显示
+    centerWidgetOnScreen(this);
 
     // 断开UI文件中的默认连接
     disconnect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);

@@ -3,14 +3,14 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:17
+ * @LastEditTime: 2026-02-28 16:46:32
  * @Description: 
  */
 /**
  * @file cuswindow.h
  * @brief 自定义窗口组件
  * @details 提供完全自定义的窗口实现，支持拖拽、缩放、最大化等窗口操作
- * 
+ *
  * 功能特性：
  * - 无边框窗口设计
  * - 自定义标题栏和控制按钮
@@ -18,20 +18,20 @@
  * - 窗口最大化/还原功能
  * - 自定义窗口样式和主题
  * - 内容区域自定义支持
- * 
+ *
  * 交互功能：
  * - 拖拽移动窗口
  * - 八个方向的边框缩放
  * - 双击标题栏最大化/还原
  * - 最小化/最大化/关闭按钮
  * - 动态鼠标指针变化
- * 
+ *
  * 使用场景：
  * - 替代系统原生窗口
  * - 统一应用程序窗口风格
  * - 特殊UI需求的窗口
  * - 嵌入式窗口管理
- * 
+ *
  * @author DispCtrl Team
  * @version 1.0
  * @date 2024
@@ -49,7 +49,7 @@
  * @class CusWindow
  * @brief 自定义窗口组件
  * @details 基于QWidget的完全自定义窗口实现，提供原生窗口的所有基本功能
- * 
+ *
  * 该类实现了一个功能完整的自定义窗口：
  * - 完全自绘的窗口边框和标题栏
  * - 支持拖拽移动和八方向缩放
@@ -57,25 +57,25 @@
  * - 双击标题栏切换最大化状态
  * - 自定义内容区域支持
  * - 橡皮筋缩放预览效果
- * 
+ *
  * 设计特点：
  * - 无系统边框，完全自定义外观
  * - 响应式鼠标指针变化
  * - 平滑的窗口操作体验
  * - 灵活的内容区域管理
- * 
+ *
  * @example
  * ```cpp
  * CusWindow* window = new CusWindow("自定义窗口", QIcon(":/icon.png"));
- * 
+ *
  * QWidget* content = new QWidget();
  * // 设置内容组件...
  * window->setContentWidget(content);
- * 
+ *
  * connect(window, &CusWindow::windowClosed, [&]() {
  *     qDebug() << "窗口已关闭";
  * });
- * 
+ *
  * window->show();
  * ```
  */
@@ -101,48 +101,54 @@ public:
 
 protected:
     // === 鼠标事件处理 ===
-    
+
     /**
      * @brief 鼠标按下事件
      * @param e 鼠标事件对象
      * @details 处理窗口拖拽和缩放的开始操作
      */
     void mousePressEvent(QMouseEvent* e) override;
-    
+
     /**
      * @brief 鼠标移动事件
      * @param e 鼠标事件对象
      * @details 处理窗口拖拽移动和缩放操作
      */
     void mouseMoveEvent(QMouseEvent* e) override;
-    
+
     /**
      * @brief 鼠标释放事件
      * @param e 鼠标事件对象
      * @details 结束窗口拖拽和缩放操作
      */
     void mouseReleaseEvent(QMouseEvent* e) override;
-    
+
     /**
      * @brief 鼠标双击事件
      * @param e 鼠标事件对象
      * @details 处理标题栏双击最大化/还原操作
      */
     void mouseDoubleClickEvent(QMouseEvent* e) override;
-    
+
     /**
      * @brief 绘制事件
      * @param e 绘制事件对象
      * @details 自定义绘制窗口边框和装饰
      */
     void paintEvent(QPaintEvent* e) override;
-    
+
     /**
      * @brief 鼠标离开事件
      * @param e 事件对象
      * @details 恢复鼠标指针为默认样式
      */
     void leaveEvent(QEvent* e) override;
+
+    /**
+     * @brief 首次显示时自动居中到屏幕中央
+     * @param e 显示事件对象
+     */
+    void showEvent(QShowEvent* e) override;
 
     /**
      * @brief 事件过滤器
@@ -170,7 +176,7 @@ private:
         BottomLeft,   ///< 左下角
         BottomRight   ///< 右下角
     };
-    
+
     /**
      * @brief 命中测试
      * @param pos 鼠标位置
@@ -178,7 +184,7 @@ private:
      * @details 检测鼠标位置对应的窗口缩放区域
      */
     ResizeRegion hitTest(const QPoint& pos) const;
-    
+
     /**
      * @brief 更新鼠标指针
      * @param pos 鼠标位置
@@ -200,10 +206,11 @@ private:
     QPushButton* m_closeBtn;            ///< 关闭按钮
     QPushButton* m_minBtn;              ///< 最小化按钮
     QPushButton* m_maxBtn;              ///< 最大化按钮
-    
+
     // === 窗口状态 ===
     bool m_maximized = false;           ///< 是否已最大化
     QRect m_restoreRect;                ///< 还原时的窗口矩形
+    bool m_firstShow = true;            ///< 是否为首次显示（用于自动居中）
 
     // === 橡皮筋效果 ===
     QRubberBand* m_rubberBand = nullptr; ///< 橡皮筋组件

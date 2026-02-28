@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:46
+ * @LastEditTime: 2026-02-28 16:46:32
  * @Description: 
  */
 /**
@@ -27,6 +27,8 @@
 #include "../PointManager/detmanager.h"
 #include "../PointManager/trackmanager.h"
 #include "../Controller/controller.h"
+#include "../Controller/RadarDataManager.h"
+#include "../mainPanel/mainoverlayout.h"
 
 #include <QMouseEvent>
 #include <QtMath>
@@ -268,6 +270,9 @@ void PPIView::setupOverlay() {
     connect(mousePositionInfo, &MousePositionInfo::trackVisibilityChanged,
             this, &PPIView::onTrackVisibilityChanged);
 
+    // 注意：初始状态的应用必须在 setPPIScene() 之后进行
+    // 因为此时 m_scene 还未初始化，会在 setPPIScene() 中调用
+
     // 连接视觉设置信号
     connect(visualSettings, &PPIVisualSettings::maxDistanceChanged,
             this, &PPIView::onMaxDistanceChanged);
@@ -375,6 +380,43 @@ void PPIView::setPPIScene(PPIScene* scene) {
 
         LOG_INFO(QString("PPI range sync: Scene %1m -> View %2km")
                 .arg(maxRangeInMeters).arg(maxRangeInKm));
+    }
+
+    // 连接航迹点点击信号到PointInfoW
+    if (m_scene && pointInfo) {
+        // 点击航迹点时更新显示并设置选中批次
+        connect(m_scene, &PPIScene::trackPointClicked, this, [this](const PointInfo& info) {
+            qDebug() << "[PPIView] trackPointClicked received, batch:" << info.batch;
+            pointInfo->setSelectedBatch(info.batch);
+            pointInfo->updatePointInfo(info);
+        });
+        LOG_INFO("Connected PPIScene::trackPointClicked to PointInfoW");
+
+        // 连接航迹管理器的航迹点添加信号，用于持续更新选中批次的最新数据
+        if (m_scene->track()) {
+            connect(m_scene->track(), &TrackManager::trackPointAdded, this, [this](const PointInfo& info) {
+                // 只有当新添加的航迹点属于选中的批次时才更新显示
+                if (pointInfo->selectedBatch() == static_cast<int>(info.batch)) {
+                    qDebug() << "[PPIView] Updating selected batch" << info.batch << "with new data";
+                    pointInfo->updatePointInfo(info);
+                }
+            });
+            LOG_INFO("Connected TrackManager::trackPointAdded for continuous update");
+        }
+    }
+
+    // 场景设置完成后，应用 MousePositionInfo 的初始可见性状态
+    // 此时 m_scene 已经初始化，可以安全调用
+    if (mousePositionInfo) {
+        bool detVisible = mousePositionInfo->isDetectionVisible();
+        bool trackVisible = mousePositionInfo->isTrackVisible();
+
+        LOG_INFO(QString("Applying initial visibility: detection=%1, track=%2")
+                .arg(detVisible).arg(trackVisible));
+
+        onDetectionVisibilityChanged(detVisible);
+        onTrackVisibilityChanged(trackVisible);
+        LOG_INFO("Applied initial visibility state from MousePositionInfo");
     }
 }
 
@@ -842,24 +884,29 @@ void PPIView::onMaxPointsChanged(int maxPoints)
 {
     if (m_scene && m_scene->det()) {
         m_scene->det()->setMaxPoints(maxPoints);
-        LOG_INFO(QString("Max detection points limit updated: %1").arg(maxPoints));
+        LOG_INFO(QString("[PPIView::onMaxPointsChanged] P显 DetManager max points set to %1").arg(maxPoints));
     }
+    // 转发给外部组件（如 RangeAzimuthChart）
+    emit maxPointsSettingChanged(maxPoints);
 }
 
 /**
  * @brief 处理清除P显数据请求
- * @details 清除检测点和航迹点数据，但不影响后续新数据的添加
+ * @details 清除检测点和航迹点数据，同时清除航迹列表表格
  *
  * 清除内容：
  * 1. 检测点数据：调用DetManager的clear()清除所有检测点
  * 2. 航迹点数据：调用TrackManager的clear()清除所有航迹点
- * 3. 保留配置：不影响最大点数限制等配置参数
- * 4. 后续不影响：清除后可正常接收和显示新数据
+ * 3. 航迹表格：调用MainOverLayOut的clearTrackTables()清除航迹列表
+ * 4. 保留配置：不影响最大点数限制等配置参数
+ * 5. 后续不影响：清除后可正常接收和显示新数据
  *
  * 实现要点：
  * - 检查场景有效性：确保scene对象存在
  * - 分别清除：检测点和航迹点独立清除
+ * - 清除表格：通过父对象调用表格清除方法
  * - 日志记录：记录清除操作，便于追踪
+ * - 信号转发：发出clearDisplayTriggered信号通知其他组件（如RangeAzimuthChart）
  */
 void PPIView::onClearDisplayRequested()
 {
@@ -868,17 +915,24 @@ void PPIView::onClearDisplayRequested()
         return;
     }
 
-    // 清除检测点
-    if (m_scene->det()) {
-        m_scene->det()->clear();
-        LOG_INFO("Detection points cleared");
+    // 通过 RadarDataManager 统一清除数据
+    // 这会触发 dataCleared 信号，通知所有注册的视图（包括 RangeAzimuthWidget）
+    RADAR_DATA_MGR.clearAllData();
+
+    // 清除航迹列表表格（通过父对象MainOverLayOut）
+    QWidget* parentWidget = this->parentWidget();
+    while (parentWidget) {
+        MainOverLayOut* mainLayout = qobject_cast<MainOverLayOut*>(parentWidget);
+        if (mainLayout) {
+            mainLayout->clearTrackTables();
+            LOG_INFO("Track tables cleared");
+            break;
+        }
+        parentWidget = parentWidget->parentWidget();
     }
 
-    // 清除航迹点
-    if (m_scene->track()) {
-        m_scene->track()->clear();
-        LOG_INFO("Track points cleared");
-    }
+    // 发出信号通知其他组件（如RangeAzimuthChart）清除数据
+    emit clearDisplayTriggered();
 
     LOG_INFO("P display data cleared");
 }
@@ -925,7 +979,7 @@ void PPIView::onTrackVisibilityChanged(bool visible)
 
     if (m_scene->track()) {
         m_scene->track()->setAllVisible(visible);
-        LOG_INFO(QString("Track points visibility changed: %1").arg(visible ? "visible" : "hidden"));
+        // LOG_INFO(QString("Track points visibility changed: %1").arg(visible ? "visible" : "hidden"));
     }
 }
 

@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-01-21 11:05:23
+ * @Date: 2026-01-30 11:45:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:48
+ * @LastEditTime: 2026-02-28 16:46:34
  * @Description: 
  */
 /*
@@ -17,6 +17,7 @@
 #include "twsmodedialog.h"
 #include "ui_twsmodedialog.h"
 #include "Basic/ConfigManager.h"
+#include "Basic/DispBasci.h"
 #include "Controller/controller.h"
 #include "cusWidgets/custommessagebox.h"
 #include <QPushButton>
@@ -37,6 +38,9 @@ TWSModeDialog::TWSModeDialog(QWidget *parent) :
     setFixedSize(1200, 800);
     setWindowTitle(tr("TWS模式设置"));
     setObjectName("TWSModeDialog");  // 设置对象名以应用darkstyle.qss中的样式
+
+    // 窗口居中显示
+    centerWidgetOnScreen(this);
 
     // 断开UI文件中的默认连接
     disconnect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);

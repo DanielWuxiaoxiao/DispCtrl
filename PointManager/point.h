@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:12
+ * @LastEditTime: 2026-02-28 16:46:31
  * @Description: 
  */
 /**
@@ -31,10 +31,10 @@
  * @note 这些值现在可以通过config.toml配置文件调整
  * @{
  */
-constexpr int DET_SIZE = 5;      ///< 检测点普通尺寸(像素) - 临时改大以便可见 - 可通过CF_INS.pointSize("DET_SIZE", DET_SIZE)获取
-constexpr int DET_BIG_SIZE = 8;  ///< 检测点放大尺寸(像素) - 可通过CF_INS.pointSize("DET_BIG_SIZE", DET_BIG_SIZE)获取
-constexpr int TRA_SIZE = 3;      ///< 航迹点普通尺寸(像素) - 可通过CF_INS.pointSize("TRA_SIZE", TRA_SIZE)获取
-constexpr int TRA_BIG_SIZE = 10; ///< 航迹点放大尺寸(像素) - 可通过CF_INS.pointSize("TRA_BIG_SIZE", TRA_BIG_SIZE)获取
+constexpr int DET_SIZE = 1;      ///< 检测点普通尺寸(像素) - 临时改大以便可见 - 可通过CF_INS.pointSize("DET_SIZE", DET_SIZE)获取
+constexpr int DET_BIG_SIZE = 5;  ///< 检测点放大尺寸(像素) - 可通过CF_INS.pointSize("DET_BIG_SIZE", DET_BIG_SIZE)获取
+constexpr int TRA_SIZE = 4;      ///< 航迹点普通尺寸(像素) - 可通过CF_INS.pointSize("TRA_SIZE", TRA_SIZE)获取
+constexpr int TRA_BIG_SIZE = 6; ///< 航迹点放大尺寸(像素) - 可通过CF_INS.pointSize("TRA_BIG_SIZE", TRA_BIG_SIZE)获取
 /** @} */
 
 /**
@@ -153,6 +153,13 @@ protected:
      */
     void hoverLeaveEvent(QGraphicsSceneHoverEvent *event) override;
 
+    /**
+     * @brief 鼠标按下事件
+     * @param event 鼠标事件对象
+     * @details 点击点时发出选中信号
+     */
+    void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
+
     /** @} */ // end of HoverEvents group
 
     /**
@@ -181,15 +188,15 @@ protected:
     QString text;                ///< 工具提示文本内容
 
     // 当前显示尺寸(像素)
-    float w = 6.f, h = 6.f;      ///< 当前宽度和高度
-    float W = 10.f, H = 10.f;    ///< 放大状态的宽度和高度
+    float w = 3.f, h = 3.f;      ///< 当前宽度和高度
+    float W = 5.f, H = 5.f;    ///< 放大状态的宽度和高度
 
     // 屏幕坐标记录
     float mX = 0.f, mY = 0.f;    ///< 点中心的像素坐标
 
     // 基础尺寸配置 - 子类可重写
-    float baseSmallW = 6.f, baseSmallH = 6.f;  ///< 基础普通尺寸
-    float baseBigW   = 10.f, baseBigH   = 10.f; ///< 基础放大尺寸
+    float baseSmallW = 3.f, baseSmallH = 3.f;  ///< 基础普通尺寸
+    float baseBigW   = 5.f, baseBigH   = 5.f; ///< 基础放大尺寸
 
     // 缩放状态
     float curRatio = 1.f;        ///< 当前缩放比例，避免重复计算

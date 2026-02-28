@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-01-28 11:24:29
+ * @Date: 2026-01-30 11:45:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:46
+ * @LastEditTime: 2026-02-28 16:46:32
  * @Description: 
  */
 /*
@@ -18,8 +18,10 @@
 #include "rangeazimuthchart.h"
 #include "../Basic/ConfigManager.h"
 #include "../Basic/DispBasci.h"
+#include "../Basic/log.h"
 #include <QDateTime>
 #include <QHBoxLayout>
+#include <QResizeEvent>
 #include <QtMath>
 
 //==============================================================================
@@ -30,6 +32,8 @@ RangeAzimuthChartToolBar::RangeAzimuthChartToolBar(QWidget* parent)
     : QWidget(parent)
 {
     setObjectName("RangeAzimuthChartToolBar");
+    // 让 QSS background-color 生效
+    setAttribute(Qt::WA_StyledBackground, true);
 
     QHBoxLayout* layout = new QHBoxLayout(this);
     layout->setContentsMargins(5, 2, 5, 2);
@@ -43,7 +47,7 @@ RangeAzimuthChartToolBar::RangeAzimuthChartToolBar(QWidget* parent)
     m_minAzimuthEdit = new QLineEdit(this);
     m_minAzimuthEdit->setObjectName("RangeAzimuthMinEdit");
     m_minAzimuthEdit->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-    //m_minAzimuthEdit->setFixedWidth(60);
+    m_minAzimuthEdit->setFixedWidth(60);
     m_minAzimuthEdit->setToolTip(tr("最小方位角 (0-360°)"));
     m_minAzimuthEdit->setText(QString::number(CF_INS.rangeAzimuthAngle("min", 0)));
     layout->addWidget(m_minAzimuthEdit);
@@ -163,6 +167,18 @@ RangeAzimuthChart::RangeAzimuthChart(QWidget* parent)
     // 启用网格和坐标轴
     setGridVisible(true);
     setAxisVisible(true);
+
+    // ---------- 黑绿配色主题（与 darkstyle.qss 保持一致）----------
+    // 背景：深黑
+    setChartBgColor(QColor(10, 16, 16));
+    // 主网格线：低饱和深绿
+    setChartGridMajorColor(QColor(0, 80, 60));
+    // 次网格线：更暗的绿
+    setChartGridMinorColor(QColor(0, 50, 38));
+    // 坐标轴线：绿色
+    setChartAxisColor(QColor(0, 255, 136));
+    // 刻度/标签文字：青绿色
+    setChartTextColor(QColor(102, 255, 204));
 }
 
 RangeAzimuthChart::~RangeAzimuthChart()
@@ -217,13 +233,13 @@ void RangeAzimuthChart::addDetectionPoint(const PointInfo& info)
 
     item->setVisible(shouldShow);
 
-    // 存储到映射表（使用批次号作为键）
+    // 存储到检测点列表
     DetectionItem detItem;
     detItem.graphicsItem = item;
     detItem.info = info;
     detItem.timestamp = QDateTime::currentMSecsSinceEpoch();
 
-    m_detections.insert(info.batch, detItem);
+    m_detections.append(detItem);
 
     // 限制点数
     limitDetectionPoints();
@@ -297,6 +313,12 @@ void RangeAzimuthChart::addTrackPoint(const trackInfo& info)
 
 void RangeAzimuthChart::addPointInfo(const PointInfo& info)
 {
+    // statMethod==2 表示消批命令，不添加新点（批次已由 removeBatch 删除）
+    if (info.statMethod == 2) {
+        LOG_INFO(QString("[RangeAzimuthChart::addPointInfo] statMethod==2 ignored (batch=%1)").arg(info.batch));
+        return;
+    }
+
     // 根据 type 字段判断点类型并分发
     if (info.type == Detection) {
         // 检测点
@@ -376,13 +398,37 @@ void RangeAzimuthChart::addPointInfo(const PointInfo& info)
     }
 }
 
+void RangeAzimuthChart::removeBatch(int batchID)
+{
+    int removedCount = 0;
+    // 从后向前遍历，删除匹配的航迹
+    for (int i = m_tracks.size() - 1; i >= 0; --i) {
+        if (m_tracks[i].trackData.batch == batchID) {
+            // 从场景中移除图形项
+            if (m_tracks[i].graphicsItem) {
+                scene()->removeItem(m_tracks[i].graphicsItem);
+                delete m_tracks[i].graphicsItem;
+            }
+            // 从列表中移除
+            m_tracks.removeAt(i);
+            ++removedCount;
+        }
+    }
+
+    LOG_INFO(QString("[RangeAzimuthChart::removeBatch] batch=%1 removed %2 track items, remaining tracks=%3")
+             .arg(batchID).arg(removedCount).arg(m_tracks.size()));
+
+    // 更新统计显示
+    updatePointCount();
+}
+
 void RangeAzimuthChart::clearRadarData()
 {
     // 清除所有检测点图形项
-    for (auto it = m_detections.begin(); it != m_detections.end(); ++it) {
-        if (it.value().graphicsItem) {
-            scene()->removeItem(it.value().graphicsItem);
-            delete it.value().graphicsItem;
+    for (const DetectionItem& item : m_detections) {
+        if (item.graphicsItem) {
+            scene()->removeItem(item.graphicsItem);
+            delete item.graphicsItem;
         }
     }
     m_detections.clear();
@@ -431,11 +477,11 @@ void RangeAzimuthChart::setRangeFromMain(double minRange, double maxRange)
 
     // 重新绘制所有点（因为坐标系改变了）
     // 清除现有图形项
-    for (auto it = m_detections.begin(); it != m_detections.end(); ++it) {
-        if (it.value().graphicsItem) {
-            scene()->removeItem(it.value().graphicsItem);
-            delete it.value().graphicsItem;
-            it.value().graphicsItem = nullptr;
+    for (DetectionItem& detItem : m_detections) {
+        if (detItem.graphicsItem) {
+            scene()->removeItem(detItem.graphicsItem);
+            delete detItem.graphicsItem;
+            detItem.graphicsItem = nullptr;
         }
     }
     for (TrackItem& item : m_tracks) {
@@ -447,8 +493,8 @@ void RangeAzimuthChart::setRangeFromMain(double minRange, double maxRange)
     }
 
     // 重新创建检测点图形项
-    for (auto it = m_detections.begin(); it != m_detections.end(); ++it) {
-        const PointInfo& info = it.value().info;
+    for (DetectionItem& detItem : m_detections) {
+        const PointInfo& info = detItem.info;
         double rangeKm = info.range / 1000.0;  // 转换为km
 
         QPointF scenePos = dataToScene(info.azimuth, rangeKm);
@@ -484,7 +530,7 @@ void RangeAzimuthChart::setRangeFromMain(double minRange, double maxRange)
 
         scene()->addItem(item);
 
-        it.value().graphicsItem = item;
+        detItem.graphicsItem = item;
     }
 
     // 重新创建航迹图形项
@@ -536,14 +582,14 @@ void RangeAzimuthChart::setDetectionVisible(bool visible)
 
     // 更新所有检测点的可见性（同时考虑范围过滤）
     ChartAxisConfig yAxis = yAxisConfig();
-    for (auto it = m_detections.begin(); it != m_detections.end(); ++it) {
-        if (it.value().graphicsItem) {
-            const PointInfo& info = it.value().info;
+    for (const DetectionItem& detItem : m_detections) {
+        if (detItem.graphicsItem) {
+            const PointInfo& info = detItem.info;
             double rangeKm = info.range / 1000.0;  // 转换为km
             bool inAzimuthRange = isAzimuthInRange(info.azimuth);
             bool inDistanceRange = (rangeKm >= yAxis.minValue && rangeKm <= yAxis.maxValue);
             bool shouldShow = visible && inAzimuthRange && inDistanceRange;
-            it.value().graphicsItem->setVisible(shouldShow);
+            detItem.graphicsItem->setVisible(shouldShow);
         }
     }
 }
@@ -571,12 +617,12 @@ void RangeAzimuthChart::setDetectionSizeRatio(double ratio)
     m_detectionSizeRatio = qBound(0.5, ratio, 3.0);
 
     // 更新所有检测点的大小
-    for (auto it = m_detections.begin(); it != m_detections.end(); ++it) {
-        if (it.value().graphicsItem) {
+    for (const DetectionItem& detItem : m_detections) {
+        if (detItem.graphicsItem) {
             double size = m_baseDetectionSize * m_detectionSizeRatio;
-            double rangeKm = it.value().info.range / 1000.0;  // 转换为km
-            QPointF scenePos = dataToScene(it.value().info.azimuth, rangeKm);
-            it.value().graphicsItem->setRect(
+            double rangeKm = detItem.info.range / 1000.0;  // 转换为km
+            QPointF scenePos = dataToScene(detItem.info.azimuth, rangeKm);
+            detItem.graphicsItem->setRect(
                 scenePos.x() - size/2,
                 scenePos.y() - size/2,
                 size,
@@ -608,8 +654,12 @@ void RangeAzimuthChart::setTrackSizeRatio(double ratio)
 
 void RangeAzimuthChart::setMaxDetectionPoints(int maxPoints)
 {
+    LOG_INFO(QString("[RangeAzimuthChart::setMaxDetectionPoints] max=%1, current detections=%2")
+             .arg(maxPoints).arg(m_detections.size()));
     m_maxDetectionPoints = maxPoints;
     limitDetectionPoints();
+    LOG_INFO(QString("[RangeAzimuthChart::setMaxDetectionPoints] after limit: detections=%1")
+             .arg(m_detections.size()));
 }
 
 void RangeAzimuthChart::setMaxTrackPoints(int maxTracks)
@@ -620,30 +670,14 @@ void RangeAzimuthChart::setMaxTrackPoints(int maxTracks)
 
 void RangeAzimuthChart::limitDetectionPoints()
 {
-    // FIFO：删除最旧的点
+    // FIFO：删除最旧的点（列表头部是最旧的）
     while (m_detections.size() > m_maxDetectionPoints) {
-        // 找到最旧的点
-        qint64 oldestTime = LLONG_MAX;
-        int oldestKey = -1;
-
-        for (auto it = m_detections.begin(); it != m_detections.end(); ++it) {
-            if (it.value().timestamp < oldestTime) {
-                oldestTime = it.value().timestamp;
-                oldestKey = it.key();
-            }
+        DetectionItem& oldest = m_detections.first();
+        if (oldest.graphicsItem) {
+            scene()->removeItem(oldest.graphicsItem);
+            delete oldest.graphicsItem;
         }
-
-        // 删除最旧的点
-        if (oldestKey != -1) {
-            auto it = m_detections.find(oldestKey);
-            if (it != m_detections.end()) {
-                if (it.value().graphicsItem) {
-                    scene()->removeItem(it.value().graphicsItem);
-                    delete it.value().graphicsItem;
-                }
-                m_detections.erase(it);
-            }
-        }
+        m_detections.removeFirst();
     }
 }
 
@@ -665,32 +699,53 @@ void RangeAzimuthChart::updatePointCount()
     emit pointCountChanged(m_detections.size(), m_tracks.size());
 }
 
-void RangeAzimuthChart::setAzimuthRange(double minAz, double maxAz)
+void RangeAzimuthChart::resizeEvent(QResizeEvent* event)
 {
-    m_minAzimuth = minAz;
-    m_maxAzimuth = maxAz;
+    // 基类处理：更新 sceneRect 并重绘网格/坐标轴
+    CustomLineChart::resizeEvent(event);
+    // 基类 rebuild() 完成后，重新计算雷达数据点的场景坐标
+    refreshAllPoints();
+}
 
-    // 更新所有点的可见性（而不是删除）
+void RangeAzimuthChart::refreshAllPoints()
+{
+    ChartAxisConfig xAxis = xAxisConfig();
     ChartAxisConfig yAxis = yAxisConfig();
 
-    // 更新检测点可见性
-    for (auto it = m_detections.begin(); it != m_detections.end(); ++it) {
-        if (it.value().graphicsItem) {
-            const PointInfo& info = it.value().info;
+    // 更新检测点位置和可见性
+    for (const DetectionItem& detItem : m_detections) {
+        if (detItem.graphicsItem) {
+            const PointInfo& info = detItem.info;
+            double azimuth = info.azimuth;
             double rangeKm = info.range / 1000.0;  // 转换为km
-            bool inAzimuthRange = isAzimuthInRange(info.azimuth);
+
+            // 重新计算场景位置
+            QPointF scenePos = dataToScene(azimuth, rangeKm);
+            double size = m_baseDetectionSize * m_detectionSizeRatio;
+            detItem.graphicsItem->setRect(scenePos.x() - size/2, scenePos.y() - size/2, size, size);
+
+            // 更新可见性
+            bool inAzimuthRange = isAzimuthInRange(azimuth);
             bool inDistanceRange = (rangeKm >= yAxis.minValue && rangeKm <= yAxis.maxValue);
             bool shouldShow = m_detectionVisible && inAzimuthRange && inDistanceRange;
-            it.value().graphicsItem->setVisible(shouldShow);
+            detItem.graphicsItem->setVisible(shouldShow);
         }
     }
 
-    // 更新航迹可见性
-    for (const TrackItem& item : m_tracks) {
+    // 更新航迹位置和可见性
+    for (TrackItem& item : m_tracks) {
         if (item.graphicsItem) {
             const trackInfo& track = item.trackData;
+            double azimuth = track.azi;
             double rangeKm = track.dis / 1000.0;  // 转换为km
-            bool inAzimuthRange = isAzimuthInRange(track.azi);
+
+            // 重新计算场景位置
+            QPointF scenePos = dataToScene(azimuth, rangeKm);
+            double size = m_baseTrackSize * m_trackSizeRatio;
+            item.graphicsItem->setRect(scenePos.x() - size/2, scenePos.y() - size/2, size, size);
+
+            // 更新可见性
+            bool inAzimuthRange = isAzimuthInRange(azimuth);
             bool inDistanceRange = (rangeKm >= yAxis.minValue && rangeKm <= yAxis.maxValue);
             bool shouldShow = m_trackVisible && inAzimuthRange && inDistanceRange;
             item.graphicsItem->setVisible(shouldShow);
@@ -698,6 +753,39 @@ void RangeAzimuthChart::setAzimuthRange(double minAz, double maxAz)
     }
 
     updatePointCount();
+}
+
+void RangeAzimuthChart::setAzimuthRange(double minAz, double maxAz)
+{
+    m_minAzimuth = minAz;
+    m_maxAzimuth = maxAz;
+
+    // 更新X轴配置
+    ChartAxisConfig xAxis = xAxisConfig();
+    xAxis.minValue = minAz;
+    xAxis.maxValue = maxAz;
+    // 根据范围动态调整刻度间隔
+    double range = maxAz - minAz;
+    if (range <= 90) {
+        xAxis.majorTickInterval = 15;
+        xAxis.minorTickInterval = 5;
+    } else if (range <= 180) {
+        xAxis.majorTickInterval = 30;
+        xAxis.minorTickInterval = 10;
+    } else {
+        xAxis.majorTickInterval = 45;
+        xAxis.minorTickInterval = 15;
+    }
+    setXAxisConfig(xAxis);
+
+    // 保存配置
+    CF_INS.setRangeAzimuthAngle("min", minAz);
+    CF_INS.setRangeAzimuthAngle("max", maxAz);
+
+    // 刷新所有点的位置和可见性
+    refreshAllPoints();
+
+    qDebug() << "[RangeAzimuthChart::setAzimuthRange] Updated to" << minAz << "~" << maxAz;
 }
 
 bool RangeAzimuthChart::isAzimuthInRange(double azimuth) const
@@ -719,6 +807,10 @@ bool RangeAzimuthChart::isAzimuthInRange(double azimuth) const
 RangeAzimuthChartWidget::RangeAzimuthChartWidget(QWidget* parent)
     : QWidget(parent)
 {
+    setObjectName("RangeAzimuthChartWidget");
+    // 让 QSS background-color 对 QWidget 生效
+    setAttribute(Qt::WA_StyledBackground, true);
+
     QVBoxLayout* layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
@@ -750,12 +842,22 @@ RangeAzimuthChartWidget::~RangeAzimuthChartWidget()
 
 void RangeAzimuthChartWidget::onClearRequested()
 {
+    qDebug() << "[RangeAzimuthChartWidget::onClearRequested] Clear button clicked";
     m_chart->clearRadarData();
 }
 
 void RangeAzimuthChartWidget::onResetRequested()
 {
-    // 重置视图到默认状态
+    qDebug() << "[RangeAzimuthChartWidget::onResetRequested] Reset button clicked";
+
+    // 重置距离范围到默认状态（0-5km）
     m_chart->setRangeFromMain(0, 5000);
-    m_chart->clearRadarData();
+
+    // 重置方位角范围到默认状态（0-360°）
+    m_chart->setAzimuthRange(0, 360);
+
+    // 注意：重置不清除数据，只是恢复默认视图范围
+    // 数据会在 setRangeFromMain 和 setAzimuthRange 中被重新排布
+
+    qDebug() << "[RangeAzimuthChartWidget::onResetRequested] Reset completed";
 }

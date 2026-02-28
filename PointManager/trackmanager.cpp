@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:34
+ * @LastEditTime: 2026-02-28 16:46:31
  * @Description: 
  */
 /**
@@ -21,6 +21,7 @@
 #include "trackmanager.h"
 #include <QPen>
 #include "Basic/DispBasci.h"
+#include "Basic/log.h"
 #include "Controller/RadarDataManager.h"  // 雷达数据管理器头文件
 
 // ==================== DraggableLabel 可拖拽标签实现 ====================
@@ -96,9 +97,11 @@ TrackManager::TrackManager(QGraphicsScene* scene, PolarAxis* axis, QObject* pare
     // 注册到统一数据管理器，使用唯一标识符
     RADAR_DATA_MGR.registerView("TrackManager_" + QString::number((quintptr)this), this);
 
-    // 连接统一数据管理器的信号到本地处理函数
-    connect(&RADAR_DATA_MGR, &RadarDataManager::trackReceived,
-            this, &TrackManager::addTrackPoint);        // 接收航迹点数据
+    // 注意：不在这里连接 RadarDataManager::trackReceived 信号
+    // 数据流由 PPIScene 通过 Controller::traInfoProcess/tbdInfoProcess 统一管理
+    // 避免双重连接导致每个航迹点被处理两次
+
+    // 只连接数据清理信号
     connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared,
             this, &TrackManager::clear);                // 响应数据清理
 }
@@ -137,9 +140,9 @@ void TrackManager::setPointSizeRatio(float ratio)
         for (auto& n : it->nodes) {
             if (n.point) n.point->resize(mPointSizeRatio);
         }
-        // 更新该航迹的显示状态
-        updateBatchVisibility(it.key());
     }
+    // 刷新所有显示以确保尺寸更新生效
+    refreshAll();
 }
 
 /**
@@ -191,7 +194,13 @@ void TrackManager::ensureSeries(int batchID, PointType type)
         TrackSeries s;
         s.type = type;
         s.color = (type == PointType::TBDPointType) ? QColor(TBD_COLOR) : QColor(TRA_COLOR);
+        // s.visible 默认值是 true（在结构体定义中）
         mSeries.insert(batchID, s);
+
+        qDebug() << "[TrackManager::ensureSeries] Created new series:"
+                 << "batch" << batchID
+                 << "type" << (int)type
+                 << "visible" << s.visible;
         return;
     }
 
@@ -206,8 +215,8 @@ void TrackManager::ensureSeries(int batchID, PointType type)
 }
 
 /**
- * @brief 极坐标转屏幕坐标
- * @param range 距离值(公里)
+ * @brief 极坐标转屏幕像素坐标
+ * @param range 距离(米)
  * @param azimuthDeg 方位角(度)
  * @return 屏幕像素坐标
  * @details 通过PolarAxis进行坐标变换，确保与显示系统一致
@@ -215,7 +224,14 @@ void TrackManager::ensureSeries(int batchID, PointType type)
 QPointF TrackManager::polarToPixel(float range, float azimuthDeg) const
 {
     // 使用统一的 PolarAxis 进行坐标变换
-    return mAxis->polarToScene(range, azimuthDeg);
+    QPointF result = mAxis->polarToScene(range, azimuthDeg);
+
+    // 添加调试打印
+    // qCritical() << "[TrackManager::polarToPixel] Input: range=" << range
+    //             << "m, azimuth=" << azimuthDeg << "°";
+    // qCritical() << "    -> Output: x=" << result.x() << "y=" << result.y();
+
+    return result;
 }
 
 /**
@@ -242,6 +258,18 @@ bool TrackManager::inRange(float range) const
  */
 void TrackManager::addTrackPoint(const PointInfo& info)
 {
+    // 检查 statMethod==2，表示需要删除该批号的航迹
+    if (info.statMethod == 2) {
+        LOG_INFO(QString("[TrackManager::addTrackPoint] statMethod==2: removing batch=%1, series count before=%2")
+                 .arg(info.batch).arg(mSeries.size()));
+        removeBatch(info.batch);
+        LOG_INFO(QString("[TrackManager::addTrackPoint] statMethod==2: batch=%1 removed, series count after=%2, emitting trackRemoved")
+                 .arg(info.batch).arg(mSeries.size()));
+        // 发出信号通知其他组件删除对应航迹
+        emit trackRemoved(info.batch);
+        return;
+    }
+
     // 确保指定批次的航迹序列存在，并根据类型选择颜色
     PointType type = (info.type == PointType::TBDPointType ? PointType::TBDPointType : PointType::Track);
     ensureSeries(info.batch, type);
@@ -254,12 +282,25 @@ void TrackManager::addTrackPoint(const PointInfo& info)
     pt->setColor(s.color);          // 应用航迹序列的颜色
     pt->resize(mPointSizeRatio);    // 应用当前缩放比例
 
+    // 调试输出：查看原始数据和坐标转换
+    // 使用 qCritical 确保在 Release 模式下也能看到（输出到 stderr）
+    // qCritical() << "[TrackManager::addTrackPoint]"
+    //             << "Batch:" << info.batch
+    //             << "Range:" << copy.range
+    //             << "Azimuth:" << copy.azimuth
+    //             << "Elevation:" << copy.elevation;
+
     // 计算并设置屏幕坐标位置
     const QPointF pos = polarToPixel(copy.range, copy.azimuth);
+    // qCritical() << "    -> Screen pos: x=" << pos.x() << "y=" << pos.y()
+    //             << "pixelsPerMeter=" << mAxis->pixelsPerMeter()
+    //             << "maxRange=" << mAxis->maxRange();
     pt->updatePosition(pos.x(), pos.y());
 
-    // 应用可见性过滤：序列可见性 && 距离范围 && 角度范围
-    bool vis = s.visible && inRange(copy.range) && inAngle(copy.azimuth);
+    // 应用可见性过滤：序列可见性 && 距离范围
+    // 注意：移除角度过滤，因为主PPI界面应该显示所有方向的航迹（与检测点保持一致）
+    // 角度过滤仅在扇区窗口（SectorWidget）中使用
+    bool vis = s.visible && inRange(copy.range);
     pt->setVisible(vis);
 
     // 添加到图形场景
@@ -276,13 +317,21 @@ void TrackManager::addTrackPoint(const PointInfo& info)
             // 创建连线对象
             auto* line = new QGraphicsLineItem();
             QPen pen(s.color);
-            pen.setWidth(1);
+            pen.setWidth(2);  // 增加线宽从1到2，使航迹更明显
+            pen.setStyle(Qt::SolidLine);  // 实线
+            pen.setCapStyle(Qt::RoundCap);  // 圆形端点
+            pen.setJoinStyle(Qt::RoundJoin);  // 圆形连接
             line->setPen(pen);
+            line->setOpacity(0.8);  // 设置80%不透明度，避免过于刺眼
 
             // 设置连线几何形状
-            updateLineGeometry(line,
-                               prev->scenePos(),    // 前一点位置
-                               pt->scenePos());     // 当前点位置
+            QPointF prevScenePos = prev->scenePos();
+            QPointF ptScenePos = pt->scenePos();
+            // qCritical() << "[TrackManager::addTrackPoint] Line geometry:"
+            //             << "prev->scenePos()=" << prevScenePos
+            //             << "pt->scenePos()=" << ptScenePos
+            //             << "pt->pos()=" << pt->pos();
+            updateLineGeometry(line, prevScenePos, ptScenePos);
 
             // 连线可见性：两个点都在范围内且航迹序列可见时显示
             bool lineVis = s.visible && inRange(s.nodes.last().point->infoRef().range) && inRange(copy.range)
@@ -298,6 +347,9 @@ void TrackManager::addTrackPoint(const PointInfo& info)
 
     // 更新最新点的动态标签显示
     updateLatestLabel(info.batch);
+
+    // 发出航迹点添加信号，用于更新选中航迹的信息显示
+    emit trackPointAdded(info);
 }
 
 void TrackManager::updateLatestLabel(int batchID)
@@ -401,7 +453,8 @@ void TrackManager::refreshAll()
 void TrackManager::updateNodeVisibility(TrackNode& node)
 {
     if (!node.point) return;
-    bool vis = inRange(node.point->infoRef().range) && inAngle(node.point->infoRef().azimuth);
+    // 移除角度过滤，与 addTrackPoint 保持一致
+    bool vis = inRange(node.point->infoRef().range);
     node.point->setVisible(vis);
     if (node.lineFromPrev) {
         // 线的显隐会在 refreshAll / addTrackPoint 中同时考虑前一点
@@ -411,6 +464,8 @@ void TrackManager::updateNodeVisibility(TrackNode& node)
 
 void TrackManager::setAngleRange(double startDeg, double endDeg)
 {
+    qDebug() << "[TrackManager::setAngleRange] Setting angle range:"
+             << "start" << startDeg << "end" << endDeg;
     m_angleStart = startDeg;
     m_angleEnd = endDeg;
     refreshAll();
@@ -424,8 +479,24 @@ bool TrackManager::inAngle(float azimuthDeg) const
     double e = fmod(m_angleEnd, 360.0);
     if (s < 0) s += 360.0;
     if (e < 0) e += 360.0;
-    if (s <= e) return (a >= s && a <= e);
-    return (a >= s || a <= e);
+
+    bool result;
+    if (s <= e) {
+        result = (a >= s && a <= e);
+    } else {
+        result = (a >= s || a <= e);
+    }
+
+    // 添加调试日志（每100次只打印一次以减少日志量）
+    static int callCount = 0;
+    if (++callCount % 100 == 0) {
+        qDebug() << "[TrackManager::inAngle] azimuth" << azimuthDeg
+                 << "normalized" << a
+                 << "range [" << s << "-" << e << "]"
+                 << "result" << result;
+    }
+
+    return result;
 }
 
 void TrackManager::setBatchVisible(int batchID, bool vis)
@@ -438,7 +509,10 @@ void TrackManager::setBatchVisible(int batchID, bool vis)
 
 void TrackManager::setAllVisible(bool vis)
 {
+    qDebug() << "[TrackManager::setAllVisible]" << vis << "- Series count:" << mSeries.size();
+
     for (auto it = mSeries.begin(); it != mSeries.end(); ++it) {
+        qDebug() << "  Setting batch" << it.key() << "visible to" << vis;
         it->visible = vis;
         updateBatchVisibility(it.key());
     }

@@ -3,11 +3,12 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:48
+ * @LastEditTime: 2026-02-28 16:46:33
  * @Description: 
  */
 #include "photoelectricparam.h"
 #include "ui_photoelectricparam.h"
+#include "Basic/DispBasci.h"
 #include <QPushButton>
 
 PhotoElectricParam::PhotoElectricParam(QWidget *parent) :
@@ -16,7 +17,10 @@ PhotoElectricParam::PhotoElectricParam(QWidget *parent) :
 {
     ui->setupUi(this);
     setWindowTitle(tr("光电系统控制"));
-        // 断开UI文件中的默认连接
+    // 窗口居中显示
+    centerWidgetOnScreen(this);
+
+    // 断开UI文件中的默认连接
         disconnect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
         disconnect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
 

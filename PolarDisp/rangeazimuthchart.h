@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-01-28 11:21:43
+ * @Date: 2026-01-30 11:45:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:46
+ * @LastEditTime: 2026-02-28 16:46:32
  * @Description: 
  */
 /*
@@ -153,6 +153,13 @@ public:
     void addPointInfo(const PointInfo& info);
 
     /**
+     * @brief 删除指定批号的航迹
+     * @param batchID 批次号
+     * @note 当收到 statMethod==2 时调用，删除该批号的所有航迹点
+     */
+    void removeBatch(int batchID);
+
+    /**
      * @brief 清除所有雷达数据点
      */
     void clearRadarData();
@@ -217,6 +224,11 @@ signals:
 
 private:
     /**
+     * @brief 重写尺寸变化事件，刷新所有点的场景坐标
+     */
+    void resizeEvent(QResizeEvent* event) override;
+
+    /**
      * @brief 检测点图形项结构
      */
     struct DetectionItem {
@@ -234,7 +246,7 @@ private:
         qint64 timestamp;                    ///< 添加时间戳
     };
 
-    QMap<int, DetectionItem> m_detections;    ///< 检测点映射表（批次号->DetectionItem）
+    QList<DetectionItem> m_detections;        ///< 检测点列表
     QVector<TrackItem> m_tracks;              ///< 航迹列表
 
     bool m_detectionVisible = true;           ///< 检测点可见性
@@ -252,7 +264,7 @@ private:
 
     // 样式配置
     QColor m_detectionColor = QColor(0, 255, 0);    ///< 检测点颜色（绿色）
-    QColor m_trackColor = QColor(255, 255, 0);      ///< 航迹颜色（黄色）
+    QColor m_trackColor = Qt::red;                  ///< 航迹颜色（红色，与P显保持一致）
 
     double m_baseDetectionSize = 3.0;         ///< 基础检测点大小
     double m_baseTrackSize = 5.0;             ///< 基础航迹大小
@@ -271,6 +283,12 @@ private:
      * @brief 更新点数统计
      */
     void updatePointCount();
+
+    /**
+     * @brief 刷新所有点的位置和可见性
+     * @details 当坐标轴范围改变时，重新计算所有点的场景位置
+     */
+    void refreshAllPoints();
 
     /**
      * @brief 判断方位角是否在过滤范围内

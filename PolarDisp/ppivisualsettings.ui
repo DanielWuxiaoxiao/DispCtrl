@@ -42,28 +42,22 @@
      </property>
      <item>
       <widget class="QLabel" name="label_distance">
-       <property name="text">
-        <string>最大距离(km)</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignCenter</set>
-       </property>
        <property name="minimumSize">
         <size>
          <width>80</width>
          <height>0</height>
         </size>
        </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLineEdit" name="maxDistanceEdit">
        <property name="text">
-        <string>500</string>
+        <string>最大距离(km)</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignCenter</set>
        </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="maxDistanceEdit">
        <property name="minimumSize">
         <size>
          <width>60</width>
@@ -76,6 +70,12 @@
          <height>16777215</height>
         </size>
        </property>
+       <property name="text">
+        <string>500</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
       </widget>
      </item>
     </layout>
@@ -87,17 +87,17 @@
      </property>
      <item>
       <widget class="QLabel" name="label_map">
-       <property name="text">
-        <string>地图类型</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignCenter</set>
-       </property>
        <property name="minimumSize">
         <size>
          <width>80</width>
          <height>0</height>
         </size>
+       </property>
+       <property name="text">
+        <string>地图类型</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
        </property>
       </widget>
      </item>
@@ -146,28 +146,22 @@
      </property>
      <item>
       <widget class="QLabel" name="label_maxPoints">
-       <property name="text">
-        <string>检测点</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignCenter</set>
-       </property>
        <property name="minimumSize">
         <size>
          <width>80</width>
          <height>0</height>
         </size>
        </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLineEdit" name="maxPointsEdit">
        <property name="text">
-        <string>10000</string>
+        <string>检测点</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignCenter</set>
        </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="maxPointsEdit">
        <property name="minimumSize">
         <size>
          <width>60</width>
@@ -183,6 +177,12 @@
        <property name="toolTip">
         <string>设置最大检测点数量，超出后删除旧数据</string>
        </property>
+       <property name="text">
+        <string>10000</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
+       </property>
       </widget>
      </item>
     </layout>
@@ -194,50 +194,54 @@
      </property>
      <item>
       <widget class="QPushButton" name="measureBtn">
-       <property name="text">
-        <string>测距</string>
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+         <horstretch>1</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
        </property>
-       <property name="icon">
-        <iconset resource="../../resource.qrc">
-         <normaloff>:/resources/icon/meas.png</normaloff>
-        </iconset>
-       </property>
-       <property name="checkable">
-        <bool>true</bool>
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>28</height>
+        </size>
        </property>
        <property name="toolTip">
         <string>测量模式</string>
        </property>
-       <property name="objectName">
-        <string>MeasureBtn</string>
+       <property name="text">
+        <string>测距</string>
+       </property>
+       <property name="icon">
+        <iconset>
+         <normaloff>:/resources/icon/meas.png</normaloff>:/resources/icon/meas.png</iconset>
+       </property>
+       <property name="checkable">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
      <item>
       <widget class="QPushButton" name="clearDisplayBtn">
-       <property name="text">
-        <string>显清</string>
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+         <horstretch>1</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>28</height>
+        </size>
        </property>
        <property name="toolTip">
         <string>清除P显数据</string>
        </property>
-       <property name="objectName">
-        <string>ClearDisplayBtn</string>
+       <property name="text">
+        <string>显清</string>
        </property>
       </widget>
-     </item>
-     <item>
-      <spacer name="horizontalSpacer">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
      </item>
     </layout>
    </item>
@@ -250,8 +254,6 @@
    <header>cusWidgets/customcombobox.h</header>
   </customwidget>
  </customwidgets>
- <resources>
-  <include location="../../resource.qrc"/>
- </resources>
+ <resources/>
  <connections/>
 </ui>

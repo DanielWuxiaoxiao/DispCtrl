@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-12-25 16:19:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:45
+ * @LastEditTime: 2026-02-28 16:46:30
  * @Description: 
  */
 #include "tbd2dispmanager.h"
@@ -67,8 +67,8 @@ void Tbd2DispManager::tbdInfoDecode(QByteArray data)
             PointInfo info;
             info.type = TBDPointType;
             info.range = pt->dis;
-            info.azimuth = pt->azi;
-            info.elevation = pt->ele;
+            info.azimuth = pt->azi;   // 协议值就是度数，无需转换
+            info.elevation = pt->ele; // 协议值就是度数，无需转换
             info.SNR = pt->SNR;
             info.speed = pt->vel;
             info.altitute = pt->altitute;

@@ -53,6 +53,18 @@ if(MSVC)
 endif()
 
 ##############################################################################
+# 日志输出配置 - 确保Release模式也保留调试日志
+##############################################################################
+
+# 强制Qt在所有构建模式下保留日志输出
+# 默认情况下，Qt会在Release模式禁用qDebug()等日志宏
+# 添加这个定义可以确保日志系统在Release模式下也能正常工作
+add_compile_definitions(QT_MESSAGELOGCONTEXT)
+
+# 可选：如果需要在Release模式下也启用qDebug，取消下面的注释
+# add_compile_definitions(QT_NO_DEBUG_OUTPUT=0)
+
+##############################################################################
 # Qt自动化工具配置
 ##############################################################################
 
@@ -161,6 +173,7 @@ set(SRC_FILES
     cusWidgets/customspinbox.cpp               # 自定义SpinBox组件
     cusWidgets/customspinboxstyle.cpp          # 自定义SpinBox样式
     cusWidgets/customlinechart.cpp             # 自定义直角坐标图表基类
+    cusWidgets/frozentablewidget.cpp           # 冻结首列表格组件
 
     # 参数配置模块 - 雷达参数配置对话框
     paramWidget/batterycontrol.cpp             # 一键全数配置
@@ -214,6 +227,7 @@ set(HDR_FILES
     cusWidgets/customspinbox.h                 # 自定义SpinBox组件
     cusWidgets/customspinboxstyle.h            # 自定义SpinBox样式
     cusWidgets/customlinechart.h               # 自定义直角坐标图表基类
+    cusWidgets/frozentablewidget.h             # 冻结首列表格组件
 
     # 参数配置模块头文件 - 雷达参数配置对话框
     paramWidget/batterycontrol.h               # 一键全数配置

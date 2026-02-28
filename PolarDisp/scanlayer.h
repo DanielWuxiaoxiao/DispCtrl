@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:47
+ * @LastEditTime: 2026-02-28 16:46:32
  * @Description: 
  */
 #ifndef SCANLAYER_H
@@ -45,6 +45,13 @@ private slots:
     void advanceSweep();
 
 private:
+    /**
+     * @brief 判断角度是否在扫描范围内
+     * @param angle 待检查的角度
+     * @return true 如果在范围内
+     */
+    bool isAngleInRange(double angle) const;
+
     PolarAxis* m_axis;
     QTimer* m_timer;
     double m_angle;

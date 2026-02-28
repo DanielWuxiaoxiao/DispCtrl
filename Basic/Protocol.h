@@ -3,13 +3,14 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:45
+ * @LastEditTime: 2026-02-28 16:46:30
  * @Description: 
  */
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 #include <stdlib.h>
 #include <string.h>
+#include <QMetaType>
 #pragma pack(1)
 
 //优先是config.json中的默认值，其次是这里的constexpr值
@@ -940,5 +941,8 @@ char checkAccusation(char* data, unsigned len);
 char* packData(char* data, unsigned dataLen, unsigned short srcID, unsigned short destID, unsigned commCount);
 
 #pragma pack()
+
+// Qt 元类型注册（必须在 #pragma pack() 之后）
+Q_DECLARE_METATYPE(PointInfo)
 
 #endif // PROTOCOL_H

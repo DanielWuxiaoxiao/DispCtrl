@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:47
+ * @LastEditTime: 2026-02-28 16:46:33
  * @Description: 
  */
 /**
@@ -60,6 +60,7 @@ class CusWindow;       ///< 自定义窗口
 class QPushButton;     ///< Qt按钮
 class QLabel;          ///< Qt标签
 class DataSaveUI;      ///< 数据存储管理对话框
+class FrozenColumnHelper; ///< 表格冻结列辅助类
 
 
 namespace Ui {
@@ -170,6 +171,13 @@ public:
      */
     PPIView* getPPIView() const { return mView; }
 
+public slots:
+    /**
+     * @brief 清除航迹表格数据
+     * @details 响应"显清"按钮，清除航迹列表和无人机航迹列表的所有数据
+     */
+    void clearTrackTables();
+
 signals:
     // TWS/TAS模式设置信号
     void sig_SetScanRangeParam(const ScanRange param);
@@ -198,6 +206,13 @@ private slots:
      * @details 根据目标分类结果更新航迹显示类型
      */
     void updateTargetClassification(unsigned int batchID, int targetType);
+
+    /**
+     * @brief 航迹删除通知
+     * @param batchID 批次号
+     * @details 当收到 statMethod==2 时，从表格中删除对应批号的航迹
+     */
+    void onTrackRemoved(int batchID);
 
     /**
      * @brief 清空所有航迹列表
@@ -329,6 +344,8 @@ private:
     // 航迹管理相关成员
     QMap<unsigned int, int> m_targetTypes;  ///< 批次号到目标类型编号的映射
     QMap<unsigned int, QDateTime> m_trackStartTimes; ///< 批次号到航迹开始时间的映射
+    FrozenColumnHelper* m_trackTableFrozenHelper;    ///< 总航迹表格冻结列辅助类
+    FrozenColumnHelper* m_droneTableFrozenHelper;    ///< 无人机表格冻结列辅助类
 
     /**
      * @brief 初始化航迹管理功能

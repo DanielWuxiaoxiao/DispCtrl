@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-01-28 09:36:16
+ * @Date: 2026-01-30 11:45:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:46
+ * @LastEditTime: 2026-02-28 16:46:32
  * @Description: 
  */
 /*
@@ -45,10 +45,11 @@ RangeAzimuthToolBar::RangeAzimuthToolBar(QWidget* parent)
 
     m_minAzimuthLineEdit = new QLineEdit(this);
     m_minAzimuthLineEdit->setText(QString::number(CF_INS.rangeAzimuthAngle("min", 0)));
-    m_minAzimuthLineEdit->setMinimumWidth(60);
+    m_minAzimuthLineEdit->setMaximumWidth(60);
+    m_minAzimuthLineEdit->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
     m_minAzimuthLineEdit->setObjectName("RangeAzimuthMinEdit");
     m_minAzimuthLineEdit->setToolTip("最小方位角(0°~360°)");
-    layout->addWidget(m_minAzimuthLineEdit);
+    //layout->addWidget(m_minAzimuthLineEdit);
 
     QLabel* separator = new QLabel("~", this);
     separator->setObjectName("RangeAzimuthSeparatorLabel");
@@ -182,15 +183,9 @@ void RangeAzimuthWidget::setupUI()
     RADAR_DATA_MGR.registerView(detViewID, m_detManager);
     RADAR_DATA_MGR.registerView(trackViewID, m_trackManager);
 
-    // 连接数据信号
-    connect(&RADAR_DATA_MGR, &RadarDataManager::detectionReceived,
-            m_detManager, &SectorDetManager::addDetPoint);
-    connect(&RADAR_DATA_MGR, &RadarDataManager::trackReceived,
-            m_trackManager, &SectorTrackManager::addTrackPoint);
-    connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared,
-            m_detManager, &SectorDetManager::clear);
-    connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared,
-            m_trackManager, &SectorTrackManager::clear);
+    // 注意：SectorDetManager和SectorTrackManager已经在各自构造函数中连接了信号
+    // 因此这里不需要重复连接dataCleared、detectionReceived、trackReceived信号
+    // 避免重复触发导致的问题
 
     qDebug() << "[RangeAzimuthWidget] UI setup complete, azimuth range:" << minAzimuth << "~" << maxAzimuth;
 }

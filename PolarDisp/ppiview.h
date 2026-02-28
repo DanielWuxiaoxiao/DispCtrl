@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:46
+ * @LastEditTime: 2026-02-28 16:46:32
  * @Description: 
  */
 /**
@@ -171,6 +171,21 @@ signals:
      * @details 当用户通过视觉设置组件切换地图类型时发出
      */
     void mapTypeChanged(int index);
+
+    /**
+     * @brief P显清除信号
+     * @details 当用户点击"显清"按钮确认清除P显数据时发出，
+     *          用于通知其他组件（如RangeAzimuthChart）同步清除数据
+     */
+    void clearDisplayTriggered();
+
+    /**
+     * @brief 最大检测点数量变化信号（转发给外部组件）
+     * @param maxPoints 新的最大检测点数量
+     * @details 当用户通过视觉设置组件修改最大检测点数量时发出，
+     *          用于通知 RangeAzimuthChart 等外部组件同步更新限制
+     */
+    void maxPointsSettingChanged(int maxPoints);
 
     /**
      * @brief 测距结果信号

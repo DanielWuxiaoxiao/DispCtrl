@@ -3,12 +3,13 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:47
+ * @LastEditTime: 2026-02-28 16:46:33
  * @Description: 
  */
 #include "dataprocessui.h"
 #include "ui_dataprocessui.h"
 #include "Basic/ConfigManager.h"
+#include "Basic/DispBasci.h"
 #include "cusWidgets/custommessagebox.h"
 #include <QPushButton>
 #include <QDebug>
@@ -19,7 +20,10 @@ DataProcessUI::DataProcessUI(QWidget *parent) :
 {
     ui->setupUi(this);
     setWindowTitle(tr("数据处理参数"));
-        // 断开UI文件中的默认连接
+    // 窗口居中显示
+    centerWidgetOnScreen(this);
+
+    // 断开UI文件中的默认连接
     disconnect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
     disconnect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
 

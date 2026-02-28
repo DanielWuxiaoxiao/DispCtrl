@@ -3,11 +3,12 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:48
+ * @LastEditTime: 2026-02-28 16:46:33
  * @Description: 
  */
 #include "datasaveui.h"
 #include "ui_datasaveui.h"
+#include "Basic/DispBasci.h"
 #include <QAction>
 #include <QPushButton>
 #include <QMenu>
@@ -27,6 +28,9 @@ DataSaveUI::DataSaveUI(QWidget *parent) :
 {
     ui->setupUi(this);
     setWindowTitle(tr("数据存储/删除"));
+    setMinimumSize(800, 400);
+    // 窗口居中显示
+    centerWidgetOnScreen(this);
 
     // 设置表格 objectName 以应用 darkstyle.qss 中的样式
     ui->tab->setObjectName("tableWidget");

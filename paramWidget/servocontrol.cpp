@@ -3,12 +3,13 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-01-15 14:23:10
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:48
+ * @LastEditTime: 2026-02-28 16:46:34
  * @Description: 
  */
 #include "servocontrol.h"
 #include "ui_servocontrol.h"
 #include "Basic/ConfigManager.h"
+#include "Basic/DispBasci.h"
 #include "cusWidgets/custommessagebox.h"
 #include <QPushButton>
 #include <algorithm>
@@ -19,6 +20,8 @@ ServoControl::ServoControl(QWidget *parent) :
 {
     ui->setupUi(this);
     setWindowTitle(tr("伺服控制"));
+    // 窗口居中显示
+    centerWidgetOnScreen(this);
 
     // 自定义按钮行为
     disconnect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);

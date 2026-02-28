@@ -3,20 +3,21 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:08
+ * @LastEditTime: 2026-02-28 16:46:31
  * @Description: 
  */
 #include "pointinfow.h"
 #include "ui_pointinfow.h"
 #include <QStyleOption>
 #include <QPainter>
+#include <QDebug>
 
 PointInfoW::PointInfoW(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::PointInfoW)
 {
     ui->setupUi(this);
-    
+
     // 设置简化的tooltip
     ui->label_8->setToolTip("批号");
     ui->batch->setToolTip("目标批次编号");
@@ -30,6 +31,47 @@ PointInfoW::PointInfoW(QWidget *parent) :
     ui->speed->setToolTip("径向速度(m/s)");
     ui->label_7->setToolTip("信噪比");
     ui->SNR->setToolTip("信噪比(dB)");
+
+    // 初始化显示为空
+    clearPointInfo();
+}
+
+void PointInfoW::setSelectedBatch(int batchID)
+{
+    m_selectedBatchID = batchID;
+    qDebug() << "[PointInfoW::setSelectedBatch] Selected batch:" << batchID;
+
+    if (batchID < 0) {
+        clearPointInfo();
+    }
+}
+
+void PointInfoW::updatePointInfo(const PointInfo& info)
+{
+    ui->batch->setText(QString::number(info.batch));
+    ui->range->setText(QString::number(info.range, 'f', 1) + " m");
+    ui->azi->setText(QString::number(info.azimuth, 'f', 1) + "°");
+    ui->ele->setText(QString::number(info.elevation, 'f', 1) + "°");
+    ui->speed->setText(QString::number(info.speed, 'f', 1) + " m/s");
+    ui->SNR->setText(QString::number(info.SNR, 'f', 1) + " dB");
+}
+
+void PointInfoW::clearPointInfo()
+{
+    ui->batch->setText("--");
+    ui->range->setText("--");
+    ui->azi->setText("--");
+    ui->ele->setText("--");
+    ui->speed->setText("--");
+    ui->SNR->setText("--");
+}
+
+void PointInfoW::onTrackDataReceived(const PointInfo& info)
+{
+    // 只有当批次ID匹配选中的批次时才更新显示
+    if (m_selectedBatchID >= 0 && static_cast<int>(info.batch) == m_selectedBatchID) {
+        updatePointInfo(info);
+    }
 }
 
 void PointInfoW::paintEvent(QPaintEvent* event) {

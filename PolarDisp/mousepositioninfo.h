@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-23 09:44:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:46
+ * @LastEditTime: 2026-02-28 16:46:31
  * @Description: 
  */
 #ifndef MOUSEPOSITIONINFO_H
@@ -25,6 +25,12 @@ public:
 
     // 更新鼠标位置信息
     void updatePosition(double distance, double azimuth);
+
+    // 获取当前状态的方法
+    bool isDetectionVisible() const;
+    bool isTrackVisible() const;
+    double getDetectionSize() const;
+    double getTrackSize() const;
 
 signals:
     /**

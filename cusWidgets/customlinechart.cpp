@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-01-28 11:20:29
+ * @Date: 2026-01-30 11:45:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:47
+ * @LastEditTime: 2026-02-28 16:46:32
  * @Description: 
  */
 /*
@@ -435,4 +435,36 @@ void CustomLineChart::rebuild()
         addPoint(dataPositions[i].x(), dataPositions[i].y(),
                 dataColors[i], dataSizes[i]);
     }
+}
+
+// ---------- 颜色主题 setters ----------
+
+void CustomLineChart::setChartBgColor(const QColor& color)
+{
+    m_bgColor = color;
+    setBackgroundBrush(QBrush(m_bgColor));
+}
+
+void CustomLineChart::setChartGridMajorColor(const QColor& color)
+{
+    m_gridMajorColor = color;
+    rebuild();
+}
+
+void CustomLineChart::setChartGridMinorColor(const QColor& color)
+{
+    m_gridMinorColor = color;
+    rebuild();
+}
+
+void CustomLineChart::setChartAxisColor(const QColor& color)
+{
+    m_axisColor = color;
+    rebuild();
+}
+
+void CustomLineChart::setChartTextColor(const QColor& color)
+{
+    m_textColor = color;
+    rebuild();
 }

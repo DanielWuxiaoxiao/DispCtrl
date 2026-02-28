@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-23 09:44:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:46
+ * @LastEditTime: 2026-02-28 16:46:31
  * @Description: 
  */
 #include "mousepositioninfo.h"
@@ -59,4 +59,25 @@ void MousePositionInfo::updatePosition(double distance, double azimuth)
 MousePositionInfo::~MousePositionInfo()
 {
     delete ui;
+}
+
+// 获取当前状态
+bool MousePositionInfo::isDetectionVisible() const
+{
+    return ui->checkBoxDetection->isChecked();
+}
+
+bool MousePositionInfo::isTrackVisible() const
+{
+    return ui->checkBoxTrack->isChecked();
+}
+
+double MousePositionInfo::getDetectionSize() const
+{
+    return ui->spinBoxDetSize->value();
+}
+
+double MousePositionInfo::getTrackSize() const
+{
+    return ui->spinBoxTrackSize->value();
 }

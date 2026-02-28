@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:46
+ * @LastEditTime: 2026-02-28 16:46:32
  * @Description: 
  */
 /**
@@ -19,9 +19,11 @@
 #include "ppisscene.h"
 #include "polaraxis.h"
 #include <QGraphicsTextItem>
+#include <QGraphicsSceneMouseEvent>
 #include "polargrid.h"
 #include "PointManager/trackmanager.h"
 #include "PointManager/detmanager.h"
+#include "PointManager/point.h"
 #include "tooltip.h"
 #include "Basic/DispBasci.h"
 #include "Basic/log.h"
@@ -99,6 +101,10 @@ PPIScene::PPIScene(QObject *parent)
     // 从Controller接收TBD航迹数据并添加到TrackManager
     connect(CON_INS, &Controller::tbdInfoProcess,
         m_track, &TrackManager::addTrackPoint);
+
+    // 连接 TrackManager 的 trackRemoved 信号到 Controller
+    connect(m_track, &TrackManager::trackRemoved,
+        CON_INS, &Controller::trackRemoved);
 }
 
 /**
@@ -258,4 +264,39 @@ void PPIScene::setRange(float minR, float maxR)
         maxR = minR + 1;
     m_axis->setRange(minR, maxR);
     emit rangeChanged(minR, maxR);
+}
+
+/**
+ * @brief 处理鼠标按下事件
+ * @param event 鼠标事件对象
+ * @details 检测用户点击的图形项，如果是航迹点(Point)则发出trackPointClicked信号
+ */
+void PPIScene::mousePressEvent(QGraphicsSceneMouseEvent* event)
+{
+    if (event->button() == Qt::LeftButton) {
+        // 获取点击位置的图形项
+        QGraphicsItem* item = itemAt(event->scenePos(), QTransform());
+
+        // 尝试转换为Point类型
+        if (item) {
+            Point* point = dynamic_cast<Point*>(item);
+            if (point) {
+                qDebug() << "[PPIScene::mousePressEvent] Clicked on Point, batch:" << point->infoRef().batch;
+                emit trackPointClicked(point->infoRef());
+            }
+
+            // 如果点击的是文本标签，尝试获取其父项（可能是Point）
+            QGraphicsTextItem* textItem = dynamic_cast<QGraphicsTextItem*>(item);
+            if (textItem && textItem->parentItem()) {
+                Point* parentPoint = dynamic_cast<Point*>(textItem->parentItem());
+                if (parentPoint) {
+                    qDebug() << "[PPIScene::mousePressEvent] Clicked on label, batch:" << parentPoint->infoRef().batch;
+                    emit trackPointClicked(parentPoint->infoRef());
+                }
+            }
+        }
+    }
+
+    // 调用基类处理
+    QGraphicsScene::mousePressEvent(event);
 }

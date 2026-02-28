@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:45
+ * @LastEditTime: 2026-02-28 16:46:30
  * @Description: 
  */
 #ifndef CONFIGMANAGER_H
@@ -161,8 +161,13 @@ public:
     }
 
     // 显示配置相关
-    int displayConfig(const QString& key, int def = 10000) const {
+    int displayConfig(const QString& key, int def = 1000) const {
         return getValue("displayConfig." + key, def).toInt();
+    }
+
+    // 保存显示配置参数
+    void saveDisplayConfig(const QString& key, int value) {
+        saveValue("displayConfig." + key, value);
     }
 
     // ========== 参数保存功能 ==========
@@ -729,6 +734,16 @@ private:
             content += "dataID = 0\n\n";
         }
 
+        // 如果displayConfig段不存在，添加它
+        if (!content.contains("[displayConfig]")) {
+            content += "\n# =============================================================================\n";
+            content += "# 显示配置 Display Configuration\n";
+            content += "# =============================================================================\n\n";
+            content += "[displayConfig]\n";
+            content += "# 检测点显示配置 Detection Point Display Configuration\n";
+            content += "max_points = 1000\n\n";
+        }
+
         // 更新内存中的值到文本内容
         QStringList lines = content.split('\n');
         QString currentSection = "";
@@ -742,9 +757,9 @@ private:
                 continue;
             }
 
-            // 更新参数值
+            // 更新参数值（支持 params.* 和 displayConfig 段）
             int equalPos = trimmed.indexOf('=');
-            if (equalPos > 0 && currentSection.startsWith("params.")) {
+            if (equalPos > 0 && (currentSection.startsWith("params.") || currentSection == "displayConfig")) {
                 QString key = trimmed.left(equalPos).trimmed();
                 QString fullKey = currentSection + "." + key;
 

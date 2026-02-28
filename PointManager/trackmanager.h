@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:34
+ * @LastEditTime: 2026-02-28 16:46:31
  * @Description: 
  */
 /**
@@ -250,6 +250,21 @@ public:
      *          - 支持跨越0度的角度范围
      */
     void setAngleRange(double startDeg, double endDeg);
+
+signals:
+    /**
+     * @brief 航迹被删除信号
+     * @param batchID 被删除的批次ID
+     * @details 当航迹因 statMethod==2 被删除时发出此信号
+     */
+    void trackRemoved(int batchID);
+
+    /**
+     * @brief 航迹点添加信号
+     * @param info 新添加的航迹点信息
+     * @details 当新航迹点被添加时发出此信号，用于更新选中航迹的信息显示
+     */
+    void trackPointAdded(const PointInfo& info);
 
 private:
     /**

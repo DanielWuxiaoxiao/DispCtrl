@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:45
+ * @LastEditTime: 2026-02-28 16:46:30
  * @Description: 
  */
 /**
@@ -244,6 +244,12 @@ signals:
      * @param info TBD 航迹点信息
      */
     void tbdInfoProcess(PointInfo info);
+
+    /**
+     * @brief 航迹删除信号 (statMethod==2时)
+     * @param batchID 被删除的批号
+     */
+    void trackRemoved(int batchID);
 
     // === 向数据系统发送控制 ===
 

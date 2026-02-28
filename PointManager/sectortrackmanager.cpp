@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 10:04:10
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:34
+ * @LastEditTime: 2026-02-28 16:46:31
  * @Description: 
  */
 /**
@@ -105,6 +105,8 @@ SectorTrackManager::SectorTrackManager(QGraphicsScene* scene, PolarAxis* axis, Q
             this, &SectorTrackManager::addTrackPoint);
     connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared,
             this, &SectorTrackManager::clear);
+    connect(&RADAR_DATA_MGR, &RadarDataManager::trackBatchRemoved,
+            this, &SectorTrackManager::removeBatch);
 }
 
 SectorTrackManager::~SectorTrackManager()
@@ -116,6 +118,15 @@ SectorTrackManager::~SectorTrackManager()
 
 void SectorTrackManager::addTrackPoint(const PointInfo& info)
 {
+    // 检查 statMethod==2，表示需要删除该批号的航迹
+    if (info.statMethod == 2) {
+        qDebug() << "[SectorTrackManager::addTrackPoint] statMethod==2, removing batch" << info.batch;
+        removeBatch(info.batch);
+        // 发出信号通知其他组件删除对应航迹
+        emit trackRemoved(info.batch);
+        return;
+    }
+
     PointType type = (info.type == PointType::TBDPointType ? PointType::TBDPointType : PointType::Track);
     ensureSeries(info.batch, type);
     SectorTrackSeries& series = m_series[info.batch];
@@ -291,9 +302,15 @@ void SectorTrackManager::setAngleRange(float minAngle, float maxAngle)
 
 void SectorTrackManager::removeBatch(int batchID)
 {
-    auto it = m_series.find(batchID);
-    if (it == m_series.end()) return;
+    qDebug() << "[SectorTrackManager::removeBatch] ===== CALLED with batchID:" << batchID << "=====";
 
+    auto it = m_series.find(batchID);
+    if (it == m_series.end()) {
+        qDebug() << "[SectorTrackManager::removeBatch] Batch" << batchID << "not found in series";
+        return;
+    }
+
+    qDebug() << "[SectorTrackManager::removeBatch] Found batch" << batchID << ", removing...";
     SectorTrackSeries& series = it.value();
 
     // 删除所有节点
@@ -334,17 +351,28 @@ void SectorTrackManager::ensureSeries(int batchID, PointType type)
     if (!m_series.contains(batchID)) {
         SectorTrackSeries series;
         series.type = type;
-        series.color = (type == PointType::TBDPointType) ? QColor(TBD_COLOR) : QColor(TRA_COLOR);
+        // 统一使用红色显示所有航迹（TBD和Track都用红色）
+        series.color = Qt::red;  // 修改：统一颜色为红色
         series.visible = true;
         m_series.insert(batchID, series);
+
+        qDebug() << "[SectorTrackManager] New track series created, batch:" << batchID
+                 << "type:" << (type == PointType::TBDPointType ? "TBD" : "Track")
+                 << "color: Red";
         return;
     }
 
     auto& series = m_series[batchID];
     if (series.type != type) {
         series.type = type;
-        QColor newColor = (type == PointType::TBDPointType) ? QColor(TBD_COLOR) : QColor(TRA_COLOR);
+        // 统一使用红色
+        QColor newColor = Qt::red;  // 修改：统一颜色为红色
         series.color = newColor;
+
+        qDebug() << "[SectorTrackManager] Track type changed, batch:" << batchID
+                 << "new type:" << (type == PointType::TBDPointType ? "TBD" : "Track")
+                 << "color: Red";
+
         // 更新已有节点和连线颜色
         for (auto& node : series.nodes) {
             if (node.point) node.point->setColor(newColor);

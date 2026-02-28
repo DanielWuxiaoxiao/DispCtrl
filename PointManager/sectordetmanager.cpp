@@ -3,11 +3,11 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 10:04:10
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:05
+ * @LastEditTime: 2026-02-28 16:46:31
  * @Description: 
  */
 /**
- * @file sectordetmanager.cpp  
+ * @file sectordetmanager.cpp
  * @brief 扇形检测点管理器实现文件
  * @details 实现扇形显示区域的检测点管理功能：
  *          - 与RadarDataManager集成的数据接收
@@ -40,11 +40,11 @@ SectorDetManager::SectorDetManager(QGraphicsScene* scene, PolarAxis* axis, QObje
 {
     // 注册到统一数据管理器，使用唯一标识符
     RADAR_DATA_MGR.registerView("SectorDetManager_" + QString::number((quintptr)this), this);
-    
+
     // 连接统一数据管理器的信号到本地处理函数
-    connect(&RADAR_DATA_MGR, &RadarDataManager::detectionReceived, 
+    connect(&RADAR_DATA_MGR, &RadarDataManager::detectionReceived,
             this, &SectorDetManager::addDetPoint);     // 接收检测点数据
-    connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared, 
+    connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared,
             this, &SectorDetManager::clear);           // 响应数据清理
 }
 
@@ -78,49 +78,67 @@ void SectorDetManager::addDetPoint(const PointInfo& info)
     // 创建检测点
     PointInfo copy = info;
     copy.type = 1; // 检测点类型
-    
+
     DetPoint* pt = new DetPoint(copy);
     pt->resize(m_pointSizeRatio);
     pt->setColor(DET_COLOR);
-    
+
     // 计算位置
     QPointF pos = polarToPixel(copy.range, copy.azimuth);
     pt->updatePosition(pos.x(), pos.y());
-    
+
     // 设置可见性（只有在扇形范围内的点才可见）
     bool visible = m_visible && isPointVisible(copy);
     pt->setVisible(visible);
-    
+
     // 添加到场景
     m_scene->addItem(pt);
-    
+
     // 保存节点
     SectorDetNode node;
     node.point = pt;
     m_nodes.push_back(node);
+
+    // 每100个点打印一次统计
+    static int addCount = 0;
+    if (++addCount % 100 == 0) {
+        qDebug() << "[SectorDetManager::addDetPoint] Total points:" << m_nodes.size()
+                 << "Range:" << copy.range << "m, Azimuth:" << copy.azimuth
+                 << "° Visible:" << visible;
+    }
 }
 
 void SectorDetManager::refreshAll()
 {
+    int visibleCount = 0;
+    int hiddenCount = 0;
+
     for (auto& node : m_nodes) {
         if (!node.point) continue;
-        
+
         const PointInfo& info = node.point->infoRef();
-        
+
         // 更新位置
         QPointF pos = polarToPixel(info.range, info.azimuth);
         node.point->updatePosition(pos.x(), pos.y());
-        
+
         // 更新可见性
         bool visible = m_visible && isPointVisible(info);
         node.point->setVisible(visible);
+
+        if (visible) visibleCount++;
+        else hiddenCount++;
     }
+
+    qDebug() << "[SectorDetManager::refreshAll] Range:" << m_axis->minRange() << "~" << m_axis->maxRange()
+             << "km, Angle:" << m_minAngle << "~" << m_maxAngle
+             << "°, Visible:" << visibleCount << "Hidden:" << hiddenCount;
 }
 
 void SectorDetManager::setAllVisible(bool visible)
 {
     m_visible = visible;
-    
+
     for (auto& node : m_nodes) {
         if (node.point) {
             bool shouldShow = m_visible && isPointVisible(node.point->infoRef());
@@ -132,9 +150,9 @@ void SectorDetManager::setAllVisible(bool visible)
 void SectorDetManager::setPointSizeRatio(float ratio)
 {
     if (ratio <= 0.0f) ratio = 1.0f;
-    
+
     m_pointSizeRatio = ratio;
-    
+
     for (auto& node : m_nodes) {
         if (node.point) {
             node.point->resize(m_pointSizeRatio);
@@ -146,13 +164,15 @@ void SectorDetManager::setAngleRange(float minAngle, float maxAngle)
 {
     m_minAngle = minAngle;
     m_maxAngle = maxAngle;
-    
+
     // 更新所有点的可见性
     refreshAll();
 }
 
 void SectorDetManager::clear()
 {
+    qDebug() << "[SectorDetManager::clear] Clearing" << m_nodes.size() << "detection points";
+
     for (auto& node : m_nodes) {
         if (node.point) {
             m_scene->removeItem(node.point);
@@ -161,6 +181,8 @@ void SectorDetManager::clear()
         }
     }
     m_nodes.clear();
+
+    qDebug() << "[SectorDetManager::clear] Clear complete, nodes count:" << m_nodes.size();
 }
 
 QPointF SectorDetManager::polarToPixel(float range, float azimuthDeg) const
@@ -178,12 +200,12 @@ bool SectorDetManager::inAngle(float azimuthDeg) const
     // 归一化角度到 [0, 360)
     double angle = fmod(azimuthDeg, 360.0);
     if (angle < 0) angle += 360.0;
-    
+
     double minAngle = fmod(m_minAngle, 360.0);
     double maxAngle = fmod(m_maxAngle, 360.0);
     if (minAngle < 0) minAngle += 360.0;
     if (maxAngle < 0) maxAngle += 360.0;
-    
+
     // 处理跨越0度的情况
     if (minAngle <= maxAngle) {
         return (angle >= minAngle && angle <= maxAngle);

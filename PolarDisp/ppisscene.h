@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:46
+ * @LastEditTime: 2026-02-28 16:46:32
  * @Description: 
  */
 /**
@@ -132,6 +132,21 @@ signals:
      * @details 当PPI显示范围改变时发送，通知其他组件同步更新
      */
     void rangeChanged(float minR, float maxR);
+
+    /**
+     * @brief 航迹点被点击信号
+     * @param info 被点击航迹点的信息
+     * @details 当用户点击航迹点或航迹标签时发出，用于更新PointInfoW显示
+     */
+    void trackPointClicked(const PointInfo& info);
+
+protected:
+    /**
+     * @brief 鼠标按下事件处理
+     * @param event 鼠标事件
+     * @details 检测点击的航迹点，发出trackPointClicked信号
+     */
+    void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
 
 private:
     // 核心显示组件

@@ -3,12 +3,13 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:49
+ * @LastEditTime: 2026-02-28 16:46:34
  * @Description: 
  */
 #include "waveandsample.h"
 #include "ui_waveandsample.h"
 #include "Basic/ConfigManager.h"
+#include "Basic/DispBasci.h"
 #include "cusWidgets/custommessagebox.h"
 #include <QPushButton>
 
@@ -20,6 +21,8 @@ waveAndSample::waveAndSample(QWidget *parent) :
     setFixedSize(1200, 900);  // 增加高度从600到900，给控件足够的空间
 
     setWindowTitle(tr("波形及采样控制"));
+    // 窗口居中显示
+    centerWidgetOnScreen(this);
 
     // 断开UI文件中的默认连接
     disconnect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);

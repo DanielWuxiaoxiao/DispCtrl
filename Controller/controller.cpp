@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:45
+ * @LastEditTime: 2026-02-28 16:46:30
  * @Description: 
  */
 /**
@@ -150,13 +150,13 @@ void Controller::updateHeadingFromCtrlTable(double headingDeg) {
 }
 
 void Controller::onBITReport(BITReport res) {
-    qDebug() << "[Controller] onBITReport called - yaw:" << res.yaw
-             << "scanAngle:" << res.scanAngle;
+    // qDebug() << "[Controller] onBITReport called - yaw:" << res.yaw
+    //          << "scanAngle:" << res.scanAngle;
 
     // 转发BIT上报信号
     emit bitReport(res);
 
-    qDebug() << "[Controller] bitReport signal emitted";
+    //qDebug() << "[Controller] bitReport signal emitted";
 
     // 解析扫描角度（量化单位0.01度）
     double scanAngle = res.scanAngle * 0.01;  // 转换为度

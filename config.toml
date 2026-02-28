@@ -136,8 +136,8 @@ workMode = 0                         # 工作模式：0=TWS,1=TAS
 # 波形控制参数 Beam Control Parameters
 freqID = 4                           # 频率ID
 type = 2                             # 类型
-aziStart = -4500                     # 方位起始（0.01度）
-aziEnd = 4500                        # 方位终止（0.01度）
+aziStart = -1500                     # 方位起始（0.01度）= -15°
+aziEnd = 1500                        # 方位终止（0.01度）= 15°
 aziStep = 400                        # 方位步进（0.01度）
 pulseNum = 128                       # 积累脉冲数
 flagNum = 2                          # 波形使能数量
@@ -204,3 +204,11 @@ accuVelGate = 0                      # 累积速度门
 # 数据保存参数 Data Save Parameters
 saveSwitch = 0                       # 保存开关
 dataID = 0                           # 数据ID
+
+# =============================================================================
+# 显示配置 Display Configuration
+# =============================================================================
+
+[displayConfig]
+# 检测点显示配置 Detection Point Display Configuration
+max_points = 1000                    # 最大检测点数量

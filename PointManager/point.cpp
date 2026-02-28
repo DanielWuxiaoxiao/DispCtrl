@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:45
+ * @LastEditTime: 2026-02-28 16:46:30
  * @Description: 
  */
 /**
@@ -19,8 +19,11 @@
  */
 
 #include "point.h"
+#include <QGraphicsScene>
 #include <QGraphicsSceneHoverEvent>
+#include <QGraphicsSceneMouseEvent>
 #include <QPen>
+#include <QDebug>
 #include "Basic/DispBasci.h"
 #include "PolarDisp/tooltip.h"
 
@@ -73,15 +76,16 @@ Point::Point(PointInfo &pi) : info(pi)
  * @param x 新的X坐标(像素)
  * @param y 新的Y坐标(像素)
  * @details 更新点在场景中的位置：
- *          - 保存新的坐标值
- *          - 调用setSmallRect()更新图形矩形
- *          - 保持点的几何中心对齐
+ *          - 使用setPos()设置图形项的场景位置
+ *          - 调用setSmallRect()更新椭圆几何形状（以(0,0)为中心）
+ *          - 这样scenePos()能正确返回点的位置，连线才能正确绑定
  */
 void Point::updatePosition(float x, float y)
 {
     mX = x;
     mY = y;
-    setSmallRect();  // 以新位置为中心重新设置矩形
+    setPos(x, y);    // 设置图形项的场景位置
+    setSmallRect();  // 更新椭圆几何形状（现在以(0,0)为中心）
 }
 
 /**
@@ -137,25 +141,54 @@ void Point::hoverLeaveEvent(QGraphicsSceneHoverEvent *event)
 }
 
 /**
+ * @brief 鼠标按下事件处理
+ * @param event 鼠标事件对象
+ * @details 点击点时获取点信息，用于选中该航迹批次
+ *          通过 scene() 获取场景，然后通过 views() 获取视图来传递信息
+ */
+void Point::mousePressEvent(QGraphicsSceneMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton) {
+        qDebug() << "[Point::mousePressEvent] Point clicked, batch:" << info.batch
+                 << "type:" << info.type;
+
+        // 发送自定义事件或通过属性传递信息
+        // 设置一个标记在 scene 的属性中
+        if (scene()) {
+            scene()->setProperty("selectedBatchID", info.batch);
+            scene()->setProperty("selectedPointInfo", QVariant::fromValue(info));
+        }
+
+        // 调用基类处理
+        QGraphicsEllipseItem::mousePressEvent(event);
+
+        // 接受事件，阻止传播
+        event->accept();
+    } else {
+        QGraphicsEllipseItem::mousePressEvent(event);
+    }
+}
+
+/**
  * @brief 设置普通尺寸的椭圆矩形
- * @details 基类实现，以当前位置为中心设置普通大小的矩形：
+ * @details 基类实现，以(0,0)为中心设置普通大小的矩形：
  *          - 使用当前的w,h尺寸
- *          - 以mX,mY为几何中心
+ *          - 图形项的实际位置由setPos()控制
  */
 void Point::setSmallRect()
 {
-    setRect(mX - w*0.5f, mY - h*0.5f, w, h);
+    setRect(-w*0.5f, -h*0.5f, w, h);
 }
 
 /**
  * @brief 设置放大尺寸的椭圆矩形
- * @details 基类实现，以当前位置为中心设置放大的矩形：
+ * @details 基类实现，以(0,0)为中心设置放大的矩形：
  *          - 使用当前的W,H尺寸
- *          - 以mX,mY为几何中心
+ *          - 图形项的实际位置由setPos()控制
  */
 void Point::setBigRect()
 {
-    setRect(mX - W*0.5f, mY - H*0.5f, W, H);
+    setRect(-W*0.5f, -H*0.5f, W, H);
 }
 
 // ==================== DetPoint 检测点实现 ====================
@@ -189,8 +222,7 @@ DetPoint::DetPoint  (PointInfo &info) : Point(info)
  * @details 实现检测点的动态缩放：
  *          - 防护性检查：比例值必须大于0
  *          - 根据缩放比例计算新的显示尺寸
- *          - 更新当前尺寸并重绘矩形
- *          - 缩放比例越大，点显示越小(适应放大的视图)
+ *          - 注意：不在这里调用setSmallRect()，由updatePosition负责更新位置
  */
 void DetPoint::resize(float ratio)
 {
@@ -203,7 +235,9 @@ void DetPoint::resize(float ratio)
     W = baseBigW   * ratio;
     H = baseBigH   * ratio;
 
-    setSmallRect();  // 以新尺寸更新显示矩形
+    // 注意：不在这里调用 setSmallRect()
+    // 因为在创建检测点时，mX和mY还未设置，会导致点被错误放置到(0,0)
+    // setSmallRect() 会在 updatePosition() 中被调用
 }
 
 /**
@@ -225,19 +259,21 @@ void DetPoint::setColor(QColor color)
 /**
  * @brief 检测点普通尺寸矩形设置
  * @details 重写基类方法，使用检测点特有的小尺寸
+ *          矩形以(0,0)为中心，实际位置由setPos()控制
  */
 void DetPoint::setSmallRect()
 {
-    setRect(mX - w*0.5f, mY - h*0.5f, w, h);
+    setRect(-w*0.5f, -h*0.5f, w, h);
 }
 
 /**
  * @brief 检测点放大尺寸矩形设置
  * @details 重写基类方法，使用检测点特有的放大尺寸
+ *          矩形以(0,0)为中心，实际位置由setPos()控制
  */
 void DetPoint::setBigRect()
 {
-    setRect(mX - W*0.5f, mY - H*0.5f, W, H);
+    setRect(-W*0.5f, -H*0.5f, W, H);
 }
 
 // ==================== TrackPoint 航迹点实现 ====================
@@ -272,7 +308,7 @@ TrackPoint::TrackPoint(PointInfo &info) : Point(info)
  *          - 防护性检查：比例值必须大于0
  *          - 根据缩放比例等比缩放所有尺寸
  *          - 避免之前drawline int限制导致的显示问题
- *          - 更新当前尺寸并重绘矩形
+ *          - 注意：不在这里调用setSmallRect()，由updatePosition负责更新位置
  */
 void TrackPoint::resize(float ratio)
 {
@@ -285,7 +321,9 @@ void TrackPoint::resize(float ratio)
     W = baseBigW   * ratio;
     H = baseBigH   * ratio;
 
-    setSmallRect();  // 以新尺寸更新显示矩形
+    // 注意：不在这里调用 setSmallRect()
+    // 因为在创建航迹点时，mX和mY还未设置，会导致点被错误放置到(0,0)
+    // setSmallRect() 会在 updatePosition() 中被调用
 }
 
 /**
@@ -307,17 +345,26 @@ void TrackPoint::setColor(QColor color)
 /**
  * @brief 航迹点普通尺寸矩形设置
  * @details 重写基类方法，使用航迹点特有的中等尺寸
+ *          矩形以(0,0)为中心，实际位置由setPos()控制
  */
 void TrackPoint::setSmallRect()
 {
-    setRect(mX - w*0.5f, mY - h*0.5f, w, h);
+    QRectF newRect(-w*0.5f, -h*0.5f, w, h);
+    // qCritical() << "[TrackPoint::setSmallRect]"
+    //             << "batch=" << info.batch
+    //             << "pos()=" << pos()
+    //             << "w=" << w << "h=" << h
+    //             << "rect=(" << newRect.x() << "," << newRect.y()
+    //             << "," << newRect.width() << "," << newRect.height() << ")";
+    setRect(newRect);
 }
 
 /**
  * @brief 航迹点放大尺寸矩形设置
  * @details 重写基类方法，使用航迹点特有的大尺寸
+ *          矩形以(0,0)为中心，实际位置由setPos()控制
  */
 void TrackPoint::setBigRect()
 {
-    setRect(mX - W*0.5f, mY - H*0.5f, W, H);
+    setRect(-W*0.5f, -H*0.5f, W, H);
 }

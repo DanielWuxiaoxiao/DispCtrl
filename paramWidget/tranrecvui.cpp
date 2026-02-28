@@ -3,11 +3,12 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:48
+ * @LastEditTime: 2026-02-28 16:46:34
  * @Description: 
  */
 #include "tranrecvui.h"
 #include "ui_tranrecvui.h"
+#include "Basic/DispBasci.h"
 #include <QPushButton>
 
 TranRecvUI::TranRecvUI(QWidget *parent) :
@@ -16,6 +17,8 @@ TranRecvUI::TranRecvUI(QWidget *parent) :
 {
     ui->setupUi(this);
     setWindowTitle(tr("发射接收控制"));
+    // 窗口居中显示
+    centerWidgetOnScreen(this);
 
     // 断开UI文件中的默认连接
     disconnect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);

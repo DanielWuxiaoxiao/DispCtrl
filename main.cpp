@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:47
+ * @LastEditTime: 2026-02-28 16:46:33
  * @Description: 
  */
 /**
@@ -73,6 +73,27 @@ void setupStyle(QApplication& app) {
     QFile file(":/resources/style/darkstyle.qss");
     if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QString style = QString::fromUtf8(file.readAll());
+
+        // 统一右下角两个信息窗字体大小（鼠标信息窗 + 视觉设置窗）
+        // 放入全局QSS，避免在各自widget中硬编码导致大小不一致
+        style += R"(
+
+/* --- Unified overlay panel fonts --- */
+#MousePositionInfo QLabel,
+#MousePositionInfo QCheckBox,
+#MousePositionInfo QDoubleSpinBox {
+    font-size: 12px;
+}
+
+#PPIVisualSettings QLabel,
+#PPIVisualSettings QLineEdit,
+#PPIVisualSettings QComboBox,
+#PPIVisualSettings QPushButton {
+    font-size: 12px;
+}
+
+)";
+
         app.setStyleSheet(style);
         file.close();
     }
@@ -169,6 +190,11 @@ int main(int argc, char *argv[]) {
     // 第六步：日志系统配置
     // =============================================================================
     qInstallMessageHandler(enhancedLog);
+
+    // 输出日志文件位置信息（确保能看到日志文件路径）
+    QString logPath = QDir::currentPath() + "/disp_ctrl_log.txt";
+    qInfo() << "Log file path:" << logPath;
+    LOG_INFO(QString("Application starting, log file: %1").arg(logPath));
 
     // =============================================================================
     // 第七步：配置文件加载和验证

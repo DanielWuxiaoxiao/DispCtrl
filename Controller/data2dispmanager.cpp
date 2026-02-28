@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:45
+ * @LastEditTime: 2026-02-28 16:46:30
  * @Description: 
  */
 #include "data2dispmanager.h"
@@ -47,8 +47,8 @@ void Data2DispManager::traInfoDecode(QByteArray data)
         auto traPointInfo = (trackInfo*)rawData;
         info.type = 2; //类型为跟踪点
         info.range = traPointInfo->dis;
-        info.azimuth = traPointInfo->azi;
-        info.elevation = traPointInfo->ele;
+        info.azimuth = traPointInfo->azi;   // 协议值就是度数，无需转换
+        info.elevation = traPointInfo->ele; // 协议值就是度数，无需转换
         info.SNR = traPointInfo->SNR;
         info.speed = traPointInfo->vel;
         info.altitute = traPointInfo->altitute;

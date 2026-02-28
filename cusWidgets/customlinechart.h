@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-01-28 11:19:34
+ * @Date: 2026-01-30 11:45:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:47
+ * @LastEditTime: 2026-02-28 16:46:32
  * @Description: 
  */
 /**
@@ -153,6 +153,17 @@ public:
      * @param visible true显示坐标轴，false隐藏坐标轴
      */
     void setAxisVisible(bool visible);
+
+    /** @brief 设置背景色（同时更新 scene backgroundBrush） */
+    void setChartBgColor(const QColor& color);
+    /** @brief 设置主网格线颜色 */
+    void setChartGridMajorColor(const QColor& color);
+    /** @brief 设置次网格线颜色 */
+    void setChartGridMinorColor(const QColor& color);
+    /** @brief 设置坐标轴线颜色 */
+    void setChartAxisColor(const QColor& color);
+    /** @brief 设置刻度/标签文字颜色 */
+    void setChartTextColor(const QColor& color);
 
 protected:
     /**

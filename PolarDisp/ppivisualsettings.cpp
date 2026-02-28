@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-23 09:44:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:46
+ * @LastEditTime: 2026-02-28 16:46:32
  * @Description: 
  */
 /**
@@ -72,8 +72,8 @@ PPIVisualSettings::PPIVisualSettings(QWidget *parent)
     QDoubleValidator* distanceValidator = new QDoubleValidator(1.0, 99999.0, 2, this);
     ui->maxDistanceEdit->setValidator(distanceValidator);
 
-    // 为监测点数量输入框设置验证器（整数）
-    QIntValidator* pointsValidator = new QIntValidator(100, 1000000, this);
+    // 为监测点数量输入框设置验证器（整数），最小值与槽函数内验证保持一致
+    QIntValidator* pointsValidator = new QIntValidator(1, 1000000, this);
     ui->maxPointsEdit->setValidator(pointsValidator);
 
     // 连接信号槽
@@ -86,8 +86,8 @@ PPIVisualSettings::PPIVisualSettings(QWidget *parent)
     int defaultMapType = CF_INS.mapType("default_type", 1);
     ui->mapTypeCombo->setCurrentIndex(defaultMapType); // 使用配置的默认地图类型
 
-    // 设置默认最大监测点数量
-    int maxPoints = CF_INS.displayConfig("max_points", 10000);
+    // 设置默认最大检测点数量
+    int maxPoints = CF_INS.displayConfig("max_points", 1000);
     ui->maxPointsEdit->setText(QString::number(maxPoints));
 
     // 设置工具提示
@@ -201,26 +201,30 @@ void PPIVisualSettings::onDistanceEditReturnPressed()
 }
 
 /**
- * @brief 最大监测点数量输入回车处理
- * @details 响应用户在监测点数量输入框中按下回车键，验证并应用新的数量限制
+ * @brief 最大检测点数量输入回车处理
+ * @details 响应用户在检测点数量输入框中按下回车键，验证并应用新的数量限制
  *
  * 处理流程：
  * 1. 获取输入值：从LineEdit控件读取用户输入
  * 2. 数值转换：将文本转换为int类型数值
  * 3. 有效性验证：检查是否在合理范围内 (100-1000000)
- * 4. 信号发射：如果有效，发出maxPointsChanged信号
- * 5. 错误处理：如果无效，显示错误提示并恢复原值
+ * 4. 保存配置：将新值保存到配置文件
+ * 5. 信号发射：如果有效，发出maxPointsChanged信号
+ * 6. 错误处理：如果无效，显示错误提示并恢复原值
  */
 void PPIVisualSettings::onMaxPointsEditReturnPressed()
 {
     bool ok;
     int maxPoints = ui->maxPointsEdit->text().toInt(&ok);
 
-    if (ok && maxPoints >= 100 && maxPoints <= 1000000) {
+    if (ok && maxPoints >= 1 && maxPoints <= 1000000) {
+        // 保存到配置文件
+        CF_INS.saveDisplayConfig("max_points", maxPoints);
+        CF_INS.save();
         emit maxPointsChanged(maxPoints);
     } else {
         // 输入无效，提示用户
-        QMessageBox::warning(this, "输入错误", "请输入有效的监测点数量 (100-1000000)");
+        QMessageBox::warning(this, "输入错误", "请输入有效的检测点数量 (100-1000000)");
         ui->maxPointsEdit->selectAll();
         ui->maxPointsEdit->setFocus();
     }

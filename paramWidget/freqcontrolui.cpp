@@ -3,11 +3,12 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:48
+ * @LastEditTime: 2026-02-28 16:46:33
  * @Description: 
  */
 #include "freqcontrolui.h"
 #include "ui_freqcontrolui.h"
+#include "Basic/DispBasci.h"
 #include <QPushButton>
 
 static unsigned char timeWidths[] = {2,2,4,10,20,35,2,2,2,10,25,35};
@@ -19,7 +20,10 @@ FreqControlUI::FreqControlUI(QWidget *parent) :
 {
     ui->setupUi(this);
     setWindowTitle(tr("频综控制"));
-        // 断开UI文件中的默认连接
+    // 窗口居中显示
+    centerWidgetOnScreen(this);
+
+    // 断开UI文件中的默认连接
     disconnect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
     disconnect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
 

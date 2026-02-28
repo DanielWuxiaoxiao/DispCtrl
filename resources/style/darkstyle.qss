@@ -2028,3 +2028,91 @@ PhotoElectricParam QLineEdit {
 }
 
 /* 不设置按钮样式，让Qt使用默认的原生箭头按钮 */
+
+/* =============================================================================
+ * RangeAzimuthChartWidget / RangeAzimuthChartToolBar 样式
+ * 描述：距离-方位图组件，黑绿配色，与全局深色主题保持一致
+ * ========================================================================== */
+
+/* 工具栏容器 */
+#RangeAzimuthChartToolBar {
+    background-color: rgba(16, 24, 24, 0.92);
+    border-bottom: 1px solid rgba(0, 255, 136, 0.25);
+    border-radius: 0px;
+    padding: 2px 6px;
+}
+
+/* 方位角标签 */
+#RangeAzimuthLabel,
+#RangeAzimuthSeparatorLabel {
+    background-color: transparent;
+    color: #66ffcc;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+/* 方位角输入框 */
+#RangeAzimuthMinEdit,
+#RangeAzimuthMaxEdit {
+    background-color: rgba(16, 24, 24, 0.9);
+    color: #66ffcc;
+    font-size: 13px;
+    font-weight: bold;
+    border: 1px solid #005533;
+    border-radius: 4px;
+    padding: 2px 5px;
+    min-height: 22px;
+}
+
+#RangeAzimuthMinEdit:hover,
+#RangeAzimuthMaxEdit:hover {
+    border: 1px solid #00aa66;
+    background-color: rgba(20, 32, 32, 0.95);
+}
+
+#RangeAzimuthMinEdit:focus,
+#RangeAzimuthMaxEdit:focus {
+    border: 1px solid #00ff88;
+    background-color: rgba(16, 24, 24, 0.95);
+    color: #ffffff;
+}
+
+/* 工具栏按钮：清除 / 重置 */
+#RangeAzimuthClearButton,
+#RangeAzimuthResetButton {
+    background-color: transparent;
+    color: #00ff88;
+    font-size: 13px;
+    font-weight: bold;
+    border: 1px solid rgba(0, 255, 136, 0.45);
+    border-radius: 6px;
+    padding: 3px 14px;
+    min-height: 24px;
+}
+
+#RangeAzimuthClearButton:hover,
+#RangeAzimuthResetButton:hover {
+    background-color: rgba(0, 255, 136, 0.15);
+    border: 1px solid #00ff88;
+    color: #ffffff;
+}
+
+#RangeAzimuthClearButton:pressed,
+#RangeAzimuthResetButton:pressed {
+    background-color: rgba(0, 255, 136, 0.28);
+    border: 2px solid #00ffaa;
+    color: #ffffff;
+}
+
+/* 图表区域本身（QGraphicsView） */
+#RangeAzimuthChart {
+    background-color: rgb(10, 16, 16);
+    border: 1px solid rgba(0, 255, 136, 0.20);
+}
+
+/* 整体容器：统一黑色背景 */
+#RangeAzimuthChartWidget {
+    background-color: rgb(10, 16, 16);
+    border: 1px solid rgba(0, 255, 136, 0.25);
+    border-radius: 4px;
+}

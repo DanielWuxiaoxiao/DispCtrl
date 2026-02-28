@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:17
+ * @LastEditTime: 2026-02-28 16:46:32
  * @Description: 
  */
 #include "cuswindow.h"
@@ -292,5 +292,22 @@ void CusWindow::updateCursor(const QPoint& pos) {
         setCursor(Qt::SizeVerCursor); break;
     default:
         unsetCursor(); break;
+    }
+}
+
+void CusWindow::showEvent(QShowEvent* e)
+{
+    QWidget::showEvent(e);
+    if (m_firstShow) {
+        m_firstShow = false;
+        // 窗口首次显示时，将其移动到屏幕中央
+        // adjustSize 确保 sizeHint 已经应用
+        adjustSize();
+        QScreen* screen = QGuiApplication::primaryScreen();
+        if (screen) {
+            QRect sg = screen->availableGeometry();
+            move(sg.x() + (sg.width()  - width())  / 2,
+                 sg.y() + (sg.height() - height()) / 2);
+        }
     }
 }
