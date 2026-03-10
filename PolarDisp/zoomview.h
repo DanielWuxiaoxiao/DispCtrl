@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:15
+ * @LastEditTime: 2026-03-10 17:18:13
  * @Description: 
  */
 /**
@@ -110,6 +110,13 @@ signals:
     void measureModeChanged(bool measure);
     
     /**
+     * @brief 指针模式改变信号
+     * @param pointer true为启用指针模式，false为禁用
+     * @details 用户切换指针模式时发出，使用普通箭头光标查看tooltip信息
+     */
+    void pointerModeChanged(bool pointer);
+    
+    /**
      * @brief 重置视图请求信号
      * @details 用户点击重置按钮时发出，通知视图恢复到初始状态
      */
@@ -129,6 +136,7 @@ private:
     QPushButton* m_resetBtn;         ///< 重置视图按钮
     QPushButton* m_dragBtn;          ///< 拖拽模式按钮（可切换）
     QPushButton* m_measureBtn;       ///< 测距模式按钮（可切换）
+    QPushButton* m_pointerBtn;       ///< 指针模式按钮（可切换）
     QLabel* m_zoomLabel;             ///< 缩放比例显示标签
 };
 
@@ -171,7 +179,8 @@ public:
      */
     enum Mode {
         DragMode,      ///< 拖动模式：用于视图内容平移
-        MeasureMode    ///< 测距模式：用于距离测量
+        MeasureMode,   ///< 测距模式：用于距离测量
+        PointerMode    ///< 指针模式：用于查看信息（悬停tooltip等）
     };
 
     explicit ZoomView(QWidget* parent = nullptr);
@@ -242,6 +251,13 @@ public slots:
      * @details 切换到测距模式，用于距离测量操作
      */
     void setMeasureMode(bool measure);
+    
+    /**
+     * @brief 设置指针模式
+     * @param pointer true启用指针模式，false禁用
+     * @details 切换到指针模式，使用普通箭头光标，可悬停查看tooltip信息
+     */
+    void setPointerMode(bool pointer);
     
     /**
      * @brief 重置视图

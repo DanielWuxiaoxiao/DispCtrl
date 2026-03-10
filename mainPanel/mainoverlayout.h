@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:33
+ * @LastEditTime: 2026-03-10 17:18:14
  * @Description: 
  */
 /**
@@ -61,6 +61,7 @@ class QPushButton;     ///< Qt按钮
 class QLabel;          ///< Qt标签
 class DataSaveUI;      ///< 数据存储管理对话框
 class FrozenColumnHelper; ///< 表格冻结列辅助类
+class ScreenRecorderWidget; ///< 屏幕录制与回放组件
 
 
 namespace Ui {
@@ -320,6 +321,12 @@ private slots:
     void onRadarSystemClicked();
 
     /**
+     * @brief 打开录屏回放窗口
+     * @details 显示屏幕录制与回放管理界面
+     */
+    void onRecordPlayClicked();
+
+    /**
      * @brief 处理发射开关按钮点击
      * @details 弹出确认对话框，确认后下发发射开关命令（接收默认开启）
      */
@@ -330,6 +337,12 @@ private slots:
      * @details 设置雷达工作模式为待机模式（workMode=2）
      */
     void onRadarStandbyClicked();
+
+    /**
+     * @brief 根据屏幕分辨率动态设置面板宽度、按钮高度等尺寸
+     * @details 在 setupUi() 后调用，覆盖 .ui 中的固定像素值
+     */
+    void applyScaledSizes();
 
 private:
     Ui::MainOverLayOut *ui;           ///< UI界面对象指针
@@ -438,6 +451,10 @@ private:
     // 数据存储管理窗口相关
     CusWindow* m_dataStorageWindow;      ///< 数据存储管理窗口指针
     DataSaveUI* m_dataStorageDialog;     ///< 数据存储管理对话框指针
+
+    // 录屏回放窗口相关
+    CusWindow* m_recorderWindow;         ///< 录屏回放窗口指针
+    ScreenRecorderWidget* m_recorderWidget; ///< 录屏回放组件指针
 
     // BIT状态按钮
     QPushButton* m_btnTxOpen;            ///< 阵面发射开启状态

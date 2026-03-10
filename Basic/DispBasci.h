@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:30
+ * @LastEditTime: 2026-03-10 17:18:13
  * @Description: 
  */
 #ifndef DISPBASCI_H
@@ -14,7 +14,70 @@
 #include <QWidget>
 #include <QScreen>
 #include <QGuiApplication>
+#include <algorithm>
+#include <cmath>
 
+/**
+ * @brief 屏幕分辨率自适应布局助手（方案B-v2）
+ * @details 仅处理面板宽度、按钮高度等布局尺寸的自适应
+ *          字体大小由 Qt AA_EnableHighDpiScaling 自动处理，不在此重复缩放
+ *
+ *          计算方式：取物理像素高度 / devicePixelRatio 得到逻辑高度
+ *          以逻辑 1080 为基准 factor=1.0
+ *          面板宽度直接取逻辑屏幕宽度的百分比
+ *
+ *          在 main() 中 QApplication 创建后、setupFont 之前调用 init()
+ */
+class ScaleHelper {
+public:
+    /// 初始化：根据逻辑屏幕尺寸计算布局缩放因子
+    static void init() {
+        QScreen* screen = QGuiApplication::primaryScreen();
+        if (screen) {
+            // size() 在 AA_EnableHighDpiScaling 下返回逻辑像素
+            s_logicalW = screen->size().width();
+            s_logicalH = screen->size().height();
+            s_factor = std::clamp(s_logicalH / 1080.0, 0.7, 2.0);
+        }
+    }
+
+    /// 布局缩放因子 (逻辑1080p → 1.0)
+    static double factor() { return s_factor; }
+
+    /// 按布局缩放因子缩放整数值（仅用于按钮高度、间距等布局尺寸）
+    static int scaled(int base) {
+        return static_cast<int>(std::round(base * s_factor));
+    }
+
+    /// 逻辑屏幕宽度
+    static int logicalWidth() { return s_logicalW; }
+    /// 逻辑屏幕高度
+    static int logicalHeight() { return s_logicalH; }
+
+    /// 左侧信息面板宽度 (逻辑屏幕宽度的 22%)
+    static int leftPanelWidth() {
+        return static_cast<int>(s_logicalW * 0.22);
+    }
+
+    /// 右侧P显/B显面板宽度 (逻辑屏幕宽度的 28%)
+    static int rightPanelWidth() {
+        return static_cast<int>(s_logicalW * 0.28);
+    }
+
+    /// 按钮最小高度 (基准40px按布局因子缩放)
+    static int buttonHeight() { return scaled(40); }
+
+    /// setTab 最大高度 (基准600px按布局因子缩放)
+    static int setTabMaxHeight() { return scaled(600); }
+
+    /// Logo 最大尺寸 (基准50px按布局因子缩放)
+    static int logoSize() { return scaled(50); }
+
+private:
+    static inline double s_factor = 1.0;
+    static inline int s_logicalW = 1920;
+    static inline int s_logicalH = 1080;
+};
 
 //COLOR
 const QColor DET_COLOR = Qt::green;              // 检测点：绿色 (0, 255, 0)

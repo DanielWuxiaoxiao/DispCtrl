@@ -164,6 +164,8 @@ set(SRC_FILES
     # 主界面模块 - 控制面板和布局
     mainPanel/mainoverlayout.cpp               # 主界面覆盖布局
     mainPanel/azelrangewidget.cpp              # 方位角高低角范围控件
+    mainPanel/screenrecorderwidget.cpp         # 屏幕录制与回放
+    mainPanel/simpleavi.cpp                    # 纯Qt AVI视频写入器
 
     # 自定义组件模块 - UI扩展控件
     cusWidgets/detachablewidget.cpp            # 可分离窗口部件
@@ -270,6 +272,8 @@ set(HDR_FILES
     # 主界面模块头文件 - 控制面板和布局
     mainPanel/mainoverlayout.h                # 主界面覆盖布局
     mainPanel/azelrangewidget.h               # 方位角高低角范围控件
+    mainPanel/screenrecorderwidget.h          # 屏幕录制与回放
+    mainPanel/simpleavi.h                     # 纯Qt AVI视频写入器
 
     # 点管理模块头文件 - 目标检测和航迹
     PointManager/sectordetmanager.h           # 扇区检测管理

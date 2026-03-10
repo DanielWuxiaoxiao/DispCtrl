@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-01-30 11:45:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:34
+ * @LastEditTime: 2026-03-10 17:18:14
  * @Description: 
  */
 /*
@@ -212,6 +212,7 @@ void TASModeDialog::onAccept() {
     beamParam.aziStart = aziStart / 0.01f;  // 转换为0.01度单位
     beamParam.aziEnd = aziEnd / 0.01f;      // 转换为0.01度单位
     beamParam.aziStep = 400;  // 固定4°（实际TAS不做方位扫描）
+    beamParam.scene = static_cast<unsigned char>(ui->sceneCombo->currentIndex());
 
     // 波形码
     beamParam.beam1Code = ui->wave1->currentIndex();
@@ -305,6 +306,7 @@ void TASModeDialog::restoreParam(const TASModeParam& param) {
     // 注意：实际应用中需要保存原始空域范围，这里仅做演示
     ui->azistart->setText(QString::number(beamParam.aziStart * 0.01f));
     ui->aziend->setText(QString::number(beamParam.aziEnd * 0.01f));
+    ui->sceneCombo->setCurrentIndex(std::clamp<int>(beamParam.scene, 0, 4));
 
     // 积累脉冲数
     ui->pulseNum1->setCurrentText(QString::number(beamParam.pulseNum));
@@ -361,6 +363,7 @@ void TASModeDialog::onSaveToConfig() {
     short aziStartInt = static_cast<short>(aziStart * 100);  // 转换为0.01度单位
     short aziEndInt = static_cast<short>(aziEnd * 100);      // 转换为0.01度单位
     short aziStep = 400;  // 固定4°
+    unsigned char scene = static_cast<unsigned char>(ui->sceneCombo->currentIndex() + 1);
     unsigned short pulseNum = ui->pulseNum1->currentText().toUInt();
 
     unsigned char flagNum = 0;
@@ -396,7 +399,7 @@ void TASModeDialog::onSaveToConfig() {
     short elestep3 = ui->elestep3->text().toFloat() / 0.01f;
 
     CF_INS.saveBeamControlParam(
-        freqID, type, aziStartInt, aziEndInt, aziStep, flagNum, pulseNum,
+        freqID, type, aziStartInt, aziEndInt, aziStep, scene, flagNum, pulseNum,
         beam1Flag, beam1Code, sampleStart1, sampleEnd1, elestart1, eleend1, elestep1,
         beam2Flag, beam2Code, sampleStart2, sampleEnd2, elestart2, eleend2, elestep2,
         beam3Flag, beam3Code, sampleStart3, sampleEnd3, elestart3, eleend3, elestep3);

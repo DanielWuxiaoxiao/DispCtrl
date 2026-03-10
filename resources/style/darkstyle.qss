@@ -942,6 +942,7 @@ QPushButton:pressed {
 #ZoomViewW QPushButton#ZoomOutBtn,
 #ZoomViewW QPushButton#ResetBtn,
 #ZoomViewW QPushButton#DragBtn,
+#ZoomViewW QPushButton#PointerBtn,
 #ZoomViewW QPushButton#MeasureBtn {
     /* 让父背景透出，采用低对比边框以保持简洁 */
     background-color: transparent;
@@ -957,6 +958,7 @@ QPushButton:pressed {
 #ZoomViewW QPushButton#ZoomOutBtn:hover,
 #ZoomViewW QPushButton#ResetBtn:hover,
 #ZoomViewW QPushButton#DragBtn:hover,
+#ZoomViewW QPushButton#PointerBtn:hover,
 #ZoomViewW QPushButton#MeasureBtn:hover {
     background-color: rgba(0,255,136,0.18);
     border: 2px solid #00ff88;
@@ -964,6 +966,7 @@ QPushButton:pressed {
 
 /* 选中态（checked）更明显：明亮背景 + 内外对比边框 + 轻微发光效果 */
 #ZoomViewW QPushButton#DragBtn:checked,
+#ZoomViewW QPushButton#PointerBtn:checked,
 #ZoomViewW QPushButton#MeasureBtn:checked {
     border: 2px solid #00ff88;
     background-color: rgba(16,24,24,0.85);/* 大多数 Qt 版本会忽略 ，但保留为兼容性注释 */
@@ -2115,4 +2118,174 @@ PhotoElectricParam QLineEdit {
     background-color: rgb(10, 16, 16);
     border: 1px solid rgba(0, 255, 136, 0.25);
     border-radius: 4px;
+}
+
+/* =============================================================================
+ * ScreenRecorderWidget 录屏回放窗口样式
+ * =============================================================================
+ */
+
+/* 状态标签 & 帧信息标签 */
+#RecorderStatusLabel,
+#FrameInfoLabel {
+    color: #00ff88;
+    font-size: 13px;
+    font-weight: bold;
+    padding: 2px 4px;
+}
+
+/* 录屏文件列表 */
+#RecorderFileList {
+    background-color: rgb(10, 16, 16);
+    color: #b0b0b0;
+    font-size: 13px;
+    border: 1px solid rgba(0, 255, 136, 0.25);
+    border-radius: 4px;
+    padding: 2px;
+    outline: none;
+}
+
+#RecorderFileList::item {
+    padding: 6px 8px;
+    border-bottom: 1px solid rgba(0, 255, 136, 0.08);
+}
+
+#RecorderFileList::item:selected {
+    background-color: rgba(0, 255, 136, 0.18);
+    color: #ffffff;
+}
+
+#RecorderFileList::item:hover {
+    background-color: rgba(0, 255, 136, 0.10);
+}
+
+/* 录屏预览区域 */
+#RecorderPreview {
+    background-color: rgb(10, 16, 16);
+    border: 1px solid rgba(0, 255, 136, 0.20);
+    border-radius: 4px;
+}
+
+/* 控制按钮通用样式 */
+#RecordBtn,
+#PlayBtn,
+#StopPlayBtn,
+#DeleteBtn,
+#RefreshBtn {
+    background-color: transparent;
+    color: #00ff88;
+    font-size: 13px;
+    font-weight: bold;
+    border: 1px solid rgba(0, 255, 136, 0.45);
+    border-radius: 6px;
+    padding: 4px 14px;
+    min-height: 24px;
+}
+
+#RecordBtn:hover,
+#PlayBtn:hover,
+#StopPlayBtn:hover,
+#DeleteBtn:hover,
+#RefreshBtn:hover {
+    background-color: rgba(0, 255, 136, 0.15);
+    border: 1px solid #00ff88;
+    color: #ffffff;
+}
+
+#RecordBtn:pressed,
+#PlayBtn:pressed,
+#StopPlayBtn:pressed,
+#DeleteBtn:pressed,
+#RefreshBtn:pressed {
+    background-color: rgba(0, 255, 136, 0.28);
+    border: 2px solid #00ffaa;
+    color: #ffffff;
+}
+
+/* 录屏中按钮特殊高亮（红色提示） */
+#RecordBtn:checked,
+#RecordBtn[recording="true"] {
+    color: #ff4444;
+    border: 2px solid #ff4444;
+    background-color: rgba(255, 68, 68, 0.15);
+}
+
+/* 进度滑块 */
+#RecorderSlider::groove:horizontal {
+    height: 6px;
+    background-color: rgba(0, 255, 136, 0.15);
+    border-radius: 3px;
+}
+
+#RecorderSlider::handle:horizontal {
+    width: 14px;
+    height: 14px;
+    margin: -4px 0;
+    background-color: #00ff88;
+    border-radius: 7px;
+    border: 2px solid rgb(10, 16, 16);
+}
+
+#RecorderSlider::handle:horizontal:hover {
+    background-color: #00ffaa;
+    border: 2px solid rgba(0, 255, 136, 0.6);
+}
+
+#RecorderSlider::sub-page:horizontal {
+    background-color: rgba(0, 255, 136, 0.45);
+    border-radius: 3px;
+}
+
+/* 录制质量标签 */
+#RecorderQualityLabel {
+    color: #00ff88;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+/* 录制区段小标题（历史录制、预览/回放） */
+#RecorderSectionLabel {
+    color: #66ffcc;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 2px 0px;
+}
+
+/* 录制质量选择下拉框 */
+#RecorderQualityCombo {
+    background-color: rgba(0, 20, 10, 0.9);
+    color: #00ff88;
+    font-size: 13px;
+    font-weight: bold;
+    border: 1px solid rgba(0, 255, 136, 0.45);
+    border-radius: 4px;
+    padding: 4px 10px;
+    min-width: 120px;
+}
+
+#RecorderQualityCombo:hover {
+    border: 1px solid #00ff88;
+    color: #ffffff;
+}
+
+#RecorderQualityCombo::drop-down {
+    border: none;
+    width: 20px;
+}
+
+#RecorderQualityCombo::down-arrow {
+    image: none;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid #00ff88;
+    margin-right: 6px;
+}
+
+#RecorderQualityCombo QAbstractItemView {
+    background-color: rgb(10, 16, 16);
+    color: #b0b0b0;
+    border: 1px solid rgba(0, 255, 136, 0.4);
+    selection-background-color: rgba(0, 255, 136, 0.2);
+    selection-color: #ffffff;
+    outline: none;
 }

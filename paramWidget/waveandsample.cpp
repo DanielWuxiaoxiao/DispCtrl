@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:34
+ * @LastEditTime: 2026-03-10 17:18:14
  * @Description: 
  */
 #include "waveandsample.h"
@@ -12,6 +12,7 @@
 #include "Basic/DispBasci.h"
 #include "cusWidgets/custommessagebox.h"
 #include <QPushButton>
+#include <algorithm>
 
 waveAndSample::waveAndSample(QWidget *parent) :
     QDialog(parent),
@@ -110,6 +111,7 @@ void waveAndSample::onAccept()
     param.aziStart = ui->azistart->text().toFloat() / 0.01f;
     param.aziEnd = ui->aziend->text().toFloat() / 0.01f;
     param.aziStep = ui->azistep->text().toFloat() / 0.01f;
+    param.scene = static_cast<unsigned char>(ui->sceneCombo->currentIndex());
 
     param.beam1Code = ui->wave1->currentIndex();
     param.beam2Code = ui->wave2->currentIndex();
@@ -187,6 +189,7 @@ void waveAndSample::restoreParam(const BeamControl &param)
     ui->azistart->setText(QString::number(param.aziStart*0.01f));
     ui->aziend->setText(QString::number(param.aziEnd*0.01f));
     ui->azistep->setText(QString::number(param.aziStep*0.01f));
+    ui->sceneCombo->setCurrentIndex(std::clamp<int>(param.scene, 0, 4));
 
     // 统一的积累脉冲数
     ui->pulseNum1->setCurrentText(QString::number(param.pulseNum));
@@ -223,6 +226,7 @@ void waveAndSample::onSaveToConfig()
     short aziStart = ui->azistart->text().toFloat() / 0.01f;
     short aziEnd = ui->aziend->text().toFloat() / 0.01f;
     short aziStep = ui->azistep->text().toFloat() / 0.01f;
+    unsigned char scene = static_cast<unsigned char>(ui->sceneCombo->currentIndex() + 1);
 
     unsigned char flagNum = 0;
     unsigned char beam1Flag = (ui->enable1->checkState() == Qt::Checked) ? 1 : 0;
@@ -235,7 +239,7 @@ void waveAndSample::onSaveToConfig()
     unsigned short pulseNum = ui->pulseNum1->currentText().toUInt();
 
     // 保存波形参数到配置
-    CF_INS.saveBeamControlParam(freqID, type, aziStart, aziEnd, aziStep, flagNum, pulseNum,
+    CF_INS.saveBeamControlParam(freqID, type, aziStart, aziEnd, aziStep, scene, flagNum, pulseNum,
                                beam1Flag, ui->wave1->currentIndex(),
                                ui->samplestart1->text().toFloat() / 0.1f, ui->samplelen1->text().toFloat() / 0.1f,
                                ui->elestart1->text().toFloat() / 0.01f, ui->eleend1->text().toFloat() / 0.01f,

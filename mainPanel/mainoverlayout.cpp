@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:33
+ * @LastEditTime: 2026-03-10 17:18:14
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -59,9 +59,13 @@
 #include "paramWidget/sigparamui.h"
 #include "paramWidget/tranrecvui.h"
 #include "paramWidget/waveandsample.h"
+#include "screenrecorderwidget.h"
 
 MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::MainOverLayOut) {
     ui->setupUi(this);
+
+    // ========== 屏幕自适应：动态覆盖 UI 中的固定尺寸 ==========
+    applyScaledSizes();
 
     // 状态信息面板包含发射接收控制checkboxes
     ui->infoTab->setToolTip("信息面板");
@@ -91,6 +95,7 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     m_beamControl.aziStart = CF_INS.beamAziStart(-4500);
     m_beamControl.aziEnd = CF_INS.beamAziEnd(4500);
     m_beamControl.aziStep = CF_INS.beamAziStep(400);
+    m_beamControl.scene = CF_INS.beamScene(0);
     m_beamControl.flagNum = CF_INS.beamFlagNum(2);
     m_beamControl.pulseNum = CF_INS.beamPulseNum(128);
 
@@ -183,6 +188,11 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     // 初始化数据存储管理窗口指针
     m_dataStorageWindow = nullptr;
     m_dataStorageDialog = nullptr;
+
+    // 初始化录屏回放窗口指针
+    m_recorderWindow = nullptr;
+    m_recorderWidget = nullptr;
+
     m_btnTxOpen = nullptr;
     m_btnDutyCycle = nullptr;
     m_btnPulseWidth = nullptr;
@@ -238,6 +248,9 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
 
     // 连接雷达系统健康管理按钮
     connect(ui->radarsystem, &QToolButton::clicked, this, &MainOverLayOut::onRadarSystemClicked);
+
+    // 连接记录回放按钮
+    connect(ui->toolButton_3, &QToolButton::clicked, this, &MainOverLayOut::onRecordPlayClicked);
 
     // ========== 关键修复：连接航迹数据到表格显示 ==========
     // 从Controller接收航迹数据并更新表格
@@ -685,8 +698,8 @@ void MainOverLayOut::setupTrackManagement() {
     // 初始化总航迹表格
     QTableWidget* trackTable = ui->tableWidget;
     QStringList headers;
-    headers << "批次号" << "方位(°)" << "俯仰(°)" << "高度(m)" << "距离(m)" << "速度(m/s)"
-            << "SNR(dB)" << "目标类型";
+    headers << "批次号" << "方位" << "俯仰" << "高度" << "距离" << "速度"
+            << "SNR" << "类型";
 
     trackTable->setColumnCount(headers.size());
     trackTable->setHorizontalHeaderLabels(headers);
@@ -696,11 +709,10 @@ void MainOverLayOut::setupTrackManagement() {
     trackTable->setAlternatingRowColors(true);
     trackTable->setShowGrid(true);  // 显示网格线
 
-    // 设置列宽
+    // 设置列宽 - 所有列均等拉伸
     QHeaderView* headerView = trackTable->horizontalHeader();
-    headerView->setStretchLastSection(true);
-    for (int i = 0; i < headers.size() - 1; ++i) {
-        headerView->setSectionResizeMode(i, QHeaderView::ResizeToContents);
+    for (int i = 0; i < headers.size(); ++i) {
+        headerView->setSectionResizeMode(i, QHeaderView::Stretch);
     }
 
     // 初始化无人机航迹表格
@@ -713,11 +725,10 @@ void MainOverLayOut::setupTrackManagement() {
     droneTable->setAlternatingRowColors(true);
     droneTable->setShowGrid(true);  // 显示网格线
 
-    // 设置无人机表格列宽
+    // 设置无人机表格列宽 - 所有列均等拉伸
     QHeaderView* droneHeaderView = droneTable->horizontalHeader();
-    droneHeaderView->setStretchLastSection(true);
-    for (int i = 0; i < headers.size() - 1; ++i) {
-        droneHeaderView->setSectionResizeMode(i, QHeaderView::ResizeToContents);
+    for (int i = 0; i < headers.size(); ++i) {
+        droneHeaderView->setSectionResizeMode(i, QHeaderView::Stretch);
     }
 
     // 初始化冻结首列辅助类
@@ -2273,4 +2284,90 @@ void MainOverLayOut::updateStandbyButton()
             "    background-color: #00cc00;"
             "}");
     }
+}
+
+/**
+ * @brief 打开录屏回放窗口
+ * @details 显示屏幕录制与回放管理界面，使用CusWindow包装
+ */
+void MainOverLayOut::onRecordPlayClicked() {
+    // 如果窗口已存在，则直接显示
+    if (m_recorderWindow) {
+        m_recorderWindow->show();
+        m_recorderWindow->raise();
+        m_recorderWindow->activateWindow();
+        return;
+    }
+
+    // 创建自定义窗口
+    m_recorderWindow =
+        new CusWindow("记录回放", QIcon(":/resources/icon/record.png"), this);
+    m_recorderWindow->setAttribute(Qt::WA_DeleteOnClose);
+    m_recorderWindow->setMinimumSize(600, 700);
+
+    // 创建录屏组件
+    m_recorderWidget = new ScreenRecorderWidget(m_recorderWindow);
+    m_recorderWidget->setRecordTarget(window()); // 录制顶级窗口
+
+    m_recorderWindow->setContentWidget(m_recorderWidget);
+
+    // 连接窗口关闭信号，清空指针
+    connect(m_recorderWindow, &QObject::destroyed, this, [this]() {
+        m_recorderWindow = nullptr;
+        m_recorderWidget = nullptr;
+    });
+
+    m_recorderWindow->show();
+    LOG_INFO("Screen recorder window opened");
+}
+
+/**
+ * @brief 根据屏幕分辨率动态设置面板宽度、按钮高度等尺寸
+ * @details 覆盖 .ui 文件中的固定像素值，使界面在 1366×768 ~ 3840×2160 范围内自适应
+ */
+void MainOverLayOut::applyScaledSizes() {
+    int leftW   = ScaleHelper::leftPanelWidth();   // ~22% 屏幕宽度
+    int rightW  = ScaleHelper::rightPanelWidth();   // ~28% 屏幕宽度
+    int btnH    = ScaleHelper::buttonHeight();      // 基准40px缩放
+    int setTabH = ScaleHelper::setTabMaxHeight();   // 基准600px缩放
+    int logo    = ScaleHelper::logoSize();          // 基准50px缩放
+
+    // --- 左侧面板 ---
+    ui->infoTab->setMaximumWidth(leftW);
+
+    // --- 左侧设置面板 ---
+    ui->setTab->setMinimumWidth(leftW);
+    ui->setTab->setMaximumHeight(setTabH);
+
+    // --- 右侧 P显/扇区显示面板 ---
+    ui->pviewFitW->setMaximumWidth(rightW);
+    ui->pviewSectorW->setMaximumWidth(rightW);
+
+    // --- 雷达控制按钮 (4×2 grid) ---
+    QList<QPushButton*> radarBtns = {
+        ui->btnStartSoftware, ui->btnStopSoftware,
+        ui->btnTWSMode,       ui->btnTASMode,
+        ui->btnServoControl,  ui->btnDataStorage,
+        ui->btnTransmitControl, ui->btnRadarStandby
+    };
+    for (auto* btn : radarBtns) {
+        btn->setMinimumHeight(btnH);
+    }
+
+    // --- 参数设置按钮 (3×2 grid) ---
+    QList<QPushButton*> paramBtns = {
+        ui->btnDataProcess,   ui->btnSignalProcess,
+        ui->btnFreqControl,   ui->btnBatteryControl,
+        ui->btnScanRange
+    };
+    for (auto* btn : paramBtns) {
+        btn->setMinimumHeight(btnH);
+    }
+
+    // --- Logo ---
+    ui->label_12->setMaximumSize(logo, logo);
+
+    qInfo() << "ScaleHelper applied: factor=" << ScaleHelper::factor()
+            << "leftPanel=" << leftW << "rightPanel=" << rightW
+            << "btnH=" << btnH;
 }

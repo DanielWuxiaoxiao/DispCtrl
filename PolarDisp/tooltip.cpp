@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:12
+ * @LastEditTime: 2026-03-10 17:18:13
  * @Description: 
  */
 #include "tooltip.h"
@@ -38,6 +38,9 @@ Tooltip::Tooltip(QGraphicsItem* parent)
 
     setVisible(false);
     setZValue(TOOL_TIP_Z); // 保证在最上层
+
+    // 忽略视图变换，保证tooltip在放大视图中不会跟随缩放而变大
+    setFlag(QGraphicsItem::ItemIgnoresTransformations, true);
 }
 
 void Tooltip::showTooltip(const QPointF& scenePos,const QString& text)

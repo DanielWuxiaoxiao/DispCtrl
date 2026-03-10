@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1108</width>
-    <height>648</height>
+    <height>676</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -65,13 +65,6 @@
       <string>发射扇区参数</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_sector">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_freq">
-        <property name="text">
-         <string>频率(GHz)</string>
-        </property>
-       </widget>
-      </item>
       <item row="0" column="1">
        <widget class="CustomComboBox" name="freq">
         <property name="currentIndex">
@@ -124,6 +117,45 @@
         </item>
        </widget>
       </item>
+      <item row="3" column="1">
+       <widget class="CustomComboBox" name="sceneCombo">
+        <property name="currentIndex">
+         <number>0</number>
+        </property>
+        <item>
+         <property name="text">
+          <string>场景1</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>场景2</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>场景3</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>场景4</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>场景5</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item row="1" column="4">
+       <widget class="QLineEdit" name="aziend">
+        <property name="text">
+         <string>45.00</string>
+        </property>
+       </widget>
+      </item>
       <item row="0" column="2">
        <widget class="QLabel" name="label_type">
         <property name="text">
@@ -131,7 +163,21 @@
         </property>
        </widget>
       </item>
-      <item row="0" column="3">
+      <item row="1" column="2">
+       <widget class="QLabel" name="label_aziend">
+        <property name="text">
+         <string>方位终止(°)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="2">
+       <widget class="QLabel" name="label_pulsenum">
+        <property name="text">
+         <string>积累脉冲数</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="4">
        <widget class="CustomComboBox" name="type">
         <property name="currentIndex">
          <number>1</number>
@@ -155,31 +201,24 @@
         </property>
        </widget>
       </item>
-      <item row="1" column="1">
-       <widget class="QLineEdit" name="azistart">
-        <property name="text">
-         <string>-45.00</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="2">
-       <widget class="QLabel" name="label_aziend">
-        <property name="text">
-         <string>方位终止(°)</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="3">
-       <widget class="QLineEdit" name="aziend">
-        <property name="text">
-         <string>45.00</string>
-        </property>
-       </widget>
-      </item>
       <item row="2" column="0">
        <widget class="QLabel" name="label_azistep">
         <property name="text">
          <string>方位间隔(°)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_freq">
+        <property name="text">
+         <string>频率(GHz)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLineEdit" name="azistart">
+        <property name="text">
+         <string>-45.00</string>
         </property>
        </widget>
       </item>
@@ -190,14 +229,14 @@
         </property>
        </widget>
       </item>
-      <item row="2" column="2">
-       <widget class="QLabel" name="label_pulsenum">
+      <item row="3" column="0">
+       <widget class="QLabel" name="label_scene">
         <property name="text">
-         <string>积累脉冲数</string>
+         <string>下发场景(1~5)</string>
         </property>
        </widget>
       </item>
-      <item row="2" column="3">
+      <item row="2" column="4">
        <widget class="CustomComboBox" name="pulseNum1">
         <property name="currentIndex">
          <number>2</number>

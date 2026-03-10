@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:30
+ * @LastEditTime: 2026-03-10 17:18:13
  * @Description: 
  */
 #ifndef PROTOCOL_H
@@ -374,6 +374,7 @@ typedef struct _BeamControl
     int aziStart;      // 0.01°量化 (默认-4500)
     int aziEnd;        // 0.01°量化 (默认4500)
     short aziStep;       // 0.01°量化 (默认400)
+    unsigned char scene;   //下发场景 1~5，给数字阵使用
     unsigned char flagNum;  // 波形起效数量
     unsigned short pulseNum;  // 积累脉冲数 32,64,128,256,512,1024 (默认128)
 

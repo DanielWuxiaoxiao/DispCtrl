@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-01-30 11:45:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:34
+ * @LastEditTime: 2026-03-10 17:18:14
  * @Description: 
  */
 /*
@@ -160,6 +160,7 @@ void TWSModeDialog::onAccept()
     beamParam.aziStart = ui->azistart->text().toFloat() / 0.01f;
     beamParam.aziEnd = ui->aziend->text().toFloat() / 0.01f;
     beamParam.aziStep = ui->azistep->text().toFloat() / 0.01f;
+    beamParam.scene = static_cast<unsigned char>(ui->sceneCombo->currentIndex());
 
     // 波形码
     beamParam.beam1Code = ui->wave1->currentIndex();
@@ -255,6 +256,7 @@ void TWSModeDialog::restoreParam(const TWSModeParam &param)
     ui->azistart->setText(QString::number(beamParam.aziStart * 0.01f));
     ui->aziend->setText(QString::number(beamParam.aziEnd * 0.01f));
     ui->azistep->setText(QString::number(beamParam.aziStep * 0.01f));
+    ui->sceneCombo->setCurrentIndex(std::clamp<int>(beamParam.scene, 0, 4));
 
     // 积累脉冲数
     ui->pulseNum1->setCurrentText(QString::number(beamParam.pulseNum));
@@ -308,6 +310,7 @@ void TWSModeDialog::onSaveToConfig()
     short aziStart = ui->azistart->text().toFloat() / 0.01f;
     short aziEnd = ui->aziend->text().toFloat() / 0.01f;
     short aziStep = ui->azistep->text().toFloat() / 0.01f;
+    unsigned char scene = static_cast<unsigned char>(ui->sceneCombo->currentIndex() + 1);
     unsigned short pulseNum = ui->pulseNum1->currentText().toUInt();
     unsigned char flagNum = 0;
 
@@ -343,7 +346,7 @@ void TWSModeDialog::onSaveToConfig()
     short elestep3 = ui->elestep3->text().toFloat() / 0.01f;
 
     CF_INS.saveBeamControlParam(
-        freqID, type, aziStart, aziEnd, aziStep, flagNum, pulseNum,
+        freqID, type, aziStart, aziEnd, aziStep, scene, flagNum, pulseNum,
         beam1Flag, beam1Code, sampleStart1, sampleEnd1, elestart1, eleend1, elestep1,
         beam2Flag, beam2Code, sampleStart2, sampleEnd2, elestart2, eleend2, elestep2,
         beam3Flag, beam3Code, sampleStart3, sampleEnd3, elestart3, eleend3, elestep3);

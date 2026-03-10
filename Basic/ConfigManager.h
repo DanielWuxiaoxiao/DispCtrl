@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:30
+ * @LastEditTime: 2026-03-10 17:18:13
  * @Description: 
  */
 #ifndef CONFIGMANAGER_H
@@ -221,6 +221,7 @@ public:
     // 波形控制参数保存/读取（支持完整的BeamControl结构）
     void saveBeamControlParam(unsigned char freqID, unsigned char type,
                             short aziStart, short aziEnd, short aziStep,
+                            unsigned char scene,
                             unsigned char flagNum, unsigned short pulseNum,
                             unsigned char beam1Flag, unsigned char beam1Code,
                             unsigned short sampleStart1, unsigned short sampleEnd1,
@@ -236,6 +237,7 @@ public:
         saveValue("params.beamcontrol.aziStart", aziStart);
         saveValue("params.beamcontrol.aziEnd", aziEnd);
         saveValue("params.beamcontrol.aziStep", aziStep);
+        saveValue("params.beamcontrol.scene", scene);
         saveValue("params.beamcontrol.flagNum", flagNum);
         saveValue("params.beamcontrol.pulseNum", pulseNum);
 
@@ -287,6 +289,10 @@ public:
 
     unsigned char beamFlagNum(unsigned char def = 2) const {
         return getValue("params.beamcontrol.flagNum", def).toUInt();
+    }
+
+    unsigned char beamScene(unsigned char def = 0) const {
+        return getValue("params.beamcontrol.scene", def).toUInt();
     }
 
     unsigned short beamPulseNum(unsigned short def = 128) const {

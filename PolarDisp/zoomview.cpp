@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:15
+ * @LastEditTime: 2026-03-10 17:18:13
  * @Description: 
  */
 /**
@@ -110,11 +110,18 @@ ZoomViewToolBar::ZoomViewToolBar(QWidget* parent)
     m_measureBtn->setToolTip("测量模式");
     m_measureBtn->setObjectName("MeasureBtn");
 
+    m_pointerBtn = new QPushButton(this);
+    m_pointerBtn->setCheckable(true);
+    m_pointerBtn->setText("↖");
+    m_pointerBtn->setToolTip("指针模式");
+    m_pointerBtn->setObjectName("PointerBtn");
+
     // 互斥逻辑使用 QButtonGroup
     QButtonGroup* modeGroup = new QButtonGroup(this);
     modeGroup->setExclusive(true);
     modeGroup->addButton(m_dragBtn);
     modeGroup->addButton(m_measureBtn);
+    modeGroup->addButton(m_pointerBtn);
     m_dragBtn->setChecked(true);
 
     // 添加到布局
@@ -124,6 +131,7 @@ ZoomViewToolBar::ZoomViewToolBar(QWidget* parent)
     layout->addWidget(m_zoomLabel);
     layout->addStretch();
     layout->addWidget(m_dragBtn);
+    layout->addWidget(m_pointerBtn);
     layout->addWidget(m_measureBtn);
 
     // 连接信号
@@ -137,6 +145,9 @@ ZoomViewToolBar::ZoomViewToolBar(QWidget* parent)
     });
     connect(m_measureBtn, &QPushButton::toggled, [this](bool checked) {
         if (checked) emit measureModeChanged(true);
+    });
+    connect(m_pointerBtn, &QPushButton::toggled, [this](bool checked) {
+        if (checked) emit pointerModeChanged(true);
     });
 }
 
@@ -268,6 +279,15 @@ void ZoomView::setMeasureMode(bool measure) {
         m_mode = MeasureMode;
     QGraphicsView::setDragMode(QGraphicsView::NoDrag);
         setCursor(Qt::CrossCursor);
+    }
+}
+
+void ZoomView::setPointerMode(bool pointer) {
+    if (pointer) {
+        m_mode = PointerMode;
+        QGraphicsView::setDragMode(QGraphicsView::NoDrag);
+        setCursor(Qt::ArrowCursor);
+        clearMeasureLine();
     }
 }
 
@@ -502,6 +522,7 @@ void ZoomViewWidget::connectSignals() {
     connect(m_toolBar, &ZoomViewToolBar::zoomOut, m_view, &ZoomView::zoomOut);
     connect(m_toolBar, &ZoomViewToolBar::dragModeChanged, m_view, &ZoomView::setCustomDragMode);
     connect(m_toolBar, &ZoomViewToolBar::measureModeChanged, m_view, &ZoomView::setMeasureMode);
+    connect(m_toolBar, &ZoomViewToolBar::pointerModeChanged, m_view, &ZoomView::setPointerMode);
     connect(m_toolBar, &ZoomViewToolBar::resetViewRequested, m_view, &ZoomView::resetView);
 
     // 连接视图信号到工具栏

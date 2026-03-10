@@ -51,15 +51,15 @@
        <item>
         <widget class="QTabWidget" name="infoTab">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
          </property>
          <property name="maximumSize">
           <size>
-           <width>400</width>
-           <height>16777215</height>
+           <width>16777215</width>
+           <height>500</height>
           </size>
          </property>
          <property name="tabShape">
@@ -128,14 +128,14 @@
          </property>
          <property name="minimumSize">
           <size>
-           <width>400</width>
+           <width>0</width>
            <height>0</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
            <width>16777215</width>
-           <height>600</height>
+           <height>16777215</height>
           </size>
          </property>
          <property name="tabShape">
@@ -187,7 +187,7 @@
                <property name="minimumSize">
                 <size>
                  <width>0</width>
-                 <height>40</height>
+                 <height>20</height>
                 </size>
                </property>
                <property name="cursor">
@@ -203,7 +203,7 @@
                <property name="minimumSize">
                 <size>
                  <width>0</width>
-                 <height>40</height>
+                 <height>20</height>
                 </size>
                </property>
                <property name="cursor">
@@ -219,7 +219,7 @@
                <property name="minimumSize">
                 <size>
                  <width>0</width>
-                 <height>40</height>
+                 <height>20</height>
                 </size>
                </property>
                <property name="cursor">
@@ -235,7 +235,7 @@
                <property name="minimumSize">
                 <size>
                  <width>0</width>
-                 <height>40</height>
+                 <height>20</height>
                 </size>
                </property>
                <property name="cursor">
@@ -251,7 +251,7 @@
                <property name="minimumSize">
                 <size>
                  <width>0</width>
-                 <height>40</height>
+                 <height>20</height>
                 </size>
                </property>
                <property name="cursor">
@@ -267,7 +267,7 @@
                <property name="minimumSize">
                 <size>
                  <width>0</width>
-                 <height>40</height>
+                 <height>20</height>
                 </size>
                </property>
                <property name="cursor">
@@ -283,7 +283,7 @@
                <property name="minimumSize">
                 <size>
                  <width>0</width>
-                 <height>40</height>
+                 <height>20</height>
                 </size>
                </property>
                <property name="cursor">
@@ -299,7 +299,7 @@
                <property name="minimumSize">
                 <size>
                  <width>0</width>
-                 <height>40</height>
+                 <height>20</height>
                 </size>
                </property>
                <property name="cursor">
@@ -348,7 +348,7 @@
                <property name="minimumSize">
                 <size>
                  <width>0</width>
-                 <height>40</height>
+                 <height>20</height>
                 </size>
                </property>
                <property name="cursor">
@@ -364,7 +364,7 @@
                <property name="minimumSize">
                 <size>
                  <width>0</width>
-                 <height>40</height>
+                 <height>20</height>
                 </size>
                </property>
                <property name="cursor">
@@ -393,7 +393,7 @@
                <property name="minimumSize">
                 <size>
                  <width>0</width>
-                 <height>40</height>
+                 <height>20</height>
                 </size>
                </property>
                <property name="cursor">
@@ -409,7 +409,7 @@
                <property name="minimumSize">
                 <size>
                  <width>0</width>
-                 <height>40</height>
+                 <height>20</height>
                 </size>
                </property>
                <property name="cursor">
@@ -425,7 +425,7 @@
                <property name="minimumSize">
                 <size>
                  <width>0</width>
-                 <height>40</height>
+                 <height>20</height>
                 </size>
                </property>
                <property name="cursor">
@@ -604,6 +604,18 @@
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>16777215</height>
+        </size>
        </property>
        <property name="autoFillBackground">
         <bool>false</bool>
@@ -798,7 +810,7 @@
          </property>
          <property name="maximumSize">
           <size>
-           <width>550</width>
+           <width>16777215</width>
            <height>16777215</height>
           </size>
          </property>
@@ -951,7 +963,7 @@
          </property>
          <property name="maximumSize">
           <size>
-           <width>550</width>
+           <width>16777215</width>
            <height>16777215</height>
           </size>
          </property>

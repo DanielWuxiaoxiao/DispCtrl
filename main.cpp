@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:33
+ * @LastEditTime: 2026-03-10 17:18:14
  * @Description: 
  */
 /**
@@ -76,6 +76,7 @@ void setupStyle(QApplication& app) {
 
         // 统一右下角两个信息窗字体大小（鼠标信息窗 + 视觉设置窗）
         // 放入全局QSS，避免在各自widget中硬编码导致大小不一致
+        // 注意：字体由 AA_EnableHighDpiScaling 自动处理，此处保持固定px即可
         style += R"(
 
 /* --- Unified overlay panel fonts --- */
@@ -166,6 +167,15 @@ int main(int argc, char *argv[]) {
     // 第二步：创建Qt应用程序实例
     // =============================================================================
     QApplication app(argc, argv);
+
+    // =============================================================================
+    // 第二.五步：初始化屏幕缩放因子（必须在 QApplication 之后、setupFont 之前）
+    // =============================================================================
+    ScaleHelper::init();
+    qInfo() << "ScaleHelper initialized: logical=" << ScaleHelper::logicalWidth() << "x"
+            << ScaleHelper::logicalHeight() << " factor=" << ScaleHelper::factor()
+            << " leftPanel=" << ScaleHelper::leftPanelWidth()
+            << " rightPanel=" << ScaleHelper::rightPanelWidth();
 
     // =============================================================================
     // 第三步：初始化错误处理框架
