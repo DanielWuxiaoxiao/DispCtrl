@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-10 17:18:14
+ * @LastEditTime: 2026-03-11 11:53:22
  * @Description: 
  */
 /**
@@ -32,6 +32,16 @@
 #include "Controller/ErrorHandler.h"
 #include <QLoggingCategory>
 #include "Controller/controller.h"
+#include "Basic/authmanager.h"
+
+// --- 登录对话框所需头文件 ---
+#include <QDialog>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QMessageBox>
 
 /**
  * @brief 设置OpenGL渲染格式
@@ -117,6 +127,152 @@ void bindMainThread() {
 }
 
 /**
+ * @brief 返回深色绿色对话框样式表
+ */
+static QString loginDialogStyleSheet()
+{
+    return QStringLiteral(
+        "QDialog {"
+        "  background-color: rgb(10, 16, 16);"
+        "  border: 1px solid rgba(0, 255, 136, 0.4);"
+        "}"
+        "QLabel {"
+        "  color: #00ff88;"
+        "  font-size: 14px;"
+        "  font-weight: bold;"
+        "  background-color: transparent;"
+        "}"
+        "QLineEdit {"
+        "  background-color: rgba(0, 20, 10, 0.9);"
+        "  color: #ffffff;"
+        "  font-size: 14px;"
+        "  border: 1px solid rgba(0, 255, 136, 0.5);"
+        "  border-radius: 4px;"
+        "  padding: 6px 10px;"
+        "  selection-background-color: rgba(0, 255, 136, 0.3);"
+        "}"
+        "QLineEdit:focus {"
+        "  border: 2px solid #00ff88;"
+        "}"
+        "QPushButton {"
+        "  background-color: transparent;"
+        "  color: #00ff88;"
+        "  font-size: 13px;"
+        "  font-weight: bold;"
+        "  border: 1px solid rgba(0, 255, 136, 0.45);"
+        "  border-radius: 6px;"
+        "  padding: 6px 20px;"
+        "  min-height: 28px;"
+        "}"
+        "QPushButton:hover {"
+        "  background-color: rgba(0, 255, 136, 0.15);"
+        "  border: 1px solid #00ff88;"
+        "  color: #ffffff;"
+        "}"
+        "QPushButton:pressed {"
+        "  background-color: rgba(0, 255, 136, 0.28);"
+        "  border: 2px solid #00ffaa;"
+        "  color: #ffffff;"
+        "}");
+}
+
+/**
+ * @brief 弹出管理者模式登录对话框
+ * @details 先询问用户是否以管理者模式登录，
+ *          若选择是则弹出用户名/密码输入框，
+ *          验证通过后设置 AuthManager 为管理者模式。
+ */
+void showAdminLoginDialog()
+{
+    // --- 第一步：询问是否使用管理者模式 ---
+    QDialog askDlg;
+    askDlg.setWindowTitle(QObject::tr("登录模式选择"));
+    askDlg.setFixedSize(420, 160);
+    askDlg.setStyleSheet(loginDialogStyleSheet());
+
+    auto* askLayout = new QVBoxLayout(&askDlg);
+    askLayout->setContentsMargins(24, 20, 24, 16);
+
+    auto* askLabel = new QLabel(QObject::tr("是否使用管理者模式登录？"));
+    askLabel->setAlignment(Qt::AlignCenter);
+    askLayout->addWidget(askLabel);
+
+    auto* btnLayout = new QHBoxLayout;
+    btnLayout->setSpacing(20);
+    auto* yesBtn = new QPushButton(QObject::tr("是"));
+    auto* noBtn  = new QPushButton(QObject::tr("否"));
+    btnLayout->addStretch();
+    btnLayout->addWidget(yesBtn);
+    btnLayout->addWidget(noBtn);
+    btnLayout->addStretch();
+    askLayout->addLayout(btnLayout);
+
+    bool wantAdmin = false;
+    QObject::connect(yesBtn, &QPushButton::clicked, [&]() { wantAdmin = true;  askDlg.accept(); });
+    QObject::connect(noBtn,  &QPushButton::clicked, [&]() { wantAdmin = false; askDlg.reject(); });
+
+    askDlg.exec();
+
+    if (!wantAdmin) {
+        // 普通用户模式
+        AuthManager::instance().setAdminMode(false);
+        return;
+    }
+
+    // --- 第二步：输入管理者凭据 ---
+    QDialog loginDlg;
+    loginDlg.setWindowTitle(QObject::tr("管理者登录"));
+    loginDlg.setFixedSize(420, 240);
+    loginDlg.setStyleSheet(loginDialogStyleSheet());
+
+    auto* loginLayout = new QVBoxLayout(&loginDlg);
+    loginLayout->setContentsMargins(24, 20, 24, 16);
+    loginLayout->setSpacing(12);
+
+    // 用户名
+    auto* userLabel = new QLabel(QObject::tr("用户名:"));
+    auto* userEdit  = new QLineEdit;
+    userEdit->setText("admin");
+    loginLayout->addWidget(userLabel);
+    loginLayout->addWidget(userEdit);
+
+    // 密码
+    auto* passLabel = new QLabel(QObject::tr("密码:"));
+    auto* passEdit  = new QLineEdit;
+    passEdit->setEchoMode(QLineEdit::Password);
+    loginLayout->addWidget(passLabel);
+    loginLayout->addWidget(passEdit);
+
+    // 按钮
+    auto* loginBtnLayout = new QHBoxLayout;
+    loginBtnLayout->setSpacing(20);
+    auto* loginBtn  = new QPushButton(QObject::tr("登录"));
+    auto* cancelBtn = new QPushButton(QObject::tr("取消"));
+    loginBtnLayout->addStretch();
+    loginBtnLayout->addWidget(loginBtn);
+    loginBtnLayout->addWidget(cancelBtn);
+    loginBtnLayout->addStretch();
+    loginLayout->addLayout(loginBtnLayout);
+
+    QObject::connect(cancelBtn, &QPushButton::clicked, &loginDlg, &QDialog::reject);
+    QObject::connect(loginBtn, &QPushButton::clicked, [&]() {
+        if (userEdit->text().trimmed() == "admin" && passEdit->text() == "xidian") {
+            loginDlg.accept();
+        } else {
+            // 凭据错误 — 简单提示
+            passEdit->clear();
+            passEdit->setPlaceholderText(QObject::tr("用户名或密码错误，请重试"));
+        }
+    });
+
+    if (loginDlg.exec() == QDialog::Accepted) {
+        AuthManager::instance().setAdminMode(true);
+    } else {
+        AuthManager::instance().setAdminMode(false);
+    }
+}
+
+/**
  * @brief 程序主入口函数
  * @param argc 命令行参数个数
  * @param argv 命令行参数数组
@@ -195,6 +351,11 @@ int main(int argc, char *argv[]) {
     setupFont(app);      // 设置全局字体
     setupOpenGL();       // 配置OpenGL渲染
     setupStyle(app);     // 应用深色主题样式
+
+    // =============================================================================
+    // 第五.五步：管理者模式登录
+    // =============================================================================
+    showAdminLoginDialog();
 
     // =============================================================================
     // 第六步：日志系统配置

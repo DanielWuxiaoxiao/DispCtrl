@@ -250,6 +250,7 @@ set(HDR_FILES
     Basic/log.h                               # 日志系统
     Basic/DispBasci.h                         # 显示基础定义
     Basic/ConfigManager.h                     # 配置管理器
+    Basic/authmanager.h                       # 管理者模式认证管理器
 
     # 极坐标显示模块头文件 - PPI雷达显示
     PolarDisp/polargrid.h                     # 极坐标网格

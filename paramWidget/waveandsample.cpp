@@ -3,15 +3,17 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-10 17:18:14
+ * @LastEditTime: 2026-03-11 11:53:23
  * @Description: 
  */
 #include "waveandsample.h"
 #include "ui_waveandsample.h"
 #include "Basic/ConfigManager.h"
 #include "Basic/DispBasci.h"
+#include "Basic/authmanager.h"
 #include "cusWidgets/custommessagebox.h"
 #include <QPushButton>
+#include <QGridLayout>
 #include <algorithm>
 
 waveAndSample::waveAndSample(QWidget *parent) :
@@ -68,6 +70,27 @@ waveAndSample::waveAndSample(QWidget *parent) :
         lineEdit->setMinimumHeight(32);
     }
 
+    // =========================================================================
+    // 管理者模式：隐藏"方位间隔"和"波形参数配置"相关控件
+    // =========================================================================
+    if (AuthManager::instance().isAdminMode()) {
+        // 隐藏方位间隔（row 2 的 label_26 + azistep）
+        ui->label_26->hide();
+        ui->azistep->hide();
+
+        // 隐藏波形参数配置区域（grid rows 4~20 的所有控件）
+        QGridLayout* grid = ui->gridLayout;
+        if (grid) {
+            for (int row = 4; row <= 20; ++row) {
+                for (int col = 0; col < grid->columnCount(); ++col) {
+                    QLayoutItem* item = grid->itemAtPosition(row, col);
+                    if (item && item->widget()) {
+                        item->widget()->hide();
+                    }
+                }
+            }
+        }
+    }
 }
 
 void waveAndSample::onAccept()

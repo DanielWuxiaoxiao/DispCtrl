@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-01-30 11:45:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-10 17:18:14
+ * @LastEditTime: 2026-03-11 11:53:22
  * @Description: 
  */
 /*
@@ -18,6 +18,7 @@
 #include "ui_twsmodedialog.h"
 #include "Basic/ConfigManager.h"
 #include "Basic/DispBasci.h"
+#include "Basic/authmanager.h"
 #include "Controller/controller.h"
 #include "cusWidgets/custommessagebox.h"
 #include <QPushButton>
@@ -64,6 +65,15 @@ TWSModeDialog::TWSModeDialog(QWidget *parent) :
     }
 
     setupConnections();
+
+    // =========================================================================
+    // 管理者模式：隐藏"方位间隔"和"波形参数配置"控件
+    // =========================================================================
+    if (AuthManager::instance().isAdminMode()) {
+        ui->label_azistep->hide();
+        ui->azistep->hide();
+        ui->groupWaveform->hide();
+    }
 }
 
 TWSModeDialog::~TWSModeDialog()
