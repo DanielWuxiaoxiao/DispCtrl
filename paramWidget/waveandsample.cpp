@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-11 11:53:23
+ * @LastEditTime: 2026-03-20 16:29:55
  * @Description: 
  */
 #include "waveandsample.h"
@@ -71,9 +71,9 @@ waveAndSample::waveAndSample(QWidget *parent) :
     }
 
     // =========================================================================
-    // 管理者模式：隐藏"方位间隔"和"波形参数配置"相关控件
+    // 非管理者模式：隐藏"方位间隔"和"波形参数配置"相关控件
     // =========================================================================
-    if (AuthManager::instance().isAdminMode()) {
+    if (!AuthManager::instance().isAdminMode()) {
         // 隐藏方位间隔（row 2 的 label_26 + azistep）
         ui->label_26->hide();
         ui->azistep->hide();

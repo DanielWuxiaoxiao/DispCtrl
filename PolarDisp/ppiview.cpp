@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:32
+ * @LastEditTime: 2026-03-20 16:29:53
  * @Description: 
  */
 /**
@@ -27,6 +27,7 @@
 #include "../PointManager/detmanager.h"
 #include "../PointManager/trackmanager.h"
 #include "../Controller/controller.h"
+#include "../Basic/ConfigManager.h"
 #include "../Controller/RadarDataManager.h"
 #include "../mainPanel/mainoverlayout.h"
 
@@ -209,6 +210,9 @@ void PPIView::calculateMapDisplayParameters(double& mapCenterLng, double& mapCen
 PPIView::PPIView(QWidget* parent)
     : QGraphicsView(parent)
 {
+    // 从配置文件读取雷达中心经纬度（优先使用config.toml中的值）
+    m_radarLongitude = CF_INS.longitude();
+    m_radarLatitude  = CF_INS.latitude();
     setRenderHint(QPainter::Antialiasing, true);
     setDragMode(QGraphicsView::RubberBandDrag);
     // 其他模式：

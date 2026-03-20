@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-10 17:18:14
+ * @LastEditTime: 2026-03-20 16:29:54
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -60,6 +60,7 @@
 #include "paramWidget/tranrecvui.h"
 #include "paramWidget/waveandsample.h"
 #include "screenrecorderwidget.h"
+#include "Basic/authmanager.h"
 
 MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::MainOverLayOut) {
     ui->setupUi(this);
@@ -239,6 +240,10 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     connect(ui->btnSignalProcess, &QPushButton::clicked, this,
             &MainOverLayOut::onSignalProcessClicked);
     connect(ui->btnFreqControl, &QPushButton::clicked, this, &MainOverLayOut::onFreqControlClicked);
+    // 非管理者模式：隐藏"波形及采样控制"按钮
+    if (!AuthManager::instance().isAdminMode()) {
+        ui->btnFreqControl->hide();
+    }
     // 隐藏方向图扫描控制按钮，功能已集成到"范围设置"tab中
     // ui->btnScanRange->setVisible(false);
     connect(ui->btnScanRange, &QPushButton::clicked, this, &MainOverLayOut::onScanRangeClicked);

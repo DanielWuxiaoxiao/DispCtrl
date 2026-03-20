@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-01-30 11:45:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-11 11:53:22
+ * @LastEditTime: 2026-03-20 16:29:55
  * @Description: 
  */
 /*
@@ -77,9 +77,9 @@ TASModeDialog::TASModeDialog(QWidget* parent) : QDialog(parent), ui(new Ui::TASM
     setupConnections();
 
     // =========================================================================
-    // 管理者模式：隐藏"方位间隔"和"波形参数配置"控件
+    // 非管理者模式：隐藏"方位间隔"和"波形参数配置"控件
     // =========================================================================
-    if (AuthManager::instance().isAdminMode()) {
+    if (!AuthManager::instance().isAdminMode()) {
         ui->label_azistep->hide();
         ui->azistep->hide();
         ui->groupWaveform->hide();

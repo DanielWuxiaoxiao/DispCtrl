@@ -3,6 +3,14 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2026-03-20 16:29:54
+ * @Description: 
+ */
+﻿/*
+ * @Author: wuxiaoxiao
+ * @Email: wuxiaoxiao@gmail.com
+ * @Date: 2025-09-17 09:54:43
+ * @LastEditors: wuxiaoxiao
  * @LastEditTime: 2026-02-28 16:46:32
  * @Description: 
  */
@@ -284,55 +292,66 @@ void ScanLayer::setSweepSpeed(int msPerStep) {
 }
 
 void ScanLayer::setSweepRange(double startDeg, double endDeg) {
-    // 支持两种输入格式：
-    // 1. -45° 到 45°（使用负角度表示）
-    // 2. 315° 到 45°（跨越0°的情况）
-    //
-    // 内部统一使用 0-360° 范围存储
-    // m_fixedStart > m_fixedEnd 表示跨越0°的扫描范围
+    // 输入语义：从 startDeg 顺时针旋转到 endDeg
+    // 内部使用 0-360° 范围存储
+    // m_fixedStart > m_fixedEnd 表示跨越0°（正北）的扫描范围
+    // 特殊：m_fixedStart=0, m_fixedEnd=360 表示全圆
 
-    // 将负角度转换为 0-360° 范围
+    qDebug() << "[ScanLayer::setSweepRange] input(" << startDeg << "," << endDeg << ")";
+
+    // 将角度转换为 [0, 360] 范围，保留 360 本身不归零
     auto normalize = [](double deg) -> double {
         while (deg < 0) deg += 360;
-        while (deg >= 360) deg -= 360;
+        while (deg > 360) deg -= 360;   // > 360 而非 >= 360，保留360
         return deg;
     };
 
     double normStart = normalize(startDeg);
-    double normEnd = normalize(endDeg);
+    double normEnd   = normalize(endDeg);
 
-    // 判断是否跨越0°：
-    // - 如果原始输入 startDeg < 0 且 endDeg > 0，说明跨越0°
-    // - 如果原始输入 startDeg > endDeg（如315到45），说明跨越0°
-    bool crossZero = (startDeg < 0 && endDeg >= 0) ||
-                     (startDeg > 0 && endDeg >= 0 && startDeg > endDeg);
+    // 【全圆检测】跨度约360° 或输入为 0~360°
+    double span = normEnd - normStart;
+    if (span < 0) span += 360;
+    // 特殊情况：normStart约0, normEnd约360 则 span=360
+    if (qAbs(normStart) < 0.01 && qAbs(normEnd - 360.0) < 0.01) {
+        span = 360.0;
+    }
+    if (qAbs(span) < 0.01 && qAbs(normEnd - 360.0) < 0.01) {
+        span = 360.0;
+    }
+    if (qAbs(span - 360.0) < 0.01) {
+        m_fixedStart = 0;
+        m_fixedEnd   = 360;
+        qDebug() << "[ScanLayer::setSweepRange] Full-circle -> stored(0, 360)";
+        if (!isAngleInRange(m_angle)) m_angle = 0;
+        update();
+        return;
+    }
+
+    // 全圆已处理，非全圆时将 360 视为 0
+    if (qAbs(normEnd - 360.0) < 0.01) normEnd = 0;
+    if (qAbs(normStart - 360.0) < 0.01) normStart = 0;
+
+    // 判断是否跨越0°（正北）：
+    // normStart > normEnd 意味着顺时针要经过正北
+    bool crossZero = (normStart > normEnd) ||
+                     (startDeg < 0 && endDeg > 0);
 
     if (crossZero) {
-        // 跨越0°的情况：保持 start > end 的关系
-        // 例如：-45°到45° -> 315°到45°
-        // 例如：315°到45° -> 315°到45°
         m_fixedStart = normStart;
         m_fixedEnd = normEnd;
-        qDebug() << "[ScanLayer::setSweepRange] Cross-zero range:"
-                 << "input(" << startDeg << "," << endDeg << ")"
-                 << "-> stored(" << m_fixedStart << "," << m_fixedEnd << ")";
+        qDebug() << "[ScanLayer::setSweepRange] Cross-zero -> stored("
+                 << m_fixedStart << "," << m_fixedEnd << ")";
     } else {
-        // 正常情况：确保 start < end
-        if (normStart > normEnd) {
-            qSwap(normStart, normEnd);
-        }
+        // 正常情况：start < end，顺时针从start到end
         m_fixedStart = normStart;
         m_fixedEnd = normEnd;
-        qDebug() << "[ScanLayer::setSweepRange] Normal range:"
-                 << "input(" << startDeg << "," << endDeg << ")"
-                 << "-> stored(" << m_fixedStart << "," << m_fixedEnd << ")";
+        qDebug() << "[ScanLayer::setSweepRange] Normal -> stored("
+                 << m_fixedStart << "," << m_fixedEnd << ")";
     }
 
     // 确保当前角度在范围内
-    if (isAngleInRange(m_angle)) {
-        // 角度在范围内，不需要调整
-    } else {
-        // 角度不在范围内，移动到最近的边界
+    if (!isAngleInRange(m_angle)) {
         m_angle = m_fixedStart;
         if (m_mode == PingPong) m_direction = 1;
     }

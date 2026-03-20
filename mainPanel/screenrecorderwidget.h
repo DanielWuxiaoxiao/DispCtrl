@@ -1,10 +1,18 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
+ * @Date: 2026-03-10 17:18:12
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2026-03-20 16:29:54
+ * @Description: 
+ */
+﻿/*
+ * @Author: wuxiaoxiao
+ * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-03-10 15:45:28
  * @LastEditors: wuxiaoxiao
  * @LastEditTime: 2026-03-10 17:18:14
- * @Description: 
+ * @Description:
  */
 /**
  * @file screenrecorderwidget.h
@@ -118,6 +126,9 @@ private:
 
     /// 获取当前选中的录制缩放比例
     double currentScaleFactor() const;
+
+    /// 获取当前选中的 JPEG 压缩质量 (1-100)
+    int currentJpegQuality() const;
 
     // === UI 组件 ===
     QListWidget* m_fileList;             ///< 历史录制列表

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-11 11:53:22
+ * @LastEditTime: 2026-03-20 16:29:54
  * @Description: 
  */
 /**
@@ -42,6 +42,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QMessageBox>
+#include <QIcon>
 
 /**
  * @brief 设置OpenGL渲染格式
@@ -187,6 +188,7 @@ void showAdminLoginDialog()
     // --- 第一步：询问是否使用管理者模式 ---
     QDialog askDlg;
     askDlg.setWindowTitle(QObject::tr("登录模式选择"));
+    askDlg.setWindowIcon(QIcon(":/resources/icon/radararray.png"));
     askDlg.setFixedSize(420, 160);
     askDlg.setStyleSheet(loginDialogStyleSheet());
 
@@ -222,6 +224,7 @@ void showAdminLoginDialog()
     // --- 第二步：输入管理者凭据 ---
     QDialog loginDlg;
     loginDlg.setWindowTitle(QObject::tr("管理者登录"));
+    loginDlg.setWindowIcon(QIcon(":/resources/icon/radararray.png"));
     loginDlg.setFixedSize(420, 240);
     loginDlg.setStyleSheet(loginDialogStyleSheet());
 

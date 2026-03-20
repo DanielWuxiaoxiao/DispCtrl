@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:45
+ * @LastEditTime: 2026-03-20 16:29:53
  * @Description: 
  */
 /**
@@ -226,7 +226,7 @@ private:
     double m_angleEnd = 360.0;           ///< 结束角度(度)
 
     // 数量限制参数
-    int m_maxPoints = 10000;             ///< 最大监测点数量限制(默认10000)
+    int m_maxPoints = 1000;             ///< 最大监测点数量限制(默认10000)
 };
 
 #endif // DET_MANAGER_H

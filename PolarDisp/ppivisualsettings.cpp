@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-23 09:44:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:32
+ * @LastEditTime: 2026-03-20 16:29:53
  * @Description: 
  */
 /**
@@ -27,6 +27,8 @@
 #include "ui_ppivisualsettings.h"
 #include "Basic/ConfigManager.h"
 #include "Basic/DispBasci.h" // for MAX_RANGE and other display constants
+#include "Basic/Protocol.h"
+#include "Controller/controller.h"
 #include "cusWidgets/custommessagebox.h"
 #include <QDoubleValidator>
 #include <QPainter>
@@ -35,6 +37,7 @@
 #include <QEvent>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QHBoxLayout>
 
 /**
  * @brief 构造函数实现
@@ -94,6 +97,40 @@ PPIVisualSettings::PPIVisualSettings(QWidget *parent)
     ui->maxDistanceEdit->setToolTip("设置雷达显示的最大距离范围");
     ui->mapTypeCombo->setToolTip("选择背景地图显示类型");
     ui->maxPointsEdit->setToolTip("设置最大检测点数量，超出后删除旧数据");
+
+    // 添加数据处理状态标签行
+    {
+        QHBoxLayout* statusLayout = new QHBoxLayout();
+        statusLayout->setSpacing(4);
+
+        QLabel* statusTitleLabel = new QLabel("处理状态", this);
+        statusTitleLabel->setMinimumWidth(80);
+        statusTitleLabel->setAlignment(Qt::AlignCenter);
+        statusTitleLabel->setObjectName("PPIStatusTitleLabel");
+
+        m_processStatusLabel = new QLabel("正常处理", this);
+        m_processStatusLabel->setMinimumWidth(60);
+        m_processStatusLabel->setMaximumWidth(80);
+        m_processStatusLabel->setAlignment(Qt::AlignCenter);
+        m_processStatusLabel->setObjectName("PPIProcessStatusLabel");
+
+        statusLayout->addWidget(statusTitleLabel);
+        statusLayout->addWidget(m_processStatusLabel);
+
+        // 插入到垂直布局中（按钮行之前，即索引3）
+        ui->verticalLayout->insertLayout(3, statusLayout);
+    }
+
+    // 连接离线处理状态信号
+    connect(CON_INS, &Controller::offLineStat, this, [this](OfflineStat info) {
+        if (info.delStat == 1) {
+            m_processStatusLabel->setText(QString("离线 %1").arg(info.dataID));
+            m_processStatusLabel->setToolTip(QString("离线处理 数据编号: %1").arg(info.dataID));
+        } else {
+            m_processStatusLabel->setText("正常处理");
+            m_processStatusLabel->setToolTip("正常处理");
+        }
+    });
 
     // 样式设置完成
 }
@@ -273,6 +310,7 @@ void PPIVisualSettings::setupStyle()
     ui->maxPointsEdit->setObjectName("PPIMaxPointsEdit");
     ui->measureBtn->setObjectName("PPIMeasureBtn");
     ui->clearDisplayBtn->setObjectName("PPIClearDisplayBtn");
+    // m_processStatusLabel 和 statusTitleLabel 的 objectName 已在构造时设置
 }
 
 /**

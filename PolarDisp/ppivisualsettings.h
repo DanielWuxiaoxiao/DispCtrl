@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-23 09:44:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:46
+ * @LastEditTime: 2026-03-20 16:29:53
  * @Description: 
  */
 /**
@@ -130,6 +130,14 @@ public:
      */
     void setMaxPoints(int maxPoints);
 
+    /**
+     * @brief 更新离线处理状态显示
+     * @param processFlag 处理标志 (0=正常处理, 1=离线处理)
+     * @param dataId 数据编号 (0~255)
+     * @details 接收0xDD04离线处理状态帧后更新UI标签
+     */
+    void updateOfflineStatus(unsigned char processFlag, unsigned char dataId);
+
 signals:
     /**
      * @brief 最大距离变化信号
@@ -217,6 +225,7 @@ private slots:
 
 private:
     Ui::PPIVisualSettings *ui;  ///< UI界面对象指针
+    QLabel *m_processStatusLabel = nullptr;  ///< 数据处理状态标签
 
     /**
      * @brief 设置组件样式

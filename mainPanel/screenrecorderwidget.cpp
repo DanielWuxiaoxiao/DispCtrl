@@ -1,10 +1,18 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
+ * @Date: 2026-03-10 17:18:12
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2026-03-20 16:29:54
+ * @Description: 
+ */
+﻿/*
+ * @Author: wuxiaoxiao
+ * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-03-10 15:46:41
  * @LastEditors: wuxiaoxiao
  * @LastEditTime: 2026-03-10 17:18:14
- * @Description: 
+ * @Description:
  */
 /**
  * @file screenrecorderwidget.cpp
@@ -346,7 +354,7 @@ void ScreenRecorderWidget::onRecordToggle()
         h = (h + 1) & ~1;
         int fps = 1000 / CAPTURE_INTERVAL_MS; // 5 fps
 
-        if (!m_aviWriter.open(m_currentRecordPath, w, h, fps)) {
+        if (!m_aviWriter.open(m_currentRecordPath, w, h, fps, currentJpegQuality())) {
             m_statusLabel->setText("录制失败：无法创建AVI文件");
             return;
         }
@@ -641,6 +649,14 @@ double ScreenRecorderWidget::currentScaleFactor() const
     return m_qualityCombo->currentData().toDouble();
 }
 
+int ScreenRecorderWidget::currentJpegQuality() const
+{
+    double scale = m_qualityCombo->currentData().toDouble();
+    if (scale <= 0.3) return 50;
+    if (scale <= 0.6) return 70;
+    return 90;
+}
+
 // =============================================================================
 // 黑绿风格命名对话框
 // =============================================================================
@@ -722,11 +738,6 @@ bool ScreenRecorderWidget::showStyledConfirmDialog(const QString& title, const Q
 // AVI 帧读取（解析未压缩 AVI 的 00dc chunk）
 // =============================================================================
 
-static int bmpRowBytesRead(int width)
-{
-    return ((width * 3 + 3) / 4) * 4;
-}
-
 QVector<QImage> ScreenRecorderWidget::loadAviFrames(const QString& aviPath)
 {
     QVector<QImage> frames;
@@ -738,59 +749,35 @@ QVector<QImage> ScreenRecorderWidget::loadAviFrames(const QString& aviPath)
 
     if (data.size() < 12) return frames;
 
-    // 查找 strf chunk 获取宽高
-    int width = 0, height = 0;
-    int strfPos = data.indexOf("strf");
-    if (strfPos < 0) return frames;
-
-    // strf chunk: 4(fourcc) + 4(size) + BITMAPINFOHEADER
-    // BITMAPINFOHEADER: biSize(4) + biWidth(4) + biHeight(4) ...
-    int bihStart = strfPos + 8; // 跳过 "strf" + chunkSize
-    if (bihStart + 12 > data.size()) return frames;
-
     auto readU32 = [&](int offset) -> quint32 {
         if (offset + 4 > data.size()) return 0;
         const uchar* p = reinterpret_cast<const uchar*>(data.constData() + offset);
         return p[0] | (p[1] << 8) | (p[2] << 16) | (p[3] << 24);
     };
 
-    width  = static_cast<int>(readU32(bihStart + 4));
-    height = static_cast<int>(readU32(bihStart + 8));
-    if (width <= 0 || height <= 0) return frames;
-
-    int rowBytes = bmpRowBytesRead(width);
-    int frameBytes = rowBytes * height;
-
-    // 查找 "movi" list，然后逐个解析 "00dc" chunk
+    // 查找 "movi" list
     int moviPos = data.indexOf("movi");
     if (moviPos < 0) return frames;
 
-    int pos = moviPos + 4; // 跳过 "movi"
+    int pos = moviPos + 4;
     while (pos + 8 <= data.size()) {
         QByteArray chunkId = data.mid(pos, 4);
         quint32 chunkSize = readU32(pos + 4);
 
-        if (chunkId == "00dc" && static_cast<int>(chunkSize) >= frameBytes) {
+        if (chunkId == "00dc" && chunkSize > 0) {
             int frameStart = pos + 8;
-            if (frameStart + frameBytes > data.size()) break;
+            if (frameStart + static_cast<int>(chunkSize) > data.size()) break;
 
-            // BGR bottom-up → QImage RGB top-down
-            QImage img(width, height, QImage::Format_RGB888);
-            for (int y = 0; y < height; ++y) {
-                const uchar* src = reinterpret_cast<const uchar*>(
-                    data.constData() + frameStart + (height - 1 - y) * rowBytes);
-                uchar* dst = img.scanLine(y);
-                for (int x = 0; x < width; ++x) {
-                    dst[x * 3 + 0] = src[x * 3 + 2]; // R
-                    dst[x * 3 + 1] = src[x * 3 + 1]; // G
-                    dst[x * 3 + 2] = src[x * 3 + 0]; // B
-                }
+            QByteArray jpegData = data.mid(frameStart, static_cast<int>(chunkSize));
+            QImage img;
+            if (img.loadFromData(jpegData, "JPEG")) {
+                frames.append(img);
             }
-            frames.append(img);
+        } else if (chunkId == "idx1") {
+            break;
         }
 
         pos += 8 + static_cast<int>(chunkSize);
-        // AVI chunk 数据需要对齐到 2 字节
         if (pos % 2 != 0) pos++;
     }
 

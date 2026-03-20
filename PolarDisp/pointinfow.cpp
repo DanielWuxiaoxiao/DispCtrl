@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:31
+ * @LastEditTime: 2026-03-20 16:29:53
  * @Description: 
  */
 #include "pointinfow.h"
@@ -48,7 +48,14 @@ void PointInfoW::setSelectedBatch(int batchID)
 
 void PointInfoW::updatePointInfo(const PointInfo& info)
 {
-    ui->batch->setText(QString::number(info.batch));
+    if(info.type == 1)
+    {
+        ui->batch->setText("0");
+    }
+    else
+    {
+        ui->batch->setText(QString::number(info.batch));
+    }
     ui->range->setText(QString::number(info.range, 'f', 1) + " m");
     ui->azi->setText(QString::number(info.azimuth, 'f', 1) + "°");
     ui->ele->setText(QString::number(info.elevation, 'f', 1) + "°");
