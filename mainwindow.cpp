@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:33
+ * @LastEditTime: 2026-03-25 17:09:16
  * @Description: 
  */
 /**
@@ -185,6 +185,12 @@ void FramelessMainWindow::setupOverlayUI()
     // 实现雷达位置/范围变化时自动同步地图显示范围
     connect(m_overlayWidget->getPPIView(), &PPIView::radarCenterChanged,
             m_map, &MapProxyWidget::syncRadarToMap);
+
+    // 连接经纬高上报信号到地图，实时更新地图中心经纬度
+    connect(CON_INS, &Controller::geoLocationUpdated,
+            m_map, [this](double latitude, double longitude, double /*altitude*/) {
+                m_map->syncRadarToMap(longitude, latitude, m_map->currentRange());
+            });
 
     // === TWS/TAS模式参数信号连接 ===
     // 连接MainOverLayOut的参数信号到Controller的发送信号

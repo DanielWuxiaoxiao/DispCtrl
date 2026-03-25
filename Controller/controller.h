@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:30
+ * @LastEditTime: 2026-03-25 17:09:15
  * @Description: 
  */
 /**
@@ -312,6 +312,9 @@ signals:
      * @details 用于更新显控扫描范围
      */
     void scanRangeChanged(double startDeg, double endDeg);
+
+    // === 经纬高上报 ===
+    void geoLocationUpdated(double latitude, double longitude, double altitude);
 
     // === 外部雷控链路 ===
     void externalSystemCtrlAck(QByteArray ack64);

@@ -3,16 +3,8 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-03-10 17:18:12
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-20 16:29:54
+ * @LastEditTime: 2026-03-25 17:09:16
  * @Description: 
- */
-﻿/*
- * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-03-10 15:46:41
- * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-10 17:18:14
- * @Description:
  */
 /**
  * @file screenrecorderwidget.cpp

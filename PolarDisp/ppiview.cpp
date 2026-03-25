@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-20 16:29:53
+ * @LastEditTime: 2026-03-25 17:09:15
  * @Description: 
  */
 /**
@@ -292,6 +292,10 @@ void PPIView::setupOverlay() {
     // 连接Controller的BIT上报信号到雷达信息显示组件
     connect(CON_INS, &Controller::bitReport,
             radarInfoW, &mainviewTopLeft::onBITReport);
+
+    // 连接Controller的经纬高上报信号到雷达信息显示组件
+    connect(CON_INS, &Controller::geoLocationUpdated,
+            radarInfoW, &mainviewTopLeft::onGeoLocationUpdated);
 
     layoutOverlay();
 }

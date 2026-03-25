@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-25 10:58:13
+ * @LastEditTime: 2026-03-25 17:09:16
  * @Description: 
  */
 /**
@@ -242,6 +242,18 @@ void ThreadedUdpSocket::handleDatagram(const QByteArray& data, int senderPort) {
                     OfflineStat info;
                     memcpy(&info, payload, sizeof(info));
                     emit offLineStat(info);
+                }
+                break;
+            }
+            case 0xDD05: {  // 经纬高信息上报
+                if (senderPort == CF_INS.port("SIG_2_DISP_PORT2", SIG_2_DISP_PORT2) &&
+                    m_Port == CF_INS.port("DISP_GET_SIG_PORT2", DISP_GET_SIG_PORT2)) {
+                    GeoLocationReport raw;
+                    memcpy(&raw, payload, sizeof(raw));
+                    double lat = raw.latitude / 1e9;
+                    double lon = raw.longitude / 1e9;
+                    double alt = raw.altitude / 1000.0;
+                    emit geoLocationReport(lat, lon, alt);
                 }
                 break;
             }

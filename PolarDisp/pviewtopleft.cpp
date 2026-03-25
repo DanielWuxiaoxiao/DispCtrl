@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:46
+ * @LastEditTime: 2026-03-25 17:09:15
  * @Description: 
  */
 #include "pviewtopleft.h"
@@ -55,6 +55,12 @@ void mainviewTopLeft::onBITReport(BITReport report) {
     // yaw是0.01度量化，转换为度
     double yawDegree = report.yaw * 0.01;
     ui->dir->setText(QString::number(yawDegree, 'f', 2));
+}
+
+void mainviewTopLeft::onGeoLocationUpdated(double latitude, double longitude, double altitude) {
+    ui->lineEdit->setText(QString::number(longitude, 'f', 6));
+    ui->lat->setText(QString::number(latitude, 'f', 6));
+    ui->height->setText(QString::number(altitude, 'f', 1));
 }
 
 mainviewTopLeft::~mainviewTopLeft()

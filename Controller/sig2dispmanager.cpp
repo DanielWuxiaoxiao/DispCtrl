@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:12
+ * @LastEditTime: 2026-03-25 17:09:15
  * @Description: 
  */
 #include "sig2dispmanager.h"
@@ -50,6 +50,7 @@ sig2dispmanager2::sig2dispmanager2(QObject *parent) : QObject(parent)
     connect(socket, &ThreadedUdpSocket::dataSaveOK, CON_INS, &Controller::dataSaveOK);
     connect(socket, &ThreadedUdpSocket::dataDelOK, CON_INS, &Controller::dataDelOK);
     connect(socket, &ThreadedUdpSocket::offLineStat, CON_INS, &Controller::offLineStat);
+    connect(socket, &ThreadedUdpSocket::geoLocationReport, CON_INS, &Controller::geoLocationUpdated);
 }
 
 void sig2dispmanager::detInfoDecode(QByteArray data)
@@ -109,6 +110,7 @@ void sig2dispmanager::detInfoDecode(QByteArray data)
         info.speed = detPointInfo->vel;
         info.altitute = detPointInfo->altitute;
         info.amp = detPointInfo->amp;
+        info.targetRecResult = 0;  // 检测点无识别结果
 
         // 使用新的统一数据管理器
         RADAR_DATA_MGR.processDetection(info);

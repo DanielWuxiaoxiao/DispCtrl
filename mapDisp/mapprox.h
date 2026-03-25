@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 15:56:16
+ * @LastEditTime: 2026-03-25 17:09:17
  * @Description: 
  */
 /**
@@ -81,6 +81,8 @@ public:
     QWebEngineView* getView() {
         return mView;
     }
+
+    double currentRange() const { return m_currentRange; }
 
 private:
     QWebEngineView* mView;   ///< Web引擎视图对象，承载地图显示

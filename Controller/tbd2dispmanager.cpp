@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-12-25 16:19:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:30
+ * @LastEditTime: 2026-03-25 17:09:15
  * @Description: 
  */
 #include "tbd2dispmanager.h"
@@ -75,6 +75,7 @@ void Tbd2DispManager::tbdInfoDecode(QByteArray data)
             info.amp = pt->amp;
             info.batch = trackInfo->batch;
             info.statMethod = 0;
+            info.targetRecResult = 0;  // TBD航迹无识别结果
 
             // 推入统一数据管理器并保持兼容的信号发射
             RADAR_DATA_MGR.processTrack(info);

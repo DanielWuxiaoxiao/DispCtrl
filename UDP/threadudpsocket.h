@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-25 10:58:14
+ * @LastEditTime: 2026-03-25 17:09:16
  * @Description: 
  */
 /**
@@ -211,6 +211,9 @@ signals:
 
     /// 离线状态信号 - 设备离线状态通知
     void offLineStat(OfflineStat);
+
+    /// 经纬高上报信号 - 信号处理上报的地理位置
+    void geoLocationReport(double latitude, double longitude, double altitude);
 
     /// 目标分类结果信号 - 目标识别和分类结果
     void targetClaRes(TargetClaRes);

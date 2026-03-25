@@ -3,16 +3,8 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-03-10 17:18:12
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-20 16:29:55
+ * @LastEditTime: 2026-03-25 17:09:16
  * @Description: 
- */
-﻿/*
- * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-03-10 16:30:42
- * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-13 10:00:00
- * @Description:
  */
 /**
  * @file simpleavi.h

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-20 16:29:53
+ * @LastEditTime: 2026-03-25 17:09:15
  * @Description: 
  */
 #include "pointinfow.h"
@@ -31,6 +31,8 @@ PointInfoW::PointInfoW(QWidget *parent) :
     ui->speed->setToolTip("径向速度(m/s)");
     ui->label_7->setToolTip("信噪比");
     ui->SNR->setToolTip("信噪比(dB)");
+    ui->label_9->setToolTip("识别结果");
+    ui->targetRec->setToolTip("目标识别结果");
 
     // 初始化显示为空
     clearPointInfo();
@@ -61,6 +63,8 @@ void PointInfoW::updatePointInfo(const PointInfo& info)
     ui->ele->setText(QString::number(info.elevation, 'f', 1) + "°");
     ui->speed->setText(QString::number(info.speed, 'f', 1) + " m/s");
     ui->SNR->setText(QString::number(info.SNR, 'f', 1) + " dB");
+    QString recStr = (info.targetRecResult == 1) ? "无人机" : "其它";
+    ui->targetRec->setText(recStr);
 }
 
 void PointInfoW::clearPointInfo()
@@ -71,6 +75,7 @@ void PointInfoW::clearPointInfo()
     ui->ele->setText("--");
     ui->speed->setText("--");
     ui->SNR->setText("--");
+    ui->targetRec->setText("--");
 }
 
 void PointInfoW::onTrackDataReceived(const PointInfo& info)

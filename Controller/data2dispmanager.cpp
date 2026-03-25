@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:30
+ * @LastEditTime: 2026-03-25 17:09:15
  * @Description: 
  */
 #include "data2dispmanager.h"
@@ -55,6 +55,7 @@ void Data2DispManager::traInfoDecode(QByteArray data)
         info.amp = traPointInfo->amp;
         info.batch = traPointInfo->batch;
         info.statMethod = traPointInfo->statMethod;
+        info.targetRecResult = traPointInfo->targetRecResult;
         rawData += sizeof(trackInfo);
 
         // 使用新的统一数据管理器

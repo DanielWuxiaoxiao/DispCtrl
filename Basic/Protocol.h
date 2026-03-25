@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-10 17:18:13
+ * @LastEditTime: 2026-03-25 17:09:15
  * @Description: 
  */
 #ifndef PROTOCOL_H
@@ -631,6 +631,26 @@ typedef struct _OfflineStat
     }
 }OfflineStat;
 
+/**
+ * @brief 经纬高信息上报（信号处理→显控）
+ * @details 消息ID: 0xDD05
+ *          纬度/经度单位: 0.000000001°（需除以1e9转为度）
+ *          高程单位: 0.001m（需除以1000转为米）
+ */
+typedef struct _GeoLocationReport
+{
+    unsigned short mesID;
+    qint64 latitude;    // [-90, 90] 单位: 0.000000001°
+    qint64 longitude;   // [-180, 180] 单位: 0.000000001°
+    qint32 altitude;    // 单位: 0.001m
+
+    _GeoLocationReport()
+    {
+        memset(this, 0, sizeof(_GeoLocationReport));
+        mesID = 0xDD05;
+    }
+}GeoLocationReport;
+
 typedef struct _SysHead
 {
     unsigned head;
@@ -771,7 +791,7 @@ typedef struct _trackInfo
     float vel;
     float spaceVel;
     float accelerate;
-    unsigned reserve;
+    unsigned targetRecResult;  // 目标识别结果：0=其它，1=无人机
     unsigned reserve1;
     unsigned reserve2;
 }trackInfo;
@@ -873,6 +893,7 @@ typedef struct _PointInfo
     float amp;
     unsigned int batch;
     unsigned char statMethod;
+    unsigned targetRecResult;  // 目标识别结果：0=其它，1=无人机
 }PointInfo;
 
 enum PointType

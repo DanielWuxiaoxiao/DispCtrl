@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-20 16:29:54
+ * @LastEditTime: 2026-03-25 17:09:16
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -825,6 +825,7 @@ void MainOverLayOut::updateTargetClassification(unsigned int batchID, int target
                 info.range = trackTable->item(row, 4)->text().toFloat();
                 info.speed = trackTable->item(row, 5)->text().toFloat();
                 info.SNR = trackTable->item(row, 6)->text().toFloat();
+                info.targetRecResult = 0;
 
                 addOrUpdateTrackRow(ui->droneTableWidget, info, getTargetTypeText(targetType),
                                     false);
@@ -964,8 +965,12 @@ int MainOverLayOut::addOrUpdateTrackRow(QTableWidget* tableWidget, const PointIn
     tableWidget->setItem(row, 6, new QTableWidgetItem(QString::number(info.SNR, 'f', 1)));
     tableWidget->setItem(row, 7, new QTableWidgetItem(targetType));
 
+    // 目标识别结果（来自数据处理上报）
+    QString recResultStr = (info.targetRecResult == 1) ? "无人机" : "其它";
+    tableWidget->setItem(row, 8, new QTableWidgetItem(recResultStr));
+
     // 设置所有项为不可编辑
-    for (int col = 0; col < 8; ++col) {
+    for (int col = 0; col < tableWidget->columnCount(); ++col) {
         QTableWidgetItem* item = tableWidget->item(row, col);
         if (!item) continue;
         item->setFlags(item->flags() & ~Qt::ItemIsEditable);
