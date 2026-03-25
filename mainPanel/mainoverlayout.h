@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-20 16:29:54
+ * @LastEditTime: 2026-03-25 16:20:19
  * @Description: 
  */
 /**
@@ -42,6 +42,7 @@
 #include <QDateTime>
 #include <QTableWidget>
 #include <QTimer>
+#include <QButtonGroup>
 #include <functional>
 #include <vector>
 #include "ui_mainoverlayout.h"
@@ -62,6 +63,7 @@ class QLabel;          ///< Qt标签
 class DataSaveUI;      ///< 数据存储管理对话框
 class FrozenColumnHelper; ///< 表格冻结列辅助类
 class ScreenRecorderWidget; ///< 屏幕录制与回放组件
+class RadarSimulator;       ///< 船用雷达回波模拟器
 
 
 namespace Ui {
@@ -344,6 +346,16 @@ private slots:
      */
     void applyScaledSizes();
 
+    /**
+     * @brief 初始化PPI视图上的浮动覆盖层（距标圈、发射指示）
+     */
+    void setupPPIOverlay();
+
+    /**
+     * @brief 初始化操控面板的分类按钮组和新增控件连接
+     */
+    void setupControlPanel();
+
 private:
     Ui::MainOverLayOut *ui;           ///< UI界面对象指针
     PPIView* mView;                   ///< PPI雷达显示视图
@@ -497,6 +509,21 @@ private:
      * @details 根据当前待机状态更新按钮的颜色和文本
      */
     void updateStandbyButton();
+
+    // PPI浮动覆盖层成员
+    QWidget* m_ppiOverlay = nullptr;           ///< PPI左上角浮动覆盖层容器
+    QLabel* m_lblOverlayRange = nullptr;       ///< 量程显示标签
+    QLabel* m_lblRangeRing = nullptr;          ///< 距标圈指示标签
+    QLabel* m_lblTransmitIndicator = nullptr;  ///< 发射状态指示标签
+
+    // 分类按钮组
+    QButtonGroup* m_catBtnGroup = nullptr;     ///< 操控面板分类按钮组
+
+    // 亮度控制
+    int m_brightness = 100;                    ///< 当前亮度值(0-100)
+
+    // 雷达回波模拟器
+    RadarSimulator* m_radarSimulator = nullptr; ///< 模拟回波数据生成器
 };
 
 #endif // MAINOVERLAYOUT_H

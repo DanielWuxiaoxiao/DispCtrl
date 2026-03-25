@@ -1,983 +1,724 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>MainOverLayOut</class>
  <widget class="QWidget" name="MainOverLayOut">
   <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>1038</width>
-    <height>689</height>
-   </rect>
+   <rect><x>0</x><y>0</y><width>1280</width><height>800</height></rect>
   </property>
-  <property name="windowTitle">
-   <string>Form</string>
-  </property>
-  <layout class="QVBoxLayout" name="verticalLayout_2">
-   <property name="spacing">
-    <number>0</number>
-   </property>
-   <property name="leftMargin">
-    <number>0</number>
-   </property>
-   <property name="topMargin">
-    <number>0</number>
-   </property>
-   <property name="rightMargin">
-    <number>0</number>
-   </property>
-   <property name="bottomMargin">
-    <number>0</number>
-   </property>
+  <property name="windowTitle"><string>Form</string></property>
+  <layout class="QVBoxLayout" name="mainVLayout">
+   <property name="spacing"><number>0</number></property>
+   <property name="leftMargin"><number>0</number></property>
+   <property name="topMargin"><number>0</number></property>
+   <property name="rightMargin"><number>0</number></property>
+   <property name="bottomMargin"><number>0</number></property>
+
+   <!-- ===== TOP BAR ===== -->
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,1,0">
-     <property name="spacing">
-      <number>0</number>
-     </property>
-     <item>
-      <layout class="QVBoxLayout" name="verticalLayout">
-       <property name="spacing">
-        <number>5</number>
-       </property>
-       <property name="leftMargin">
-        <number>5</number>
-       </property>
-       <property name="topMargin">
-        <number>5</number>
-       </property>
-       <property name="bottomMargin">
-        <number>5</number>
-       </property>
-       <item>
-        <widget class="QTabWidget" name="infoTab">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>500</height>
-          </size>
-         </property>
-         <property name="tabShape">
-          <enum>QTabWidget::Rounded</enum>
-         </property>
-         <property name="currentIndex">
-          <number>0</number>
-         </property>
-         <property name="documentMode">
-          <bool>false</bool>
-         </property>
-         <property name="movable">
-          <bool>true</bool>
-         </property>
-         <widget class="QWidget" name="tab_2">
-          <attribute name="icon">
-           <iconset resource="../resource.qrc">
-            <normaloff>:/resources/icon/log.png</normaloff>:/resources/icon/log.png</iconset>
-          </attribute>
-          <attribute name="title">
-           <string>日志</string>
-          </attribute>
-          <attribute name="toolTip">
-           <string>雷达操作日志</string>
-          </attribute>
-          <layout class="QVBoxLayout" name="verticalLayout_3">
-           <property name="spacing">
-            <number>0</number>
-           </property>
-           <property name="leftMargin">
-            <number>3</number>
-           </property>
-           <property name="topMargin">
-            <number>3</number>
-           </property>
-           <property name="rightMargin">
-            <number>3</number>
-           </property>
-           <property name="bottomMargin">
-            <number>3</number>
-           </property>
-           <item>
-            <widget class="QTextEdit" name="logEdit">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="textInteractionFlags">
-              <set>Qt::NoTextInteraction</set>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </widget>
-       </item>
-       <item>
-        <widget class="QTabWidget" name="setTab">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>0</width>
-           <height>0</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>16777215</height>
-          </size>
-         </property>
-         <property name="tabShape">
-          <enum>QTabWidget::Rounded</enum>
-         </property>
-         <property name="currentIndex">
-          <number>0</number>
-         </property>
-         <property name="documentMode">
-          <bool>false</bool>
-         </property>
-         <property name="movable">
-          <bool>true</bool>
-         </property>
-         <property name="tabBarAutoHide">
-          <bool>false</bool>
-         </property>
-         <widget class="QWidget" name="tab_4">
-          <attribute name="icon">
-           <iconset resource="../resource.qrc">
-            <normaloff>:/resources/icon/mode.png</normaloff>:/resources/icon/mode.png</iconset>
-          </attribute>
-          <attribute name="title">
-           <string>雷达控制</string>
-          </attribute>
-          <layout class="QVBoxLayout" name="radarControlLayout">
-           <property name="spacing">
-            <number>8</number>
-           </property>
-           <property name="leftMargin">
-            <number>8</number>
-           </property>
-           <property name="topMargin">
-            <number>8</number>
-           </property>
-           <property name="rightMargin">
-            <number>8</number>
-           </property>
-           <property name="bottomMargin">
-            <number>8</number>
-           </property>
-           <item>
-            <layout class="QGridLayout" name="radarControlGrid">
-             <property name="spacing">
-              <number>8</number>
-             </property>
-             <item row="0" column="0">
-              <widget class="QPushButton" name="btnStartSoftware">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>20</height>
-                </size>
-               </property>
-               <property name="cursor">
-                <cursorShape>PointingHandCursor</cursorShape>
-               </property>
-               <property name="text">
-                <string>处理软件启动</string>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="1">
-              <widget class="QPushButton" name="btnStopSoftware">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>20</height>
-                </size>
-               </property>
-               <property name="cursor">
-                <cursorShape>PointingHandCursor</cursorShape>
-               </property>
-               <property name="text">
-                <string>处理软件关闭</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="0">
-              <widget class="QPushButton" name="btnTWSMode">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>20</height>
-                </size>
-               </property>
-               <property name="cursor">
-                <cursorShape>PointingHandCursor</cursorShape>
-               </property>
-               <property name="text">
-                <string>TWS模式设置</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="1">
-              <widget class="QPushButton" name="btnTASMode">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>20</height>
-                </size>
-               </property>
-               <property name="cursor">
-                <cursorShape>PointingHandCursor</cursorShape>
-               </property>
-               <property name="text">
-                <string>TAS模式设置</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="0">
-              <widget class="QPushButton" name="btnServoControl">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>20</height>
-                </size>
-               </property>
-               <property name="cursor">
-                <cursorShape>PointingHandCursor</cursorShape>
-               </property>
-               <property name="text">
-                <string>伺服控制</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="1">
-              <widget class="QPushButton" name="btnDataStorage">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>20</height>
-                </size>
-               </property>
-               <property name="cursor">
-                <cursorShape>PointingHandCursor</cursorShape>
-               </property>
-               <property name="text">
-                <string>数据存储管理</string>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="0">
-              <widget class="QPushButton" name="btnTransmitControl">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>20</height>
-                </size>
-               </property>
-               <property name="cursor">
-                <cursorShape>PointingHandCursor</cursorShape>
-               </property>
-               <property name="text">
-                <string>发射开关</string>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="1">
-              <widget class="QPushButton" name="btnRadarStandby">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>20</height>
-                </size>
-               </property>
-               <property name="cursor">
-                <cursorShape>PointingHandCursor</cursorShape>
-               </property>
-               <property name="text">
-                <string>雷达待机</string>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-          </layout>
-         </widget>
-         <widget class="QWidget" name="tab">
-          <attribute name="icon">
-           <iconset resource="../resource.qrc">
-            <normaloff>:/resources/icon/param.png</normaloff>:/resources/icon/param.png</iconset>
-          </attribute>
-          <attribute name="title">
-           <string>参数设置</string>
-          </attribute>
-          <layout class="QVBoxLayout" name="paramSettingsLayout">
-           <property name="spacing">
-            <number>8</number>
-           </property>
-           <property name="leftMargin">
-            <number>8</number>
-           </property>
-           <property name="topMargin">
-            <number>8</number>
-           </property>
-           <property name="rightMargin">
-            <number>8</number>
-           </property>
-           <property name="bottomMargin">
-            <number>8</number>
-           </property>
-           <item>
-            <layout class="QGridLayout" name="paramSettingsGrid">
-             <property name="spacing">
-              <number>8</number>
-             </property>
-             <item row="2" column="0">
-              <widget class="QPushButton" name="btnScanRange">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>20</height>
-                </size>
-               </property>
-               <property name="cursor">
-                <cursorShape>PointingHandCursor</cursorShape>
-               </property>
-               <property name="text">
-                <string>工作模式设置</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="0">
-              <widget class="QPushButton" name="btnFreqControl">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>20</height>
-                </size>
-               </property>
-               <property name="cursor">
-                <cursorShape>PointingHandCursor</cursorShape>
-               </property>
-               <property name="text">
-                <string>波形及采样控制</string>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="0">
-              <spacer name="verticalSpacer">
-               <property name="orientation">
-                <enum>Qt::Vertical</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>20</width>
-                 <height>40</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-             <item row="0" column="1">
-              <widget class="QPushButton" name="btnSignalProcess">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>20</height>
-                </size>
-               </property>
-               <property name="cursor">
-                <cursorShape>PointingHandCursor</cursorShape>
-               </property>
-               <property name="text">
-                <string>信号处理参数</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="1">
-              <widget class="QPushButton" name="btnBatteryControl">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>20</height>
-                </size>
-               </property>
-               <property name="cursor">
-                <cursorShape>PointingHandCursor</cursorShape>
-               </property>
-               <property name="text">
-                <string>阵面开启控制</string>
-               </property>
-              </widget>
-             </item>
-             <item row="0" column="0">
-              <widget class="QPushButton" name="btnDataProcess">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>20</height>
-                </size>
-               </property>
-               <property name="cursor">
-                <cursorShape>PointingHandCursor</cursorShape>
-               </property>
-               <property name="text">
-                <string>数据处理参数</string>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="1">
-              <spacer name="verticalSpacer_2">
-               <property name="orientation">
-                <enum>Qt::Vertical</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>20</width>
-                 <height>40</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-             <item row="2" column="1">
-              <spacer name="verticalSpacer_3">
-               <property name="orientation">
-                <enum>Qt::Vertical</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>20</width>
-                 <height>40</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-            </layout>
-           </item>
-          </layout>
-         </widget>
-        </widget>
-       </item>
-       <item>
-        <widget class="QTabWidget" name="trackTab">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="tabPosition">
-          <enum>QTabWidget::North</enum>
-         </property>
-         <property name="tabShape">
-          <enum>QTabWidget::Rounded</enum>
-         </property>
-         <property name="currentIndex">
-          <number>0</number>
-         </property>
-         <property name="documentMode">
-          <bool>false</bool>
-         </property>
-         <widget class="QWidget" name="tab_5">
-          <attribute name="icon">
-           <iconset resource="../resource.qrc">
-            <normaloff>:/resources/icon/track.png</normaloff>:/resources/icon/track.png</iconset>
-          </attribute>
-          <attribute name="title">
-           <string>航迹管理</string>
-          </attribute>
-          <layout class="QVBoxLayout" name="verticalLayout_4">
-           <property name="spacing">
-            <number>0</number>
-           </property>
-           <property name="leftMargin">
-            <number>4</number>
-           </property>
-           <property name="topMargin">
-            <number>4</number>
-           </property>
-           <property name="rightMargin">
-            <number>4</number>
-           </property>
-           <property name="bottomMargin">
-            <number>4</number>
-           </property>
-           <item>
-            <widget class="QTableWidget" name="tableWidget">
-             <property name="autoFillBackground">
-              <bool>false</bool>
-             </property>
-             <property name="styleSheet">
-              <string notr="true"/>
-             </property>
-             <property name="gridStyle">
-              <enum>Qt::DashLine</enum>
-             </property>
-             <attribute name="horizontalHeaderVisible">
-              <bool>true</bool>
-             </attribute>
-             <attribute name="horizontalHeaderShowSortIndicator" stdset="0">
-              <bool>true</bool>
-             </attribute>
-             <attribute name="verticalHeaderVisible">
-              <bool>false</bool>
-             </attribute>
-             <attribute name="verticalHeaderShowSortIndicator" stdset="0">
-              <bool>false</bool>
-             </attribute>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-         <widget class="QWidget" name="droneTrackTab">
-          <attribute name="icon">
-           <iconset resource="../resource.qrc">
-            <normaloff>:/resources/icon/track.png</normaloff>:/resources/icon/track.png</iconset>
-          </attribute>
-          <attribute name="title">
-           <string>无人机航迹</string>
-          </attribute>
-          <attribute name="toolTip">
-           <string>专门显示无人机目标航迹</string>
-          </attribute>
-          <layout class="QVBoxLayout" name="droneTrackLayout">
-           <property name="spacing">
-            <number>0</number>
-           </property>
-           <property name="leftMargin">
-            <number>4</number>
-           </property>
-           <property name="topMargin">
-            <number>4</number>
-           </property>
-           <property name="rightMargin">
-            <number>4</number>
-           </property>
-           <property name="bottomMargin">
-            <number>4</number>
-           </property>
-           <item>
-            <widget class="QTableWidget" name="droneTableWidget">
-             <property name="autoFillBackground">
-              <bool>false</bool>
-             </property>
-             <property name="styleSheet">
-              <string notr="true"/>
-             </property>
-             <property name="gridStyle">
-              <enum>Qt::DashLine</enum>
-             </property>
-             <attribute name="horizontalHeaderVisible">
-              <bool>false</bool>
-             </attribute>
-             <attribute name="horizontalHeaderShowSortIndicator" stdset="0">
-              <bool>true</bool>
-             </attribute>
-             <attribute name="verticalHeaderVisible">
-              <bool>false</bool>
-             </attribute>
-             <attribute name="verticalHeaderShowSortIndicator" stdset="0">
-              <bool>false</bool>
-             </attribute>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </widget>
-       </item>
-      </layout>
-     </item>
+    <widget class="QWidget" name="topBarWidget" native="true">
+     <property name="minimumSize"><size><width>0</width><height>36</height></size></property>
+     <property name="maximumSize"><size><width>16777215</width><height>44</height></size></property>
+     <layout class="QHBoxLayout" name="topBarLayout">
+      <property name="spacing"><number>12</number></property>
+      <property name="leftMargin"><number>10</number></property>
+      <property name="topMargin"><number>2</number></property>
+      <property name="rightMargin"><number>10</number></property>
+      <property name="bottomMargin"><number>2</number></property>
+
+      <item>
+       <widget class="QLabel" name="lblDisplayMode">
+        <property name="text"><string>航向向上  相对运动(R)  对水稳定</string></property>
+       </widget>
+      </item>
+
+      <item><spacer name="topSpacer1"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>20</height></size></property></spacer></item>
+
+      <item>
+       <widget class="QLabel" name="TitleLabel">
+        <property name="text"><string>船用导航雷达</string></property>
+       </widget>
+      </item>
+
+      <item><spacer name="topSpacer2"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>20</height></size></property></spacer></item>
+
+      <item>
+       <widget class="QLabel" name="timeLabel">
+        <property name="text"><string></string></property>
+        <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+       </widget>
+      </item>
+
+      <item>
+       <widget class="QLabel" name="lblCPA">
+        <property name="text"><string>CPA --- Km  TCPA ---</string></property>
+       </widget>
+      </item>
+
+      <item>
+       <widget class="QPushButton" name="minButton">
+        <property name="maximumSize"><size><width>32</width><height>32</height></size></property>
+        <property name="text"><string></string></property>
+        <property name="icon"><iconset resource="../resource.qrc"><normaloff>:/resources/icon/min.png</normaloff>:/resources/icon/min.png</iconset></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="CloseButton">
+        <property name="maximumSize"><size><width>32</width><height>32</height></size></property>
+        <property name="text"><string></string></property>
+        <property name="icon"><iconset resource="../resource.qrc"><normaloff>:/resources/icon/close.png</normaloff>:/resources/icon/close.png</iconset></property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+
+   <!-- ===== MIDDLE: PPI + RIGHT PANEL ===== -->
+   <item>
+    <layout class="QHBoxLayout" name="middleHLayout" stretch="1,0">
+     <property name="spacing"><number>0</number></property>
+
+     <!-- CENTER PPI VIEW -->
      <item>
       <widget class="QWidget" name="viewWidget" native="true">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
+         <horstretch>1</horstretch><verstretch>0</verstretch>
         </sizepolicy>
-       </property>
-       <property name="minimumSize">
-        <size>
-         <width>0</width>
-         <height>0</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>16777215</width>
-         <height>16777215</height>
-        </size>
-       </property>
-       <property name="autoFillBackground">
-        <bool>false</bool>
-       </property>
-       <property name="styleSheet">
-        <string notr="true"/>
-       </property>
-       <property name="label_group" stdset="0">
-        <string>A</string>
        </property>
       </widget>
      </item>
+
+     <!-- RIGHT PANEL -->
      <item>
-      <layout class="QVBoxLayout" name="verticalLayout_5" stretch="0,0,1,0,1">
-       <property name="spacing">
-        <number>8</number>
+      <widget class="QWidget" name="rightPanelWidget" native="true">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
+         <horstretch>0</horstretch><verstretch>0</verstretch>
+        </sizepolicy>
        </property>
-       <item>
-        <layout class="QHBoxLayout" name="horizontalLayout_3">
-         <property name="spacing">
-          <number>8</number>
-         </property>
-         <property name="topMargin">
-          <number>8</number>
-         </property>
-         <property name="rightMargin">
-          <number>3</number>
-         </property>
-         <item>
-          <spacer name="horizontalSpacer_2">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item>
-          <widget class="QWidget" name="LogoWidget" native="true">
-           <layout class="QHBoxLayout" name="horizontalLayout_5">
-            <property name="spacing">
-             <number>15</number>
-            </property>
-            <property name="leftMargin">
-             <number>15</number>
-            </property>
-            <property name="topMargin">
-             <number>15</number>
-            </property>
-            <property name="rightMargin">
-             <number>15</number>
-            </property>
-            <property name="bottomMargin">
-             <number>15</number>
-            </property>
+       <property name="minimumSize"><size><width>320</width><height>0</height></size></property>
+       <property name="maximumSize"><size><width>400</width><height>16777215</height></size></property>
+       <layout class="QVBoxLayout" name="rightPanelLayout">
+        <property name="spacing"><number>0</number></property>
+        <property name="leftMargin"><number>0</number></property>
+        <property name="topMargin"><number>0</number></property>
+        <property name="rightMargin"><number>0</number></property>
+        <property name="bottomMargin"><number>0</number></property>
+
+        <item>
+         <widget class="QTabWidget" name="rightTabWidget">
+          <property name="currentIndex"><number>0</number></property>
+
+          <!-- Tab 1: 操控 -->
+          <widget class="QWidget" name="controlTab">
+           <attribute name="title"><string>操控</string></attribute>
+           <layout class="QVBoxLayout" name="controlTabLayout">
+            <property name="spacing"><number>4</number></property>
+            <property name="leftMargin"><number>6</number></property>
+            <property name="topMargin"><number>6</number></property>
+            <property name="rightMargin"><number>6</number></property>
+            <property name="bottomMargin"><number>4</number></property>
+
+            <!-- 3 big category buttons in a row -->
             <item>
-             <widget class="QLabel" name="label_12">
-              <property name="maximumSize">
-               <size>
-                <width>50</width>
-                <height>50</height>
-               </size>
-              </property>
-              <property name="text">
-               <string/>
-              </property>
-              <property name="pixmap">
-               <pixmap resource="../resource.qrc">:/resources/icon/logo.png</pixmap>
-              </property>
-              <property name="scaledContents">
-               <bool>true</bool>
-              </property>
-              <property name="textInteractionFlags">
-               <set>Qt::NoTextInteraction</set>
+             <layout class="QHBoxLayout" name="categoryBtnLayout">
+              <property name="spacing"><number>4</number></property>
+              <item>
+               <widget class="QPushButton" name="btnCatRadarCtrl">
+                <property name="text"><string>雷达控制</string></property>
+                <property name="checkable"><bool>true</bool></property>
+                <property name="checked"><bool>true</bool></property>
+                <property name="minimumSize"><size><width>0</width><height>36</height></size></property>
+                <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnCatDisplayCtrl">
+                <property name="text"><string>显示控制</string></property>
+                <property name="checkable"><bool>true</bool></property>
+                <property name="minimumSize"><size><width>0</width><height>36</height></size></property>
+                <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QPushButton" name="btnCatAdvanced">
+                <property name="text"><string>高级设置</string></property>
+                <property name="checkable"><bool>true</bool></property>
+                <property name="minimumSize"><size><width>0</width><height>36</height></size></property>
+                <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+
+            <!-- Stacked widget for category content -->
+            <item>
+             <widget class="QStackedWidget" name="categoryStack">
+              <property name="currentIndex"><number>0</number></property>
+
+              <!-- Page 0: 雷达控制 -->
+              <widget class="QWidget" name="radarCtrlPage">
+               <layout class="QGridLayout" name="radarCtrlGrid">
+                <property name="spacing"><number>4</number></property>
+                <property name="leftMargin"><number>2</number></property>
+                <property name="topMargin"><number>4</number></property>
+                <property name="rightMargin"><number>2</number></property>
+                <property name="bottomMargin"><number>4</number></property>
+                <item row="0" column="0">
+                 <widget class="QPushButton" name="btnStartSoftware">
+                  <property name="text"><string>软件启动</string></property>
+                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
+                 </widget>
+                </item>
+                <item row="0" column="1">
+                 <widget class="QPushButton" name="btnStopSoftware">
+                  <property name="text"><string>软件关闭</string></property>
+                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
+                 </widget>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QPushButton" name="btnTransmitControl">
+                  <property name="text"><string>发射开关</string></property>
+                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QPushButton" name="btnRadarStandby">
+                  <property name="text"><string>雷达待机</string></property>
+                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
+                 </widget>
+                </item>
+                <item row="2" column="0">
+                 <widget class="QPushButton" name="btnServoControl">
+                  <property name="text"><string>伺服控制</string></property>
+                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
+                 </widget>
+                </item>
+                <item row="2" column="1">
+                 <widget class="QPushButton" name="btnDataStorage">
+                  <property name="text"><string>数据存储</string></property>
+                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+
+              <!-- Page 1: 显示控制 -->
+              <widget class="QWidget" name="displayCtrlPage">
+               <layout class="QGridLayout" name="displayCtrlGrid">
+                <property name="spacing"><number>4</number></property>
+                <property name="leftMargin"><number>2</number></property>
+                <property name="topMargin"><number>4</number></property>
+                <property name="rightMargin"><number>2</number></property>
+                <property name="bottomMargin"><number>4</number></property>
+                <item row="0" column="0">
+                 <widget class="QPushButton" name="btnTWSMode">
+                  <property name="text"><string>TWS模式</string></property>
+                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
+                 </widget>
+                </item>
+                <item row="0" column="1">
+                 <widget class="QPushButton" name="btnTASMode">
+                  <property name="text"><string>TAS模式</string></property>
+                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
+                 </widget>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QPushButton" name="btnScanRange">
+                  <property name="text"><string>工作模式</string></property>
+                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+
+              <!-- Page 2: 高级设置 -->
+              <widget class="QWidget" name="advancedPage">
+               <layout class="QGridLayout" name="advancedGrid">
+                <property name="spacing"><number>4</number></property>
+                <property name="leftMargin"><number>2</number></property>
+                <property name="topMargin"><number>4</number></property>
+                <property name="rightMargin"><number>2</number></property>
+                <property name="bottomMargin"><number>4</number></property>
+                <item row="0" column="0">
+                 <widget class="QPushButton" name="btnDataProcess">
+                  <property name="text"><string>数据处理</string></property>
+                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
+                 </widget>
+                </item>
+                <item row="0" column="1">
+                 <widget class="QPushButton" name="btnSignalProcess">
+                  <property name="text"><string>信号处理</string></property>
+                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
+                 </widget>
+                </item>
+                <item row="1" column="0">
+                 <widget class="QPushButton" name="btnFreqControl">
+                  <property name="text"><string>波形采样</string></property>
+                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
+                 </widget>
+                </item>
+                <item row="1" column="1">
+                 <widget class="QPushButton" name="btnBatteryControl">
+                  <property name="text"><string>阵面控制</string></property>
+                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </widget>
+            </item>
+
+            <!-- Sub-tabs: 常规/检测/安装 -->
+            <item>
+             <widget class="QTabWidget" name="controlSubTab">
+              <property name="currentIndex"><number>0</number></property>
+
+              <!-- 常规 tab -->
+              <widget class="QWidget" name="generalTab">
+               <attribute name="title"><string>常规</string></attribute>
+               <layout class="QGridLayout" name="generalGrid">
+                <property name="spacing"><number>4</number></property>
+                <property name="leftMargin"><number>6</number></property>
+                <property name="topMargin"><number>6</number></property>
+                <property name="rightMargin"><number>6</number></property>
+                <property name="bottomMargin"><number>6</number></property>
+
+                <!-- Row 0: 手动航向 -->
+                <item row="0" column="0">
+                 <widget class="QLabel" name="lblManualHeading"><property name="text"><string>手动航向</string></property></widget>
+                </item>
+                <item row="0" column="1" colspan="2">
+                 <widget class="QLineEdit" name="editManualHeading">
+                  <property name="text"><string>0.00</string></property>
+                 </widget>
+                </item>
+                <item row="0" column="3">
+                 <widget class="QPushButton" name="btnSetManualHeading">
+                  <property name="text"><string>设置</string></property>
+                  <property name="minimumSize"><size><width>0</width><height>26</height></size></property>
+                 </widget>
+                </item>
+
+                <!-- Row 1: 手动航速 -->
+                <item row="1" column="0">
+                 <widget class="QLabel" name="lblManualSpeed"><property name="text"><string>手动航速</string></property></widget>
+                </item>
+                <item row="1" column="1" colspan="2">
+                 <widget class="QLineEdit" name="editManualSpeed">
+                  <property name="text"><string>0.00</string></property>
+                 </widget>
+                </item>
+                <item row="1" column="3">
+                 <widget class="QLabel" name="lblManualSpeedUnit"><property name="text"><string>Km/h</string></property></widget>
+                </item>
+
+                <!-- Row 2: 航向选择 -->
+                <item row="2" column="0">
+                 <widget class="QLabel" name="lblHeadingSrc"><property name="text"><string>航向选择</string></property></widget>
+                </item>
+                <item row="2" column="1">
+                 <widget class="QPushButton" name="btnHeadingCompass">
+                  <property name="text"><string>罗经</string></property>
+                  <property name="checkable"><bool>true</bool></property>
+                  <property name="checked"><bool>true</bool></property>
+                  <property name="minimumSize"><size><width>0</width><height>26</height></size></property>
+                 </widget>
+                </item>
+                <item row="2" column="2">
+                 <widget class="QPushButton" name="btnHeadingGPS">
+                  <property name="text"><string>GPS</string></property>
+                  <property name="checkable"><bool>true</bool></property>
+                  <property name="minimumSize"><size><width>0</width><height>26</height></size></property>
+                 </widget>
+                </item>
+                <item row="2" column="3">
+                 <widget class="QPushButton" name="btnHeadingManual">
+                  <property name="text"><string>手动</string></property>
+                  <property name="checkable"><bool>true</bool></property>
+                  <property name="minimumSize"><size><width>0</width><height>26</height></size></property>
+                 </widget>
+                </item>
+
+                <!-- Row 3: 航速选择 -->
+                <item row="3" column="0">
+                 <widget class="QLabel" name="lblSpeedSrc"><property name="text"><string>航速选择</string></property></widget>
+                </item>
+                <item row="3" column="1">
+                 <widget class="QPushButton" name="btnSpeedLog">
+                  <property name="text"><string>计程仪</string></property>
+                  <property name="checkable"><bool>true</bool></property>
+                  <property name="checked"><bool>true</bool></property>
+                  <property name="minimumSize"><size><width>0</width><height>26</height></size></property>
+                 </widget>
+                </item>
+                <item row="3" column="2">
+                 <widget class="QPushButton" name="btnSpeedGPS">
+                  <property name="text"><string>GPS</string></property>
+                  <property name="checkable"><bool>true</bool></property>
+                  <property name="minimumSize"><size><width>0</width><height>26</height></size></property>
+                 </widget>
+                </item>
+                <item row="3" column="3">
+                 <widget class="QPushButton" name="btnSpeedManual">
+                  <property name="text"><string>手动</string></property>
+                  <property name="checkable"><bool>true</bool></property>
+                  <property name="minimumSize"><size><width>0</width><height>26</height></size></property>
+                 </widget>
+                </item>
+
+                <!-- Row 4: 活标亮度 -->
+                <item row="4" column="0">
+                 <widget class="QLabel" name="lblActiveBright"><property name="text"><string>活标亮度</string></property></widget>
+                </item>
+                <item row="4" column="1">
+                 <widget class="QLabel" name="lblActiveBrightVal"><property name="text"><string>100%</string></property></widget>
+                </item>
+                <item row="4" column="2" colspan="2">
+                 <widget class="QSlider" name="sliderActiveBright">
+                  <property name="orientation"><enum>Qt::Horizontal</enum></property>
+                  <property name="minimum"><number>0</number></property>
+                  <property name="maximum"><number>100</number></property>
+                  <property name="value"><number>100</number></property>
+                 </widget>
+                </item>
+
+                <!-- Row 5: 固标亮度 -->
+                <item row="5" column="0">
+                 <widget class="QLabel" name="lblFixedBright"><property name="text"><string>固标亮度</string></property></widget>
+                </item>
+                <item row="5" column="1">
+                 <widget class="QLabel" name="lblFixedBrightVal"><property name="text"><string>100%</string></property></widget>
+                </item>
+                <item row="5" column="2" colspan="2">
+                 <widget class="QSlider" name="sliderFixedBright">
+                  <property name="orientation"><enum>Qt::Horizontal</enum></property>
+                  <property name="minimum"><number>0</number></property>
+                  <property name="maximum"><number>100</number></property>
+                  <property name="value"><number>100</number></property>
+                 </widget>
+                </item>
+
+                <!-- Row 6: 旁瓣手动 -->
+                <item row="6" column="0">
+                 <widget class="QLabel" name="lblSidelobe"><property name="text"><string>旁瓣手动</string></property></widget>
+                </item>
+                <item row="6" column="1">
+                 <widget class="QSpinBox" name="spinSidelobe">
+                  <property name="minimum"><number>1</number></property>
+                  <property name="maximum"><number>10</number></property>
+                  <property name="value"><number>1</number></property>
+                 </widget>
+                </item>
+                <item row="6" column="2">
+                 <widget class="QPushButton" name="btnSidelobeInc">
+                  <property name="text"><string>+</string></property>
+                  <property name="minimumSize"><size><width>30</width><height>26</height></size></property>
+                  <property name="maximumSize"><size><width>36</width><height>30</height></size></property>
+                 </widget>
+                </item>
+                <item row="6" column="3">
+                 <widget class="QPushButton" name="btnSidelobeDec">
+                  <property name="text"><string>-</string></property>
+                  <property name="minimumSize"><size><width>30</width><height>26</height></size></property>
+                  <property name="maximumSize"><size><width>36</width><height>30</height></size></property>
+                 </widget>
+                </item>
+
+                <!-- Row 7: 平滑设置 -->
+                <item row="7" column="0" colspan="4">
+                 <widget class="QPushButton" name="btnSmoothSettings">
+                  <property name="text"><string>平滑设置</string></property>
+                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
+                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+                 </widget>
+                </item>
+
+                <!-- Spacer -->
+                <item row="8" column="0">
+                 <spacer name="generalSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>5</height></size></property></spacer>
+                </item>
+               </layout>
+              </widget>
+
+              <!-- 检测 tab -->
+              <widget class="QWidget" name="detectionTab">
+               <attribute name="title"><string>检测</string></attribute>
+               <layout class="QVBoxLayout" name="detectionLayout">
+                <item><spacer name="detectionSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property></spacer></item>
+               </layout>
+              </widget>
+
+              <!-- 安装 tab -->
+              <widget class="QWidget" name="installTab">
+               <attribute name="title"><string>安装</string></attribute>
+               <layout class="QVBoxLayout" name="installLayout">
+                <item><spacer name="installSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property></spacer></item>
+               </layout>
+              </widget>
+             </widget>
+            </item>
+
+            <!-- Log area at bottom -->
+            <item>
+             <widget class="QTextEdit" name="logEdit">
+              <property name="maximumSize"><size><width>16777215</width><height>150</height></size></property>
+              <property name="textInteractionFlags"><set>Qt::NoTextInteraction</set></property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+
+          <!-- Tab 2: 航迹 -->
+          <widget class="QWidget" name="trackTab">
+           <attribute name="title"><string>航迹</string></attribute>
+           <layout class="QVBoxLayout" name="trackTabOuterLayout">
+            <property name="spacing"><number>0</number></property>
+            <property name="leftMargin"><number>0</number></property>
+            <property name="topMargin"><number>0</number></property>
+            <property name="rightMargin"><number>0</number></property>
+            <property name="bottomMargin"><number>0</number></property>
+            <item>
+             <widget class="QTabWidget" name="trackSubTab">
+              <property name="currentIndex"><number>0</number></property>
+              <widget class="QWidget" name="tab_allTracks">
+               <attribute name="title"><string>航迹管理</string></attribute>
+               <layout class="QVBoxLayout" name="allTrackLayout">
+                <property name="spacing"><number>0</number></property>
+                <property name="leftMargin"><number>2</number></property>
+                <property name="topMargin"><number>2</number></property>
+                <property name="rightMargin"><number>2</number></property>
+                <property name="bottomMargin"><number>2</number></property>
+                <item>
+                 <widget class="QTableWidget" name="tableWidget">
+                  <property name="gridStyle"><enum>Qt::DashLine</enum></property>
+                  <attribute name="horizontalHeaderVisible"><bool>true</bool></attribute>
+                  <attribute name="verticalHeaderVisible"><bool>false</bool></attribute>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+              <widget class="QWidget" name="tab_droneTracks">
+               <attribute name="title"><string>无人机航迹</string></attribute>
+               <layout class="QVBoxLayout" name="droneTrackLayout">
+                <property name="spacing"><number>0</number></property>
+                <property name="leftMargin"><number>2</number></property>
+                <property name="topMargin"><number>2</number></property>
+                <property name="rightMargin"><number>2</number></property>
+                <property name="bottomMargin"><number>2</number></property>
+                <item>
+                 <widget class="QTableWidget" name="droneTableWidget">
+                  <property name="gridStyle"><enum>Qt::DashLine</enum></property>
+                  <attribute name="horizontalHeaderVisible"><bool>false</bool></attribute>
+                  <attribute name="verticalHeaderVisible"><bool>false</bool></attribute>
+                 </widget>
+                </item>
+               </layout>
+              </widget>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+
+          <!-- Tab 3: AIS -->
+          <widget class="QWidget" name="aisTab">
+           <attribute name="title"><string>AIS</string></attribute>
+           <layout class="QVBoxLayout" name="aisTabLayout">
+            <property name="spacing"><number>0</number></property>
+            <property name="leftMargin"><number>2</number></property>
+            <property name="topMargin"><number>2</number></property>
+            <property name="rightMargin"><number>2</number></property>
+            <property name="bottomMargin"><number>2</number></property>
+            <item>
+             <widget class="QTableWidget" name="aisTableWidget">
+              <property name="gridStyle"><enum>Qt::DashLine</enum></property>
+              <attribute name="horizontalHeaderVisible"><bool>true</bool></attribute>
+              <attribute name="verticalHeaderVisible"><bool>false</bool></attribute>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+
+          <!-- Tab 4: 辅显 -->
+          <widget class="QWidget" name="auxDisplayTab">
+           <attribute name="title"><string>辅显</string></attribute>
+           <layout class="QVBoxLayout" name="auxDisplayLayout">
+            <property name="spacing"><number>4</number></property>
+            <property name="leftMargin"><number>4</number></property>
+            <property name="topMargin"><number>4</number></property>
+            <property name="rightMargin"><number>4</number></property>
+            <property name="bottomMargin"><number>4</number></property>
+            <item>
+             <widget class="QWidget" name="pviewFitW" native="true">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+                <horstretch>0</horstretch><verstretch>1</verstretch>
+               </sizepolicy>
               </property>
              </widget>
             </item>
             <item>
-             <layout class="QVBoxLayout" name="verticalLayout_6">
-              <item>
-               <widget class="QLabel" name="TitleLabel">
-                <property name="text">
-                 <string>雷达控制平台</string>
-                </property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QLabel" name="SubtitleLabel">
-                <property name="text">
-                 <string>Radar Control Platform</string>
-                </property>
-               </widget>
-              </item>
-             </layout>
+             <widget class="QWidget" name="pviewSectorW" native="true">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+                <horstretch>0</horstretch><verstretch>1</verstretch>
+               </sizepolicy>
+              </property>
+             </widget>
             </item>
            </layout>
           </widget>
-         </item>
-         <item>
-          <layout class="QVBoxLayout" name="verticalLayout_8">
-           <item>
-            <widget class="QPushButton" name="CloseButton">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>300</width>
-               <height>300</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>退出</string>
-             </property>
-             <property name="icon">
-              <iconset resource="../resource.qrc">
-               <normaloff>:/resources/icon/close.png</normaloff>:/resources/icon/close.png</iconset>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="minButton">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>300</width>
-               <height>30300</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>最小化</string>
-             </property>
-             <property name="icon">
-              <iconset resource="../resource.qrc">
-               <normaloff>:/resources/icon/min.png</normaloff>:/resources/icon/min.png</iconset>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-        </layout>
-       </item>
-       <item>
-        <layout class="QHBoxLayout" name="horizontalLayout_6">
-         <property name="rightMargin">
-          <number>5</number>
-         </property>
-         <item>
-          <spacer name="horizontalSpacer_3">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item>
-          <widget class="QLabel" name="timeLabel">
-           <property name="text">
-            <string/>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </item>
-       <item>
-        <widget class="QWidget" name="pviewFitW" native="true">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>16777215</height>
-          </size>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <layout class="QHBoxLayout" name="horizontalLayout_4">
-         <property name="spacing">
-          <number>0</number>
-         </property>
-         <item>
-          <spacer name="horizontalSpacer">
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>40</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item>
-          <widget class="QWidget" name="FuncWidget" native="true">
-           <layout class="QVBoxLayout" name="verticalLayout_7">
-            <property name="rightMargin">
-             <number>9</number>
-            </property>
+
+          <!-- Tab 5: 监控 -->
+          <widget class="QWidget" name="monitorTab">
+           <attribute name="title"><string>监控</string></attribute>
+           <layout class="QVBoxLayout" name="monitorTabLayout">
+            <property name="spacing"><number>6</number></property>
+            <property name="leftMargin"><number>8</number></property>
+            <property name="topMargin"><number>8</number></property>
+            <property name="rightMargin"><number>8</number></property>
+            <property name="bottomMargin"><number>8</number></property>
             <item>
-             <layout class="QGridLayout" name="gridLayout_2">
-              <property name="leftMargin">
-               <number>8</number>
-              </property>
-              <property name="topMargin">
-               <number>8</number>
-              </property>
-              <property name="rightMargin">
-               <number>8</number>
-              </property>
-              <property name="bottomMargin">
-               <number>8</number>
-              </property>
-              <item row="0" column="3">
-               <widget class="QToolButton" name="FuncToolButton">
-                <property name="text">
-                 <string>态势操作</string>
-                </property>
-                <property name="icon">
-                 <iconset resource="../resource.qrc">
-                  <normaloff>:/resources/icon/control.png</normaloff>:/resources/icon/control.png</iconset>
-                </property>
-                <property name="iconSize">
-                 <size>
-                  <width>36</width>
-                  <height>36</height>
-                 </size>
-                </property>
-                <property name="toolButtonStyle">
-                 <enum>Qt::ToolButtonTextUnderIcon</enum>
-                </property>
-                <property name="buttonGroup" stdset="0">
-                 <string>A</string>
-                </property>
+             <layout class="QGridLayout" name="monitorBtnGrid">
+              <property name="spacing"><number>6</number></property>
+              <item row="0" column="0">
+               <widget class="QToolButton" name="radarsystem">
+                <property name="text"><string>雷达系统</string></property>
+                <property name="icon"><iconset resource="../resource.qrc"><normaloff>:/resources/icon/radararray.png</normaloff>:/resources/icon/radararray.png</iconset></property>
+                <property name="iconSize"><size><width>32</width><height>32</height></size></property>
+                <property name="toolButtonStyle"><enum>Qt::ToolButtonTextUnderIcon</enum></property>
                </widget>
               </item>
               <item row="0" column="1">
-               <widget class="QToolButton" name="radarsystem">
-                <property name="text">
-                 <string>雷达系统</string>
-                </property>
-                <property name="icon">
-                 <iconset resource="../resource.qrc">
-                  <normaloff>:/resources/icon/radararray.png</normaloff>:/resources/icon/radararray.png</iconset>
-                </property>
-                <property name="iconSize">
-                 <size>
-                  <width>36</width>
-                  <height>36</height>
-                 </size>
-                </property>
-                <property name="toolButtonStyle">
-                 <enum>Qt::ToolButtonTextUnderIcon</enum>
-                </property>
-                <property name="buttonGroup" stdset="0">
-                 <string>A</string>
-                </property>
+               <widget class="QToolButton" name="toolButton_3">
+                <property name="text"><string>记录回放</string></property>
+                <property name="icon"><iconset resource="../resource.qrc"><normaloff>:/resources/icon/record.png</normaloff>:/resources/icon/record.png</iconset></property>
+                <property name="iconSize"><size><width>32</width><height>32</height></size></property>
+                <property name="toolButtonStyle"><enum>Qt::ToolButtonTextUnderIcon</enum></property>
                </widget>
               </item>
               <item row="0" column="2">
                <widget class="QToolButton" name="FuncToolButton_2">
-                <property name="text">
-                 <string>态势感知</string>
-                </property>
-                <property name="icon">
-                 <iconset resource="../resource.qrc">
-                  <normaloff>:/resources/icon/data.png</normaloff>:/resources/icon/data.png</iconset>
-                </property>
-                <property name="iconSize">
-                 <size>
-                  <width>36</width>
-                  <height>36</height>
-                 </size>
-                </property>
-                <property name="toolButtonStyle">
-                 <enum>Qt::ToolButtonTextUnderIcon</enum>
-                </property>
-                <property name="buttonGroup" stdset="0">
-                 <string>A</string>
-                </property>
+                <property name="text"><string>态势感知</string></property>
+                <property name="icon"><iconset resource="../resource.qrc"><normaloff>:/resources/icon/data.png</normaloff>:/resources/icon/data.png</iconset></property>
+                <property name="iconSize"><size><width>32</width><height>32</height></size></property>
+                <property name="toolButtonStyle"><enum>Qt::ToolButtonTextUnderIcon</enum></property>
                </widget>
               </item>
-              <item row="0" column="0">
-               <widget class="QToolButton" name="toolButton_3">
-                <property name="text">
-                 <string>记录回放</string>
-                </property>
-                <property name="icon">
-                 <iconset resource="../resource.qrc">
-                  <normaloff>:/resources/icon/record.png</normaloff>:/resources/icon/record.png</iconset>
-                </property>
-                <property name="iconSize">
-                 <size>
-                  <width>36</width>
-                  <height>36</height>
-                 </size>
-                </property>
-                <property name="toolButtonStyle">
-                 <enum>Qt::ToolButtonTextUnderIcon</enum>
-                </property>
-                <property name="buttonGroup" stdset="0">
-                 <string>A</string>
-                </property>
+              <item row="0" column="3">
+               <widget class="QToolButton" name="FuncToolButton">
+                <property name="text"><string>态势操作</string></property>
+                <property name="icon"><iconset resource="../resource.qrc"><normaloff>:/resources/icon/control.png</normaloff>:/resources/icon/control.png</iconset></property>
+                <property name="iconSize"><size><width>32</width><height>32</height></size></property>
+                <property name="toolButtonStyle"><enum>Qt::ToolButtonTextUnderIcon</enum></property>
                </widget>
               </item>
              </layout>
             </item>
+            <item><spacer name="monitorSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer></item>
            </layout>
           </widget>
-         </item>
-        </layout>
-       </item>
-       <item>
-        <widget class="QWidget" name="pviewSectorW" native="true">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>16777215</height>
-          </size>
-         </property>
-        </widget>
-       </item>
-      </layout>
+
+         </widget>
+        </item>
+       </layout>
+      </widget>
      </item>
     </layout>
+   </item>
+
+   <!-- ===== BOTTOM BAR ===== -->
+   <item>
+    <widget class="QWidget" name="bottomBarWidget" native="true">
+     <property name="minimumSize"><size><width>0</width><height>32</height></size></property>
+     <property name="maximumSize"><size><width>16777215</width><height>40</height></size></property>
+     <layout class="QHBoxLayout" name="bottomBarLayout">
+      <property name="spacing"><number>12</number></property>
+      <property name="leftMargin"><number>10</number></property>
+      <property name="topMargin"><number>2</number></property>
+      <property name="rightMargin"><number>10</number></property>
+      <property name="bottomMargin"><number>2</number></property>
+
+      <item>
+       <widget class="QLabel" name="lblCursorTitle"><property name="text"><string>光标:</string></property></widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="lblCursorLon"><property name="text"><string>经度: ---</string></property></widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="lblCursorLat"><property name="text"><string>纬度: ---</string></property></widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="lblCursorAzi"><property name="text"><string>方位: ---</string></property></widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="lblCursorDist"><property name="text"><string>距离: ---</string></property></widget>
+      </item>
+
+      <item><spacer name="bottomSpacer1"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>20</height></size></property></spacer></item>
+
+      <item>
+       <widget class="QLabel" name="lblBrightTitle"><property name="text"><string>亮度</string></property></widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="lblBrightVal"><property name="text"><string>100%</string></property></widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btnBrightInc">
+        <property name="text"><string>+</string></property>
+        <property name="maximumSize"><size><width>28</width><height>28</height></size></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btnBrightDec">
+        <property name="text"><string>-</string></property>
+        <property name="maximumSize"><size><width>28</width><height>28</height></size></property>
+       </widget>
+      </item>
+
+      <item><spacer name="bottomSpacer2"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>10</width><height>20</height></size></property></spacer></item>
+
+      <item>
+       <widget class="QLabel" name="lblTargetCount"><property name="text"><string>目标数 0</string></property></widget>
+      </item>
+
+      <item><spacer name="bottomSpacer3"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>10</width><height>20</height></size></property></spacer></item>
+
+      <item>
+       <widget class="QLabel" name="lblHeading"><property name="text"><string>航向  0.0°</string></property></widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="lblHeadingSrc2"><property name="text"><string>罗经</string></property></widget>
+      </item>
+
+      <item><spacer name="bottomSpacer4"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>10</width><height>20</height></size></property></spacer></item>
+
+      <item>
+       <widget class="QLabel" name="lblSpeed"><property name="text"><string>航速  0.0 Km/h</string></property></widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="lblSpeedSrc2"><property name="text"><string>计程仪</string></property></widget>
+      </item>
+     </layout>
+    </widget>
    </item>
   </layout>
  </widget>
  <resources>
   <include location="../resource.qrc"/>
-  <include location="C:/Users/Think/.designer/resource.qrc"/>
  </resources>
  <connections/>
 </ui>

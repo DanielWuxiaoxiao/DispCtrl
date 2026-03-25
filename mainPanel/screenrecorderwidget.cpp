@@ -3,10 +3,10 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-03-10 17:18:12
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-20 16:29:54
+ * @LastEditTime: 2026-03-25 16:20:19
  * @Description: 
  */
-﻿/*
+/*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-03-10 15:46:41
@@ -179,9 +179,9 @@ void ScreenRecorderWidget::setupUI()
     m_previewLabel->setStyleSheet(
         "QLabel#RecorderPreview {"
         "  background-color: rgba(0,0,0,0.6);"
-        "  border: 1px solid rgba(102,255,204,0.3);"
+        "  border: 1px solid rgba(68,136,255,0.3);"
         "  border-radius: 4px;"
-        "  color: #66ffcc;"
+        "  color: #66aaff;"
         "}");
     m_previewLabel->setText("无预览");
     mainLayout->addWidget(m_previewLabel, 2); // stretch=2
@@ -597,45 +597,45 @@ QString ScreenRecorderWidget::darkGreenDialogStyleSheet()
 {
     return QStringLiteral(
         "QDialog {"
-        "  background-color: rgb(10, 16, 16);"
-        "  border: 1px solid rgba(0, 255, 136, 0.4);"
+        "  background-color: rgb(8, 12, 24);"
+        "  border: 1px solid rgba(68, 136, 255, 0.4);"
         "}"
         "QLabel {"
-        "  color: #00ff88;"
+        "  color: #4488ff;"
         "  font-size: 14px;"
         "  font-weight: bold;"
         "  background-color: transparent;"
         "}"
         "QLineEdit {"
-        "  background-color: rgba(0, 20, 10, 0.9);"
+        "  background-color: rgba(8, 14, 28, 0.9);"
         "  color: #ffffff;"
         "  font-size: 14px;"
-        "  border: 1px solid rgba(0, 255, 136, 0.5);"
+        "  border: 1px solid rgba(68, 136, 255, 0.5);"
         "  border-radius: 4px;"
         "  padding: 6px 10px;"
-        "  selection-background-color: rgba(0, 255, 136, 0.3);"
+        "  selection-background-color: rgba(68, 136, 255, 0.3);"
         "}"
         "QLineEdit:focus {"
-        "  border: 2px solid #00ff88;"
+        "  border: 2px solid #4488ff;"
         "}"
         "QPushButton {"
         "  background-color: transparent;"
-        "  color: #00ff88;"
+        "  color: #4488ff;"
         "  font-size: 13px;"
         "  font-weight: bold;"
-        "  border: 1px solid rgba(0, 255, 136, 0.45);"
+        "  border: 1px solid rgba(68, 136, 255, 0.45);"
         "  border-radius: 6px;"
         "  padding: 6px 20px;"
         "  min-height: 28px;"
         "}"
         "QPushButton:hover {"
-        "  background-color: rgba(0, 255, 136, 0.15);"
-        "  border: 1px solid #00ff88;"
+        "  background-color: rgba(68, 136, 255, 0.15);"
+        "  border: 1px solid #4488ff;"
         "  color: #ffffff;"
         "}"
         "QPushButton:pressed {"
-        "  background-color: rgba(0, 255, 136, 0.28);"
-        "  border: 2px solid #00ffaa;"
+        "  background-color: rgba(68, 136, 255, 0.28);"
+        "  border: 2px solid #5599ff;"
         "  color: #ffffff;"
         "}");
 }

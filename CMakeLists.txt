@@ -154,6 +154,7 @@ set(SRC_FILES
     Controller/mon2dispmanager.cpp             # 监控到显示管理
         Controller/ExternalCtrlManager.cpp        # 外部雷控/调度链路
     Controller/RadarDataManager.cpp            # 雷达数据统一管理器
+    Controller/RadarSimulator.cpp              # 船用雷达回波模拟器
     Controller/ErrorHandler.cpp                # 错误处理框架
     Controller/disp2sigmanager.cpp             # 显示到信号管理
     Controller/disp2resmanager.cpp             # 显示到资源管理
@@ -220,6 +221,7 @@ set(HDR_FILES
     Controller/tbd2dispmanager.h               # TBD数据到显示管理器
     Controller/controller.h                    # 主控制器
     Controller/ExternalCtrlManager.h           # 外部雷控/调度链路
+    Controller/RadarSimulator.h                # 船用雷达回波模拟器
 
     # 自定义组件头文件 - UI扩展控件
     cusWidgets/detachablewidget.h              # 可分离窗口部件

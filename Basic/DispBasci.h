@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-10 17:18:13
+ * @LastEditTime: 2026-03-25 16:20:17
  * @Description: 
  */
 #ifndef DISPBASCI_H
@@ -80,7 +80,7 @@ private:
 };
 
 //COLOR
-const QColor DET_COLOR = Qt::green;              // 检测点：绿色 (0, 255, 0)
+const QColor DET_COLOR = QColor(255, 180, 50);   // 检测点：暖橙色（船用雷达回波风格）
 const QColor TRA_COLOR = Qt::red;                // 航迹：红色
 const QColor TBD_COLOR = Qt::yellow;              // TBD航迹：黄色 (255, 255, 0)
 

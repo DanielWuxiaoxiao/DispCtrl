@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-02-05 16:53:38
+ * @Date: 2026-02-28 16:46:29
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:33
+ * @LastEditTime: 2026-03-25 16:20:18
  * @Description: 
  */
 /*
@@ -74,13 +74,13 @@ void FrozenColumnHelper::init()
         "    background-color: rgba(20, 30, 30, 0.8);"
         "}"
         "QTableWidget::item:selected {"
-        "    background-color: rgba(0, 255, 200, 0.3);"
+        "    background-color: rgba(68, 136, 255, 0.3);"
         "    color: #FFFFFF;"
-        "    border: 1px solid #00ffc8;"
+        "    border: 1px solid #4499ff;"
         "}"
         "QHeaderView::section {"
-        "    background-color: rgba(24, 36, 36, 0.95);"
-        "    color: #00ffc8;"
+        "    background-color: rgba(16, 24, 44, 0.95);"
+        "    color: #4499ff;"
         "    border: 1px solid #444444;"
         "    padding: 4px;"
         "    font-weight: bold;"

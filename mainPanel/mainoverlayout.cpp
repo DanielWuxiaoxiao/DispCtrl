@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-20 16:29:54
+ * @LastEditTime: 2026-03-25 16:20:19
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -27,6 +27,7 @@
 #include "cusWidgets/frozentablewidget.h"
 // 参数配置对话框头文件
 #include <QApplication>
+#include <QButtonGroup>
 #include <QComboBox>
 #include <QDateTime>
 #include <QDebug>
@@ -37,6 +38,8 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QScrollBar>
+#include <QSlider>
+#include <QSpinBox>
 #include <QTableWidget>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -61,6 +64,7 @@
 #include "paramWidget/waveandsample.h"
 #include "screenrecorderwidget.h"
 #include "Basic/authmanager.h"
+#include "Controller/RadarSimulator.h"
 
 MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::MainOverLayOut) {
     ui->setupUi(this);
@@ -68,11 +72,13 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     // ========== 屏幕自适应：动态覆盖 UI 中的固定尺寸 ==========
     applyScaledSizes();
 
-    // 状态信息面板包含发射接收控制checkboxes
-    ui->infoTab->setToolTip("信息面板");
+    // 船用雷达布局：右侧Tab面板
+    ui->rightTabWidget->setToolTip("功能面板");
 
     topRightSet();
     mainPView();
+    setupPPIOverlay();
+    setupControlPanel();
     setupRangeSettings();
     setupWorkModeSettings();
     setupTrackManagement();
@@ -376,6 +382,29 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
         qWarning() << "MainOverLayOut: Failed to get MousePositionInfo from PPIView";
     }
 
+    // ========== 雷达回波模拟器（无协议数据时的演示） ==========
+    m_radarSimulator = new RadarSimulator(this);
+    // 连接模拟检测点到PPI场景的DetManager
+    if (mScene && mScene->det()) {
+        connect(m_radarSimulator, &RadarSimulator::simulatedDetection,
+                mScene->det(), &DetManager::addDetPoint);
+    }
+    // 连接模拟检测点到扇区显示
+    if (m_sectorWidget && m_sectorWidget->scene() && m_sectorWidget->scene()->detManager()) {
+        connect(m_radarSimulator, &RadarSimulator::simulatedDetection,
+                m_sectorWidget->scene()->detManager(), &SectorDetManager::addDetPoint);
+    }
+    // 连接模拟检测点到距离-方位图表
+    if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
+        connect(m_radarSimulator, &RadarSimulator::simulatedDetection,
+                this, [this](PointInfo info) {
+            if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
+                m_rangeAzimuthWidget->chart()->addPointInfo(info);
+            }
+        });
+    }
+    m_radarSimulator->start();
+
     // 初始化按钮状态显示
     updateTransmitButton();
     updateStandbyButton();
@@ -390,8 +419,6 @@ void MainOverLayOut::topRightSet() {
     ui->timeLabel->setToolTip("系统时间");
 
     ui->TitleLabel->setToolTip("系统标题");
-
-    ui->SubtitleLabel->setToolTip("系统副标题");
 
     connect(ui->minButton, &QPushButton::clicked, CON_INS, &Controller::minimizeWindow);
     connect(ui->CloseButton, &QPushButton::clicked, this, [this]() {
@@ -414,6 +441,114 @@ void MainOverLayOut::topRightSet() {
         ui->timeLabel->setText(currentTimeStr);
     });
     timeTimer->start();
+}
+
+void MainOverLayOut::setupPPIOverlay() {
+    // 创建PPI左上角浮动覆盖层
+    m_ppiOverlay = new QWidget(ui->viewWidget);
+    m_ppiOverlay->setObjectName("ppiOverlay");
+    m_ppiOverlay->setAttribute(Qt::WA_TransparentForMouseEvents);
+    m_ppiOverlay->setStyleSheet("background: transparent;");
+
+    auto* overlayLayout = new QVBoxLayout(m_ppiOverlay);
+    overlayLayout->setContentsMargins(30, 8, 0, 0);
+    overlayLayout->setSpacing(4);
+
+    // 量程显示
+    m_lblOverlayRange = new QLabel("量程  5.0 Km", m_ppiOverlay);
+    m_lblOverlayRange->setObjectName("ppiOverlayLabel");
+    m_lblOverlayRange->setStyleSheet("color: #66aaff; font-size: 14px; font-weight: bold; background: transparent;");
+
+    // 距标圈指示
+    m_lblRangeRing = new QLabel(QString::fromUtf8("\u25CF 距标圈"), m_ppiOverlay);
+    m_lblRangeRing->setObjectName("ppiOverlayLabel");
+    m_lblRangeRing->setStyleSheet("color: #44ff44; font-size: 13px; background: transparent;");
+
+    // 发射状态指示（默认红色=未发射）
+    m_lblTransmitIndicator = new QLabel(QString::fromUtf8("\u25CF 发射"), m_ppiOverlay);
+    m_lblTransmitIndicator->setObjectName("ppiOverlayLabel");
+    m_lblTransmitIndicator->setStyleSheet("color: #ff4444; font-size: 13px; background: transparent;");
+
+    overlayLayout->addWidget(m_lblOverlayRange);
+    overlayLayout->addWidget(m_lblRangeRing);
+    overlayLayout->addWidget(m_lblTransmitIndicator);
+    overlayLayout->addStretch();
+
+    m_ppiOverlay->setFixedSize(200, 120);
+    m_ppiOverlay->move(0, 0);
+    m_ppiOverlay->show();
+    m_ppiOverlay->raise();
+
+    // 同步量程变化到覆盖层标签
+    QTimer::singleShot(200, this, [this]() {
+        if (mScene && mScene->axis()) {
+            connect(mScene->axis(), &PolarAxis::rangeChanged,
+                    this, [this](double /*min*/, double max) {
+                if (m_lblOverlayRange) {
+                    m_lblOverlayRange->setText(QString("量程  %1 Km").arg(max, 0, 'f', 1));
+                }
+            });
+        }
+    });
+}
+
+void MainOverLayOut::setupControlPanel() {
+    // 分类按钮组: 3个互斥checkable按钮控制QStackedWidget
+    m_catBtnGroup = new QButtonGroup(this);
+    m_catBtnGroup->setExclusive(true);
+    m_catBtnGroup->addButton(ui->btnCatRadarCtrl, 0);
+    m_catBtnGroup->addButton(ui->btnCatDisplayCtrl, 1);
+    m_catBtnGroup->addButton(ui->btnCatAdvanced, 2);
+    connect(m_catBtnGroup, QOverload<int>::of(&QButtonGroup::buttonClicked),
+            ui->categoryStack, &QStackedWidget::setCurrentIndex);
+    ui->categoryStack->setCurrentIndex(0);
+    ui->btnCatRadarCtrl->setChecked(true);
+
+    // 航向选择按钮组（互斥）
+    auto* headingGroup = new QButtonGroup(this);
+    headingGroup->setExclusive(true);
+    headingGroup->addButton(ui->btnHeadingCompass);
+    headingGroup->addButton(ui->btnHeadingGPS);
+    headingGroup->addButton(ui->btnHeadingManual);
+
+    // 航速选择按钮组（互斥）
+    auto* speedGroup = new QButtonGroup(this);
+    speedGroup->setExclusive(true);
+    speedGroup->addButton(ui->btnSpeedLog);
+    speedGroup->addButton(ui->btnSpeedGPS);
+    speedGroup->addButton(ui->btnSpeedManual);
+
+    // 活标亮度滑块 → 标签
+    connect(ui->sliderActiveBright, &QSlider::valueChanged, this, [this](int val) {
+        ui->lblActiveBrightVal->setText(QString("%1%").arg(val));
+    });
+
+    // 固标亮度滑块 → 标签
+    connect(ui->sliderFixedBright, &QSlider::valueChanged, this, [this](int val) {
+        ui->lblFixedBrightVal->setText(QString("%1%").arg(val));
+    });
+
+    // 旁瓣 +/- 按钮
+    connect(ui->btnSidelobeInc, &QPushButton::clicked, this, [this]() {
+        ui->spinSidelobe->stepUp();
+    });
+    connect(ui->btnSidelobeDec, &QPushButton::clicked, this, [this]() {
+        ui->spinSidelobe->stepDown();
+    });
+
+    // 底栏亮度 +/- 按钮
+    connect(ui->btnBrightInc, &QPushButton::clicked, this, [this]() {
+        if (m_brightness < 100) {
+            m_brightness = qMin(100, m_brightness + 5);
+            ui->lblBrightVal->setText(QString("%1%").arg(m_brightness));
+        }
+    });
+    connect(ui->btnBrightDec, &QPushButton::clicked, this, [this]() {
+        if (m_brightness > 0) {
+            m_brightness = qMax(0, m_brightness - 5);
+            ui->lblBrightVal->setText(QString("%1%").arg(m_brightness));
+        }
+    });
 }
 
 void MainOverLayOut::mainPView() {
@@ -671,6 +806,9 @@ void MainOverLayOut::sendScanRangeParams() {
 }
 
 MainOverLayOut::~MainOverLayOut() {
+    if (m_radarSimulator) {
+        m_radarSimulator->stop();
+    }
     if (m_commandTimer) {
         m_commandTimer->stop();
     }
@@ -1079,7 +1217,7 @@ void MainOverLayOut::updateHealthWindow()
         "QPushButton { "
         "background-color: #00ff00; "
         "color: #101818; "
-        "border: 2px solid #66ffcc; "
+        "border: 2px solid #66aaff; "
         "border-radius: 8px; "
         "padding: 15px; "
         "font-size: 16px; "
@@ -1183,7 +1321,7 @@ void MainOverLayOut::updateHealthWindow()
         "QPushButton { "
         "background-color: #00ff00; "
         "color: #101818; "
-        "border: 1px solid #66ffcc; "
+        "border: 1px solid #66aaff; "
         "border-radius: 5px; "
         "padding: 8px; "
         "font-size: 13px; "
@@ -2020,7 +2158,7 @@ void MainOverLayOut::onRadarSystemClicked() {
 
     // ===== 软件状态区域 =====
     QLabel* softwareLabel = new QLabel("软件运行状态", contentWidget);
-    softwareLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #66ffcc;");
+    softwareLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #66aaff;");
     mainLayout->addWidget(softwareLabel);
 
     // 创建四个软件状态按钮
@@ -2048,7 +2186,7 @@ void MainOverLayOut::onRadarSystemClicked() {
     // ===== BIT状态区域 =====
     mainLayout->addSpacing(20);
     QLabel* bitLabel = new QLabel("BIT 状态信息", contentWidget);
-    bitLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #66ffcc;");
+    bitLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #66aaff;");
     mainLayout->addWidget(bitLabel);
 
     // 创建BIT状态网格布局
@@ -2101,7 +2239,7 @@ void MainOverLayOut::onRadarSystemClicked() {
     // ===== 温度和角度信息 =====
     mainLayout->addSpacing(10);
     QLabel* infoLabel = new QLabel("温度和角度信息", contentWidget);
-    infoLabel->setStyleSheet("font-size: 16px; font-weight: bold; color: #66ffcc;");
+    infoLabel->setStyleSheet("font-size: 16px; font-weight: bold; color: #66aaff;");
     mainLayout->addWidget(infoLabel);
 
     m_tempLabel = new QLabel("温度信息加载中...", contentWidget);
@@ -2216,16 +2354,20 @@ void MainOverLayOut::updateTransmitButton()
             "QPushButton {"
             "    background-color: #00ff00;"
             "    color: #101818;"
-            "    border: 2px solid #66ffcc;"
+            "    border: 2px solid #66aaff;"
             "    border-radius: 8px;"
             "}"
             "QPushButton:hover {"
             "    background-color: #33ff33;"
-            "    border: 2px solid #00ff88;"
+            "    border: 2px solid #4488ff;"
             "}"
             "QPushButton:pressed {"
             "    background-color: #00cc00;"
             "}");
+        // 更新PPI覆盖层发射指示（绿色=发射中）
+        if (m_lblTransmitIndicator) {
+            m_lblTransmitIndicator->setStyleSheet("color: #44ff44; font-size: 13px; background: transparent;");
+        }
     } else {
         // 发射关闭：红色背景，文本为"开启发射"
         ui->btnTransmitControl->setText("开启发射");
@@ -2243,6 +2385,10 @@ void MainOverLayOut::updateTransmitButton()
             "QPushButton:pressed {"
             "    background-color: #cc0000;"
             "}");
+        // 更新PPI覆盖层发射指示（红色=未发射）
+        if (m_lblTransmitIndicator) {
+            m_lblTransmitIndicator->setStyleSheet("color: #ff4444; font-size: 13px; background: transparent;");
+        }
     }
 }
 
@@ -2277,13 +2423,13 @@ void MainOverLayOut::updateStandbyButton()
             "QPushButton {"
             "    background-color: #00ff00;"
             "    color: #101818;"
-            "    border: 2px solid #66ffcc;"
+            "    border: 2px solid #66aaff;"
             "    border-radius: 8px;"
             "    font-weight: bold;"
             "}"
             "QPushButton:hover {"
             "    background-color: #33ff33;"
-            "    border: 2px solid #00ff88;"
+            "    border: 2px solid #4488ff;"
             "}"
             "QPushButton:pressed {"
             "    background-color: #00cc00;"
@@ -2331,24 +2477,22 @@ void MainOverLayOut::onRecordPlayClicked() {
  * @details 覆盖 .ui 文件中的固定像素值，使界面在 1366×768 ~ 3840×2160 范围内自适应
  */
 void MainOverLayOut::applyScaledSizes() {
-    int leftW   = ScaleHelper::leftPanelWidth();   // ~22% 屏幕宽度
     int rightW  = ScaleHelper::rightPanelWidth();   // ~28% 屏幕宽度
     int btnH    = ScaleHelper::buttonHeight();      // 基准40px缩放
-    int setTabH = ScaleHelper::setTabMaxHeight();   // 基准600px缩放
-    int logo    = ScaleHelper::logoSize();          // 基准50px缩放
 
-    // --- 左侧面板 ---
-    ui->infoTab->setMaximumWidth(leftW);
+    // --- 右侧面板 ---
+    ui->rightPanelWidget->setMinimumWidth(rightW);
+    ui->rightPanelWidget->setMaximumWidth(rightW + 80);
 
-    // --- 左侧设置面板 ---
-    ui->setTab->setMinimumWidth(leftW);
-    ui->setTab->setMaximumHeight(setTabH);
+    // --- 分类按钮 ---
+    QList<QPushButton*> catBtns = {
+        ui->btnCatRadarCtrl, ui->btnCatDisplayCtrl, ui->btnCatAdvanced
+    };
+    for (auto* btn : catBtns) {
+        btn->setMinimumHeight(btnH);
+    }
 
-    // --- 右侧 P显/扇区显示面板 ---
-    ui->pviewFitW->setMaximumWidth(rightW);
-    ui->pviewSectorW->setMaximumWidth(rightW);
-
-    // --- 雷达控制按钮 (4×2 grid) ---
+    // --- 雷达控制按钮 ---
     QList<QPushButton*> radarBtns = {
         ui->btnStartSoftware, ui->btnStopSoftware,
         ui->btnTWSMode,       ui->btnTASMode,
@@ -2359,7 +2503,7 @@ void MainOverLayOut::applyScaledSizes() {
         btn->setMinimumHeight(btnH);
     }
 
-    // --- 参数设置按钮 (3×2 grid) ---
+    // --- 参数设置按钮 ---
     QList<QPushButton*> paramBtns = {
         ui->btnDataProcess,   ui->btnSignalProcess,
         ui->btnFreqControl,   ui->btnBatteryControl,
@@ -2369,10 +2513,6 @@ void MainOverLayOut::applyScaledSizes() {
         btn->setMinimumHeight(btnH);
     }
 
-    // --- Logo ---
-    ui->label_12->setMaximumSize(logo, logo);
-
     qInfo() << "ScaleHelper applied: factor=" << ScaleHelper::factor()
-            << "leftPanel=" << leftW << "rightPanel=" << rightW
-            << "btnH=" << btnH;
+            << "rightPanel=" << rightW << "btnH=" << btnH;
 }

@@ -3,16 +3,16 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-20 16:29:54
+ * @LastEditTime: 2026-03-25 16:20:18
  * @Description: 
  */
-﻿/*
+/*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
  * @LastEditTime: 2026-02-28 16:46:32
- * @Description: 
+ * @Description:
  */
 #include "scanlayer.h"
 #include "polaraxis.h"
@@ -107,13 +107,13 @@ void ScanLayer::paint(QPainter* painter,
 
         // 设置渐变：从扫描线位置开始向后渐变
         gradient.setAngle(qtCurrentAngle);
-        gradient.setColorAt(0.0, QColor(0, 255, 0, 180));  // 扫描线位置最亮
-        gradient.setColorAt(0.02, QColor(0, 255, 0, 150));
-        gradient.setColorAt(0.05, QColor(0, 255, 0, 100));
-        gradient.setColorAt(0.10, QColor(0, 255, 0, 60));
-        gradient.setColorAt(0.15, QColor(0, 255, 0, 30));
-        gradient.setColorAt(0.20, QColor(0, 255, 0, 10));
-        gradient.setColorAt(0.25, QColor(0, 255, 0, 0));   // 完全透明
+        gradient.setColorAt(0.0, QColor(68, 136, 255, 180));  // 扫描线位置最亮
+        gradient.setColorAt(0.02, QColor(68, 136, 255, 150));
+        gradient.setColorAt(0.05, QColor(68, 136, 255, 100));
+        gradient.setColorAt(0.10, QColor(68, 136, 255, 60));
+        gradient.setColorAt(0.15, QColor(68, 136, 255, 30));
+        gradient.setColorAt(0.20, QColor(68, 136, 255, 10));
+        gradient.setColorAt(0.25, QColor(68, 136, 255, 0));   // 完全透明
     } else {
         // 反向扫描，余晖在扫描线后面（顺时针方向）
         // 从当前角度向前（减小角度方向）延伸
@@ -122,13 +122,13 @@ void ScanLayer::paint(QPainter* painter,
         // 设置渐变：反向时需要调整渐变方向
         gradient.setAngle(qtCurrentAngle - afterglowAngle);
         // 反向渐变：从远端透明到扫描线位置最亮
-        gradient.setColorAt(0.0, QColor(0, 255, 0, 0));    // 远端完全透明
-        gradient.setColorAt(0.05, QColor(0, 255, 0, 10));
-        gradient.setColorAt(0.10, QColor(0, 255, 0, 30));
-        gradient.setColorAt(0.15, QColor(0, 255, 0, 60));
-        gradient.setColorAt(0.18, QColor(0, 255, 0, 100));
-        gradient.setColorAt(0.20, QColor(0, 255, 0, 150));
-        gradient.setColorAt(0.22, QColor(0, 255, 0, 180)); // 扫描线位置最亮
+        gradient.setColorAt(0.0, QColor(68, 136, 255, 0));    // 远端完全透明
+        gradient.setColorAt(0.05, QColor(68, 136, 255, 10));
+        gradient.setColorAt(0.10, QColor(68, 136, 255, 30));
+        gradient.setColorAt(0.15, QColor(68, 136, 255, 60));
+        gradient.setColorAt(0.18, QColor(68, 136, 255, 100));
+        gradient.setColorAt(0.20, QColor(68, 136, 255, 150));
+        gradient.setColorAt(0.22, QColor(68, 136, 255, 180)); // 扫描线位置最亮
     }
 
     afterglowPath.closeSubpath();
@@ -150,7 +150,7 @@ void ScanLayer::paint(QPainter* painter,
     double x = r * qSin(rad);
     double y = -r * qCos(rad);
 
-    QPen linePen(QColor(0, 255, 0, 255)); // 亮绿色扫描线
+    QPen linePen(QColor(68, 136, 255, 255)); // 亮蓝色扫描线
     linePen.setWidth(4);
     painter->setPen(linePen);
     painter->drawLine(QPointF(0, 0), QPointF(x, y));

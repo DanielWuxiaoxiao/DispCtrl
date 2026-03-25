@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-23 09:44:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:13
+ * @LastEditTime: 2026-03-25 16:20:18
  * @Description: 
  */
 /**
@@ -103,8 +103,8 @@ void CustomComboBox::drawCustomArrow(QPainter *painter, const QRect &rect)
     // 根据hover状态设置箭头颜色
     bool isHover = underMouse();
     QColor arrowColor = isHover ?
-                       QColor(153, 255, 221) :  // #99ffdd - hover状态亮绿色
-                       QColor(102, 255, 204);   // #66ffcc - 默认状态青绿色
+                       QColor(136, 204, 255) :  // #88ccff - hover状态亮蓝色
+                       QColor(102, 170, 255);   // #66aaff - 默认状态天蓝色
 
     // 设置绘制参数 - 线条式绘制
     painter->setRenderHint(QPainter::Antialiasing, true);

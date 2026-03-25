@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-03-11 11:53:22
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-20 16:29:53
+ * @LastEditTime: 2026-03-25 16:20:17
  * @Description: 
  */
 /*
@@ -40,7 +40,7 @@ private:
     AuthManager(const AuthManager&) = delete;
     AuthManager& operator=(const AuthManager&) = delete;
 
-    bool m_isAdminMode = false;
+    bool m_isAdminMode = true;  // 默认管理者模式，跳过登录
 };
 
 #endif // AUTHMANAGER_H

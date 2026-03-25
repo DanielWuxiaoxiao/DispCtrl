@@ -3,13 +3,13 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:16
+ * @LastEditTime: 2026-03-25 16:20:18
  * @Description: 
  */
 #include "custommessagebox.h"
 #include <QGraphicsDropShadowEffect>
 // 自定义消息框构造函数
-CustomMessageBox::CustomMessageBox(QWidget *parent)  
+CustomMessageBox::CustomMessageBox(QWidget *parent)
     : QDialog(parent)
 {
     setModal(true);
@@ -60,12 +60,12 @@ void CustomMessageBox::applyStyle()
 {
     setStyleSheet(R"(
         #MessageBoxContainer {
-            background-color: rgba(20, 30, 30, 0.95);
-            border: 2px solid #00ff88;
+            background-color: rgba(14, 22, 38, 0.95);
+            border: 2px solid #4488ff;
             border-radius: 12px;
         }
         #MessageBoxTitle {
-            color: #00ff88;
+            color: #4488ff;
             font-size: 16px;
             font-weight: bold;
         }
@@ -77,17 +77,17 @@ void CustomMessageBox::applyStyle()
             min-width: 80px;
             padding: 6px 12px;
             border-radius: 6px;
-            border: 2px solid rgba(0, 255, 136, 0.4);
+            border: 2px solid rgba(68, 136, 255, 0.4);
             background-color: transparent;
-            color: #00ff88;
+            color: #4488ff;
         }
         QPushButton:hover {
-            border: 2px solid #00ff88;
-            background-color: rgba(0, 255, 136, 0.2);
+            border: 2px solid #4488ff;
+            background-color: rgba(68, 136, 255, 0.2);
             color: #ffffff;
         }
         QPushButton:pressed {
-            background-color: rgba(0, 255, 136, 0.4);
+            background-color: rgba(68, 136, 255, 0.4);
         }
     )");
 }

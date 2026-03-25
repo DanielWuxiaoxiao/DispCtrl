@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:13
+ * @LastEditTime: 2026-03-25 16:20:18
  * @Description: 
  */
 #include "azelrangewidget.h"
@@ -131,29 +131,29 @@ AzElRangeWidget::AzElRangeWidget(QWidget *parent)
                   QLineEdit#RangeLineEdit {
                   color: #ffffff;
                   background-color: rgba(10,20,20,0.6);
-                  border: 1px solid rgba(0,255,136,0.45);
+                  border: 1px solid rgba(68,136,255,0.45);
                   border-radius: 6px;
                   padding: 4px 6px;
-                  selection-background-color: rgba(0,255,136,0.35);
+                  selection-background-color: rgba(68,136,255,0.35);
                   }
                   QLineEdit#RangeLineEdit:focus {
-                  border: 1.5px solid #00ff88;
+                  border: 1.5px solid #4488ff;
                   }
                   QPushButton#SettingsButton {
                   color: #ffffff;
-                  background-color: rgba(0,100,70,0.7);
-                  border: 1px solid rgba(0,255,136,0.6);
+                  background-color: rgba(20,60,140,0.7);
+                  border: 1px solid rgba(68,136,255,0.6);
                   border-radius: 4px;
                   padding: 2px 6px;
                   font-family: "Microsoft YaHei";
                   font-size: 11px;
                   }
                   QPushButton#SettingsButton:hover {
-                  background-color: rgba(0,255,136,0.2);
-                  border: 1.5px solid #00ff88;
+                  background-color: rgba(68,136,255,0.2);
+                  border: 1.5px solid #4488ff;
                   }
                   QPushButton#SettingsButton:pressed {
-                  background-color: rgba(0,255,136,0.4);
+                  background-color: rgba(68,136,255,0.4);
                   }
                   )");
 
