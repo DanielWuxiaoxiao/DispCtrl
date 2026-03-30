@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-20 16:29:54
+ * @LastEditTime: 2026-03-30 22:07:38
  * @Description: 
  */
 /**
@@ -365,6 +365,8 @@ private:
      * @details 设置航迹表格列头、连接信号槽、配置表格属性
      */
     void setupTrackManagement();
+
+    // simulateIncomingTracks (test helper) removed
 
     /**
      * @brief 添加或更新航迹表格中的行

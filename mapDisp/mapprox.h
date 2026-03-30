@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-25 17:09:17
+ * @LastEditTime: 2026-03-30 22:07:38
  * @Description: 
  */
 /**
@@ -84,6 +84,19 @@ public:
 
     double currentRange() const { return m_currentRange; }
 
+    /**
+     * @brief 地图引擎类型
+     */
+    enum MapEngine {
+        EngineOSM  = 0,   ///< MapLibre + PMTiles (WGS84)
+        EngineAMap = 1    ///< 高德离线瓦片 (GCJ-02)
+    };
+
+    /**
+     * @brief 获取当前地图引擎
+     */
+    MapEngine currentEngine() const { return m_currentEngine; }
+
 private:
     QWebEngineView* mView;   ///< Web引擎视图对象，承载地图显示
 
@@ -91,6 +104,9 @@ private:
     double m_currentLongitude;  ///< 当前雷达经度
     double m_currentLatitude;   ///< 当前雷达纬度
     double m_currentRange;      ///< 当前显示范围(公里)
+    MapEngine m_currentEngine;  ///< 当前地图引擎
+    int m_currentMapType;       ///< 当前地图类型索引
+    bool m_initialLoadPending = true; ///< true until deferred initial load fires
 
     /**
      * @brief 同步当前雷达状态到地图
@@ -148,6 +164,13 @@ public slots:
      *          - 根据雷达应用场景选择最适合的地图类型
      */
     void chooseMap(int index);
+
+    /**
+     * @brief 切换地图引擎
+     * @param engineIndex 0=OSM(MapLibre), 1=高德(AMap)
+     * @param mapTypeIndex 该引擎下的地图类型索引
+     */
+    void switchEngine(int engineIndex, int mapTypeIndex);
 
     /** @} */ // end of MapControlSlots group
 

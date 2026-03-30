@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:32
+ * @LastEditTime: 2026-03-30 22:07:38
  * @Description: 
  */
 /**
@@ -28,6 +28,7 @@ class mainviewTopLeft;    ///< 左上角雷达信息显示组件
 class PointInfoW;         ///< 右上角点信息显示组件
 class MousePositionInfo;  ///< 鼠标位置信息显示组件
 class PPIVisualSettings;  ///< PPI视觉设置组件
+class OsmRoadParser;      ///< OSM道路数据解析器
 
 /**
  * @class PPIView
@@ -173,6 +174,13 @@ signals:
     void mapTypeChanged(int index);
 
     /**
+     * @brief 地图引擎变化信号
+     * @param engineIndex 引擎索引 (0=OSM, 1=高德)
+     * @param mapTypeIndex 该引擎下的地图类型索引
+     */
+    void mapEngineChanged(int engineIndex, int mapTypeIndex);
+
+    /**
      * @brief P显清除信号
      * @details 当用户点击"显清"按钮确认清除P显数据时发出，
      *          用于通知其他组件（如RangeAzimuthChart）同步清除数据
@@ -260,6 +268,26 @@ public slots:
      */
     MousePositionInfo* getMousePositionInfo() const { return mousePositionInfo; }
 
+    /**
+     * @brief 处理道路点可见性变化
+     * @param visible true表示显示道路点，false表示隐藏
+     */
+    void onRoadVisibilityChanged(bool visible);
+
+    /**
+     * @brief 刷新道路点显示（范围变化时调用）
+     */
+    void refreshRoadPoints();
+
+    /**
+     * @brief 雷达经纬高变化处理（浮点容差判断）
+     * @param latitude  新纬度
+     * @param longitude 新经度
+     * @param altitude  新海拔（未用）
+     * @details 位置变化超过容差时：更新雷达坐标→重算OSM节点→刷新显示→下发道路点经纬度
+     */
+    void onGeoLocationChanged(double latitude, double longitude, double altitude);
+
 protected:
     /**
      * @brief 鼠标按下事件处理
@@ -328,6 +356,21 @@ private:
     double m_radarLongitude = 108.9138;         ///< 雷达中心经度（默认西电99号楼）
     double m_radarLatitude = 34.2311;           ///< 雷达中心纬度（默认西电99号楼）
     double m_currentRange = 5.0;                ///< 当前雷达最大范围（公里）
+
+    // 道路点显示
+    OsmRoadParser* m_roadParser = nullptr;                   ///< OSM道路解析器
+    QList<QGraphicsEllipseItem*> m_roadPointItems;           ///< 当前显示的道路点图形项
+    bool m_roadVisible = false;                              ///< 道路点可见性标志
+
+    // 道路点下发状态跟踪（用于浮点容差判断）
+    double m_lastSentLat = 0.0;              ///< 上次下发时的雷达纬度
+    double m_lastSentLon = 0.0;              ///< 上次下发时的雷达经度
+    double m_lastSentRange = 0.0;            ///< 上次下发时的量程（km）
+
+    /**
+     * @brief 收集量程内道路点经纬度并下发给数据处理模块
+     */
+    void sendRoadPointsToDataPro();
 
     /**
      * @brief 初始化叠加层

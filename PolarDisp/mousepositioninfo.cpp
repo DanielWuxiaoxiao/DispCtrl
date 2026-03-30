@@ -3,13 +3,15 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-23 09:44:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:31
+ * @LastEditTime: 2026-03-30 22:07:38
  * @Description: 
  */
 #include "mousepositioninfo.h"
 #include "ui_mousepositioninfo.h"
 #include <QStyleOption>
 #include <QPainter>
+#include <QLabel>
+#include <QHBoxLayout>
 
 MousePositionInfo::MousePositionInfo(QWidget *parent) :
     QWidget(parent),
@@ -28,7 +30,29 @@ MousePositionInfo::MousePositionInfo(QWidget *parent) :
     ui->distanceValue->setObjectName("MouseDistanceValue");
     ui->azimuthValue->setObjectName("MouseAzimuthValue");
 
+    // 在checkbox旁边添加颜色圆圈指示
+    // 检测点：绿色圆圈
+    {
+        QLabel* detColorLabel = new QLabel("●", this);
+        detColorLabel->setStyleSheet("color: #00FF00; font-size: 18px;");
+        detColorLabel->setFixedWidth(16);
+        ui->checkboxLayout->insertWidget(1, detColorLabel);
+    }
+    // 跟踪点：红色圆圈
+    {
+        QLabel* trackColorLabel = new QLabel("●", this);
+        trackColorLabel->setStyleSheet("color: #FF0000; font-size: 18px;");
+        trackColorLabel->setFixedWidth(16);
+        ui->checkboxLayout->addWidget(trackColorLabel);
+    }
+
     // 连接checkbox信号
+    // 标识 objectName 并调整指示器尺寸为稍小（更紧凑）
+    ui->checkBoxDetection->setObjectName("MouseCheckBoxDetection");
+    ui->checkBoxTrack->setObjectName("MouseCheckBoxTrack");
+    ui->checkBoxDetection->setStyleSheet("QCheckBox::indicator { width: 12px; height: 12px; }");
+    ui->checkBoxTrack->setStyleSheet("QCheckBox::indicator { width: 12px; height: 12px; }");
+
     connect(ui->checkBoxDetection, &QCheckBox::toggled, this, &MousePositionInfo::detectionVisibilityChanged);
     connect(ui->checkBoxTrack, &QCheckBox::toggled, this, &MousePositionInfo::trackVisibilityChanged);
 

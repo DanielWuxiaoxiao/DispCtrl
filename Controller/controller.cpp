@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:30
+ * @LastEditTime: 2026-03-30 22:07:37
  * @Description: 
  */
 /**
@@ -143,6 +143,39 @@ bool Controller::sendExternalSystemControl(const QByteArray& frame512) {
 bool Controller::sendExternalServoControl(const QByteArray& frame32) {
     if (!extCtrlMgr) return false;
     return extCtrlMgr->sendServoControl(frame32);
+}
+
+void Controller::sendRoadPointsToDataPro(const RoadPointGeo* points, int count)
+{
+    if (!dataMgr || !points || count <= 0) return;
+
+    int frameTotal = (count + ROAD_POINTS_PER_FRAME - 1) / ROAD_POINTS_PER_FRAME;
+
+    for (int frameIdx = 0; frameIdx < frameTotal; ++frameIdx) {
+        int startIdx = frameIdx * ROAD_POINTS_PER_FRAME;
+        int endIdx = qMin(startIdx + ROAD_POINTS_PER_FRAME, count);
+        int pointsInFrame = endIdx - startIdx;
+
+        // 构建帧: [RoadPointFrame] + [pointsInFrame × RoadPointGeo]
+        int dataSize = static_cast<int>(sizeof(RoadPointFrame))
+                     + pointsInFrame * static_cast<int>(sizeof(RoadPointGeo));
+        QByteArray buffer(dataSize, 0);
+
+        auto* header = reinterpret_cast<RoadPointFrame*>(buffer.data());
+        header->mesID = 0xDF02;
+        header->totalPoints = static_cast<unsigned int>(count);
+        header->frameIndex  = static_cast<unsigned short>(frameIdx);
+        header->frameTotal  = static_cast<unsigned short>(frameTotal);
+        header->pointsInFrame = static_cast<unsigned short>(pointsInFrame);
+
+        auto* ptData = reinterpret_cast<RoadPointGeo*>(buffer.data() + sizeof(RoadPointFrame));
+        memcpy(ptData, &points[startIdx], pointsInFrame * sizeof(RoadPointGeo));
+
+        dataMgr->sendParam(buffer.data(), static_cast<unsigned>(dataSize));
+    }
+
+    qDebug() << "[Controller] Sent" << count << "road points to data processing in"
+             << frameTotal << "frames";
 }
 
 void Controller::updateHeadingFromCtrlTable(double headingDeg) {

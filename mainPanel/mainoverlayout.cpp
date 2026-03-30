@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 10:09:00
+ * @LastEditTime: 2026-03-30 22:07:38
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -707,9 +707,9 @@ MainOverLayOut::~MainOverLayOut() {
 void MainOverLayOut::setupTrackManagement() {
     // 初始化总航迹表格
     QTableWidget* trackTable = ui->tableWidget;
-    QStringList headers;
-    headers << "批次号" << "方位" << "俯仰" << "高度" << "距离" << "速度"
-            << "SNR" << "类型";
+            QStringList headers;
+            headers << "批次号" << "方位" << "俯仰" << "高度" << "距离" << "速度"
+                << "SNR" << "类型";
 
     trackTable->setColumnCount(headers.size());
     trackTable->setHorizontalHeaderLabels(headers);
@@ -762,12 +762,23 @@ void MainOverLayOut::setupTrackManagement() {
     connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared, this, &MainOverLayOut::clearAllTracks);
     connect(&RADAR_DATA_MGR, &RadarDataManager::trackBatchRemoved, this, &MainOverLayOut::onTrackRemoved);
 
+        // Bridge: forward RadarDataManager::trackReceived to Controller::traInfoProcess
+        // Ensures views listening on Controller (PPI / RangeAzimuth) receive the same events
+        if (CON_INS) {
+        connect(&RADAR_DATA_MGR, &RadarDataManager::trackReceived,
+            CON_INS, &Controller::traInfoProcess);
+        }
+
     // 连接Controller的目标分类信号
     if (CON_INS) {
         connect(CON_INS, &Controller::targetClaRes, this,
                 [this](TargetClaRes res) { updateTargetClassification(res.batchID, res.claRes); });
     }
+
+    // (no test simulators scheduled)
 }
+
+// simulateIncomingTracks removed
 
 void MainOverLayOut::updateTrackList(const PointInfo& info) {
     // statMethod==2 是消批指令，不应插入/更新行（由 onTrackRemoved 处理删除）
@@ -806,16 +817,10 @@ void MainOverLayOut::updateDroneTrackList(const PointInfo& info) {
 void MainOverLayOut::updateTargetClassification(unsigned int batchID, int targetType) {
     m_targetTypes[batchID] = targetType;
 
-    // 更新总航迹表格中的目标类型
+    // classification update (no debug log)
+
+    // 不覆盖显示列 "类型"（该列用于显示识别结果），只更新内部映射 m_targetTypes
     QTableWidget* trackTable = ui->tableWidget;
-    for (int row = 0; row < trackTable->rowCount(); ++row) {
-        if (trackTable->item(row, 0) && trackTable->item(row, 0)->text().toUInt() == batchID) {
-            if (trackTable->item(row, 7)) {
-                trackTable->item(row, 7)->setText(getTargetTypeText(targetType));
-            }
-            break;
-        }
-    }
 
     // 如果是无人机类型，添加到无人机表格；否则从无人机表格中移除
     if (targetType == 1) {  // 无人机
@@ -968,11 +973,10 @@ int MainOverLayOut::addOrUpdateTrackRow(QTableWidget* tableWidget, const PointIn
     tableWidget->setItem(row, 4, new QTableWidgetItem(QString::number(info.range, 'f', 1)));
     tableWidget->setItem(row, 5, new QTableWidgetItem(QString::number(info.speed, 'f', 1)));
     tableWidget->setItem(row, 6, new QTableWidgetItem(QString::number(info.SNR, 'f', 1)));
-    tableWidget->setItem(row, 7, new QTableWidgetItem(targetType));
-
     // 目标识别结果（来自数据处理上报）
     QString recResultStr = (info.targetRecResult == 1) ? "无人机" : "其它";
-    tableWidget->setItem(row, 8, new QTableWidgetItem(recResultStr));
+    // 显示识别结果在"类型"列（列索引7），不使用额外列
+    tableWidget->setItem(row, 7, new QTableWidgetItem(recResultStr));
 
     // 设置所有项为不可编辑
     for (int col = 0; col < tableWidget->columnCount(); ++col) {

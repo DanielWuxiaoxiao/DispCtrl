@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 10:09:00
+ * @LastEditTime: 2026-03-30 22:07:38
  * @Description: 
  */
 #include "mapprox.h"
@@ -11,6 +11,7 @@
 #include <QWebEngineProfile>
 #include <QTimer>
 #include <QDir>
+#include <QUrlQuery>
 #include "../Basic/ConfigManager.h"
 
 MapProxyWidget::MapProxyWidget()
@@ -22,6 +23,9 @@ MapProxyWidget::MapProxyWidget()
     m_currentLongitude = CF_INS.longitude();
     m_currentLatitude = CF_INS.latitude();
     m_currentRange = CF_INS.range("max", 5);  // 默认使用最大显示距离
+    // 默认使用高德离线瓦片（AMap）——已移除OSM选项，强制为 AMap
+    m_currentEngine = EngineAMap;
+    m_currentMapType = CF_INS.mapType("default_type", 1);
 
     // 检查必需的瓦片文件夹是否存在
     QString appDir = QCoreApplication::applicationDirPath();
@@ -49,8 +53,10 @@ MapProxyWidget::MapProxyWidget()
     }
 
     // 瓦片存在，继续正常加载地图
-    // 设置工作目录为包含index.html的目录,即index.html的绝对目录
-    QString htmlFile = appDir + "/indexNoL.html"; // 替换为实际路径
+    // 根据初始引擎选择HTML文件
+    QString htmlFile;
+    // 仅使用高德离线 HTML 路径
+    htmlFile = appDir + "/indexNoL.html";
     qDebug() << htmlFile;
 
     // 从配置文件读取WebEngine调试设置
@@ -76,102 +82,64 @@ MapProxyWidget::MapProxyWidget()
     /* 加载网页，注意加载网页必须在通道注册之后，其有有一个注册完成的信号，
            可根据需要调用  "http://localhost:8080/index.html"*/
 
-    QUrl baseUrl = QUrl::fromLocalFile(htmlFile);
+    // 构造函数中不加载地图HTML——此时QWebEngineView还未加入布局，容器尺寸为0，
+    // AMap在零尺寸容器中初始化会导致瓦片不渲染。
+    // 先显示黑色占位页，延迟到布局完成后再加载实际地图。
+    mView->setHtml("<html><body style='background-color: black; margin: 0; padding: 0;'></body></html>");
 
-    // 页面初次加载完成后立即注入正确的中心坐标，避免闪回HTML硬编码默认点
-    QMetaObject::Connection connection;
-    connection = connect(mView, &QWebEngineView::loadFinished, this, [this, connection](bool success) mutable {
-        if (success) {
-            // 立即注入JS覆盖默认中心，无延迟
-            QString js = QString("setCenterOn(%1, %2, %3);")
-                .arg(m_currentLongitude, 0, 'f', 9)
-                .arg(m_currentLatitude, 0, 'f', 9)
-                .arg(m_currentRange, 0, 'f', 3);
-            mView->page()->runJavaScript(js);
-        }
-        QObject::disconnect(connection);
+    // 延迟加载：等待主窗口布局完成后QWebEngineView拥有有效尺寸，
+    // 然后触发真正的地图加载。在此期间PPIVisualSettings的chooseMap调用
+    // 会被拦截（仅更新m_currentMapType）。
+    QTimer::singleShot(500, this, [this]() {
+        m_initialLoadPending = false;
+        chooseMap(m_currentMapType);
     });
-
-    mView->setUrl(QUrl(baseUrl));
-    //直接在load后的语句进行javascript函数会导致无法运行，需要等待页面完全加载完毕才可使用函数。
 }
 
 void MapProxyWidget::chooseMap(int index)
 {
-    // 检查瓦片文件夹是否存在
-    QString appDir = QCoreApplication::applicationDirPath();
-    QStringList requiredTileDirs = {"mapNoL", "map16", "map16S"};
-    bool tilesAvailable = false;
+    m_currentMapType = index;
 
-    for (const QString& tileDir : requiredTileDirs) {
-        QDir dir(appDir + "/" + tileDir);
-        if (dir.exists()) {
-            tilesAvailable = true;
-            break;
-        }
+    // 启动期间widget还未布局完成，仅记录类型，等待延迟加载触发
+    if (m_initialLoadPending) {
+        return;
     }
 
-    // 如果瓦片不存在，仅设置透明黑色背景
+    QString appDir = QCoreApplication::applicationDirPath();
+
+    // 检查瓦片文件夹是否存在
+    QStringList requiredTileDirs = {"mapNoL", "map16", "map16S"};
+    bool tilesAvailable = false;
+    for (const QString& tileDir : requiredTileDirs) {
+        QDir dir(appDir + "/" + tileDir);
+        if (dir.exists()) { tilesAvailable = true; break; }
+    }
     if (!tilesAvailable) {
-        qWarning() << "Map tiles not available. Cannot switch map.";
+        qWarning() << "AMap tiles not available. Cannot switch map.";
         mView->setHtml("<html><body style='background-color: rgba(16, 24, 24, 0.9); margin: 0; padding: 0;'></body></html>");
         return;
     }
 
     QString htmlFile;
-
-    if(index == 0)
-    {
-        htmlFile = appDir + "/black.html"; // 替换为实际路径
-    }
-    else
-    {
-        if(index == 1)
-        {
-            htmlFile = appDir + "/indexNoL.html"; // 替换为实际路径
-        }
-        else if(index == 2)
-        {
-            htmlFile = appDir + "/index.html"; // 替换为实际路径
-        }
-        else if(index == 3)
-        {
-            htmlFile = appDir + "/indexS.html"; // 替换为实际路径
-        }
-        else if(index == 4)
-        {
-            htmlFile = appDir + "/index3d.html"; // 替换为实际路径
-        }
+    switch (index) {
+        case 0: htmlFile = appDir + "/black.html"; break;
+        case 1: htmlFile = appDir + "/indexNoL.html"; break;
+        case 2: htmlFile = appDir + "/index.html"; break;
+        case 3: htmlFile = appDir + "/indexS.html"; break;
+        case 4: htmlFile = appDir + "/index3d.html"; break;
+        default: htmlFile = appDir + "/indexNoL.html"; break;
     }
 
-    if (!htmlFile.isEmpty()) {
-        QUrl baseUrl = QUrl::fromLocalFile(htmlFile);
+    // 通过URL查询参数把当前中心坐标传给HTML，页面初始化时直接定位，避免闪回默认点
+    QUrl baseUrl = QUrl::fromLocalFile(htmlFile);
+    QUrlQuery query;
+    query.addQueryItem("lng", QString::number(m_currentLongitude, 'f', 9));
+    query.addQueryItem("lat", QString::number(m_currentLatitude, 'f', 9));
+    query.addQueryItem("range", QString::number(m_currentRange, 'f', 3));
+    baseUrl.setQuery(query);
+    mView->setUrl(baseUrl);
 
-        // 隐藏地图视图，防止加载时闪回HTML硬编码默认坐标
-        mView->setVisible(false);
-
-        // 连接页面加载完成信号，立即注入正确中心坐标后再显示
-        QMetaObject::Connection connection;
-        connection = connect(mView, &QWebEngineView::loadFinished, this, [this, connection](bool success) mutable {
-            if (success) {
-                // 立即注入正确坐标覆盖HTML默认值，无延迟
-                QString js = QString("setCenterOn(%1, %2, %3);")
-                    .arg(m_currentLongitude, 0, 'f', 9)
-                    .arg(m_currentLatitude, 0, 'f', 9)
-                    .arg(m_currentRange, 0, 'f', 3);
-                mView->page()->runJavaScript(js, [this](const QVariant &) {
-                    // JS执行完毕后再显示，确保地图已经在正确位置
-                    mView->setVisible(true);
-                });
-            } else {
-                mView->setVisible(true);
-            }
-            QObject::disconnect(connection);
-        });
-
-        mView->setUrl(baseUrl);
-        qDebug() << "Map switched to:" << htmlFile;
-    }
+    qDebug() << "Map switched: AMap, typeIndex=" << index;
 }
 
 void MapProxyWidget::setCenterOn(float lng, float lat,float range)
@@ -181,8 +149,8 @@ void MapProxyWidget::setCenterOn(float lng, float lat,float range)
 
 void MapProxyWidget::syncRadarToMap(double longitude, double latitude, double range)
 {
-    // 浮点容差判断：经纬度变化 < 0.0000001°（约0.01m）且距离变化 < 0.001km（1m）时不触发更新
-    const double LNG_LAT_EPS = 1e-7;
+    // 浮点容差判断：经纬度变化 < 0.000001°（约0.11m）且距离变化 < 0.001km（1m）时不触发更新
+    const double LNG_LAT_EPS = 1e-6;
     const double RANGE_EPS   = 1e-3;
     if (qAbs(longitude - m_currentLongitude) < LNG_LAT_EPS &&
         qAbs(latitude  - m_currentLatitude)  < LNG_LAT_EPS &&
@@ -211,4 +179,18 @@ void MapProxyWidget::syncCurrentRadarState()
 void MapProxyWidget::setGray(int value)
 {
     emit changeGrayScale(value);
+}
+
+void MapProxyWidget::switchEngine(int engineIndex, int mapTypeIndex)
+{
+    MapEngine newEngine = static_cast<MapEngine>(engineIndex);
+    if (newEngine == m_currentEngine && mapTypeIndex == m_currentMapType) {
+        return; // 引擎和类型都没变
+    }
+
+    m_currentEngine = newEngine;
+    qDebug() << "Map engine switched to:" << (newEngine == EngineOSM ? "OSM/MapLibre" : "AMap/高德");
+
+    // 用chooseMap加载对应HTML
+    chooseMap(mapTypeIndex);
 }

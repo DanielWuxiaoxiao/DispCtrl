@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 10:08:59
+ * @LastEditTime: 2026-03-30 22:07:37
  * @Description: 
  */
 #ifndef PROTOCOL_H
@@ -913,6 +913,39 @@ typedef struct _SetTrackManual
         mesID = 0xDF01;
     }
 }SetTrackManual;
+
+// =========================
+// 道路点经纬度下发（显控→数处），消息ID: 0xDF02
+// 用于将量程内的OSM道路点坐标发送给数据处理模块
+// =========================
+
+constexpr int ROAD_POINTS_PER_FRAME = 150;  // 每帧最大道路点数（MTU安全）
+
+// 单个道路点经纬度
+typedef struct _RoadPointGeo {
+    int latitude;    // 单位: 0.0000001°（1e-7度）
+    int longitude;   // 单位: 0.0000001°（1e-7度）
+
+    _RoadPointGeo() {
+        latitude = 0;
+        longitude = 0;
+    }
+}RoadPointGeo;
+
+// 道路点数据帧头（显控→数处）
+typedef struct _RoadPointFrame {
+    unsigned short mesID;          // 0xDF02
+    unsigned int totalPoints;      // 全部道路点总数
+    unsigned short frameIndex;     // 当前帧序号（从0开始）
+    unsigned short frameTotal;     // 总帧数
+    unsigned short pointsInFrame;  // 本帧包含点数
+    // 紧跟 pointsInFrame 个 RoadPointGeo
+
+    _RoadPointFrame() {
+        memset(this, 0, sizeof(_RoadPointFrame));
+        mesID = 0xDF02;
+    }
+}RoadPointFrame;
 
 typedef struct _TargetClaRes
 {

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-10 17:18:13
+ * @LastEditTime: 2026-03-30 22:07:37
  * @Description: 
  */
 #ifndef CONFIGMANAGER_H
@@ -58,6 +58,10 @@ public:
         return getValue("map." + key, def).toInt();
     }
 
+    int mapEngine(int def = 0) const {
+        return getValue("map.engine", def).toInt();  // 0=OSM, 1=AMap
+    }
+
     // 扇形显示相关配置
     double sectorAngle(const QString& key, double def = 0.0) const {
         return getValue("sectorDisp.angle." + key, def).toDouble();
@@ -100,6 +104,17 @@ public:
 
     double roll(const QString& key = "roll", double def = 0.0) const {
         return getValue("radar." + key, def).toDouble();
+    }
+
+    // OSM道路数据配置
+    QString osmFile(const QString& def = "bailuyuan.osm") const {
+        return getValue("osm.file", def).toString();
+    }
+    bool osmGcj02(bool def = true) const {
+        return getValue("osm.gcj02", def).toBool();
+    }
+    double osmInterpolationStep(double def = 30.0) const {
+        return getValue("osm.interpolation_step", def).toDouble();
     }
 
     // 新增的配置访问方法

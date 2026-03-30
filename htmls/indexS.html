@@ -54,10 +54,11 @@
       //   //viewMode: "3D", //三维视图,需要拖动才能变成3d
       // });
 
-      //离线地图
-      var initLng = 108.9138;
-      var initLat = 34.2311;
-      var initRange = 3.0; //km
+      //离线地图 - 优先从URL参数读取初始中心（Qt切换地图时传入），无参数则用默认值
+      var _qp = new URLSearchParams(window.location.search);
+      var initLng = parseFloat(_qp.get('lng')) || 108.9138;
+      var initLat = parseFloat(_qp.get('lat')) || 34.2311;
+      var initRange = parseFloat(_qp.get('range')) || 3.0; //km
       var map = new AMap.Map("container", {
         resizeEnable: true,
         //rotateEnable: true,  //旋转后汉字也会旋转

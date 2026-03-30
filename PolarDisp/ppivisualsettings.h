@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-23 09:44:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-20 16:29:53
+ * @LastEditTime: 2026-03-30 22:07:38
  * @Description: 
  */
 /**
@@ -33,8 +33,8 @@
 
 #include <QWidget>
 #include <QLineEdit>
-#include <QComboBox>
 #include <QLabel>
+#include <QCheckBox>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class PPIVisualSettings; }
@@ -173,6 +173,13 @@ signals:
      */
     void clearDisplayRequested();
 
+    /**
+     * @brief 道路点可见性变化信号
+     * @param visible true表示显示道路点，false表示隐藏
+     */
+    void roadVisibilityChanged(bool visible);
+
+
 protected:
     /**
      * @brief 重写paintEvent以确保样式表正确渲染并绘制自定义箭头
@@ -226,6 +233,8 @@ private slots:
 private:
     Ui::PPIVisualSettings *ui;  ///< UI界面对象指针
     QLabel *m_processStatusLabel = nullptr;  ///< 数据处理状态标签
+    QCheckBox *m_roadCheckBox = nullptr;     ///< 道路点显示开关
+    // Map engine selection removed per rollback decision
 
     /**
      * @brief 设置组件样式

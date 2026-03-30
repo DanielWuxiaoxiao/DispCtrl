@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-23 09:44:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-20 16:29:53
+ * @LastEditTime: 2026-03-30 22:07:38
  * @Description: 
  */
 /**
@@ -120,6 +120,42 @@ PPIVisualSettings::PPIVisualSettings(QWidget *parent)
         // 插入到垂直布局中（按钮行之前，即索引3）
         ui->verticalLayout->insertLayout(3, statusLayout);
     }
+
+    // 添加道路点勾选框（在处理状态行之后）
+    {
+        QHBoxLayout* roadLayout = new QHBoxLayout();
+        roadLayout->setSpacing(4);
+
+        QLabel* roadLabel = new QLabel("道路点", this);
+        roadLabel->setMinimumWidth(80);
+        roadLabel->setAlignment(Qt::AlignCenter);
+        roadLabel->setObjectName("PPIRoadLabel");
+
+        m_roadCheckBox = new QCheckBox(this);
+        m_roadCheckBox->setChecked(false);
+        m_roadCheckBox->setToolTip("显示/隐藏OSM道路点");
+        m_roadCheckBox->setObjectName("PPIRoadCheckBox");
+        // 让道路点的checkbox指示器稍大一些，便于识别
+        m_roadCheckBox->setStyleSheet("QCheckBox::indicator { width: 18px; height: 18px; }");
+
+        roadLayout->addWidget(roadLabel);
+        roadLayout->addWidget(m_roadCheckBox);
+
+        // 在道路点右侧添加颜色指示圆圈（比MousePositionInfo中圆圈更大）
+        QLabel* roadColorLabel = new QLabel("●", this);
+        roadColorLabel->setStyleSheet("color: #FF8000; font-size: 18px;");
+        roadColorLabel->setFixedWidth(20);
+        roadColorLabel->setAlignment(Qt::AlignCenter);
+        roadColorLabel->setObjectName("PPIRoadColorLabel");
+        roadLayout->addWidget(roadColorLabel);
+
+        // 插入到处理状态行之后（索引4）
+        ui->verticalLayout->insertLayout(4, roadLayout);
+
+        connect(m_roadCheckBox, &QCheckBox::toggled, this, &PPIVisualSettings::roadVisibilityChanged);
+    }
+
+    // Map engine selection removed per rollback decision (OSM/MapLibre UI disabled)
 
     // 连接离线处理状态信号
     connect(CON_INS, &Controller::offLineStat, this, [this](OfflineStat info) {

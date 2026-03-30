@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-25 17:09:15
+ * @LastEditTime: 2026-03-30 22:07:37
  * @Description: 
  */
 /**
@@ -133,6 +133,15 @@ public:
     // 外部雷控链路发送接口（空壳，调用方填充数据并确保长度正确）
     bool sendExternalSystemControl(const QByteArray& frame512);
     bool sendExternalServoControl(const QByteArray& frame32);
+
+    /**
+     * @brief 将道路点经纬度分帧下发给数据处理模块
+     * @param points 道路点数组指针（RoadPointGeo[]）
+     * @param count  道路点数量
+     * @details 按 ROAD_POINTS_PER_FRAME 拆帧，每帧带 RoadPointFrame 帧头 + N 个 RoadPointGeo，
+     *          通过 packData 封装为标准协议帧后 UDP 发送。
+     */
+    void sendRoadPointsToDataPro(const RoadPointGeo* points, int count);
 
 signals:
     // === 向资源系统发送控制参数 ===

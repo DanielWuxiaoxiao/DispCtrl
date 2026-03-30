@@ -199,6 +199,7 @@ set(SRC_FILES
     # 基础模块 - 系统基础功能
     Basic/log.cpp                              # 日志系统
     Basic/Protocol.cpp                         # 通信协议定义
+    Basic/OsmRoadParser.cpp                    # OSM道路数据解析器
 )
 
 ##############################################################################
@@ -256,6 +257,7 @@ set(HDR_FILES
     Basic/DispBasci.h                         # 显示基础定义
     Basic/ConfigManager.h                     # 配置管理器
     Basic/authmanager.h                       # 管理者模式认证管理器
+    Basic/OsmRoadParser.h                     # OSM道路数据解析器
 
     # 极坐标显示模块头文件 - PPI雷达显示
     PolarDisp/polargrid.h                     # 极坐标网格
@@ -461,6 +463,23 @@ add_custom_target(copy_config ALL
     COMMENT "Copying config.toml to output directories (only if not exists)"
     VERBATIM
 )
+
+# 复制OSM道路数据到输出目录
+if(EXISTS "${CMAKE_SOURCE_DIR}/osm")
+    add_custom_target(copy_osm ALL
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/osm"
+            "${CMAKE_BINARY_DIR}/bin/osm"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/osm"
+            "${CMAKE_BINARY_DIR}/bin/Debug/osm"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/osm"
+            "${CMAKE_BINARY_DIR}/bin/Release/osm"
+        COMMENT "Copying OSM road data to output directories"
+        VERBATIM
+    )
+endif()
 
 ##############################################################################
 # 编译完成后的提示

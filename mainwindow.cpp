@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-25 17:09:16
+ * @LastEditTime: 2026-03-30 22:07:38
  * @Description: 
  */
 /**
@@ -37,6 +37,7 @@
 
 #include "mainwindow.h"
 #include "Basic/DispBasci.h"
+#include "Basic/ConfigManager.h"
 #include <QVBoxLayout>
 #include <QTimer>
 #include "mapDisp/mapprox.h"
@@ -121,8 +122,9 @@ void FramelessMainWindow::setupCentralView()
     // 将地图视图添加到布局中
     layout->addWidget(m_map->getView());
 
-    // 设置默认地图显示模式（模式1）
-    m_map->chooseMap(1);
+    // 设置默认地图显示模式（根据配置的引擎和类型）
+    int defaultMapType = CF_INS.mapType("default_type", 1);
+    m_map->chooseMap(defaultMapType);
 
     // 将配置好的中央组件设置为主窗口的中央widget
     setCentralWidget(central);
@@ -180,6 +182,8 @@ void FramelessMainWindow::setupOverlayUI()
     // 使PPIVisualSettings组件能够控制背景地图的显示类型
     connect(m_overlayWidget->getPPIView(), &PPIView::mapTypeChanged,
             m_map, &MapProxyWidget::chooseMap);
+
+    // Map engine switching disabled (MapLibre/OSM selector removed)
 
     // 连接PPI视图的雷达中心变化信号到地图组件的同步方法
     // 实现雷达位置/范围变化时自动同步地图显示范围

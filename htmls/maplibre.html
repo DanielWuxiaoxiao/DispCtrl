@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width" />
+    <script src="./maplibre/maplibre-gl.js"></script>
+    <link href="./maplibre/maplibre-gl.css" rel="stylesheet" />
+    <script src="./maplibre/pmtiles.js"></script>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background: #000;
+            overflow: hidden;
+        }
+        #map {
+            width: 100%;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<script src="qwebchannel.js"></script>
+<script type="text/javascript">
+// ============================================================
+// MapLibre GL JS + PMTiles 离线地图（WGS84 坐标系，无 GCJ-02 偏移）
+// ============================================================
+
+var initLng = 108.9138;
+var initLat = 34.2311;
+var initRange = 3.0; // km
+
+// ---- PMTiles 协议注册 (deferred) ----
+function registerPmtilesProtocol(callback) {
+    if (typeof window.pmtiles !== 'undefined') {
+        try {
+            var pmtilesProtocol = new pmtiles.Protocol();
+            maplibregl.addProtocol("pmtiles", pmtilesProtocol.tile);
+            if (callback) callback(true);
+            return;
+        } catch (e) {
+            console.error('pmtiles.Protocol init failed:', e);
+        }
+    }
+    // pmtiles not ready yet — poll for it for a short while
+    var waited = 0;
+    var interval = setInterval(function() {
+        if (typeof window.pmtiles !== 'undefined') {
+            clearInterval(interval);
+            try {
+                var pmtilesProtocol = new pmtiles.Protocol();
+                maplibregl.addProtocol("pmtiles", pmtilesProtocol.tile);
+                if (callback) callback(true);
+            } catch (e) {
+                console.error('pmtiles.Protocol init failed after load:', e);
+                if (callback) callback(false);
+            }
+            return;
+        }
+        waited += 100;
+        if (waited > 5000) { // timeout
+            clearInterval(interval);
+            console.error('pmtiles not available after 5s; pmtiles protocol not registered');
+            if (callback) callback(false);
+        }
+    }, 100);
+}
+
+// ---- 雷达暗绿风格定义 ----
+// 基本样式（纯黑背景 + 绿色矢量要素），使用 PMTiles 数据源
+var radarDarkStyle = {
+    "version": 8,
+    "name": "radar-dark",
+    "glyphs": "./maplibre/fonts/{fontstack}/{range}.pbf",
+    "sources": {
+        "protomaps": {
+            "type": "vector",
+            "url": "pmtiles://./pmtiles/bailuyuan.pmtiles",
+            "attribution": "© OpenStreetMap"
+        }
+    },
+    "layers": [
+        {
+            "id": "background",
+            "type": "background",
+            "paint": { "background-color": "#000000" }
+        },
+        {
+            "id": "water",
+            "type": "fill",
+            "source": "protomaps",
+            "source-layer": "water",
+            "paint": { "fill-color": "#001a0a", "fill-opacity": 0.7 }
+        },
+        {
+            "id": "landuse-park",
+            "type": "fill",
+            "source": "protomaps",
+            "source-layer": "landuse",
+            "filter": ["in", "pmap:kind", "park", "forest", "grass", "wood", "nature_reserve"],
+            "paint": { "fill-color": "#061a06", "fill-opacity": 0.5 }
+        },
+        {
+            "id": "landuse-other",
+            "type": "fill",
+            "source": "protomaps",
+            "source-layer": "landuse",
+            "filter": ["!in", "pmap:kind", "park", "forest", "grass", "wood", "nature_reserve"],
+            "paint": { "fill-color": "#0a0f0a", "fill-opacity": 0.4 }
+        },
+        {
+            "id": "buildings",
+            "type": "fill",
+            "source": "protomaps",
+            "source-layer": "buildings",
+            "paint": {
+                "fill-color": "#0a1a0a",
+                "fill-outline-color": "#004400",
+                "fill-opacity": 0.6
+            }
+        },
+        {
+            "id": "roads-minor",
+            "type": "line",
+            "source": "protomaps",
+            "source-layer": "roads",
+            "filter": ["in", "pmap:kind", "minor_road", "other", "path"],
+            "paint": {
+                "line-color": "#004d1a",
+                "line-width": 0.8,
+                "line-opacity": 0.6
+            }
+        },
+        {
+            "id": "roads-medium",
+            "type": "line",
+            "source": "protomaps",
+            "source-layer": "roads",
+            "filter": ["in", "pmap:kind", "medium_road"],
+            "paint": {
+                "line-color": "#00802b",
+                "line-width": 1.2,
+                "line-opacity": 0.75
+            }
+        },
+        {
+            "id": "roads-major",
+            "type": "line",
+            "source": "protomaps",
+            "source-layer": "roads",
+            "filter": ["in", "pmap:kind", "highway", "major_road"],
+            "paint": {
+                "line-color": "#00cc44",
+                "line-width": 1.8,
+                "line-opacity": 0.85
+            }
+        },
+        {
+            "id": "boundaries",
+            "type": "line",
+            "source": "protomaps",
+            "source-layer": "boundaries",
+            "paint": {
+                "line-color": "#00ff55",
+                "line-width": 1.0,
+                "line-opacity": 0.4,
+                "line-dasharray": [4, 2]
+            }
+        },
+        {
+            "id": "place-labels",
+            "type": "symbol",
+            "source": "protomaps",
+            "source-layer": "places",
+            "layout": {
+                "text-field": ["coalesce", ["get", "name:zh"], ["get", "name"]],
+                "text-size": 12,
+                "text-font": ["Noto Sans Regular"]
+            },
+            "paint": {
+                "text-color": "#00cc44",
+                "text-halo-color": "#000000",
+                "text-halo-width": 1.5,
+                "text-opacity": 0.8
+            }
+        }
+    ]
+};
+
+// ---- 路网图风格（只显示道路，其他隐藏）----
+var roadOnlyStyle = JSON.parse(JSON.stringify(radarDarkStyle));
+roadOnlyStyle.name = "radar-road-only";
+roadOnlyStyle.layers = radarDarkStyle.layers.filter(function(l) {
+    return l.id === "background" || l.id.startsWith("roads-") || l.id === "boundaries";
+});
+
+// ---- 明亮标准风格（浅色底图）----
+var standardStyle = {
+    "version": 8,
+    "name": "osm-standard",
+    "glyphs": "./maplibre/fonts/{fontstack}/{range}.pbf",
+    "sources": {
+        "protomaps": {
+            "type": "vector",
+            "url": "pmtiles://./pmtiles/bailuyuan.pmtiles",
+            "attribution": "© OpenStreetMap"
+        }
+    },
+    "layers": [
+        { "id": "background", "type": "background", "paint": { "background-color": "#0d1117" } },
+        {
+            "id": "water", "type": "fill",
+            "source": "protomaps", "source-layer": "water",
+            "paint": { "fill-color": "#0d2137" }
+        },
+        {
+            "id": "landuse-park", "type": "fill",
+            "source": "protomaps", "source-layer": "landuse",
+            "filter": ["in", "pmap:kind", "park", "forest", "grass", "wood", "nature_reserve"],
+            "paint": { "fill-color": "#0d2210" }
+        },
+        {
+            "id": "landuse-other", "type": "fill",
+            "source": "protomaps", "source-layer": "landuse",
+            "filter": ["!in", "pmap:kind", "park", "forest", "grass", "wood", "nature_reserve"],
+            "paint": { "fill-color": "#161b22" }
+        },
+        {
+            "id": "buildings", "type": "fill",
+            "source": "protomaps", "source-layer": "buildings",
+            "paint": { "fill-color": "#1c2230", "fill-outline-color": "#2d3748" }
+        },
+        {
+            "id": "roads-minor", "type": "line",
+            "source": "protomaps", "source-layer": "roads",
+            "filter": ["in", "pmap:kind", "minor_road", "other", "path"],
+            "paint": { "line-color": "#2d3748", "line-width": 0.8 }
+        },
+        {
+            "id": "roads-medium", "type": "line",
+            "source": "protomaps", "source-layer": "roads",
+            "filter": ["in", "pmap:kind", "medium_road"],
+            "paint": { "line-color": "#4a6a8a", "line-width": 1.2 }
+        },
+        {
+            "id": "roads-major", "type": "line",
+            "source": "protomaps", "source-layer": "roads",
+            "filter": ["in", "pmap:kind", "highway", "major_road"],
+            "paint": { "line-color": "#6a9fcf", "line-width": 1.8 }
+        },
+        {
+            "id": "boundaries", "type": "line",
+            "source": "protomaps", "source-layer": "boundaries",
+            "paint": { "line-color": "#4a6a8a", "line-width": 1.0, "line-dasharray": [4, 2] }
+        },
+        {
+            "id": "place-labels", "type": "symbol",
+            "source": "protomaps", "source-layer": "places",
+            "layout": {
+                "text-field": ["coalesce", ["get", "name:zh"], ["get", "name"]],
+                "text-size": 12,
+                "text-font": ["Noto Sans Regular"]
+            },
+            "paint": {
+                "text-color": "#8b949e",
+                "text-halo-color": "#0d1117",
+                "text-halo-width": 1.5
+            }
+        }
+    ]
+};
+
+// ---- 全要素OSM风格（含POI、详细土地利用等）----
+var detailedStyle = JSON.parse(JSON.stringify(radarDarkStyle));
+detailedStyle.name = "radar-detailed";
+// 增强全要素透明度
+detailedStyle.layers.forEach(function(l) {
+    if (l.paint) {
+        if (l.paint["fill-opacity"]) l.paint["fill-opacity"] = Math.min(1.0, l.paint["fill-opacity"] + 0.2);
+        if (l.paint["line-opacity"]) l.paint["line-opacity"] = Math.min(1.0, l.paint["line-opacity"] + 0.15);
+    }
+});
+
+// ---- 道路点图层（用于显示OSM解析的道路点）----
+var roadPointsGeoJSON = {
+    "type": "FeatureCollection",
+    "features": []
+};
+
+// ---- 样式集合 ----
+var styleMap = {
+    0: null,               // 无地图（黑屏）
+    1: roadOnlyStyle,      // 路网图
+    2: radarDarkStyle,     // 标准图（雷达暗绿）
+    3: standardStyle,      // 暗色标准图
+    4: detailedStyle       // 全要素详细图
+};
+
+var currentStyleIndex = 2; // 默认标准图
+var map = null;
+
+// ---- 初始化地图 ----
+function initMap(styleIndex) {
+    currentStyleIndex = styleIndex;
+    var style = styleMap[styleIndex];
+
+    if (!style) {
+        // 无地图模式：纯黑
+        if (map) { map.remove(); map = null; }
+        document.getElementById('map').style.backgroundColor = '#000';
+        return;
+    }
+
+    if (map) {
+        map.remove();
+        map = null;
+    }
+
+    document.getElementById('map').style.backgroundColor = '';
+
+    map = new maplibregl.Map({
+        container: 'map',
+        style: style,
+        center: [initLng, initLat],
+        zoom: 14,
+        attributionControl: false,
+        maxPitch: 0,
+        dragRotate: false
+    });
+
+    map.on('load', function() {
+        // 添加道路点数据源和图层
+        map.addSource('road-points', {
+            type: 'geojson',
+            data: roadPointsGeoJSON
+        });
+
+        map.addLayer({
+            id: 'road-points-layer',
+            type: 'circle',
+            source: 'road-points',
+            paint: {
+                'circle-radius': 3,
+                'circle-color': '#ffff00',
+                'circle-opacity': 0.8,
+                'circle-stroke-width': 0,
+            }
+        });
+    });
+}
+
+// 初始化默认地图 after registering pmtiles protocol (if used by style)
+registerPmtilesProtocol(function(ready) {
+    if (!ready) {
+        // If pmtiles not ready, styles using pmtiles will fail — switch to no-map (black)
+        console.warn('pmtiles protocol not ready; initializing map (styles with pmtiles may not load)');
+    }
+    try {
+        initMap(currentStyleIndex);
+    } catch (e) {
+        console.error('initMap failed:', e);
+    }
+});
+
+// ============================================================
+// Qt ↔ JS 通信接口（与 AMap 版本保持一致的函数签名）
+// ============================================================
+
+var mchannel;
+
+window.onload = function() {
+    if (typeof qt !== "undefined") {
+        new QWebChannel(qt.webChannelTransport, function(channel) {
+            channel.objects.qtChannel.centerOn.connect(setCenterOn);
+            channel.objects.qtChannel.changeGrayScale.connect(setGrayscale);
+            mchannel = channel;
+        });
+    }
+};
+
+/**
+ * 设置地图中心和显示范围（与 AMap 版本 setCenterOn 接口一致）
+ * @param {number} centerLng - 中心经度
+ * @param {number} centerLat - 中心纬度
+ * @param {number} range     - 水平显示范围（公里）
+ */
+function setCenterOn(centerLng, centerLat, range) {
+    if (!map) return;
+
+    var EARTH_RADIUS_M = 6378137.0;
+    var DEG_TO_RAD = Math.PI / 180.0;
+    var RAD_TO_DEG = 180.0 / Math.PI;
+
+    var container = document.getElementById('map');
+    var containerWidth = container.clientWidth;
+    var containerHeight = container.clientHeight;
+    var aspectRatio = containerWidth / containerHeight;
+
+    var horizontalRangeM = range * 1000.0;
+    var verticalRangeM = horizontalRangeM / aspectRatio;
+
+    var centerLatRad = centerLat * DEG_TO_RAD;
+    var cosLat = Math.cos(centerLatRad);
+
+    var latDiff = (verticalRangeM / 2.0 / EARTH_RADIUS_M) * RAD_TO_DEG;
+    var lngDiff = (horizontalRangeM / 2.0 / (EARTH_RADIUS_M * cosLat)) * RAD_TO_DEG;
+
+    var sw = [centerLng - lngDiff, centerLat - latDiff];
+    var ne = [centerLng + lngDiff, centerLat + latDiff];
+
+    map.fitBounds([sw, ne], {
+        padding: 0,
+        animate: false
+    });
+}
+
+/**
+ * 切换地图样式（从 Qt 端调用）
+ * @param {number} index - 样式索引
+ */
+function switchStyle(index) {
+    // 保存当前视口
+    var center = map ? map.getCenter() : { lng: initLng, lat: initLat };
+    var savedLng = center.lng;
+    var savedLat = center.lat;
+
+    initMap(index);
+
+    // 恢复视口（延迟等待地图加载）
+    if (map) {
+        setTimeout(function() {
+            map.setCenter([savedLng, savedLat]);
+        }, 100);
+    }
+}
+
+/**
+ * 灰度效果（与 AMap 版本接口一致）
+ * @param {number} value - 灰度百分比 0-100
+ */
+function setGrayscale(value) {
+    var mapEl = document.getElementById('map');
+    if (value === 0) {
+        mapEl.style.filter = 'none';
+    } else {
+        mapEl.style.filter = 'grayscale(' + value + '%)';
+    }
+}
+
+/**
+ * 更新道路点显示（从 Qt 端通过 runJavaScript 调用）
+ * @param {Array} points - [{lat: number, lng: number}, ...]
+ */
+function updateRoadPoints(points) {
+    roadPointsGeoJSON.features = points.map(function(p) {
+        return {
+            type: "Feature",
+            geometry: {
+                type: "Point",
+                coordinates: [p.lng, p.lat]
+            }
+        };
+    });
+
+    if (map && map.getSource('road-points')) {
+        map.getSource('road-points').setData(roadPointsGeoJSON);
+    }
+}
+
+/**
+ * 清除道路点
+ */
+function clearRoadPoints() {
+    roadPointsGeoJSON.features = [];
+    if (map && map.getSource('road-points')) {
+        map.getSource('road-points').setData(roadPointsGeoJSON);
+    }
+}
+
+/**
+ * 设置道路点可见性
+ * @param {boolean} visible
+ */
+function setRoadPointsVisible(visible) {
+    if (map && map.getLayer('road-points-layer')) {
+        map.setLayoutProperty('road-points-layer', 'visibility',
+            visible ? 'visible' : 'none');
+    }
+}
+
+// 初始视口设置
+setCenterOn(initLng, initLat, initRange);
+
+</script>
+</body>
+</html>

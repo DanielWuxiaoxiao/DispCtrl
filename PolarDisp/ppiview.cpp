@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-25 17:09:15
+ * @LastEditTime: 2026-03-30 22:07:38
  * @Description: 
  */
 /**
@@ -24,6 +24,8 @@
 #include "ppivisualsettings.h"
 #include "polaraxis.h"
 #include "../Basic/log.h"
+#include "../Basic/OsmRoadParser.h"
+#include "../Basic/DispBasci.h"
 #include "../PointManager/detmanager.h"
 #include "../PointManager/trackmanager.h"
 #include "../Controller/controller.h"
@@ -41,6 +43,8 @@
 #include <QFont>
 #include <QTimer>
 #include <QMainWindow>
+#include <QCoreApplication>
+#include <QFile>
 
 /**
  * @brief 计算PPIView中心在主窗口centralWidget中的位置
@@ -228,12 +232,35 @@ PPIView::PPIView(QWidget* parent)
     enableRubberBandZoom(true);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
+    // 加载OSM道路数据（配置从config.toml读取）
+    m_roadParser = new OsmRoadParser();
+    m_roadParser->setGcj02Enabled(CF_INS.osmGcj02(true));
+    m_roadParser->setInterpolationStep(CF_INS.osmInterpolationStep(30.0));
+    QString osmFileName = CF_INS.osmFile("bailuyuan.osm");
+    QString osmPath = QCoreApplication::applicationDirPath() + "/osm/" + osmFileName;
+    if (!QFile::exists(osmPath)) {
+        // 备用路径：源码目录下的osm文件夹
+        osmPath = QCoreApplication::applicationDirPath() + "/../../../osm/" + osmFileName;
+    }
+    if (QFile::exists(osmPath)) {
+        m_roadParser->parse(osmPath, m_radarLatitude, m_radarLongitude);
+        LOG_INFO(QString("OSM road data loaded: %1 roads, %2 nodes (gcj02=%3, step=%4m)")
+                .arg(m_roadParser->roadCount()).arg(m_roadParser->nodeCount())
+                .arg(CF_INS.osmGcj02(true) ? "on" : "off")
+                .arg(CF_INS.osmInterpolationStep(30.0)));
+    } else {
+        LOG_WARNING(QString("OSM file not found, road display disabled"));
+    }
+
     // 延迟发送初始雷达位置信号，确保在MainWindow连接信号后再发送
     QTimer::singleShot(100, this, [this]() {
         // 使用计算的地图显示参数发送初始信号
         double mapCenterLng, mapCenterLat, mapRange;
         calculateMapDisplayParameters(mapCenterLng, mapCenterLat, mapRange);
         emit radarCenterChanged(mapCenterLng, mapCenterLat, mapRange);
+
+        // 初始下发量程内道路点经纬度给数据处理
+        sendRoadPointsToDataPro();
 
         LOG_INFO(QString("PPIView init complete: Radar pos %1,%2, range %3km, Map center %4,%5, Map range %6km")
                 .arg(m_radarLongitude).arg(m_radarLatitude).arg(m_currentRange)
@@ -282,12 +309,17 @@ void PPIView::setupOverlay() {
             this, &PPIView::onMaxDistanceChanged);
     connect(visualSettings, &PPIVisualSettings::mapTypeChanged,
             this, &PPIView::onMapTypeChanged);
+    // Map engine change signal removed from PPIVisualSettings (roll back MapLibre/OSM selector)
     connect(visualSettings, &PPIVisualSettings::measureModeChanged,
             this, &PPIView::onMeasureModeChanged);
     connect(visualSettings, &PPIVisualSettings::maxPointsChanged,
             this, &PPIView::onMaxPointsChanged);
     connect(visualSettings, &PPIVisualSettings::clearDisplayRequested,
             this, &PPIView::onClearDisplayRequested);
+
+    // 连接道路点可见性信号
+    connect(visualSettings, &PPIVisualSettings::roadVisibilityChanged,
+            this, &PPIView::onRoadVisibilityChanged);
 
     // 连接Controller的BIT上报信号到雷达信息显示组件
     connect(CON_INS, &Controller::bitReport,
@@ -296,6 +328,10 @@ void PPIView::setupOverlay() {
     // 连接Controller的经纬高上报信号到雷达信息显示组件
     connect(CON_INS, &Controller::geoLocationUpdated,
             radarInfoW, &mainviewTopLeft::onGeoLocationUpdated);
+
+    // 连接经纬高变化信号到PPIView（浮点容差判断+道路点下发）
+    connect(CON_INS, &Controller::geoLocationUpdated,
+            this, &PPIView::onGeoLocationChanged);
 
     layoutOverlay();
 }
@@ -426,6 +462,11 @@ void PPIView::setPPIScene(PPIScene* scene) {
         onTrackVisibilityChanged(trackVisible);
         LOG_INFO("Applied initial visibility state from MousePositionInfo");
     }
+
+    // 连接rangeChanged信号以刷新道路点
+    connect(m_scene, &PPIScene::rangeChanged, this, [this]() {
+        if (m_roadVisible) refreshRoadPoints();
+    });
 }
 
 /**
@@ -846,6 +887,9 @@ void PPIView::onMaxDistanceChanged(double distance)
     // 转发信号给其他需要处理距离变化的组件
     emit maxDistanceChanged(distance);
 
+    // 量程变化时重新下发道路点经纬度给数据处理
+    sendRoadPointsToDataPro();
+
     LOG_INFO(QString("PPI range update: %1km, Radar pos %2,%3")
             .arg(distance).arg(m_radarLongitude).arg(m_radarLatitude));
 }
@@ -989,6 +1033,141 @@ void PPIView::onTrackVisibilityChanged(bool visible)
         m_scene->track()->setAllVisible(visible);
         // LOG_INFO(QString("Track points visibility changed: %1").arg(visible ? "visible" : "hidden"));
     }
+}
+
+/**
+ * @brief 处理道路点可见性变化
+ * @param visible true表示显示道路点，false表示隐藏
+ */
+void PPIView::onRoadVisibilityChanged(bool visible)
+{
+    m_roadVisible = visible;
+    if (visible) {
+        refreshRoadPoints();
+    } else {
+        // 隐藏所有道路点
+        for (auto* item : m_roadPointItems) {
+            m_scene->removeItem(item);
+            delete item;
+        }
+        m_roadPointItems.clear();
+    }
+}
+
+/**
+ * @brief 刷新道路点显示
+ * @details 根据当前PPI范围重新绘制范围内的道路点（黄色）
+ */
+void PPIView::refreshRoadPoints()
+{
+    if (!m_scene || !m_roadParser || !m_roadVisible)
+        return;
+
+    // 清除旧的道路点
+    for (auto* item : m_roadPointItems) {
+        m_scene->removeItem(item);
+        delete item;
+    }
+    m_roadPointItems.clear();
+
+    PolarAxis* axis = m_scene->axis();
+    if (!axis) return;
+
+    double maxRangeM = axis->maxRange();
+    auto nodes = m_roadParser->nodesWithinRange(maxRangeM);
+
+    const double pointRadius = 2.0;  // 道路点半径（像素）
+    QBrush brush(QColor(255, 255, 0));  // 黄色
+    QPen pen(Qt::NoPen);
+
+    for (const auto& node : nodes) {
+        QPointF scenePos = axis->polarToScene(node.distanceM, node.azimuthDeg);
+        auto* item = new QGraphicsEllipseItem(
+            -pointRadius, -pointRadius,
+            pointRadius * 2, pointRadius * 2);
+        item->setBrush(brush);
+        item->setPen(pen);
+        item->setPos(scenePos);
+        item->setZValue(POINT_Z - 1);  // 道路点在检测点/航迹点之下
+        m_scene->addItem(item);
+        m_roadPointItems.append(item);
+    }
+
+    LOG_INFO(QString("Road points refreshed: %1 points within %2m range")
+            .arg(m_roadPointItems.size()).arg(maxRangeM));
+}
+
+/**
+ * @brief 雷达经纬高变化处理（浮点容差判断）
+ * @param latitude  新纬度
+ * @param longitude 新经度
+ * @param altitude  新海拔（未用）
+ * @details 位置变化超过容差（~0.1m）时：更新雷达坐标→重算OSM节点→刷新显示→下发道路点
+ */
+void PPIView::onGeoLocationChanged(double latitude, double longitude, double altitude)
+{
+    Q_UNUSED(altitude)
+
+    constexpr double POS_EPS = 1e-6;  // ~0.1m
+
+    if (qAbs(latitude - m_radarLatitude) < POS_EPS &&
+        qAbs(longitude - m_radarLongitude) < POS_EPS) {
+        return;  // 位置未发生有效变化
+    }
+
+    m_radarLatitude = latitude;
+    m_radarLongitude = longitude;
+
+    // 重新计算OSM道路节点相对新雷达位置的方位角和距离
+    if (m_roadParser) {
+        m_roadParser->recalculate(m_radarLatitude, m_radarLongitude);
+        if (m_roadVisible) {
+            refreshRoadPoints();
+        }
+    }
+
+    // 下发更新后的道路点经纬度给数据处理模块
+    sendRoadPointsToDataPro();
+
+    // 同步更新地图中心
+    double mapCenterLng, mapCenterLat, mapRange;
+    calculateMapDisplayParameters(mapCenterLng, mapCenterLat, mapRange);
+    emit radarCenterChanged(mapCenterLng, mapCenterLat, mapRange);
+
+    LOG_INFO(QString("Radar geo updated: lat=%1, lon=%2 → recalc OSM + send road points")
+            .arg(latitude, 0, 'f', 7).arg(longitude, 0, 'f', 7));
+}
+
+/**
+ * @brief 收集量程内道路点经纬度并下发给数据处理模块
+ * @details 将OsmRoadParser中量程内的道路节点转换为RoadPointGeo协议结构体，
+ *          通过Controller分帧发送给数据处理（消息ID: 0xDF02）
+ */
+void PPIView::sendRoadPointsToDataPro()
+{
+    if (!m_roadParser) return;
+
+    double maxRangeM = m_currentRange * 1000.0;
+    auto nodes = m_roadParser->nodesWithinRange(maxRangeM);
+
+    if (nodes.isEmpty()) {
+        LOG_INFO(QString("No road points within %1m range, skip sending").arg(maxRangeM));
+        return;
+    }
+
+    // 转换为协议结构体（经纬度 × 1e7 → int）
+    QVector<RoadPointGeo> geoPoints;
+    geoPoints.reserve(nodes.size());
+    for (const auto& node : nodes) {
+        RoadPointGeo pt;
+        pt.latitude  = static_cast<int>(node.lat * 1e7);
+        pt.longitude = static_cast<int>(node.lon * 1e7);
+        geoPoints.append(pt);
+    }
+
+    CON_INS->sendRoadPointsToDataPro(geoPoints.constData(), geoPoints.size());
+    LOG_INFO(QString("Sent %1 road points to data processing (range=%2m)")
+            .arg(geoPoints.size()).arg(maxRangeM));
 }
 
 /**
