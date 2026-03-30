@@ -123,7 +123,6 @@ set(SRC_FILES
     PolarDisp/polargrid.cpp                    # 极坐标网格绘制
     PolarDisp/polaraxis.cpp                    # 极坐标轴绘制
     PolarDisp/ppisscene.cpp                    # PPI场景管理
-    PolarDisp/scanlayer.cpp                    # 扫描层显示
     PolarDisp/sectorwidget.cpp                 # 扇区部件
     PolarDisp/sectorscene.cpp                  # 扇区场景
     PolarDisp/sectorpolargrid.cpp              # 扇区极坐标网格
@@ -135,6 +134,8 @@ set(SRC_FILES
     PolarDisp/tooltip.cpp                      # 工具提示
     PolarDisp/zoomview.cpp                     # 缩放视图
     PolarDisp/ppiview.cpp                      # PPI主视图
+    PolarDisp/echorenderer.cpp                 # 船用雷达回波渲染引擎
+    PolarDisp/colorbarwidget.cpp               # 色阶图例控件
 
     # 点管理模块 - 目标检测和航迹管理
     PointManager/detmanager.cpp                # 检测点管理器
@@ -155,6 +156,7 @@ set(SRC_FILES
         Controller/ExternalCtrlManager.cpp        # 外部雷控/调度链路
     Controller/RadarDataManager.cpp            # 雷达数据统一管理器
     Controller/RadarSimulator.cpp              # 船用雷达回波模拟器
+    Controller/MarineRadarManager.cpp          # 船用雷达协议管理器
     Controller/ErrorHandler.cpp                # 错误处理框架
     Controller/disp2sigmanager.cpp             # 显示到信号管理
     Controller/disp2resmanager.cpp             # 显示到资源管理
@@ -260,7 +262,6 @@ set(HDR_FILES
     PolarDisp/pointinfow.h                    # 点信息窗口
     PolarDisp/zoomview.h                      # 缩放视图
     PolarDisp/tooltip.h                       # 工具提示
-    PolarDisp/scanlayer.h                     # 扫描层
     PolarDisp/pviewtopleft.h                  # 左上角视图
     PolarDisp/mousepositioninfo.h             # 鼠标位置信息
     PolarDisp/ppivisualsettings.h             # PPI视觉设置

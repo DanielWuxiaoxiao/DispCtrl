@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-03-23 11:52:20
+ * @Date: 2026-03-25 16:20:17
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-25 16:20:18
+ * @LastEditTime: 2026-03-30 15:27:10
  * @Description: 
  */
 /**
@@ -19,6 +19,7 @@
 #include <QVector>
 #include <QRandomGenerator>
 #include "Basic/Protocol.h"
+#include "Basic/MarineProtocol.h"
 
 /**
  * @brief 模拟雷达目标（船只/岛屿/海岸线）
@@ -55,12 +56,21 @@ public:
     void stop();
     bool isRunning() const { return m_running; }
 
+    /// 设置模拟量程（米）
+    void setRangeMeter(double meters) { m_rangeMeter = meters; }
+
 signals:
     /**
-     * @brief 产生一个模拟检测点
+     * @brief 产生一个模拟检测点 (兼容旧管线)
      * @param info 检测点信息（含方位、距离、SNR等）
      */
     void simulatedDetection(PointInfo info);
+
+    /**
+     * @brief 产生一条模拟扫描线回波 (新管线——EchoRenderer)
+     * @param line 回波线数据
+     */
+    void echoLineGenerated(const MarineEchoLine& line);
 
 private slots:
     void onScanTick();
@@ -69,6 +79,7 @@ private:
     void initTargets();
     void updateTargetPositions(double dt);
     void generateEchoes(double sweepAzimuth);
+    void generateEchoLine(double sweepAzimuth);
     PointInfo makeEchoPoint(double azi, double range, float snr, float amp);
 
     QTimer* m_timer = nullptr;
@@ -78,6 +89,8 @@ private:
     double m_tickInterval = 50;       ///< 定时器间隔（毫秒）
     bool m_running = false;
     QRandomGenerator m_rng;
+    double m_rangeMeter = 5000.0;     ///< 当前模拟量程(米)
+    int m_rangeCells = 512;           ///< 距离单元数
 };
 
 #endif // RADARSIMULATOR_H

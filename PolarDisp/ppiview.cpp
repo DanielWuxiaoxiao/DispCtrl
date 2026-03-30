@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-20 16:29:53
+ * @LastEditTime: 2026-03-30 15:27:10
  * @Description: 
  */
 /**
@@ -18,10 +18,6 @@
 
 #include "ppiview.h"
 #include "ppisscene.h"
-#include "pviewtopleft.h"
-#include "pointinfow.h"
-#include "mousepositioninfo.h"
-#include "ppivisualsettings.h"
 #include "polaraxis.h"
 #include "../Basic/log.h"
 #include "../PointManager/detmanager.h"
@@ -262,38 +258,8 @@ PPIView::PPIView(QWidget* parent)
  * @note 叠加层使用QWidget直接添加到视图上，而非场景中的图形项
  */
 void PPIView::setupOverlay() {
-    // 顶角信息使用 QLabel 作为 overlay，不随缩放
-    radarInfoW = new mainviewTopLeft(this);
-    pointInfo = new PointInfoW(this);
-    mousePositionInfo = new MousePositionInfo(this);
-    visualSettings = new PPIVisualSettings(this);
-
-    // 连接鼠标位置信息的可见性信号
-    connect(mousePositionInfo, &MousePositionInfo::detectionVisibilityChanged,
-            this, &PPIView::onDetectionVisibilityChanged);
-    connect(mousePositionInfo, &MousePositionInfo::trackVisibilityChanged,
-            this, &PPIView::onTrackVisibilityChanged);
-
-    // 注意：初始状态的应用必须在 setPPIScene() 之后进行
-    // 因为此时 m_scene 还未初始化，会在 setPPIScene() 中调用
-
-    // 连接视觉设置信号
-    connect(visualSettings, &PPIVisualSettings::maxDistanceChanged,
-            this, &PPIView::onMaxDistanceChanged);
-    connect(visualSettings, &PPIVisualSettings::mapTypeChanged,
-            this, &PPIView::onMapTypeChanged);
-    connect(visualSettings, &PPIVisualSettings::measureModeChanged,
-            this, &PPIView::onMeasureModeChanged);
-    connect(visualSettings, &PPIVisualSettings::maxPointsChanged,
-            this, &PPIView::onMaxPointsChanged);
-    connect(visualSettings, &PPIVisualSettings::clearDisplayRequested,
-            this, &PPIView::onClearDisplayRequested);
-
-    // 连接Controller的BIT上报信号到雷达信息显示组件
-    connect(CON_INS, &Controller::bitReport,
-            radarInfoW, &mainviewTopLeft::onBITReport);
-
-    layoutOverlay();
+    // 船用雷达模式：四角叠加层已移除
+    // 叠加信息统一由 MainOverLayOut::setupPPIOverlay() 管理
 }
 
 /**
@@ -323,21 +289,7 @@ void PPIView::setupOverlay() {
  * @note 使用组件的实际尺寸进行精确定位，避免内容溢出
  */
 void PPIView::layoutOverlay() {
-    if (radarInfoW) {
-        radarInfoW->move(0, 5);
-    }
-    if (pointInfo) {
-        QSize s = pointInfo->size();
-        pointInfo->move(width()-s.width()-8, 5);
-    }
-    if (mousePositionInfo) {
-        QSize s = mousePositionInfo->size();
-        mousePositionInfo->move(8, height()-s.height()-8);
-    }
-    if (visualSettings) {
-        QSize s = visualSettings->size();
-        visualSettings->move(width()-s.width()-8, height()-s.height()-8);
-    }
+    // 船用雷达模式：四角叠加层已移除，无需布局
 }
 
 /**
@@ -371,56 +323,13 @@ void PPIView::setPPIScene(PPIScene* scene) {
     QGraphicsView::setScene(scene);
     fitInView(scene->sceneRect(), Qt::KeepAspectRatio);
 
-    // 同步场景的初始范围到视图和界面控件
-    if (m_scene && m_scene->axis() && visualSettings) {
+    // 同步场景的初始范围到视图
+    if (m_scene && m_scene->axis()) {
         double maxRangeInMeters = m_scene->axis()->maxRange();
         double maxRangeInKm = maxRangeInMeters / 1000.0;
-
-        // 更新视图内部的范围记录
         m_currentRange = maxRangeInKm;
-
-        // 同步界面控件显示（不触发信号）
-        visualSettings->setMaxDistance(maxRangeInKm);
-
         LOG_INFO(QString("PPI range sync: Scene %1m -> View %2km")
                 .arg(maxRangeInMeters).arg(maxRangeInKm));
-    }
-
-    // 连接航迹点点击信号到PointInfoW
-    if (m_scene && pointInfo) {
-        // 点击航迹点时更新显示并设置选中批次
-        connect(m_scene, &PPIScene::trackPointClicked, this, [this](const PointInfo& info) {
-            qDebug() << "[PPIView] trackPointClicked received, batch:" << info.batch;
-            pointInfo->setSelectedBatch(info.batch);
-            pointInfo->updatePointInfo(info);
-        });
-        LOG_INFO("Connected PPIScene::trackPointClicked to PointInfoW");
-
-        // 连接航迹管理器的航迹点添加信号，用于持续更新选中批次的最新数据
-        if (m_scene->track()) {
-            connect(m_scene->track(), &TrackManager::trackPointAdded, this, [this](const PointInfo& info) {
-                // 只有当新添加的航迹点属于选中的批次时才更新显示
-                if (pointInfo->selectedBatch() == static_cast<int>(info.batch)) {
-                    qDebug() << "[PPIView] Updating selected batch" << info.batch << "with new data";
-                    pointInfo->updatePointInfo(info);
-                }
-            });
-            LOG_INFO("Connected TrackManager::trackPointAdded for continuous update");
-        }
-    }
-
-    // 场景设置完成后，应用 MousePositionInfo 的初始可见性状态
-    // 此时 m_scene 已经初始化，可以安全调用
-    if (mousePositionInfo) {
-        bool detVisible = mousePositionInfo->isDetectionVisible();
-        bool trackVisible = mousePositionInfo->isTrackVisible();
-
-        LOG_INFO(QString("Applying initial visibility: detection=%1, track=%2")
-                .arg(detVisible).arg(trackVisible));
-
-        onDetectionVisibilityChanged(detVisible);
-        onTrackVisibilityChanged(trackVisible);
-        LOG_INFO("Applied initial visibility state from MousePositionInfo");
     }
 }
 
@@ -662,19 +571,13 @@ void PPIView::mouseMoveEvent(QMouseEvent* e) {
         m_band->setGeometry(QRect(m_origin, e->pos()).normalized());
     }
 
-    // 更新鼠标位置信息
-    if (mousePositionInfo && m_scene) {
-        // 将视图坐标转换为场景坐标
+    // 更新鼠标位置信息（光标距离km + 方位°T）
+    if (m_scene) {
         QPointF scenePos = mapToScene(e->pos());
-
-        // 获取场景的极坐标轴
         if (PolarAxis* axis = m_scene->axis()) {
-            // 将场景坐标转换为极坐标
             auto polarCoord = axis->sceneToPolar(scenePos);
-
-            // 更新显示：距离转换为公里，保留1位小数
-            double distanceKm = polarCoord.distance / 1000.0;
-            mousePositionInfo->updatePosition(distanceKm, polarCoord.azimuthDeg);
+            double distanceKm = polarCoord.distance / 1000.0;   // 米→公里
+            emit cursorPositionChanged(distanceKm, polarCoord.azimuthDeg);
         }
     }
 

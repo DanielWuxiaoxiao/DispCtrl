@@ -100,3 +100,6 @@ disp_ctrl_log.txt
 # Configuration files (uncomment if sensitive)
 # config.json
 
+
+# Deployment output
+deploy/

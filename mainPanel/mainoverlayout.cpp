@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-25 16:20:19
+ * @LastEditTime: 2026-03-30 15:27:11
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -15,10 +15,8 @@
 #include "Controller/controller.h"
 #include "PointManager/detmanager.h"
 #include "PointManager/trackmanager.h"
-#include "PolarDisp/mousepositioninfo.h"
 #include "PolarDisp/ppisscene.h"
 #include "PolarDisp/ppiview.h"
-#include "PolarDisp/pviewtopleft.h"
 #include "azelrangewidget.h"
 #include "cusWidgets/customcombobox.h"
 #include "cusWidgets/custommessagebox.h"
@@ -65,6 +63,11 @@
 #include "screenrecorderwidget.h"
 #include "Basic/authmanager.h"
 #include "Controller/RadarSimulator.h"
+#include "PolarDisp/echorenderer.h"
+#include "PolarDisp/colorbarwidget.h"
+#include "Basic/MarineProtocol.h"
+#include "Controller/MarineRadarManager.h"
+#include <QComboBox>
 
 MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::MainOverLayOut) {
     ui->setupUi(this);
@@ -79,6 +82,8 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     mainPView();
     setupPPIOverlay();
     setupControlPanel();
+    setupMarineControls();
+    setupColorBar();
     setupRangeSettings();
     setupWorkModeSettings();
     setupTrackManagement();
@@ -304,83 +309,7 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
         }
     });
 
-    // ========== 连接点迹可见性控制信号 ==========
-    // 从MousePositionInfo获取可见性控制信号，同步到所有显示视图
-    MousePositionInfo* posInfo = mView->getMousePositionInfo();
-    if (posInfo) {
-        // 连接检测点可见性控制
-        connect(posInfo, &MousePositionInfo::detectionVisibilityChanged, this,
-                [this](bool visible) {
-            // 主PPI视图的检测管理器
-            if (mScene && mScene->det()) {
-                mScene->det()->setAllVisible(visible);
-            }
-            // 扇区视图的检测管理器
-            if (m_sectorWidget && m_sectorWidget->scene() && m_sectorWidget->scene()->detManager()) {
-                m_sectorWidget->scene()->detManager()->setAllVisible(visible);
-            }
-            // 距离-方位图表的检测点可见性
-            if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
-                m_rangeAzimuthWidget->chart()->setDetectionVisible(visible);
-            }
-        });
-
-        // 连接航迹可见性控制
-        connect(posInfo, &MousePositionInfo::trackVisibilityChanged, this,
-                [this](bool visible) {
-            // 主PPI视图的航迹管理器
-            if (mScene && mScene->track()) {
-                mScene->track()->setAllVisible(visible);
-            }
-            // 扇区视图的航迹管理器
-            if (m_sectorWidget && m_sectorWidget->scene() && m_sectorWidget->scene()->trackManager()) {
-                m_sectorWidget->scene()->trackManager()->setAllVisible(visible);
-            }
-            // 距离-方位图表的航迹可见性
-            if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
-                m_rangeAzimuthWidget->chart()->setTrackVisible(visible);
-            }
-        });
-
-        // ========== 连接点迹大小控制信号 ==========
-        // 连接检测点大小控制
-        connect(posInfo, &MousePositionInfo::detectionSizeChanged, this,
-                [this](double ratio) {
-            // 主PPI视图的检测管理器
-            if (mScene && mScene->det()) {
-                mScene->det()->setPointSizeRatio(ratio);
-            }
-            // 扇区视图的检测管理器
-            if (m_sectorWidget && m_sectorWidget->scene() && m_sectorWidget->scene()->detManager()) {
-                m_sectorWidget->scene()->detManager()->setPointSizeRatio(ratio);
-            }
-            // 距离-方位图表的检测点大小
-            if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
-                m_rangeAzimuthWidget->chart()->setDetectionSizeRatio(ratio);
-            }
-        });
-
-        // 连接航迹大小控制
-        connect(posInfo, &MousePositionInfo::trackSizeChanged, this,
-                [this](double ratio) {
-            // 主PPI视图的航迹管理器
-            if (mScene && mScene->track()) {
-                mScene->track()->setPointSizeRatio(ratio);
-            }
-            // 扇区视图的航迹管理器
-            if (m_sectorWidget && m_sectorWidget->scene() && m_sectorWidget->scene()->trackManager()) {
-                m_sectorWidget->scene()->trackManager()->setPointSizeRatio(ratio);
-            }
-            // 距离-方位图表的航迹大小
-            if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
-                m_rangeAzimuthWidget->chart()->setTrackSizeRatio(ratio);
-            }
-        });
-
-        qInfo() << "MainOverLayOut: Connected point visibility and size control signals";
-    } else {
-        qWarning() << "MainOverLayOut: Failed to get MousePositionInfo from PPIView";
-    }
+    // 船用雷达模式：点迹可见性/大小控制已随 MousePositionInfo 移除
 
     // ========== 雷达回波模拟器（无协议数据时的演示） ==========
     m_radarSimulator = new RadarSimulator(this);
@@ -403,7 +332,33 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
             }
         });
     }
+    // 连接模拟回波线到EchoRenderer（船用雷达扫描回波）
+    if (mScene && mScene->echoRenderer()) {
+        connect(m_radarSimulator, &RadarSimulator::echoLineGenerated,
+                mScene->echoRenderer(), &EchoRenderer::updateEchoLine);
+    }
     m_radarSimulator->start();
+
+    // 连接船用雷达状态更新 → UI同步（增益/海杂/雨杂/发射指示等）
+    connect(CON_INS, &Controller::marineStatusUpdated,
+            this, [this](const MarineRadarStatus& st) {
+        if (m_gainSlider && m_gainSlider->value() != st.gain)
+            m_gainSlider->setValue(st.gain);
+        if (m_seaSlider && m_seaSlider->value() != st.seaVal)
+            m_seaSlider->setValue(st.seaVal);
+        if (m_rainSlider && m_rainSlider->value() != st.rainVal)
+            m_rainSlider->setValue(st.rainVal);
+        if (m_interferenceSlider && m_interferenceSlider->value() != st.ganRao)
+            m_interferenceSlider->setValue(st.ganRao);
+        // 发射指示灯
+        bool tx = st.txOn;
+        if (m_lblTransmitIndicator) {
+            m_lblTransmitIndicator->setText(tx ? QString::fromUtf8("\u25CF 发射开") : QString::fromUtf8("\u25CF 发射关"));
+            m_lblTransmitIndicator->setStyleSheet(
+                tx ? "color: #44ff44; font-size: 18px; font-family: 'Microsoft YaHei'; background: transparent;"
+                   : "color: #ff4444; font-size: 18px; font-family: 'Microsoft YaHei'; background: transparent;");
+        }
+    });
 
     // 初始化按钮状态显示
     updateTransmitButton();
@@ -444,52 +399,153 @@ void MainOverLayOut::topRightSet() {
 }
 
 void MainOverLayOut::setupPPIOverlay() {
-    // 创建PPI左上角浮动覆盖层
+    // 创建SIMRAD风格PPI左上角浮动覆盖层
     m_ppiOverlay = new QWidget(ui->viewWidget);
     m_ppiOverlay->setObjectName("ppiOverlay");
     m_ppiOverlay->setAttribute(Qt::WA_TransparentForMouseEvents);
     m_ppiOverlay->setStyleSheet("background: transparent;");
 
     auto* overlayLayout = new QVBoxLayout(m_ppiOverlay);
-    overlayLayout->setContentsMargins(30, 8, 0, 0);
-    overlayLayout->setSpacing(4);
+    overlayLayout->setContentsMargins(12, 8, 0, 0);
+    overlayLayout->setSpacing(2);
 
-    // 量程显示
-    m_lblOverlayRange = new QLabel("量程  5.0 Km", m_ppiOverlay);
+    // 量程大字（公里制）
+    m_lblOverlayRange = new QLabel(QString::fromUtf8("量程  2.0 km"), m_ppiOverlay);
     m_lblOverlayRange->setObjectName("ppiOverlayLabel");
-    m_lblOverlayRange->setStyleSheet("color: #66aaff; font-size: 14px; font-weight: bold; background: transparent;");
+    m_lblOverlayRange->setStyleSheet(
+        "color: #ff8800; font-size: 32px; font-weight: bold; "
+        "font-family: 'Microsoft YaHei', 'Consolas', monospace; background: transparent;");
+
+    // 船首向上 模式
+    auto* lblHU = new QLabel(QString::fromUtf8("船首向上"), m_ppiOverlay);
+    lblHU->setStyleSheet("color: #44ff44; font-size: 22px; font-weight: bold; "
+                         "font-family: 'Microsoft YaHei'; background: transparent;");
+
+    // 相对运动
+    auto* lblRM = new QLabel(QString::fromUtf8("相对运动"), m_ppiOverlay);
+    lblRM->setStyleSheet("color: #44ff44; font-size: 22px; font-weight: bold; "
+                         "font-family: 'Microsoft YaHei'; background: transparent;");
+
+    // 发射状态指示
+    m_lblTransmitIndicator = new QLabel(QString::fromUtf8("\u25CF 发射关"), m_ppiOverlay);
+    m_lblTransmitIndicator->setObjectName("ppiOverlayLabel");
+    m_lblTransmitIndicator->setStyleSheet("color: #ff4444; font-size: 18px; "
+                                          "font-family: 'Microsoft YaHei'; background: transparent;");
 
     // 距标圈指示
     m_lblRangeRing = new QLabel(QString::fromUtf8("\u25CF 距标圈"), m_ppiOverlay);
     m_lblRangeRing->setObjectName("ppiOverlayLabel");
-    m_lblRangeRing->setStyleSheet("color: #44ff44; font-size: 13px; background: transparent;");
+    m_lblRangeRing->setStyleSheet("color: #44ff44; font-size: 18px; "
+                                  "font-family: 'Microsoft YaHei'; background: transparent;");
 
-    // 发射状态指示（默认红色=未发射）
-    m_lblTransmitIndicator = new QLabel(QString::fromUtf8("\u25CF 发射"), m_ppiOverlay);
-    m_lblTransmitIndicator->setObjectName("ppiOverlayLabel");
-    m_lblTransmitIndicator->setStyleSheet("color: #ff4444; font-size: 13px; background: transparent;");
+    // 雷达型号
+    auto* lblModel = new QLabel(QString::fromUtf8("西电船用"), m_ppiOverlay);
+    lblModel->setStyleSheet("color: #888; font-size: 16px; "
+                            "font-family: 'Microsoft YaHei'; background: transparent;");
 
     overlayLayout->addWidget(m_lblOverlayRange);
-    overlayLayout->addWidget(m_lblRangeRing);
+    overlayLayout->addWidget(lblHU);
+    overlayLayout->addWidget(lblRM);
+    overlayLayout->addSpacing(4);
     overlayLayout->addWidget(m_lblTransmitIndicator);
+    overlayLayout->addWidget(m_lblRangeRing);
+    overlayLayout->addSpacing(4);
+    overlayLayout->addWidget(lblModel);
     overlayLayout->addStretch();
 
-    m_ppiOverlay->setFixedSize(200, 120);
+    m_ppiOverlay->setFixedSize(260, 280);
     m_ppiOverlay->move(0, 0);
     m_ppiOverlay->show();
     m_ppiOverlay->raise();
 
-    // 同步量程变化到覆盖层标签
+    // 同步量程变化到覆盖层标签（公里制）
     QTimer::singleShot(200, this, [this]() {
         if (mScene && mScene->axis()) {
             connect(mScene->axis(), &PolarAxis::rangeChanged,
                     this, [this](double /*min*/, double max) {
                 if (m_lblOverlayRange) {
-                    m_lblOverlayRange->setText(QString("量程  %1 Km").arg(max, 0, 'f', 1));
+                    double km = max / 1000.0;
+                    if (km >= 1.0)
+                        m_lblOverlayRange->setText(QString::fromUtf8("量程  %1 km").arg(km, 0, 'f', 1));
+                    else
+                        m_lblOverlayRange->setText(QString::fromUtf8("量程  %1 m").arg(static_cast<int>(max)));
                 }
             });
         }
     });
+
+    // ===== PPI左下角 导航信息覆盖层 =====
+    m_ppiNavOverlay = new QWidget(ui->viewWidget);
+    m_ppiNavOverlay->setObjectName("ppiNavOverlay");
+    m_ppiNavOverlay->setAttribute(Qt::WA_TransparentForMouseEvents);
+    m_ppiNavOverlay->setStyleSheet("background: transparent;");
+
+    auto* navLayout = new QVBoxLayout(m_ppiNavOverlay);
+    navLayout->setContentsMargins(12, 4, 0, 10);
+    navLayout->setSpacing(3);
+
+    // 位置 标题
+    auto* lblPosTitle = new QLabel(QString::fromUtf8("位置"), m_ppiNavOverlay);
+    lblPosTitle->setStyleSheet(
+        "color: #888888; font-size: 16px; font-family: 'Microsoft YaHei'; background: transparent;");
+
+    // 经纬度（度°分.小数' 格式）
+    double lat = CF_INS.latitude();
+    double lon = CF_INS.longitude();
+    auto formatCoord = [](double val, bool isLat) -> QString {
+        char hemi = isLat ? (val >= 0 ? 'N' : 'S') : (val >= 0 ? 'E' : 'W');
+        val = qAbs(val);
+        int deg = static_cast<int>(val);
+        double min = (val - deg) * 60.0;
+        return QString("%1 %2\xC2\xB0%3'")
+            .arg(hemi).arg(deg).arg(min, 0, 'f', 3);
+    };
+    m_lblNavPos = new QLabel(m_ppiNavOverlay);
+    m_lblNavPos->setText(QString("%1\n%2").arg(formatCoord(lat, true), formatCoord(lon, false)));
+    m_lblNavPos->setStyleSheet(
+        "color: #cccccc; font-size: 18px; font-family: 'Consolas', 'Microsoft YaHei', monospace; "
+        "background: transparent; line-height: 1.4;");
+
+    // 光标距离 + 方位
+    m_lblNavCursor = new QLabel(QString::fromUtf8("光标  --.- km  --- °T"), m_ppiNavOverlay);
+    m_lblNavCursor->setStyleSheet(
+        "color: #ff8800; font-size: 18px; font-family: 'Microsoft YaHei', 'Consolas', monospace; "
+        "background: transparent;");
+
+    navLayout->addStretch();
+    navLayout->addWidget(lblPosTitle);
+    navLayout->addWidget(m_lblNavPos);
+    navLayout->addSpacing(4);
+    navLayout->addWidget(m_lblNavCursor);
+
+    m_ppiNavOverlay->setFixedSize(280, 150);
+    m_ppiNavOverlay->show();
+    m_ppiNavOverlay->raise();
+
+    // 初始定位 + resize跟随
+    auto positionNavOverlay = [this]() {
+        if (ui->viewWidget && m_ppiNavOverlay) {
+            int y = ui->viewWidget->height() - m_ppiNavOverlay->height() - 8;
+            m_ppiNavOverlay->move(8, qMax(0, y));
+        }
+    };
+    QTimer::singleShot(100, this, positionNavOverlay);
+    if (mView) {
+        connect(mView, &PPIView::viewResized, this, positionNavOverlay);
+    }
+
+    // 连接光标位置更新
+    if (mView) {
+        connect(mView, &PPIView::cursorPositionChanged,
+                this, [this](double distKm, double bearDeg) {
+            if (m_lblNavCursor) {
+                m_lblNavCursor->setText(
+                    QString::fromUtf8("光标  %1 km  %2 °T")
+                        .arg(distKm, 0, 'f', 2)
+                        .arg(static_cast<int>(bearDeg + 0.5) % 360, 3, 10, QChar('0')));
+            }
+        });
+    }
 }
 
 void MainOverLayOut::setupControlPanel() {
@@ -764,45 +820,11 @@ void MainOverLayOut::setupRangeSettings() {
 }
 
 void MainOverLayOut::setupWorkModeSettings() {
-    // 设置组合框默认值
-
-    // 寻找并连接PpiView topleft的输入框（用于联动）
-    // 这里需要在mainPView()方法创建后才能找到topleft控件
-    // 延迟执行连接
-    QTimer::singleShot(100, this, [this]() {
-        // 尝试找到PpiView中的topleft控件
-        if (mView) {
-            m_topLeftWidget = mView->findChild<mainviewTopLeft*>();
-            if (m_topLeftWidget) {
-                // 找到topleft控件中的偏航和倾角输入框
-                QLineEdit* yawEdit = m_topLeftWidget->findChild<QLineEdit*>("yaw");
-                QLineEdit* rollEdit = m_topLeftWidget->findChild<QLineEdit*>("roll");
-
-                if (yawEdit) {
-                    connect(yawEdit, &QLineEdit::returnPressed, this,
-                            &MainOverLayOut::sendScanRangeParams);
-                }
-                if (rollEdit) {
-                    connect(rollEdit, &QLineEdit::returnPressed, this,
-                            &MainOverLayOut::sendScanRangeParams);
-                }
-            }
-        }
-    });
+    // 船用雷达模式：扫描范围参数联动已移除（无需TopLeft控件）
 }
 
 void MainOverLayOut::sendScanRangeParams() {
-    // 创建ScanRange参数结构
-    ScanRange scanParam;
-
-    // 使用topleft控件中的阵面指北角和倾角
-    double aziValue = 0.0;
-    double eleValue = 0.0;
-
-    if (m_topLeftWidget) {
-        QLineEdit* yawEdit = m_topLeftWidget->findChild<QLineEdit*>("yaw");
-        QLineEdit* rollEdit = m_topLeftWidget->findChild<QLineEdit*>("roll");
-    }
+    // 船用雷达模式：扫描范围参数下发已移除
 }
 
 MainOverLayOut::~MainOverLayOut() {
@@ -2296,6 +2318,11 @@ void MainOverLayOut::onTransmitControlClicked()
     // 发送参数到控制器
     CON_INS->sendTRParam(param);
 
+    // 同步到船用雷达管理器
+    if (CON_INS && CON_INS->marineMgr()) {
+        CON_INS->marineMgr()->setTxOn(m_isTransmitting);
+    }
+
     // 更新保存的参数
     m_tranRecControlM = param;
 
@@ -2366,7 +2393,8 @@ void MainOverLayOut::updateTransmitButton()
             "}");
         // 更新PPI覆盖层发射指示（绿色=发射中）
         if (m_lblTransmitIndicator) {
-            m_lblTransmitIndicator->setStyleSheet("color: #44ff44; font-size: 13px; background: transparent;");
+            m_lblTransmitIndicator->setText(QString::fromUtf8("\u25CF 发射开"));
+            m_lblTransmitIndicator->setStyleSheet("color: #44ff44; font-size: 18px; font-family: 'Microsoft YaHei'; background: transparent;");
         }
     } else {
         // 发射关闭：红色背景，文本为"开启发射"
@@ -2387,7 +2415,8 @@ void MainOverLayOut::updateTransmitButton()
             "}");
         // 更新PPI覆盖层发射指示（红色=未发射）
         if (m_lblTransmitIndicator) {
-            m_lblTransmitIndicator->setStyleSheet("color: #ff4444; font-size: 13px; background: transparent;");
+            m_lblTransmitIndicator->setText(QString::fromUtf8("\u25CF 发射关"));
+            m_lblTransmitIndicator->setStyleSheet("color: #ff4444; font-size: 18px; font-family: 'Microsoft YaHei'; background: transparent;");
         }
     }
 }
@@ -2515,4 +2544,399 @@ void MainOverLayOut::applyScaledSizes() {
 
     qInfo() << "ScaleHelper applied: factor=" << ScaleHelper::factor()
             << "rightPanel=" << rightW << "btnH=" << btnH;
+}
+
+// ========== 船用雷达控件 ==========
+
+void MainOverLayOut::setupMarineControls()
+{
+    // ====== 隐藏所有 X576 专用按钮 ======
+    ui->btnStartSoftware->setVisible(false);
+    ui->btnStopSoftware->setVisible(false);
+    ui->btnServoControl->setVisible(false);
+    ui->btnDataStorage->setVisible(false);
+    ui->btnTWSMode->setVisible(false);
+    ui->btnTASMode->setVisible(false);
+    ui->btnScanRange->setVisible(false);
+    ui->btnDataProcess->setVisible(false);
+    ui->btnSignalProcess->setVisible(false);
+    ui->btnFreqControl->setVisible(false);
+    ui->btnBatteryControl->setVisible(false);
+
+    // ====== 隐藏原有的 TabWidget，替换为 SIMRAD 导航面板 ======
+    ui->rightTabWidget->setVisible(false);
+
+    // 创建 SIMRAD 导航数据面板
+    setupSimradNavPanel();
+
+    // 将导航面板添加到右侧布局
+    ui->rightPanelLayout->addWidget(m_navPanel);
+
+    // ====== 量程 ComboBox（在底部添加简洁控制区） ======
+    m_rangeCombo = new QComboBox(this);
+    m_rangeCombo->setObjectName("marineRangeCombo");
+    for (int i = 0; i < 24; ++i) {
+        m_rangeCombo->addItem(marineRangeLabel(i), i);
+    }
+    int defaultRangeIdx = CF_INS.marineControl("range", 8);
+    m_rangeCombo->setCurrentIndex(qBound(0, defaultRangeIdx, 23));
+
+    // 增益/海杂/雨杂/抗干扰 滑块（隐藏在折叠面板中）
+    m_gainSlider = new QSlider(Qt::Horizontal, this);
+    m_gainSlider->setRange(0, 255);
+    m_gainSlider->setValue(CF_INS.marineControl("gain", 0));
+    m_gainValLabel = new QLabel(QString::number(m_gainSlider->value()), this);
+
+    m_seaSlider = new QSlider(Qt::Horizontal, this);
+    m_seaSlider->setRange(0, 255);
+    m_seaSlider->setValue(CF_INS.marineControl("sea_clutter", 0));
+    m_seaValLabel = new QLabel(QString::number(m_seaSlider->value()), this);
+
+    m_rainSlider = new QSlider(Qt::Horizontal, this);
+    m_rainSlider->setRange(0, 255);
+    m_rainSlider->setValue(CF_INS.marineControl("rain_clutter", 0));
+    m_rainValLabel = new QLabel(QString::number(m_rainSlider->value()), this);
+
+    m_interferenceSlider = new QSlider(Qt::Horizontal, this);
+    m_interferenceSlider->setRange(0, 3);
+    m_interferenceSlider->setValue(CF_INS.marineControl("interference", 0));
+    m_intfValLabel = new QLabel(QString::number(m_interferenceSlider->value()), this);
+
+    // 折叠式雷达控制面板
+    m_marineCtrlPanel = new QWidget(this);
+    m_marineCtrlPanel->setObjectName("marineCtrlPanel");
+    auto* ctrlLayout = new QGridLayout(m_marineCtrlPanel);
+    ctrlLayout->setContentsMargins(8, 4, 8, 4);
+    ctrlLayout->setSpacing(4);
+
+    auto makeCtrlLabel = [this](const QString& text) {
+        auto* lbl = new QLabel(text, this);
+        lbl->setStyleSheet("color: #999; font-size: 14px; font-family: 'Microsoft YaHei';");
+        return lbl;
+    };
+
+    ctrlLayout->addWidget(makeCtrlLabel("量程"), 0, 0);
+    ctrlLayout->addWidget(m_rangeCombo, 0, 1);
+    ctrlLayout->addWidget(makeCtrlLabel("增益"), 1, 0);
+    ctrlLayout->addWidget(m_gainSlider, 1, 1);
+    ctrlLayout->addWidget(m_gainValLabel, 1, 2);
+    ctrlLayout->addWidget(makeCtrlLabel("海杂波"), 2, 0);
+    ctrlLayout->addWidget(m_seaSlider, 2, 1);
+    ctrlLayout->addWidget(m_seaValLabel, 2, 2);
+    ctrlLayout->addWidget(makeCtrlLabel("雨杂波"), 3, 0);
+    ctrlLayout->addWidget(m_rainSlider, 3, 1);
+    ctrlLayout->addWidget(m_rainValLabel, 3, 2);
+    ctrlLayout->addWidget(makeCtrlLabel("抗干扰"), 4, 0);
+    ctrlLayout->addWidget(m_interferenceSlider, 4, 1);
+    ctrlLayout->addWidget(m_intfValLabel, 4, 2);
+
+    // 折叠按钮
+    auto* toggleBtn = new QPushButton(QString::fromUtf8("\u25BC 雷达控制"), this);
+    toggleBtn->setObjectName("marineToggleBtn");
+    toggleBtn->setStyleSheet(
+        "QPushButton { background: #1a1a1a; color: #ff8800; border: 1px solid #333; "
+        "border-radius: 3px; padding: 6px 10px; font-size: 15px; font-family: 'Microsoft YaHei'; }"
+        "QPushButton:hover { background: #2a2a2a; }");
+    toggleBtn->setCheckable(true);
+    toggleBtn->setChecked(false);
+    m_marineCtrlPanel->setVisible(false);
+
+    connect(toggleBtn, &QPushButton::toggled, this, [this, toggleBtn](bool checked) {
+        m_marineCtrlPanel->setVisible(checked);
+        toggleBtn->setText(checked ? QString::fromUtf8("\u25B2 雷达控制")
+                                   : QString::fromUtf8("\u25BC 雷达控制"));
+    });
+
+    ui->rightPanelLayout->addWidget(toggleBtn);
+    ui->rightPanelLayout->addWidget(m_marineCtrlPanel);
+
+    // 信号连接：滑块 → MarineRadarManager
+    connect(m_gainSlider, &QSlider::valueChanged, this, [this](int v) {
+        m_gainValLabel->setText(QString::number(v));
+        if (CON_INS && CON_INS->marineMgr())
+            CON_INS->marineMgr()->setGain(static_cast<uint8_t>(v));
+    });
+    connect(m_seaSlider, &QSlider::valueChanged, this, [this](int v) {
+        m_seaValLabel->setText(QString::number(v));
+        if (CON_INS && CON_INS->marineMgr())
+            CON_INS->marineMgr()->setSeaClutter(static_cast<uint8_t>(v));
+    });
+    connect(m_rainSlider, &QSlider::valueChanged, this, [this](int v) {
+        m_rainValLabel->setText(QString::number(v));
+        if (CON_INS && CON_INS->marineMgr())
+            CON_INS->marineMgr()->setRainClutter(static_cast<uint8_t>(v));
+    });
+    connect(m_interferenceSlider, &QSlider::valueChanged, this, [this](int v) {
+        m_intfValLabel->setText(QString::number(v));
+        if (CON_INS && CON_INS->marineMgr())
+            CON_INS->marineMgr()->setInterference(static_cast<uint8_t>(v));
+    });
+
+    // 量程同步
+    connect(m_rangeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int idx) { syncMarineRange(idx); });
+    syncMarineRange(m_rangeCombo->currentIndex());
+
+    // 应用SIMRAD橙色主题
+    setupSimradTheme();
+}
+
+void MainOverLayOut::setupColorBar()
+{
+    m_colorBar = new ColorBarWidget(ui->viewWidget);
+    m_colorBar->setFixedSize(80, 320);
+    // 放置在PPI视图右下角
+    QTimer::singleShot(100, this, [this]() {
+        if (ui->viewWidget && m_colorBar) {
+            int x = ui->viewWidget->width() - m_colorBar->width() - 10;
+            int y = ui->viewWidget->height() - m_colorBar->height() - 10;
+            m_colorBar->move(x, y);
+            m_colorBar->show();
+            m_colorBar->raise();
+        }
+    });
+
+    // 从 EchoRenderer 获取颜色映射表
+    if (mScene && mScene->echoRenderer()) {
+        // SIMRAD Halo 高保真色阶（与 EchoRenderer::buildColorTableSimrad 一致）
+        std::array<QRgb, 256> lut{};
+        for (int i = 0; i < 16; ++i) lut[i] = qRgba(0, 0, 0, 0);
+        for (int i = 16; i < 51; ++i) {
+            double t = (i - 16) / 34.0;
+            lut[i] = qRgb(0, static_cast<int>(t * 20), static_cast<int>(100 + t * 155));
+        }
+        for (int i = 51; i < 86; ++i) {
+            double t = (i - 51) / 34.0;
+            lut[i] = qRgb(0, static_cast<int>(20 + t * 220), static_cast<int>(255 - t * 60));
+        }
+        for (int i = 86; i < 121; ++i) {
+            double t = (i - 86) / 34.0;
+            lut[i] = qRgb(0, static_cast<int>(240 + t * 15), static_cast<int>(195 * (1.0 - t)));
+        }
+        for (int i = 121; i < 156; ++i) {
+            double t = (i - 121) / 34.0;
+            lut[i] = qRgb(static_cast<int>(t * 255), 255, 0);
+        }
+        for (int i = 156; i < 191; ++i) {
+            double t = (i - 156) / 34.0;
+            lut[i] = qRgb(255, static_cast<int>(255 - t * 120), 0);
+        }
+        for (int i = 191; i < 226; ++i) {
+            double t = (i - 191) / 34.0;
+            lut[i] = qRgb(255, static_cast<int>(135 * (1.0 - t)), 0);
+        }
+        for (int i = 226; i < 246; ++i) {
+            double t = (i - 226) / 19.0;
+            lut[i] = qRgb(255, static_cast<int>(t * 60), static_cast<int>(t * 30));
+        }
+        for (int i = 246; i <= 255; ++i) {
+            double t = (i - 246) / 9.0;
+            lut[i] = qRgb(255, static_cast<int>(60 + t * 195), static_cast<int>(30 + t * 225));
+        }
+        m_colorBar->setColorLUT(lut);
+    }
+}
+
+void MainOverLayOut::syncMarineRange(int rangeIndex)
+{
+    double rangeM = marineRangeMeters(rangeIndex);
+
+    // 同步到 EchoRenderer
+    if (mScene && mScene->echoRenderer()) {
+        mScene->echoRenderer()->setRange(rangeM);
+    }
+
+    // 同步到 PPI 极坐标轴（单位 米）
+    if (mScene && mScene->axis()) {
+        mScene->axis()->setRange(0.0, rangeM);
+    }
+
+    // 同步到覆盖层标签
+    if (m_lblOverlayRange) {
+        QString label = marineRangeLabel(rangeIndex);
+        m_lblOverlayRange->setText(QString("量程  %1").arg(label));
+    }
+
+    // 同步到 MarineRadarManager
+    if (CON_INS && CON_INS->marineMgr()) {
+        CON_INS->marineMgr()->setRange(static_cast<uint8_t>(rangeIndex));
+    }
+
+    // 同步到模拟器
+    if (m_radarSimulator) {
+        m_radarSimulator->setRangeMeter(rangeM);
+    }
+
+    qInfo() << "[Marine] Range changed to index:" << rangeIndex
+            << "=" << marineRangeLabel(rangeIndex) << "(" << rangeM << "m)";
+}
+
+void MainOverLayOut::setupSimradNavPanel()
+{
+    m_navPanel = new QWidget(this);
+    m_navPanel->setObjectName("simradNavPanel");
+    m_navPanel->setStyleSheet(
+        "#simradNavPanel { background: #0a0a0a; border-left: 2px solid #ff8800; }");
+
+    auto* vlay = new QVBoxLayout(m_navPanel);
+    vlay->setContentsMargins(10, 8, 10, 8);
+    vlay->setSpacing(0);
+
+    // 辅助函数：创建一个 SIMRAD 数据行（标题 + 单位 + 大数值）
+    auto makeDataRow = [this, vlay](const QString& title, const QString& unit,
+                                     const QString& defaultVal, const QColor& valColor,
+                                     int fontSize, QLabel*& outValLabel) {
+        // 标题行：标题左对齐 + 单位右对齐
+        auto* headerLayout = new QHBoxLayout();
+        headerLayout->setContentsMargins(0, 6, 0, 0);
+        auto* lblTitle = new QLabel(title, this);
+        lblTitle->setStyleSheet("color: #888; font-size: 14px; font-family: 'Microsoft YaHei'; background: transparent;");
+        auto* lblUnit = new QLabel(unit, this);
+        lblUnit->setStyleSheet("color: #888; font-size: 14px; font-family: 'Microsoft YaHei'; background: transparent;");
+        lblUnit->setAlignment(Qt::AlignRight);
+        headerLayout->addWidget(lblTitle);
+        headerLayout->addStretch();
+        headerLayout->addWidget(lblUnit);
+        vlay->addLayout(headerLayout);
+
+        // 数值行：大字号
+        outValLabel = new QLabel(defaultVal, this);
+        outValLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        outValLabel->setStyleSheet(
+            QString("color: %1; font-size: %2px; font-weight: bold; "
+                    "font-family: 'Consolas', 'Courier New', monospace; background: transparent;")
+                .arg(valColor.name()).arg(fontSize));
+        vlay->addWidget(outValLabel);
+
+        // 分隔线
+        auto* sep = new QWidget(this);
+        sep->setFixedHeight(1);
+        sep->setStyleSheet("background: #333;");
+        vlay->addWidget(sep);
+    };
+
+    // 航速 - SOG（橙色）
+    makeDataRow(QString::fromUtf8("\u822a\u901f"), "kn", "0.0", QColor(0xFF, 0x88, 0x00), 42, m_lblSOGVal);
+
+    // 航向 - HDG（白色）
+    makeDataRow(QString::fromUtf8("\u822a\u5411"), QString::fromUtf8("\u00B0T"), "---", QColor(0xFF, 0xFF, 0xFF), 42, m_lblHDGVal);
+
+    // 对地航向 - COG（白色）
+    makeDataRow(QString::fromUtf8("\u5bf9\u5730\u822a\u5411"), QString::fromUtf8("\u00B0T"), "---", QColor(0xFF, 0xFF, 0xFF), 38, m_lblCOGVal);
+
+    // 转头速率 - TURN（白色）
+    makeDataRow(QString::fromUtf8("\u8f6c\u5934\u7387"), QString::fromUtf8("\u00B0/s"), "0.0", QColor(0xFF, 0xFF, 0xFF), 34, m_lblTURNVal);
+
+    // 位置 - POS
+    {
+        auto* headerLayout = new QHBoxLayout();
+        headerLayout->setContentsMargins(0, 6, 0, 0);
+        auto* lblTitle = new QLabel(QString::fromUtf8("\u4f4d\u7f6e"), this);
+        lblTitle->setStyleSheet("color: #888; font-size: 14px; font-family: 'Microsoft YaHei'; background: transparent;");
+        headerLayout->addWidget(lblTitle);
+        headerLayout->addStretch();
+        vlay->addLayout(headerLayout);
+
+        m_lblPOSLat = new QLabel(QString::fromUtf8("N 00\u00B000.000'"), this);
+        m_lblPOSLat->setAlignment(Qt::AlignRight);
+        m_lblPOSLat->setStyleSheet(
+            "color: #fff; font-size: 20px; font-family: 'Consolas', monospace; background: transparent;");
+        vlay->addWidget(m_lblPOSLat);
+
+        m_lblPOSLon = new QLabel(QString::fromUtf8("E 000\u00B000.000'"), this);
+        m_lblPOSLon->setAlignment(Qt::AlignRight);
+        m_lblPOSLon->setStyleSheet(
+            "color: #fff; font-size: 20px; font-family: 'Consolas', monospace; background: transparent;");
+        vlay->addWidget(m_lblPOSLon);
+
+        auto* sep = new QWidget(this);
+        sep->setFixedHeight(1);
+        sep->setStyleSheet("background: #333;");
+        vlay->addWidget(sep);
+    }
+
+    // 水深（绿色）
+    makeDataRow(QString::fromUtf8("\u6c34\u6df1"), "m", "---", QColor(0x44, 0xFF, 0x44), 46, m_lblDepthVal);
+
+    // 日期/时间（橙色）
+    {
+        auto* headerLayout = new QHBoxLayout();
+        headerLayout->setContentsMargins(0, 6, 0, 0);
+        auto* lblTitle = new QLabel(QString::fromUtf8("\u65e5\u671f/\u65f6\u95f4"), this);
+        lblTitle->setStyleSheet("color: #888; font-size: 14px; font-family: 'Microsoft YaHei'; background: transparent;");
+        headerLayout->addWidget(lblTitle);
+        headerLayout->addStretch();
+        vlay->addLayout(headerLayout);
+
+        m_lblNavTime = new QLabel("--:--:--", this);
+        m_lblNavTime->setAlignment(Qt::AlignRight);
+        m_lblNavTime->setStyleSheet(
+            "color: #ff8800; font-size: 28px; font-weight: bold; "
+            "font-family: 'Consolas', monospace; background: transparent;");
+        vlay->addWidget(m_lblNavTime);
+
+        m_lblNavDate = new QLabel("--/--/----", this);
+        m_lblNavDate->setAlignment(Qt::AlignRight);
+        m_lblNavDate->setStyleSheet(
+            "color: #ff8800; font-size: 18px; "
+            "font-family: 'Consolas', monospace; background: transparent;");
+        vlay->addWidget(m_lblNavDate);
+    }
+
+    // 定时器更新时间
+    auto* navTimer = new QTimer(this);
+    connect(navTimer, &QTimer::timeout, this, [this]() {
+        QDateTime now = QDateTime::currentDateTime();
+        if (m_lblNavTime)
+            m_lblNavTime->setText(now.toString("HH:mm:ss"));
+        if (m_lblNavDate)
+            m_lblNavDate->setText(now.toString("dd/MM/yyyy"));
+    });
+    navTimer->start(1000);
+    // 立即触发一次
+    if (m_lblNavTime)
+        m_lblNavTime->setText(QDateTime::currentDateTime().toString("HH:mm:ss"));
+    if (m_lblNavDate)
+        m_lblNavDate->setText(QDateTime::currentDateTime().toString("dd/MM/yyyy"));
+}
+
+void MainOverLayOut::setupSimradTheme()
+{
+    // PPI 外围橙色边框
+    ui->viewWidget->setStyleSheet(
+        "QWidget#viewWidget { border: 2px solid #ff8800; background: #000; }");
+
+    // 顶栏深色 + 橙色底线
+    ui->topBarWidget->setStyleSheet(
+        "QWidget#topBarWidget { background: #111; border-bottom: 2px solid #ff8800; }"
+        "QLabel { color: #ccc; font-size: 15px; background: transparent; }");
+    ui->TitleLabel->setStyleSheet(
+        "color: #ff8800; font-size: 18px; font-weight: bold; background: transparent;");
+
+    // 底栏深色 + 橙色顶线
+    ui->bottomBarWidget->setStyleSheet(
+        "QWidget#bottomBarWidget { background: #111; border-top: 2px solid #ff8800; }"
+        "QLabel { color: #aaa; font-size: 12px; background: transparent; }"
+        "QPushButton { background: #222; color: #ff8800; border: 1px solid #444; "
+        "border-radius: 3px; padding: 2px 6px; min-width: 24px; min-height: 24px; "
+        "font-size: 16px; font-weight: bold; }"
+        "QPushButton:hover { background: #333; }");
+
+    // 右侧面板背景
+    ui->rightPanelWidget->setStyleSheet(
+        "QWidget#rightPanelWidget { background: #0a0a0a; }");
+
+    // 隐藏底栏部分 X576 字段，保留光标信息和亮度
+    ui->lblHeading->setVisible(false);
+    ui->lblHeadingSrc2->setVisible(false);
+    ui->lblSpeed->setVisible(false);
+    ui->lblSpeedSrc2->setVisible(false);
+    ui->lblTargetCount->setVisible(false);
+
+    // 顶栏文字更新为 SIMRAD 风格
+    ui->lblDisplayMode->setText("HU  RM");
+    ui->lblDisplayMode->setStyleSheet(
+        "color: #44ff44; font-size: 15px; font-weight: bold; background: transparent;");
+    ui->TitleLabel->setText("西电船用");
+    ui->lblCPA->setVisible(false);  // 隐藏 CPA（SIMRAD 不显示）
 }

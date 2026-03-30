@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:32
+ * @LastEditTime: 2026-03-30 15:27:10
  * @Description: 
  */
 /**
@@ -30,7 +30,7 @@ class PolarGrid;    ///< 极坐标网格绘制器
 class TrackManager; ///< 航迹管理器
 class DetManager;   ///< 检测点管理器
 class Tooltip;      ///< 工具提示组件
-class ScanLayer;    ///< 扫描层组件
+class EchoRenderer; ///< 回波渲染引擎
 
 /**
  * @class PPIScene
@@ -45,7 +45,6 @@ class ScanLayer;    ///< 扫描层组件
  * PPIScene (场景容器)
  *  ├── PolarAxis (极坐标轴)
  *  ├── PolarGrid (极坐标网格)
- *  ├── ScanLayer (扫描层)
  *  ├── DetManager (检测点管理)
  *  ├── TrackManager (航迹管理)
  *  └── Tooltip (工具提示)
@@ -99,6 +98,9 @@ public:
 
     /// 获取工具提示组件
     Tooltip* tooltip() const { return m_tooltip; }
+
+    /// 获取回波渲染引擎
+    EchoRenderer* echoRenderer() const { return m_echo; }
 
     /** @} */ // end of ComponentAccessors group
 
@@ -155,7 +157,7 @@ private:
     TrackManager* m_track;   ///< 航迹管理器 - 管理目标航迹显示
     DetManager* m_det;       ///< 检测点管理器 - 管理雷达检测点显示
     Tooltip* m_tooltip;      ///< 工具提示 - 鼠标悬停信息显示
-    ScanLayer* m_scan;       ///< 扫描层 - 雷达扫描线显示
+    EchoRenderer* m_echo = nullptr; ///< 回波渲染引擎
 
     int pviewMargin = 30;    ///< 视图边距(像素) - 预留显示边界
 

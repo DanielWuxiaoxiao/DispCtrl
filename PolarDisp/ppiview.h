@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:32
+ * @LastEditTime: 2026-03-30 15:27:11
  * @Description: 
  */
 /**
@@ -24,10 +24,6 @@
 
 // 前向声明 - 避免头文件循环依赖
 class PPIScene;           ///< PPI场景管理器
-class mainviewTopLeft;    ///< 左上角雷达信息显示组件
-class PointInfoW;         ///< 右上角点信息显示组件
-class MousePositionInfo;  ///< 鼠标位置信息显示组件
-class PPIVisualSettings;  ///< PPI视觉设置组件
 
 /**
  * @class PPIView
@@ -203,6 +199,13 @@ signals:
      */
     void radarCenterChanged(double longitude, double latitude, double range);
 
+    /**
+     * @brief 鼠标光标位置变化信号（海里 + 真北方位）
+     * @param distanceKm 光标距中心距离（公里）
+     * @param bearingDeg 光标方位角（度，真北顺时针）
+     */
+    void cursorPositionChanged(double distanceKm, double bearingDeg);
+
 public slots:
     /**
      * @brief 处理最大距离变化
@@ -251,14 +254,6 @@ public slots:
      * @details 响应MousePositionInfo组件的checkbox变化，控制跟踪点显示/隐藏
      */
     void onTrackVisibilityChanged(bool visible);
-
-    /**
-     * @brief 获取鼠标位置信息组件
-     * @return MousePositionInfo指针
-     * @details 提供对左下角鼠标位置信息显示组件的访问接口，
-     *          用于外部组件连接信号或获取状态信息
-     */
-    MousePositionInfo* getMousePositionInfo() const { return mousePositionInfo; }
 
 protected:
     /**
@@ -317,12 +312,6 @@ private:
     QGraphicsEllipseItem* m_startMarker = nullptr;  ///< 起始点标记
     QGraphicsEllipseItem* m_endMarker = nullptr;    ///< 结束点标记
     QGraphicsTextItem* m_distanceText = nullptr;    ///< 距离文本显示
-
-    // 信息叠加层组件 - 不随视图缩放变化的固定UI元素
-    mainviewTopLeft* radarInfoW = nullptr;      ///< 左上角雷达系统信息显示
-    PointInfoW* pointInfo = nullptr;            ///< 右上角选中点详细信息显示
-    MousePositionInfo* mousePositionInfo = nullptr;  ///< 左下角鼠标位置信息显示
-    PPIVisualSettings* visualSettings = nullptr;     ///< 右下角PPI视觉设置组件
 
     // 雷达地理位置信息
     double m_radarLongitude = 108.9138;         ///< 雷达中心经度（默认西电99号楼）

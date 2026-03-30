@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-10 17:18:13
+ * @LastEditTime: 2026-03-30 15:27:09
  * @Description: 
  */
 #ifndef CONFIGMANAGER_H
@@ -525,6 +525,26 @@ public:
 
     unsigned char dataSaveDataID(unsigned char def = 0) const {
         return getValue("params.datasave.dataID", def).toUInt();
+    }
+
+    // ========== 船用雷达配置 ==========
+    QString marineNetworkStr(const QString& key, const QString& def = "") const {
+        return getValue("marine.network." + key, def).toString();
+    }
+    int marineNetworkInt(const QString& key, int def = 0) const {
+        return getValue("marine.network." + key, def).toInt();
+    }
+    int marineControl(const QString& key, int def = 0) const {
+        return getValue("marine.control." + key, def).toInt();
+    }
+    bool marineControlBool(const QString& key, bool def = false) const {
+        return getValue("marine.control." + key, def).toBool();
+    }
+    QString marineDisplay(const QString& key, const QString& def = "") const {
+        return getValue("marine.display." + key, def).toString();
+    }
+    int marineDisplayInt(const QString& key, int def = 0) const {
+        return getValue("marine.display." + key, def).toInt();
     }
 
 private:

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-25 16:20:19
+ * @LastEditTime: 2026-03-30 15:27:11
  * @Description: 
  */
 /**
@@ -55,11 +55,13 @@ class ZoomViewWidget; ///< 缩放视图控制器
 class SectorWidget;   ///< 扇区控制面板
 class RangeAzimuthChartWidget; ///< 距离-方位图表显示面板
 class AzElRangeWidget; ///< 方位角和俯仰角范围控制部件
-class mainviewTopLeft; ///< PPI视图左上角控制面板
 class CustomComboBox;  ///< 自定义组合框
 class CusWindow;       ///< 自定义窗口
 class QPushButton;     ///< Qt按钮
 class QLabel;          ///< Qt标签
+class QComboBox;       ///< Qt组合框
+class QSlider;         ///< Qt滑动条
+class ColorBarWidget;  ///< 色阶图例
 class DataSaveUI;      ///< 数据存储管理对话框
 class FrozenColumnHelper; ///< 表格冻结列辅助类
 class ScreenRecorderWidget; ///< 屏幕录制与回放组件
@@ -364,7 +366,6 @@ private:
     SectorWidget* m_sectorWidget;     ///< 扇区显示控制器
     RangeAzimuthChartWidget* m_rangeAzimuthWidget; ///< 距离-方位图表显示控制器
     AzElRangeWidget* m_azElRangeWidget; ///< 方位角和俯仰角范围控制器
-    mainviewTopLeft* m_topLeftWidget;   ///< PPI视图左上角控制面板，用于联动偏航和倾角
 
     // 航迹管理相关成员
     QMap<unsigned int, int> m_targetTypes;  ///< 批次号到目标类型编号的映射
@@ -516,6 +517,11 @@ private:
     QLabel* m_lblRangeRing = nullptr;          ///< 距标圈指示标签
     QLabel* m_lblTransmitIndicator = nullptr;  ///< 发射状态指示标签
 
+    // PPI左下角SIMRAD导航信息覆盖层
+    QWidget* m_ppiNavOverlay = nullptr;        ///< PPI左下角浮动导航信息容器
+    QLabel* m_lblNavPos = nullptr;             ///< 经纬度显示标签
+    QLabel* m_lblNavCursor = nullptr;          ///< 光标距离(NM)+方位(°T)标签
+
     // 分类按钮组
     QButtonGroup* m_catBtnGroup = nullptr;     ///< 操控面板分类按钮组
 
@@ -524,6 +530,37 @@ private:
 
     // 雷达回波模拟器
     RadarSimulator* m_radarSimulator = nullptr; ///< 模拟回波数据生成器
+
+    // 船用雷达控制相关
+    ColorBarWidget* m_colorBar = nullptr;       ///< PPI色阶图例
+    QComboBox*   m_rangeCombo = nullptr;        ///< 量程选择下拉框
+    QSlider*     m_gainSlider = nullptr;        ///< 增益滑块
+    QSlider*     m_seaSlider = nullptr;         ///< 海杂波抑制滑块
+    QSlider*     m_rainSlider = nullptr;        ///< 雨杂波抑制滑块
+    QSlider*     m_interferenceSlider = nullptr; ///< 抗干扰级别滑块
+    QLabel*      m_gainValLabel = nullptr;
+    QLabel*      m_seaValLabel = nullptr;
+    QLabel*      m_rainValLabel = nullptr;
+    QLabel*      m_intfValLabel = nullptr;
+
+    void setupMarineControls();                 ///< 替换雷达控制页为船用控件
+    void setupColorBar();                       ///< 创建PPI色阶图例
+    void syncMarineRange(int rangeIndex);       ///< 同步量程到各组件
+    void setupSimradNavPanel();                 ///< 创建SIMRAD风格导航数据面板
+    void setupSimradTheme();                    ///< 应用SIMRAD橙色主题
+
+    // SIMRAD 导航数据面板成员
+    QWidget* m_navPanel = nullptr;              ///< 导航数据面板容器
+    QLabel*  m_lblSOGVal = nullptr;             ///< SOG 数值标签
+    QLabel*  m_lblHDGVal = nullptr;             ///< HDG 数值标签
+    QLabel*  m_lblCOGVal = nullptr;             ///< COG 数值标签
+    QLabel*  m_lblTURNVal = nullptr;            ///< TURN 数值标签
+    QLabel*  m_lblPOSLat = nullptr;             ///< 纬度标签
+    QLabel*  m_lblPOSLon = nullptr;             ///< 经度标签
+    QLabel*  m_lblDepthVal = nullptr;           ///< 水深数值标签
+    QLabel*  m_lblNavTime = nullptr;            ///< 时间标签
+    QLabel*  m_lblNavDate = nullptr;            ///< 日期标签
+    QWidget* m_marineCtrlPanel = nullptr;       ///< 折叠式雷达控制面板
 };
 
 #endif // MAINOVERLAYOUT_H

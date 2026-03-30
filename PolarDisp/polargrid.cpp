@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-25 16:20:18
+ * @LastEditTime: 2026-03-30 15:27:10
  * @Description: 
  */
 /**
@@ -107,18 +107,18 @@ void PolarGrid::updateGrid() {
     // }
 
     // === 1. 最外层边界圆绘制 ===
-    // 绘制PPI显示的最大范围边界，使用蓝色实线突出显示
-    QPen outerPen(QColor(68, 136, 255));
+    // 绘制PPI显示的最大范围边界，使用橙色实线（SIMRAD风格）
+    QPen outerPen(QColor(0xFF, 0x88, 0x00));
     outerPen.setWidth(2);
     QGraphicsEllipseItem* outerCircle =
             mScene->addEllipse(-radius, -radius, radius*2, radius*2, outerPen);
     mCircleItems.append(outerCircle);
 
     // === 2. 内部距离参考圆环绘制 ===
-    // 绘制5个等距的虚线圆环，作为距离估算的参考标识
-    QPen dashPen(QColor(50, 80, 140));
+    // 绘制4个等距的虚线圆环（1/4, 1/2, 3/4, 4/4），SIMRAD风格
+    QPen dashPen(QColor(60, 60, 60));
     dashPen.setStyle(Qt::DashLine);
-    int ringCount = 5;  // 固定绘制5个距离圆环
+    int ringCount = 4;  // SIMRAD风格：4个距离圆环（分数标签）
     for (int i=1; i<=ringCount; ++i) {
         double r = radius * i / ringCount;  // 等距分布计算
         QGraphicsEllipseItem* ring =
@@ -148,7 +148,7 @@ void PolarGrid::updateGrid() {
         double rad = qDegreesToRadians((double)angle);
         double x1, y1, x2, y2;
         int len;
-        QPen tickPen(QColor(68, 136, 255));
+        QPen tickPen(QColor(80, 80, 80));  // SIMRAD: 深灰色刻度线
 
         // 刻度线长度和粗细设置：10°倍数用粗线，其他用细线
         if (angle % 10 == 0) {
@@ -178,7 +178,7 @@ void PolarGrid::updateGrid() {
             // 创建角度数值文本
             QGraphicsSimpleTextItem* text =
                     mScene->addSimpleText(QString::number(angle));
-            text->setBrush(QColor(102, 170, 255));  // 设置文字颜色为蓝色
+            text->setBrush(QColor(100, 100, 100));  // SIMRAD: 暗灰色角度文字
 
             // 文字居中对齐到计算位置
             text->setPos(tx - text->boundingRect().width()/2,
@@ -189,7 +189,7 @@ void PolarGrid::updateGrid() {
 
     // === 5. 主方向十字分割线绘制（90°间隔） ===
     // 绘制四条主要方向的径向线：北(0°)、东(90°)、南(180°)、西(270°)
-    QPen crossPen(QColor(68, 136, 255, 128));  // 半透明蓝色
+    QPen crossPen(QColor(60, 60, 60, 128));  // SIMRAD: 深灰色半透明
     crossPen.setStyle(Qt::DashLine);
     for (int angle=0; angle<360; angle+=90) {
         double ang = angle;
@@ -215,27 +215,25 @@ void PolarGrid::updateGrid() {
         mTickItems.append(line);
     }
 
-    // === 6. 右侧距离刻度标注绘制 ===
-    // 在屏幕右侧显示距离值，对应各个距离圆环的实际距离
-    double maxRange = mAxis->maxRange();
-    int rangeStep = maxRange / ringCount;  // 计算每个圆环对应的距离步长
+    // === 6. 右侧距离刻度标注绘制（SIMRAD 分数风格） ===
+    // SIMRAD风格：显示 1/4, 1/2, 3/4 分数标签
+    static const char* fracLabels[] = { "1/4", "1/2", "3/4" };
 
-    for (int i=1; i<=ringCount; ++i) {
-        double r = radius * i / ringCount;  // 当前圆环的像素半径
+    for (int i = 1; i <= ringCount; ++i) {
+        double r = radius * i / ringCount;
 
-        // 距离标签格式化：第一个圆环显示"km"单位，其他仅显示数值
-        QString label;
-        if(i == 1) {
-            label = QString::number(i * rangeStep / 1000.0, 'f', 1) + " km";
-        } else {
-            label = QString::number(i * rangeStep / 1000.0, 'f', 1);
+        // 只在内层圆环显示分数标签（跳过最外层=边界圆）
+        if (i < ringCount) {
+            QString label = QString::fromLatin1(fracLabels[i - 1]);
+
+            QGraphicsSimpleTextItem* txt = mScene->addSimpleText(label);
+            txt->setBrush(QColor(120, 120, 120));
+            QFont f = txt->font();
+            f.setPixelSize(12);
+            txt->setFont(f);
+            txt->setPos(r - 25, -txt->boundingRect().height() / 2);
+            mTextItems.append(txt);
         }
-
-        // 创建距离标注文本并定位到右侧
-        QGraphicsSimpleTextItem* txt = mScene->addSimpleText(label);
-        txt->setBrush(Qt::white);  // 白色文字便于识别
-        txt->setPos(r-25, -txt->boundingRect().height()/2);  // 右侧居中对齐
-        mTextItems.append(txt);
     }
 }
 

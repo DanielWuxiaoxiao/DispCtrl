@@ -126,7 +126,6 @@ SOURCES += \
     PolarDisp/pviewtopleft.cpp \
     PolarDisp/mousepositioninfo.cpp \
     PolarDisp/ppivisualsettings.cpp \
-    PolarDisp/scanlayer.cpp \
     PolarDisp/sectorpolargrid.cpp \
     PolarDisp/sectorscene.cpp \
     PolarDisp/sectorwidget.cpp \
@@ -218,7 +217,6 @@ HEADERS += \
     PolarDisp/pviewtopleft.h \
     PolarDisp/mousepositioninfo.h \
     PolarDisp/ppivisualsettings.h \
-    PolarDisp/scanlayer.h \
     PolarDisp/sectorpolargrid.h \
     PolarDisp/sectorscene.h \
     PolarDisp/sectorwidget.h \

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-25 16:20:17
+ * @LastEditTime: 2026-03-30 15:27:09
  * @Description: 
  */
 #ifndef DISPBASCI_H
@@ -59,9 +59,9 @@ public:
         return static_cast<int>(s_logicalW * 0.22);
     }
 
-    /// 右侧P显/B显面板宽度 (逻辑屏幕宽度的 28%)
+    /// 右侧P显/B显面板宽度 (逻辑屏幕宽度的 20%)
     static int rightPanelWidth() {
-        return static_cast<int>(s_logicalW * 0.28);
+        return static_cast<int>(s_logicalW * 0.20);
     }
 
     /// 按钮最小高度 (基准40px按布局因子缩放)

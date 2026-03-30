@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:30
+ * @LastEditTime: 2026-03-30 15:27:10
  * @Description: 
  */
 /**
@@ -35,6 +35,7 @@
 #include "disp2monmanager.h"
 #include "mon2dispmanager.h"
 #include "ExternalCtrlManager.h"
+#include "MarineRadarManager.h"
 
 // 全局静态单例实例定义
 Q_GLOBAL_STATIC(Controller, ControllerInstance)
@@ -91,6 +92,40 @@ void Controller::init()
     monMgr = new Disp2MonManager(this);        // 显示到监控管理器
     monRecvMgr = new Mon2DispManager(this);    // 监控到显示管理器
     extCtrlMgr = new ExternalCtrlManager(this); // 外部雷控链路
+
+    // === 船用雷达管理器 ===
+    m_marineMgr = new MarineRadarManager(this);
+    {
+        QString localIp  = CF_INS.marineNetworkStr("local_ip", "192.168.1.100");
+        int echoPort     = CF_INS.marineNetworkInt("echo_port", 5000);
+        QString servoIp  = CF_INS.marineNetworkStr("servo_ip", "192.168.1.200");
+        int servoPort    = CF_INS.marineNetworkInt("servo_port", 5001);
+        int autoSendMs   = CF_INS.marineNetworkInt("auto_send_ms", 200);
+
+        m_marineMgr->init(localIp, static_cast<uint16_t>(echoPort),
+                          servoIp, static_cast<uint16_t>(servoPort));
+        m_marineMgr->setAutoSendInterval(autoSendMs);
+
+        // 加载默认控制参数
+        MarineControlFrame ctrl;
+        ctrl.rangeVal = static_cast<uint8_t>(CF_INS.marineControl("range", 8));
+        ctrl.gain     = static_cast<uint8_t>(CF_INS.marineControl("gain", 0));
+        ctrl.ganRao   = static_cast<uint8_t>(CF_INS.marineControl("interference", 0));
+        ctrl.level    = static_cast<uint8_t>(CF_INS.marineControl("level", 0));
+        ctrl.seaVal   = static_cast<uint8_t>(CF_INS.marineControl("sea_clutter", 0));
+        ctrl.rainVal  = static_cast<uint8_t>(CF_INS.marineControl("rain_clutter", 0));
+        ctrl.txCtrl   = CF_INS.marineControlBool("tx_on", false) ? 1 : 0;
+        int spd       = CF_INS.marineControl("servo_speed", 8);
+        ctrl.speedL   = static_cast<uint8_t>(spd & 0xFF);
+        ctrl.speedH   = static_cast<uint8_t>((spd >> 8) & 0xFF);
+        // 初始控制帧不立即发送，等UI准备好
+    }
+
+    // 船用雷达信号转发
+    connect(m_marineMgr, &MarineRadarManager::echoLineReceived,
+            this, &Controller::marineEchoLine);
+    connect(m_marineMgr, &MarineRadarManager::radarStatusUpdated,
+            this, &Controller::marineStatusUpdated);
 
     // === 建立信号槽连接 ===
 

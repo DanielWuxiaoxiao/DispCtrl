@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:30
+ * @LastEditTime: 2026-03-30 15:27:10
  * @Description: 
  */
 /**
@@ -43,6 +43,7 @@
 #include <QObject>
 #include <QByteArray>
 #include "Basic/Protocol.h"
+#include "Basic/MarineProtocol.h"
 #include "Basic/ConfigManager.h"
 
 // 前向声明 - 各子系统管理器
@@ -59,6 +60,7 @@ class targetDispManager;  ///< 目标显示管理器
 class Disp2MonManager;    ///< 显示到监控管理器
 class Mon2DispManager;    ///< 监控到显示管理器
 class ExternalCtrlManager; ///< 外部雷控/调度链路管理器
+class MarineRadarManager;  ///< 船用雷达协议管理器
 
 // 便捷宏定义
 #define CON_INS Controller::getInstance()  ///< 控制器单例访问宏
@@ -318,6 +320,10 @@ signals:
     void externalServoAck(ExternalServoAck32 ack32);
     void externalCtrlLog(QString msg);
 
+    // === 船用雷达 ===
+    void marineEchoLine(const MarineEchoLine& line);
+    void marineStatusUpdated(const MarineRadarStatus& status);
+
     /**
      * @brief 最小化窗口信号
      * @param checked 是否选中状态
@@ -349,6 +355,10 @@ private:
     Disp2MonManager* monMgr;       ///< 显示到监控管理器
     Mon2DispManager* monRecvMgr;   ///< 监控到显示管理器
     ExternalCtrlManager* extCtrlMgr; ///< 外部雷控/调度链路管理器
+    MarineRadarManager* m_marineMgr = nullptr; ///< 船用雷达协议管理器
+
+public:
+    MarineRadarManager* marineMgr() const { return m_marineMgr; }
 };
 
 #endif // CONTROLLER_H

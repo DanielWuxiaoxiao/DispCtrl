@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:32
+ * @LastEditTime: 2026-03-30 15:27:10
  * @Description: 
  */
 /**
@@ -28,7 +28,7 @@
 #include "Basic/DispBasci.h"
 #include "Basic/log.h"
 #include "Basic/ConfigManager.h"
-#include "scanlayer.h"
+#include "echorenderer.h"
 #include "Controller/controller.h"
 
 /**
@@ -70,22 +70,6 @@ PPIScene::PPIScene(QObject *parent)
 
     setRange(minRangeM, maxRangeM);
 
-    m_scan = new ScanLayer(m_axis);
-    addItem(m_scan);
-    m_scan->setSweepRange(-30, 30);    // 默认扫描范围（-30°~30°），后续会根据工作模式更新
-    m_scan->setScanMode(ScanLayer::Loop);
-
-    // 连接BIT上报信号，实时更新扫描角度（波束指向）
-    connect(CON_INS, &Controller::bitReport,
-        m_scan, &ScanLayer::onBITReport);
-
-    // 扫描范围更新：从工作模式参数（TWS/TAS）设置的扫描范围
-    connect(CON_INS, &Controller::scanRangeChanged,
-        m_scan, &ScanLayer::setSweepRange);
-
-    // 注意：不再连接scanAngleChanged和scanHeadingChanged，避免与onBITReport冲突
-    // 扫描角度由BIT上报的scanAngle直接驱动
-
     // ensure axis->rangeChanged is forwarded
     connect(m_axis, &PolarAxis::rangeChanged, this, &PPIScene::rangeChanged);
 
@@ -105,6 +89,10 @@ PPIScene::PPIScene(QObject *parent)
     // 连接 TrackManager 的 trackRemoved 信号到 Controller
     connect(m_track, &TrackManager::trackRemoved,
         CON_INS, &Controller::trackRemoved);
+
+    // === 船用雷达回波渲染连接 ===
+    connect(CON_INS, &Controller::marineEchoLine,
+            m_echo, &EchoRenderer::updateEchoLine);
 }
 
 /**
@@ -121,7 +109,7 @@ PPIScene::~PPIScene() {
         removeItem(m_tooltip);
         m_tooltip = nullptr;  // 清空指针，避免悬空引用
     }
-    // 其他组件（m_grid, m_det, m_track, m_scan, m_axis）
+    // 其他组件（m_grid, m_det, m_track, m_axis）
     // 都是 QGraphicsItem 或 QObject 的子类，Qt 会自动管理它们的生命周期
 }
 
@@ -197,6 +185,10 @@ void PPIScene::updateSceneSize(const QSize &newSize) {
 void PPIScene::initLayerObjects()
 {
     m_grid = new PolarGrid(this, m_axis);
+
+    // 船用回波渲染引擎 (在网格之上)
+    m_echo = new EchoRenderer(this, 2048, this);
+
     m_det = new DetManager(this, m_axis);
     m_track = new TrackManager(this, m_axis);
 

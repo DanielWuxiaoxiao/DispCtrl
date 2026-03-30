@@ -212,3 +212,31 @@ dataID = 0                           # 数据ID
 [displayConfig]
 # 检测点显示配置 Detection Point Display Configuration
 max_points = 1000                    # 最大检测点数量
+
+# =============================================================================
+# 船用雷达通信配置 Marine Radar Communication
+# =============================================================================
+
+[marine.network]
+local_ip = "192.168.1.100"           # 显控本机IP
+echo_port = 5000                     # 接收回波数据端口(接口4)
+servo_ip = "192.168.1.200"           # 伺服IP地址
+servo_port = 5001                    # 伺服控制端口(接口1)
+auto_send_ms = 200                   # 控制帧自动发送周期(ms), 0=不自动
+
+[marine.control]
+# 默认控制参数
+range = 8                            # 量程编码 (0~23, 8=2nm)
+gain = 0                             # 增益 (0=自动)
+interference = 0                     # 干扰抑制 (0=关)
+level = 0                            # 灵敏度 (0=自动)
+sea_clutter = 0                      # 海杂波 (0=自动)
+rain_clutter = 0                     # 雨杂波 (0=自动)
+tx_on = false                        # 发射开关 (默认关闭)
+servo_speed = 8                      # 伺服转速 (0=停, 8=正常)
+
+[marine.display]
+# 扫描回波显示参数
+echo_decay_ms = 10000                # 回波衰减时间(ms) — 余辉持续时长
+colormap = "simrad"                  # 色彩映射方案: simrad / rainbow / green
+
