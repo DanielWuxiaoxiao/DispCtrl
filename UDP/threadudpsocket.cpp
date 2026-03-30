@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-25 17:09:16
+ * @LastEditTime: 2026-03-30 10:08:59
  * @Description: 
  */
 /**
@@ -252,7 +252,7 @@ void ThreadedUdpSocket::handleDatagram(const QByteArray& data, int senderPort) {
                     memcpy(&raw, payload, sizeof(raw));
                     double lat = raw.latitude / 1e9;
                     double lon = raw.longitude / 1e9;
-                    double alt = raw.altitude / 1000.0;
+                    double alt = raw.altitude / 100.0;
                     emit geoLocationReport(lat, lon, alt);
                 }
                 break;

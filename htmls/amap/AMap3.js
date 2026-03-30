@@ -250,7 +250,9 @@
                         )()
                         , ft = void 0 === t[8] || t[8]
                         , O = window.Uint8Array && ft && !window.forbidenWebGL && O && (window.forceWebGL || (M || A || w || b || Z || x) && "other" != y)
-                        , M = window.forceWebGLBaseRender || O ? "w" : "d"
+                        // , M = window.forceWebGLBaseRender || O ? "w" : "d"
+                        // 强制WebGL渲染
+                        , M = "w"
                         , A = e("webkit")
                         , w = "WebKitCSSMatrix" in f && "m11" in new window.WebKitCSSMatrix
                         , x = "MozPerspective" in c.style
@@ -349,6 +351,13 @@
                     testWepP(function (t) {
                         R.mH = t
                     })
+                    // 强制开启WebGL支持
+                    R.isWebGL = true;
+                    if (typeof window !== 'undefined') {
+                        window.AMap = window.AMap || {};
+                        window.AMap.Browser = window.AMap.Browser || {};
+                        window.AMap.Browser.isWebGL = true;
+                    }
                 }
                 return R
             }

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:14
+ * @LastEditTime: 2026-03-30 10:09:00
  * @Description: 
  */
 #include "mapprox.h"
@@ -77,6 +77,21 @@ MapProxyWidget::MapProxyWidget()
            可根据需要调用  "http://localhost:8080/index.html"*/
 
     QUrl baseUrl = QUrl::fromLocalFile(htmlFile);
+
+    // 页面初次加载完成后立即注入正确的中心坐标，避免闪回HTML硬编码默认点
+    QMetaObject::Connection connection;
+    connection = connect(mView, &QWebEngineView::loadFinished, this, [this, connection](bool success) mutable {
+        if (success) {
+            // 立即注入JS覆盖默认中心，无延迟
+            QString js = QString("setCenterOn(%1, %2, %3);")
+                .arg(m_currentLongitude, 0, 'f', 9)
+                .arg(m_currentLatitude, 0, 'f', 9)
+                .arg(m_currentRange, 0, 'f', 3);
+            mView->page()->runJavaScript(js);
+        }
+        QObject::disconnect(connection);
+    });
+
     mView->setUrl(QUrl(baseUrl));
     //直接在load后的语句进行javascript函数会导致无法运行，需要等待页面完全加载完毕才可使用函数。
 }
@@ -111,8 +126,6 @@ void MapProxyWidget::chooseMap(int index)
     }
     else
     {
-        mView->setVisible(true);
-
         if(index == 1)
         {
             htmlFile = appDir + "/indexNoL.html"; // 替换为实际路径
@@ -134,17 +147,25 @@ void MapProxyWidget::chooseMap(int index)
     if (!htmlFile.isEmpty()) {
         QUrl baseUrl = QUrl::fromLocalFile(htmlFile);
 
-        // 连接页面加载完成信号，在地图加载后同步雷达状态
-        // Qt 5.14不支持SingleShotConnection，使用手动断开连接的方式
+        // 隐藏地图视图，防止加载时闪回HTML硬编码默认坐标
+        mView->setVisible(false);
+
+        // 连接页面加载完成信号，立即注入正确中心坐标后再显示
         QMetaObject::Connection connection;
         connection = connect(mView, &QWebEngineView::loadFinished, this, [this, connection](bool success) mutable {
             if (success) {
-                // 页面加载完成后，使用定时器延迟同步，确保JavaScript已完全初始化
-                QTimer::singleShot(500, this, [this]() {
-                    this->syncCurrentRadarState();
+                // 立即注入正确坐标覆盖HTML默认值，无延迟
+                QString js = QString("setCenterOn(%1, %2, %3);")
+                    .arg(m_currentLongitude, 0, 'f', 9)
+                    .arg(m_currentLatitude, 0, 'f', 9)
+                    .arg(m_currentRange, 0, 'f', 3);
+                mView->page()->runJavaScript(js, [this](const QVariant &) {
+                    // JS执行完毕后再显示，确保地图已经在正确位置
+                    mView->setVisible(true);
                 });
+            } else {
+                mView->setVisible(true);
             }
-            // 手动断开连接，确保只执行一次
             QObject::disconnect(connection);
         });
 
@@ -160,6 +181,15 @@ void MapProxyWidget::setCenterOn(float lng, float lat,float range)
 
 void MapProxyWidget::syncRadarToMap(double longitude, double latitude, double range)
 {
+    // 浮点容差判断：经纬度变化 < 0.0000001°（约0.01m）且距离变化 < 0.001km（1m）时不触发更新
+    const double LNG_LAT_EPS = 1e-7;
+    const double RANGE_EPS   = 1e-3;
+    if (qAbs(longitude - m_currentLongitude) < LNG_LAT_EPS &&
+        qAbs(latitude  - m_currentLatitude)  < LNG_LAT_EPS &&
+        qAbs(range     - m_currentRange)     < RANGE_EPS) {
+        return;
+    }
+
     // 更新当前雷达状态
     m_currentLongitude = longitude;
     m_currentLatitude = latitude;

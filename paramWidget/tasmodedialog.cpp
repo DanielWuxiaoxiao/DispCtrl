@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-01-30 11:45:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-20 16:29:55
+ * @LastEditTime: 2026-03-30 10:09:00
  * @Description: 
  */
 /*
@@ -35,11 +35,9 @@ unsigned char TASModeDialog::PRTs[] = {40, 25, 20, 50, 100, 175, 15, 30, 40, 50,
 
 TASModeDialog::TASModeDialog(QWidget* parent) : QDialog(parent), ui(new Ui::TASModeDialog) {
     ui->setupUi(this);
-    setFixedSize(1200, 850);
+    setMinimumWidth(1200);
     setWindowTitle(tr("TAS模式设置"));
     setObjectName("TASModeDialog");  // 设置对象名以应用darkstyle.qss中的样式
-    // 窗口居中显示
-    centerWidgetOnScreen(this);
 
     // 断开UI文件中的默认连接
     disconnect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
@@ -80,10 +78,21 @@ TASModeDialog::TASModeDialog(QWidget* parent) : QDialog(parent), ui(new Ui::TASM
     // 非管理者模式：隐藏"方位间隔"和"波形参数配置"控件
     // =========================================================================
     if (!AuthManager::instance().isAdminMode()) {
-        ui->label_azistep->hide();
-        ui->azistep->hide();
+        // 从GridLayout中移除并隐藏方位间隔控件
+        hideFromGrid(ui->gridLayout_sector, ui->label_azistep);
+        hideFromGrid(ui->gridLayout_sector, ui->azistep);
+        // 将积累脉冲数移到空出的位置，消除左侧空隙
+        ui->gridLayout_sector->removeWidget(ui->label_pulsenum);
+        ui->gridLayout_sector->removeWidget(ui->pulseNum1);
+        ui->gridLayout_sector->addWidget(ui->label_pulsenum, 2, 0);
+        ui->gridLayout_sector->addWidget(ui->pulseNum1, 2, 1);
+
+        // 隐藏波形参数配置组（QVBoxLayout自动收缩）
         ui->groupWaveform->hide();
     }
+
+    // 窗口居中显示（在所有控件显隐设置之后，adjustSize自动计算正确尺寸）
+    centerWidgetOnScreen(this);
 }
 
 TASModeDialog::~TASModeDialog() { delete ui; }

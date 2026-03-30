@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-25 17:09:16
+ * @LastEditTime: 2026-03-30 10:09:00
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -240,9 +240,14 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     connect(ui->btnSignalProcess, &QPushButton::clicked, this,
             &MainOverLayOut::onSignalProcessClicked);
     connect(ui->btnFreqControl, &QPushButton::clicked, this, &MainOverLayOut::onFreqControlClicked);
-    // 非管理者模式：隐藏"波形及采样控制"按钮
+    // 非管理者模式：隐藏"波形及采样控制"按钮，并紧凑布局
     if (!AuthManager::instance().isAdminMode()) {
-        ui->btnFreqControl->hide();
+        hideFromGrid(ui->paramSettingsGrid, ui->btnFreqControl);
+        // 将"阵面开启控制"和"工作模式设置"上移填补空行
+        ui->paramSettingsGrid->removeWidget(ui->btnBatteryControl);
+        ui->paramSettingsGrid->removeWidget(ui->btnScanRange);
+        ui->paramSettingsGrid->addWidget(ui->btnBatteryControl, 1, 0);
+        ui->paramSettingsGrid->addWidget(ui->btnScanRange, 1, 1);
     }
     // 隐藏方向图扫描控制按钮，功能已集成到"范围设置"tab中
     // ui->btnScanRange->setVisible(false);

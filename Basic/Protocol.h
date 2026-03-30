@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-25 17:09:15
+ * @LastEditTime: 2026-03-30 10:08:59
  * @Description: 
  */
 #ifndef PROTOCOL_H
@@ -635,14 +635,14 @@ typedef struct _OfflineStat
  * @brief 经纬高信息上报（信号处理→显控）
  * @details 消息ID: 0xDD05
  *          纬度/经度单位: 0.000000001°（需除以1e9转为度）
- *          高程单位: 0.001m（需除以1000转为米）
+ *          高程单位: 0.01m（需除以100转为米）
  */
 typedef struct _GeoLocationReport
 {
     unsigned short mesID;
     qint64 latitude;    // [-90, 90] 单位: 0.000000001°
     qint64 longitude;   // [-180, 180] 单位: 0.000000001°
-    qint32 altitude;    // 单位: 0.001m
+    qint32 altitude;    // 单位: 0.01m
 
     _GeoLocationReport()
     {

@@ -76,6 +76,7 @@ build/
 debug/
 release/
 out/
+deploy/
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
@@ -99,4 +100,7 @@ disp_ctrl_log.txt
 
 # Configuration files (uncomment if sensitive)
 # config.json
+
+# Backup files
+*.bak
 

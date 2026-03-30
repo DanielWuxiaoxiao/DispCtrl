@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-10 17:18:13
+ * @LastEditTime: 2026-03-30 10:08:59
  * @Description: 
  */
 #ifndef DISPBASCI_H
@@ -13,6 +13,7 @@
 #include <qnamespace.h>
 #include <QWidget>
 #include <QScreen>
+#include <QGridLayout>
 #include <QGuiApplication>
 #include <algorithm>
 #include <cmath>
@@ -134,6 +135,17 @@ inline void centerWidget(QWidget* widget) {
     int y = screenGeometry.y() + (screenGeometry.height() - widget->height()) / 2;
 
     widget->move(x, y);
+}
+
+/**
+ * @brief 从QGridLayout中隐藏并移除指定控件，使布局能紧凑化
+ * @param grid 目标QGridLayout
+ * @param widget 要隐藏的控件
+ */
+inline void hideFromGrid(QGridLayout* grid, QWidget* widget) {
+    if (!grid || !widget) return;
+    grid->removeWidget(widget);
+    widget->hide();
 }
 
 /**

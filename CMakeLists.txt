@@ -52,6 +52,11 @@ if(MSVC)
     add_compile_options(/wd4819)
 endif()
 
+# GCC/Clang 编译选项（Linux/macOS）
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers)
+endif()
+
 ##############################################################################
 # 日志输出配置 - 确保Release模式也保留调试日志
 ##############################################################################
@@ -378,8 +383,40 @@ target_include_directories(DispCtrl PRIVATE
 if(UNIX AND NOT APPLE)
     set_target_properties(DispCtrl PROPERTIES
         BUILD_WITH_INSTALL_RPATH ON            # 构建时设置RPATH
-        INSTALL_RPATH "$ORIGIN/../lib"         # 相对路径查找共享库
+        INSTALL_RPATH "$ORIGIN/../lib:$ORIGIN"  # 相对路径查找共享库
     )
+endif()
+
+##############################################################################
+# Linux 安装规则（供 package_linux.sh 使用 cmake --install）
+##############################################################################
+
+if(UNIX AND NOT APPLE)
+    include(GNUInstallDirs)
+
+    # 安装可执行文件
+    install(TARGETS DispCtrl RUNTIME DESTINATION bin)
+
+    # 安装配置文件
+    install(FILES "${CMAKE_SOURCE_DIR}/config.toml" DESTINATION bin)
+
+    # 安装地图HTML及资源（保持目录结构）
+    install(DIRECTORY "${CMAKE_SOURCE_DIR}/htmls/"
+            DESTINATION bin
+            PATTERN ".git" EXCLUDE)
+
+    # 安装QSS样式表
+    if(EXISTS "${CMAKE_SOURCE_DIR}/resources/style")
+        install(DIRECTORY "${CMAKE_SOURCE_DIR}/resources/style/"
+                DESTINATION bin/resources/style
+                FILES_MATCHING PATTERN "*.qss")
+    endif()
+
+    # 安装图标资源
+    if(EXISTS "${CMAKE_SOURCE_DIR}/resources/icon")
+        install(DIRECTORY "${CMAKE_SOURCE_DIR}/resources/icon/"
+                DESTINATION bin/resources/icon)
+    endif()
 endif()
 
 ##############################################################################

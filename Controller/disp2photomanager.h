@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:44:56
+ * @LastEditTime: 2026-03-30 10:08:59
  * @Description: 
  */
 #ifndef DISP2PHOTOMANAGER_H
@@ -11,6 +11,7 @@
 
 #pragma once
 #include <QObject>
+#include <QTimer>
 #include "Basic/Protocol.h"
 #include <QHostAddress>
 

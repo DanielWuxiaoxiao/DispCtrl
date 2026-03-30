@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-20 16:29:55
+ * @LastEditTime: 2026-03-30 10:09:00
  * @Description: 
  */
 #include "waveandsample.h"
@@ -21,11 +21,9 @@ waveAndSample::waveAndSample(QWidget *parent) :
     ui(new Ui::waveAndSample)
 {
     ui->setupUi(this);
-    setFixedSize(1200, 900);  // 增加高度从600到900，给控件足够的空间
+    setMinimumWidth(1200);
 
     setWindowTitle(tr("波形及采样控制"));
-    // 窗口居中显示
-    centerWidgetOnScreen(this);
 
     // 断开UI文件中的默认连接
     disconnect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
@@ -74,9 +72,14 @@ waveAndSample::waveAndSample(QWidget *parent) :
     // 非管理者模式：隐藏"方位间隔"和"波形参数配置"相关控件
     // =========================================================================
     if (!AuthManager::instance().isAdminMode()) {
-        // 隐藏方位间隔（row 2 的 label_26 + azistep）
-        ui->label_26->hide();
-        ui->azistep->hide();
+        // 从GridLayout中移除并隐藏方位间隔控件
+        hideFromGrid(ui->gridLayout, ui->label_26);
+        hideFromGrid(ui->gridLayout, ui->azistep);
+        // 将积累脉冲数移到空出的位置，消除左侧空隙
+        ui->gridLayout->removeWidget(ui->label);
+        ui->gridLayout->removeWidget(ui->pulseNum1);
+        ui->gridLayout->addWidget(ui->label, 2, 0);
+        ui->gridLayout->addWidget(ui->pulseNum1, 2, 1);
 
         // 隐藏波形参数配置区域（grid rows 4~20 的所有控件）
         QGridLayout* grid = ui->gridLayout;
@@ -85,12 +88,15 @@ waveAndSample::waveAndSample(QWidget *parent) :
                 for (int col = 0; col < grid->columnCount(); ++col) {
                     QLayoutItem* item = grid->itemAtPosition(row, col);
                     if (item && item->widget()) {
-                        item->widget()->hide();
+                        hideFromGrid(grid, item->widget());
                     }
                 }
             }
         }
     }
+
+    // 窗口居中显示（在所有控件显隐设置之后，adjustSize自动计算正确尺寸）
+    centerWidgetOnScreen(this);
 }
 
 void waveAndSample::onAccept()
