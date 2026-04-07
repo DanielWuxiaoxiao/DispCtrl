@@ -226,7 +226,7 @@ auto_send_ms = 200                   # 控制帧自动发送周期(ms), 0=不自
 
 [marine.control]
 # 默认控制参数
-range = 8                            # 量程编码 (0~23, 8=2nm)
+range = 7                            # 量程编码 (0~14, 7=4km)
 gain = 0                             # 增益 (0=自动)
 interference = 0                     # 干扰抑制 (0=关)
 level = 0                            # 灵敏度 (0=自动)

@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-03-30 11:44:45
+ * @Date: 2026-03-30 15:27:09
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 15:27:09
+ * @LastEditTime: 2026-04-07 11:18:02
  * @Description: 
  */
 /**
@@ -39,35 +39,25 @@ constexpr uint8_t MARINE_ECHO_LEAD = 0x00;
 /// 方位角分辨率: 4096 steps = 360°
 constexpr uint16_t MARINE_AZI_STEPS = 4096;
 
-/// 量程编码表 (RangeVal → 实际距离, 单位: 米)
-/// 对应关系: index → meters
-constexpr int MARINE_RANGE_TABLE_SIZE = 24;
+/// 量程编码表 (RangeVal → 最大量程, 单位: 米)
+/// 对应关系: index 0~14 → meters
+constexpr int MARINE_RANGE_TABLE_SIZE = 15;
 constexpr double MARINE_RANGE_TABLE[] = {
-    // 近量程
-    69.4,    // 0:  1/16 nm ≈ 69.4m  (约 125 英尺)
-    138.9,   // 1:  1/8  nm
-    231.5,   // 2:  1/4  nm (约 750 英尺)  — 短程港内
-    347.2,   // 3:  3/8  nm (约 0.19 km)
-    462.9,   // 4:  1/2  nm
-    694.4,   // 5:  3/4  nm
-    926.0,   // 6:  1    nm
-    1388.9,  // 7:  3/4  nm × 2 = 1.5 nm
-    1852.0,  // 8:  2    nm
-    2778.0,  // 9:  3    nm — 典型港湾
-    3704.0,  // 10: 4    nm
-    5556.0,  // 11: 6    nm
-    7408.0,  // 12: 8    nm
-    11112.0, // 13: 12   nm — 中程航行
-    14816.0, // 14: 16   nm
-    18520.0, // 15: 20   nm
-    22224.0, // 16: 24   nm — 远程巡航
-    27780.0, // 17: 30   nm
-    37040.0, // 18: 36   nm
-    46300.0, // 19: 48   nm
-    55560.0, // 20: 60   nm
-    74080.0, // 21: 72   nm — 超远程
-    92600.0, // 22: 96   nm
-    129640.0 // 23: 120  nm (约 70 海里)
+    300.0,    // 0:  300  m
+    500.0,    // 1:  500  m
+    750.0,    // 2:  750  m
+    1000.0,   // 3:  1    km
+    1500.0,   // 4:  1.5  km
+    2000.0,   // 5:  2    km
+    3000.0,   // 6:  3    km
+    4000.0,   // 7:  4    km  (默认)
+    6000.0,   // 8:  6    km
+    10000.0,  // 9:  10   km
+    15000.0,  // 10: 15   km
+    30000.0,  // 11: 30   km
+    40000.0,  // 12: 40   km
+    60000.0,  // 13: 60   km
+    75000.0   // 14: 75   km
 };
 
 /// 量程对应的公里文本标签
@@ -97,41 +87,44 @@ inline double marineRangeMeters(uint8_t rangeVal) {
  * @struct MarineControlFrame
  * @brief 显控→伺服 控制帧 (16字节)
  * @details
- *  Byte 0:  HeadFlag  = 0xA5
- *  Byte 1:  RangeVal  量程编码 (0~23)
- *  Byte 2:  Gain      增益 (0=自动, 1=低, 2=中, 3=高)
- *  Byte 3:  GanRao    干扰抑制 (0=关, 1=低, 2=中, 3=高)
- *  Byte 4:  Level     灵敏度 (0=自动, 1~255=手动)
- *  Byte 5:  SeaVal    海杂波抑制 (0=自动, 1~255=手动)
- *  Byte 6:  RainVal   雨杂波抑制 (0=自动, 1~255=手动)
- *  Byte 7:  TXCtrl    发射控制 (0=关闭, 1=开启)
- *  Byte 8:  SpeedL    伺服转速低字节 (0=停, 8=正常)
- *  Byte 9:  SpeedH    伺服转速高字节
- *  Byte 10-13: Reserved
- *  Byte 14: CheckSum  校验 (Byte[0]~Byte[13] XOR)
- *  Byte 15: TailFlag  = 0x5A
+ *  Byte 0:  HeadFlag  = 0xA5           帧头
+ *  Byte 1:  CMDNum    预留
+ *  Byte 2-3: Azimuth  预留 (方位信息)
+ *  Byte 4:  RangeVal  量程编码 (0~14)，默认7
+ *  Byte 5:  Gain      波束锐化 (关0/低1/中2/高3)，默认0
+ *  Byte 6:  GanRao    同频干扰抑制 (关0/低1/中2/高3)，默认0
+ *  Byte 7:  Level     数据传输截位选择 (自动0/手动1~255)，默认0
+ *  Byte 8:  SeaVal    海浪抑制 (自动0/手动1~255)，默认0
+ *  Byte 9:  RainVal   雨雪抑制 (自动0/手动1~255)，默认0
+ *  Byte 10: CFAR      预留
+ *  Byte 11: TXCtrl    发射控制 (关0/开1)，默认0
+ *  Byte 12: Servo     天线转速控制 (0/8)，默认0
+ *  Byte 13: MTD       预留
+ *  Byte 14: CheckSum  前14字节的异或
+ *  Byte 15: TailFlag  = 0x5A           帧尾
  */
 struct MarineControlFrame {
-    uint8_t  headFlag;    ///< 0xA5
-    uint8_t  rangeVal;    ///< 量程编码 0~23
-    uint8_t  gain;        ///< 增益 0~3
-    uint8_t  ganRao;      ///< 干扰抑制 0~3
-    uint8_t  level;       ///< 灵敏度 0=自动, 1~255手动
-    uint8_t  seaVal;      ///< 海杂波 0=自动, 1~255手动
-    uint8_t  rainVal;     ///< 雨杂波 0=自动, 1~255手动
-    uint8_t  txCtrl;      ///< 发射开关 0/1
-    uint8_t  speedL;      ///< 转速低字节
-    uint8_t  speedH;      ///< 转速高字节
-    uint8_t  reserved[4]; ///< 保留
-    uint8_t  checkSum;    ///< XOR(byte[0]~byte[13])
-    uint8_t  tailFlag;    ///< 0x5A
+    uint8_t  headFlag;    ///< Byte 0: 0xA5
+    uint8_t  cmdNum;      ///< Byte 1: 预留
+    uint16_t azimuth;     ///< Byte 2-3: 预留 (方位信息)
+    uint8_t  rangeVal;    ///< Byte 4: 量程编码 0~14
+    uint8_t  gain;        ///< Byte 5: 增益/波束锐化 0~3
+    uint8_t  ganRao;      ///< Byte 6: 干扰抑制 0~3
+    uint8_t  level;       ///< Byte 7: 灵敏度/数据传输截位 0=自动, 1~255手动
+    uint8_t  seaVal;      ///< Byte 8: 海杂波 0=自动, 1~255手动
+    uint8_t  rainVal;     ///< Byte 9: 雨杂波 0=自动, 1~255手动
+    uint8_t  cfar;        ///< Byte 10: 预留 (CFAR)
+    uint8_t  txCtrl;      ///< Byte 11: 发射开关 0/1
+    uint8_t  servo;       ///< Byte 12: 转速控制 0/8
+    uint8_t  mtd;         ///< Byte 13: 预留 (MTD)
+    uint8_t  checkSum;    ///< Byte 14: XOR(byte[0]~byte[13])
+    uint8_t  tailFlag;    ///< Byte 15: 0x5A
 
     MarineControlFrame() {
         memset(this, 0, sizeof(*this));
         headFlag = MARINE_HEAD_FLAG;
         tailFlag = MARINE_TAIL_FLAG;
-        rangeVal = 8;  // 默认 2nm
-        speedL = 8;    // 默认正常转速
+        rangeVal = 7;  // 默认量程编号7
     }
 
     /// 计算并填入校验码
@@ -253,7 +246,7 @@ static_assert(sizeof(MarineEchoHeader) == 22, "MarineEchoHeader must be 22 bytes
  * @brief 从回波帧状态字段提取的雷达运行状态
  */
 struct MarineRadarStatus {
-    uint8_t  rangeCode = 8;    ///< 当前量程编码
+    uint8_t  rangeCode = 7;    ///< 当前量程编码 (0~14)
     bool     txOn = false;     ///< 发射状态
     uint8_t  gain = 0;         ///< 增益
     uint8_t  level = 0;        ///< 灵敏度

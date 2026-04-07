@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 15:27:11
+ * @LastEditTime: 2026-04-07 11:18:03
  * @Description: 
  */
 /**
@@ -47,6 +47,7 @@
 #include <vector>
 #include "ui_mainoverlayout.h"
 #include "Basic/Protocol.h"
+#include "Basic/MarineProtocol.h"
 
 // 前向声明 - 雷达显示相关组件
 class PPIView;        ///< PPI雷达显示视图
@@ -66,6 +67,7 @@ class DataSaveUI;      ///< 数据存储管理对话框
 class FrozenColumnHelper; ///< 表格冻结列辅助类
 class ScreenRecorderWidget; ///< 屏幕录制与回放组件
 class RadarSimulator;       ///< 船用雷达回波模拟器
+class EchoLineChart;        ///< 回波A显折线图
 
 
 namespace Ui {
@@ -534,14 +536,16 @@ private:
     // 船用雷达控制相关
     ColorBarWidget* m_colorBar = nullptr;       ///< PPI色阶图例
     QComboBox*   m_rangeCombo = nullptr;        ///< 量程选择下拉框
-    QSlider*     m_gainSlider = nullptr;        ///< 增益滑块
-    QSlider*     m_seaSlider = nullptr;         ///< 海杂波抑制滑块
-    QSlider*     m_rainSlider = nullptr;        ///< 雨杂波抑制滑块
-    QSlider*     m_interferenceSlider = nullptr; ///< 抗干扰级别滑块
-    QLabel*      m_gainValLabel = nullptr;
+    QComboBox*   m_gainCombo = nullptr;         ///< 波束锐化选择 (关/低/中/高)
+    QComboBox*   m_interferenceCombo = nullptr;  ///< 同频干扰抑制 (关/低/中/高)
+    QSlider*     m_levelSlider = nullptr;        ///< 截位选择滑块
+    QSlider*     m_seaSlider = nullptr;         ///< 海浪抑制滑块
+    QSlider*     m_rainSlider = nullptr;        ///< 雨雪抑制滑块
+    QPushButton* m_btnTxToggle = nullptr;       ///< 发射开/关切换按钮
+    QComboBox*   m_servoCombo = nullptr;        ///< 天线转速选择 (0/8)
+    QLabel*      m_levelValLabel = nullptr;
     QLabel*      m_seaValLabel = nullptr;
     QLabel*      m_rainValLabel = nullptr;
-    QLabel*      m_intfValLabel = nullptr;
 
     void setupMarineControls();                 ///< 替换雷达控制页为船用控件
     void setupColorBar();                       ///< 创建PPI色阶图例
@@ -561,6 +565,24 @@ private:
     QLabel*  m_lblNavTime = nullptr;            ///< 时间标签
     QLabel*  m_lblNavDate = nullptr;            ///< 日期标签
     QWidget* m_marineCtrlPanel = nullptr;       ///< 折叠式雷达控制面板
+
+    // 伺服上行状态显示标签
+    QLabel*  m_lblStRangeVal = nullptr;          ///< 当前量程
+    QLabel*  m_lblStTxState  = nullptr;          ///< 发射状态
+    QLabel*  m_lblStGain     = nullptr;          ///< 波束锐化
+    QLabel*  m_lblStLevel    = nullptr;          ///< 截位选择
+    QLabel*  m_lblStSea      = nullptr;          ///< 海浪抑制
+    QLabel*  m_lblStRain     = nullptr;          ///< 雨雪抑制
+    QLabel*  m_lblStGanRao   = nullptr;          ///< 同频干扰
+    QLabel*  m_lblStFreq     = nullptr;          ///< 频综状态
+    void setupServoStatusPanel();                ///< 创建伺服状态显示面板
+    void onMarineStatusUpdated(const MarineRadarStatus& status); ///< 状态更新槽
+
+    // PPI / A显 切换
+    EchoLineChart* m_echoLineChart = nullptr;    ///< 回波A显折线图
+    QPushButton*   m_btnToggleAScope = nullptr;  ///< PPI↔A显 切换按钮
+    bool           m_showAScope = false;         ///< 当前是否显示A显
+    void setupAScopeToggle();                    ///< 创建切换按钮
 };
 
 #endif // MAINOVERLAYOUT_H

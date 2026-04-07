@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 15:27:10
+ * @LastEditTime: 2026-04-07 11:18:02
  * @Description: 
  */
 /**
@@ -108,16 +108,14 @@ void Controller::init()
 
         // 加载默认控制参数
         MarineControlFrame ctrl;
-        ctrl.rangeVal = static_cast<uint8_t>(CF_INS.marineControl("range", 8));
+        ctrl.rangeVal = static_cast<uint8_t>(CF_INS.marineControl("range", 7));
         ctrl.gain     = static_cast<uint8_t>(CF_INS.marineControl("gain", 0));
         ctrl.ganRao   = static_cast<uint8_t>(CF_INS.marineControl("interference", 0));
         ctrl.level    = static_cast<uint8_t>(CF_INS.marineControl("level", 0));
         ctrl.seaVal   = static_cast<uint8_t>(CF_INS.marineControl("sea_clutter", 0));
         ctrl.rainVal  = static_cast<uint8_t>(CF_INS.marineControl("rain_clutter", 0));
         ctrl.txCtrl   = CF_INS.marineControlBool("tx_on", false) ? 1 : 0;
-        int spd       = CF_INS.marineControl("servo_speed", 8);
-        ctrl.speedL   = static_cast<uint8_t>(spd & 0xFF);
-        ctrl.speedH   = static_cast<uint8_t>((spd >> 8) & 0xFF);
+        ctrl.servo    = static_cast<uint8_t>(CF_INS.marineControl("servo_speed", 0));
         // 初始控制帧不立即发送，等UI准备好
     }
 

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 15:27:11
+ * @LastEditTime: 2026-04-07 11:18:02
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -37,6 +37,7 @@
 #include <QLineEdit>
 #include <QScrollBar>
 #include <QSlider>
+#include <QPushButton>
 #include <QSpinBox>
 #include <QTableWidget>
 #include <QTimer>
@@ -65,6 +66,7 @@
 #include "Controller/RadarSimulator.h"
 #include "PolarDisp/echorenderer.h"
 #include "PolarDisp/colorbarwidget.h"
+#include "PolarDisp/echolinechart.h"
 #include "Basic/MarineProtocol.h"
 #include "Controller/MarineRadarManager.h"
 #include <QComboBox>
@@ -83,6 +85,8 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     setupPPIOverlay();
     setupControlPanel();
     setupMarineControls();
+    setupServoStatusPanel();
+    setupAScopeToggle();
     setupColorBar();
     setupRangeSettings();
     setupWorkModeSettings();
@@ -339,17 +343,22 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     }
     m_radarSimulator->start();
 
-    // 连接船用雷达状态更新 → UI同步（增益/海杂/雨杂/发射指示等）
+    // 连接船用雷达状态更新 → UI同步（波束锐化/海浪/雨雪/干扰/发射等）
     connect(CON_INS, &Controller::marineStatusUpdated,
             this, [this](const MarineRadarStatus& st) {
-        if (m_gainSlider && m_gainSlider->value() != st.gain)
-            m_gainSlider->setValue(st.gain);
+        if (m_gainCombo && m_gainCombo->currentIndex() != st.gain)
+            m_gainCombo->setCurrentIndex(qBound(0, static_cast<int>(st.gain), 3));
         if (m_seaSlider && m_seaSlider->value() != st.seaVal)
             m_seaSlider->setValue(st.seaVal);
         if (m_rainSlider && m_rainSlider->value() != st.rainVal)
             m_rainSlider->setValue(st.rainVal);
-        if (m_interferenceSlider && m_interferenceSlider->value() != st.ganRao)
-            m_interferenceSlider->setValue(st.ganRao);
+        if (m_interferenceCombo && m_interferenceCombo->currentIndex() != st.ganRao)
+            m_interferenceCombo->setCurrentIndex(qBound(0, static_cast<int>(st.ganRao), 3));
+        if (m_levelSlider && m_levelSlider->value() != st.level)
+            m_levelSlider->setValue(st.level);
+        // 同步发射按钮
+        if (m_btnTxToggle && m_btnTxToggle->isChecked() != st.txOn)
+            m_btnTxToggle->setChecked(st.txOn);
         // 发射指示灯
         bool tx = st.txOn;
         if (m_lblTransmitIndicator) {
@@ -2572,37 +2581,71 @@ void MainOverLayOut::setupMarineControls()
     // 将导航面板添加到右侧布局
     ui->rightPanelLayout->addWidget(m_navPanel);
 
-    // ====== 量程 ComboBox（在底部添加简洁控制区） ======
+    // ====== 量程 ComboBox (15档) ======
     m_rangeCombo = new QComboBox(this);
     m_rangeCombo->setObjectName("marineRangeCombo");
-    for (int i = 0; i < 24; ++i) {
+    for (int i = 0; i < MARINE_RANGE_TABLE_SIZE; ++i) {
         m_rangeCombo->addItem(marineRangeLabel(i), i);
     }
-    int defaultRangeIdx = CF_INS.marineControl("range", 8);
-    m_rangeCombo->setCurrentIndex(qBound(0, defaultRangeIdx, 23));
+    int defaultRangeIdx = CF_INS.marineControl("range", 7);
+    m_rangeCombo->setCurrentIndex(qBound(0, defaultRangeIdx, MARINE_RANGE_TABLE_SIZE - 1));
 
-    // 增益/海杂/雨杂/抗干扰 滑块（隐藏在折叠面板中）
-    m_gainSlider = new QSlider(Qt::Horizontal, this);
-    m_gainSlider->setRange(0, 255);
-    m_gainSlider->setValue(CF_INS.marineControl("gain", 0));
-    m_gainValLabel = new QLabel(QString::number(m_gainSlider->value()), this);
+    // ====== 波束锐化 ComboBox (关/低/中/高) — Byte5 ======
+    m_gainCombo = new QComboBox(this);
+    m_gainCombo->addItems({QString::fromUtf8("\u5173"), QString::fromUtf8("\u4f4e"),
+                           QString::fromUtf8("\u4e2d"), QString::fromUtf8("\u9ad8")});
+    m_gainCombo->setCurrentIndex(qBound(0, CF_INS.marineControl("gain", 0), 3));
 
+    // ====== 同频干扰 ComboBox (关/低/中/高) — Byte6 ======
+    m_interferenceCombo = new QComboBox(this);
+    m_interferenceCombo->addItems({QString::fromUtf8("\u5173"), QString::fromUtf8("\u4f4e"),
+                                   QString::fromUtf8("\u4e2d"), QString::fromUtf8("\u9ad8")});
+    m_interferenceCombo->setCurrentIndex(qBound(0, CF_INS.marineControl("interference", 0), 3));
+
+    // ====== 截位选择 Slider (0~255) — Byte7 ======
+    m_levelSlider = new QSlider(Qt::Horizontal, this);
+    m_levelSlider->setRange(0, 255);
+    m_levelSlider->setValue(CF_INS.marineControl("level", 0));
+    m_levelValLabel = new QLabel(QString::number(m_levelSlider->value()), this);
+
+    // ====== 海浪抑制 Slider (0=自动, 1~255手动) — Byte8 ======
     m_seaSlider = new QSlider(Qt::Horizontal, this);
     m_seaSlider->setRange(0, 255);
     m_seaSlider->setValue(CF_INS.marineControl("sea_clutter", 0));
-    m_seaValLabel = new QLabel(QString::number(m_seaSlider->value()), this);
+    m_seaValLabel = new QLabel(m_seaSlider->value() == 0
+                               ? QString::fromUtf8("\u81ea\u52a8")
+                               : QString::number(m_seaSlider->value()), this);
 
+    // ====== 雨雪抑制 Slider (0=自动, 1~255手动) — Byte9 ======
     m_rainSlider = new QSlider(Qt::Horizontal, this);
     m_rainSlider->setRange(0, 255);
     m_rainSlider->setValue(CF_INS.marineControl("rain_clutter", 0));
-    m_rainValLabel = new QLabel(QString::number(m_rainSlider->value()), this);
+    m_rainValLabel = new QLabel(m_rainSlider->value() == 0
+                                ? QString::fromUtf8("\u81ea\u52a8")
+                                : QString::number(m_rainSlider->value()), this);
 
-    m_interferenceSlider = new QSlider(Qt::Horizontal, this);
-    m_interferenceSlider->setRange(0, 3);
-    m_interferenceSlider->setValue(CF_INS.marineControl("interference", 0));
-    m_intfValLabel = new QLabel(QString::number(m_interferenceSlider->value()), this);
+    // ====== 发射开关 (关0/开1) — Byte11 ======
+    m_btnTxToggle = new QPushButton(QString::fromUtf8("\u53d1\u5c04 \u5173"), this);
+    m_btnTxToggle->setCheckable(true);
+    m_btnTxToggle->setChecked(CF_INS.marineControlBool("tx_on", false));
+    m_btnTxToggle->setStyleSheet(
+        "QPushButton { background: #1a1a1a; color: #44ff44; border: 2px solid #333; "
+        "border-radius: 4px; padding: 6px 12px; font-size: 15px; font-weight: bold; "
+        "font-family: 'Microsoft YaHei'; }"
+        "QPushButton:checked { background: #4a1010; color: #ff4444; border-color: #ff4444; }"
+        "QPushButton:hover { background: #2a2a2a; }");
+    if (m_btnTxToggle->isChecked()) {
+        m_btnTxToggle->setText(QString::fromUtf8("\u53d1\u5c04 \u5f00"));
+    }
 
-    // 折叠式雷达控制面板
+    // ====== 天线转速 ComboBox (0=停/8=转) — Byte12 ======
+    m_servoCombo = new QComboBox(this);
+    m_servoCombo->addItem(QString::fromUtf8("\u505c\u6b62 (0)"), 0);
+    m_servoCombo->addItem(QString::fromUtf8("\u8f6c\u52a8 (8)"), 8);
+    int defaultServo = CF_INS.marineControl("servo_speed", 0);
+    m_servoCombo->setCurrentIndex(defaultServo == 8 ? 1 : 0);
+
+    // ====== 折叠式雷达控制面板 ======
     m_marineCtrlPanel = new QWidget(this);
     m_marineCtrlPanel->setObjectName("marineCtrlPanel");
     auto* ctrlLayout = new QGridLayout(m_marineCtrlPanel);
@@ -2615,20 +2658,43 @@ void MainOverLayOut::setupMarineControls()
         return lbl;
     };
 
-    ctrlLayout->addWidget(makeCtrlLabel("量程"), 0, 0);
-    ctrlLayout->addWidget(m_rangeCombo, 0, 1);
-    ctrlLayout->addWidget(makeCtrlLabel("增益"), 1, 0);
-    ctrlLayout->addWidget(m_gainSlider, 1, 1);
-    ctrlLayout->addWidget(m_gainValLabel, 1, 2);
-    ctrlLayout->addWidget(makeCtrlLabel("海杂波"), 2, 0);
-    ctrlLayout->addWidget(m_seaSlider, 2, 1);
-    ctrlLayout->addWidget(m_seaValLabel, 2, 2);
-    ctrlLayout->addWidget(makeCtrlLabel("雨杂波"), 3, 0);
-    ctrlLayout->addWidget(m_rainSlider, 3, 1);
-    ctrlLayout->addWidget(m_rainValLabel, 3, 2);
-    ctrlLayout->addWidget(makeCtrlLabel("抗干扰"), 4, 0);
-    ctrlLayout->addWidget(m_interferenceSlider, 4, 1);
-    ctrlLayout->addWidget(m_intfValLabel, 4, 2);
+    int row = 0;
+    // 按协议字节顺序排布: Byte4~Byte12
+    ctrlLayout->addWidget(makeCtrlLabel(QString::fromUtf8("量程")), row, 0);          // Byte4
+    ctrlLayout->addWidget(m_rangeCombo, row, 1, 1, 2);
+    ++row;
+
+    ctrlLayout->addWidget(makeCtrlLabel(QString::fromUtf8("波束锐化")), row, 0);      // Byte5
+    ctrlLayout->addWidget(m_gainCombo, row, 1, 1, 2);
+    ++row;
+
+    ctrlLayout->addWidget(makeCtrlLabel(QString::fromUtf8("同频干扰")), row, 0);      // Byte6
+    ctrlLayout->addWidget(m_interferenceCombo, row, 1, 1, 2);
+    ++row;
+
+    ctrlLayout->addWidget(makeCtrlLabel(QString::fromUtf8("截位选择")), row, 0);      // Byte7
+    ctrlLayout->addWidget(m_levelSlider, row, 1);
+    ctrlLayout->addWidget(m_levelValLabel, row, 2);
+    ++row;
+
+    ctrlLayout->addWidget(makeCtrlLabel(QString::fromUtf8("海浪抑制")), row, 0);      // Byte8
+    ctrlLayout->addWidget(m_seaSlider, row, 1);
+    ctrlLayout->addWidget(m_seaValLabel, row, 2);
+    ++row;
+
+    ctrlLayout->addWidget(makeCtrlLabel(QString::fromUtf8("雨雪抑制")), row, 0);      // Byte9
+    ctrlLayout->addWidget(m_rainSlider, row, 1);
+    ctrlLayout->addWidget(m_rainValLabel, row, 2);
+    ++row;
+
+    // Byte10: 预留 (跳过)
+
+    ctrlLayout->addWidget(makeCtrlLabel(QString::fromUtf8("发射")), row, 0);          // Byte11
+    ctrlLayout->addWidget(m_btnTxToggle, row, 1, 1, 2);
+    ++row;
+
+    ctrlLayout->addWidget(makeCtrlLabel(QString::fromUtf8("天线转速")), row, 0);      // Byte12
+    ctrlLayout->addWidget(m_servoCombo, row, 1, 1, 2);
 
     // 折叠按钮
     auto* toggleBtn = new QPushButton(QString::fromUtf8("\u25BC 雷达控制"), this);
@@ -2650,26 +2716,65 @@ void MainOverLayOut::setupMarineControls()
     ui->rightPanelLayout->addWidget(toggleBtn);
     ui->rightPanelLayout->addWidget(m_marineCtrlPanel);
 
-    // 信号连接：滑块 → MarineRadarManager
-    connect(m_gainSlider, &QSlider::valueChanged, this, [this](int v) {
-        m_gainValLabel->setText(QString::number(v));
+    // ====== 信号连接 ======
+
+    // 发射开关
+    connect(m_btnTxToggle, &QPushButton::toggled, this, [this](bool checked) {
+        m_btnTxToggle->setText(checked ? QString::fromUtf8("发射 开")
+                                       : QString::fromUtf8("发射 关"));
         if (CON_INS && CON_INS->marineMgr())
-            CON_INS->marineMgr()->setGain(static_cast<uint8_t>(v));
+            CON_INS->marineMgr()->setTxOn(checked);
+        // 更新PPI覆盖层发射指示
+        if (m_lblTransmitIndicator) {
+            m_lblTransmitIndicator->setText(checked ? QString::fromUtf8("\u25CF 发射开")
+                                                    : QString::fromUtf8("\u25CF 发射关"));
+            m_lblTransmitIndicator->setStyleSheet(
+                QString("color: %1; font-size: 14px; font-weight: bold; background: transparent;")
+                    .arg(checked ? "#44ff44" : "#ff4444"));
+        }
     });
+
+    // 波束锐化
+    connect(m_gainCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int idx) {
+        if (CON_INS && CON_INS->marineMgr())
+            CON_INS->marineMgr()->setGain(static_cast<uint8_t>(idx));
+    });
+
+    // 截位选择
+    connect(m_levelSlider, &QSlider::valueChanged, this, [this](int v) {
+        m_levelValLabel->setText(QString::number(v));
+        if (CON_INS && CON_INS->marineMgr())
+            CON_INS->marineMgr()->setLevel(static_cast<uint8_t>(v));
+    });
+
+    // 海浪抑制
     connect(m_seaSlider, &QSlider::valueChanged, this, [this](int v) {
-        m_seaValLabel->setText(QString::number(v));
+        m_seaValLabel->setText(v == 0 ? QString::fromUtf8("自动") : QString::number(v));
         if (CON_INS && CON_INS->marineMgr())
             CON_INS->marineMgr()->setSeaClutter(static_cast<uint8_t>(v));
     });
+
+    // 雨雪抑制
     connect(m_rainSlider, &QSlider::valueChanged, this, [this](int v) {
-        m_rainValLabel->setText(QString::number(v));
+        m_rainValLabel->setText(v == 0 ? QString::fromUtf8("自动") : QString::number(v));
         if (CON_INS && CON_INS->marineMgr())
             CON_INS->marineMgr()->setRainClutter(static_cast<uint8_t>(v));
     });
-    connect(m_interferenceSlider, &QSlider::valueChanged, this, [this](int v) {
-        m_intfValLabel->setText(QString::number(v));
+
+    // 同频干扰
+    connect(m_interferenceCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int idx) {
         if (CON_INS && CON_INS->marineMgr())
-            CON_INS->marineMgr()->setInterference(static_cast<uint8_t>(v));
+            CON_INS->marineMgr()->setInterference(static_cast<uint8_t>(idx));
+    });
+
+    // 天线转速
+    connect(m_servoCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int /*idx*/) {
+        int speed = m_servoCombo->currentData().toInt();
+        if (CON_INS && CON_INS->marineMgr())
+            CON_INS->marineMgr()->setServoSpeed(static_cast<uint16_t>(speed));
     });
 
     // 量程同步
@@ -2939,4 +3044,188 @@ void MainOverLayOut::setupSimradTheme()
         "color: #44ff44; font-size: 15px; font-weight: bold; background: transparent;");
     ui->TitleLabel->setText("西电船用");
     ui->lblCPA->setVisible(false);  // 隐藏 CPA（SIMRAD 不显示）
+}
+
+// ============================================================================
+// 伺服上行状态面板
+// ============================================================================
+
+void MainOverLayOut::setupServoStatusPanel()
+{
+    auto* statusPanel = new QWidget(this);
+    statusPanel->setObjectName("servoStatusPanel");
+    statusPanel->setStyleSheet(
+        "#servoStatusPanel { background: #0a0a0a; border: 1px solid #333; border-radius: 4px; }");
+
+    auto* grid = new QGridLayout(statusPanel);
+    grid->setContentsMargins(8, 6, 8, 6);
+    grid->setSpacing(3);
+
+    // 标题
+    auto* title = new QLabel(QString::fromUtf8("\u4f3a\u670d\u72b6\u6001"), this);
+    title->setStyleSheet("color: #ff8800; font-size: 14px; font-weight: bold; "
+                         "font-family: 'Microsoft YaHei'; background: transparent;");
+    grid->addWidget(title, 0, 0, 1, 2);
+
+    auto makeLbl = [this](const QString& text) {
+        auto* lbl = new QLabel(text, this);
+        lbl->setStyleSheet("color: #888; font-size: 12px; font-family: 'Microsoft YaHei'; background: transparent;");
+        return lbl;
+    };
+    auto makeVal = [this](const QString& text) {
+        auto* lbl = new QLabel(text, this);
+        lbl->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        lbl->setStyleSheet("color: #44ff44; font-size: 13px; font-weight: bold; "
+                           "font-family: 'Consolas', monospace; background: transparent;");
+        return lbl;
+    };
+
+    int row = 1;
+    grid->addWidget(makeLbl(QString::fromUtf8("\u91cf\u7a0b")), row, 0);
+    m_lblStRangeVal = makeVal("--"); grid->addWidget(m_lblStRangeVal, row++, 1);
+
+    grid->addWidget(makeLbl(QString::fromUtf8("\u53d1\u5c04")), row, 0);
+    m_lblStTxState = makeVal(QString::fromUtf8("\u5173")); grid->addWidget(m_lblStTxState, row++, 1);
+
+    grid->addWidget(makeLbl(QString::fromUtf8("\u6ce2\u675f\u9510\u5316")), row, 0);
+    m_lblStGain = makeVal("0"); grid->addWidget(m_lblStGain, row++, 1);
+
+    grid->addWidget(makeLbl(QString::fromUtf8("\u622a\u4f4d\u9009\u62e9")), row, 0);
+    m_lblStLevel = makeVal("0"); grid->addWidget(m_lblStLevel, row++, 1);
+
+    grid->addWidget(makeLbl(QString::fromUtf8("\u6d77\u6d6a\u6291\u5236")), row, 0);
+    m_lblStSea = makeVal("0"); grid->addWidget(m_lblStSea, row++, 1);
+
+    grid->addWidget(makeLbl(QString::fromUtf8("\u96e8\u96ea\u6291\u5236")), row, 0);
+    m_lblStRain = makeVal("0"); grid->addWidget(m_lblStRain, row++, 1);
+
+    grid->addWidget(makeLbl(QString::fromUtf8("\u540c\u9891\u5e72\u6270")), row, 0);
+    m_lblStGanRao = makeVal("0"); grid->addWidget(m_lblStGanRao, row++, 1);
+
+    grid->addWidget(makeLbl(QString::fromUtf8("\u9891\u7efc\u72b6\u6001")), row, 0);
+    m_lblStFreq = makeVal(QString::fromUtf8("\u6b63\u5e38"));
+    grid->addWidget(m_lblStFreq, row++, 1);
+
+    // 添加到导航面板下方
+    ui->rightPanelLayout->addWidget(statusPanel);
+
+    // 连接信号
+    connect(CON_INS, &Controller::marineStatusUpdated,
+            this, &MainOverLayOut::onMarineStatusUpdated);
+}
+
+void MainOverLayOut::onMarineStatusUpdated(const MarineRadarStatus& status)
+{
+    if (m_lblStRangeVal)
+        m_lblStRangeVal->setText(marineRangeLabel(status.rangeCode));
+
+    if (m_lblStTxState) {
+        bool tx = status.txOn;
+        m_lblStTxState->setText(tx ? QString::fromUtf8("\u5f00") : QString::fromUtf8("\u5173"));
+        m_lblStTxState->setStyleSheet(
+            QString("color: %1; font-size: 13px; font-weight: bold; "
+                    "font-family: 'Consolas', monospace; background: transparent;")
+                .arg(tx ? "#ff4444" : "#44ff44"));
+    }
+
+    auto gainText = [](uint8_t v) -> QString {
+        switch (v) {
+        case 0: return QString::fromUtf8("\u5173");
+        case 1: return QString::fromUtf8("\u4f4e");
+        case 2: return QString::fromUtf8("\u4e2d");
+        case 3: return QString::fromUtf8("\u9ad8");
+        default: return QString::number(v);
+        }
+    };
+
+    if (m_lblStGain)
+        m_lblStGain->setText(gainText(status.gain));
+    if (m_lblStLevel)
+        m_lblStLevel->setText(status.level == 0 ? QString::fromUtf8("\u81ea\u52a8") : QString::number(status.level));
+    if (m_lblStSea)
+        m_lblStSea->setText(status.seaVal == 0 ? QString::fromUtf8("\u81ea\u52a8") : QString::number(status.seaVal));
+    if (m_lblStRain)
+        m_lblStRain->setText(status.rainVal == 0 ? QString::fromUtf8("\u81ea\u52a8") : QString::number(status.rainVal));
+    if (m_lblStGanRao)
+        m_lblStGanRao->setText(gainText(status.ganRao));
+    if (m_lblStFreq) {
+        bool ok = (status.freqStatus == 0);
+        m_lblStFreq->setText(ok ? QString::fromUtf8("\u6b63\u5e38") : QString::fromUtf8("\u5f02\u5e38"));
+        m_lblStFreq->setStyleSheet(
+            QString("color: %1; font-size: 13px; font-weight: bold; "
+                    "font-family: 'Consolas', monospace; background: transparent;")
+                .arg(ok ? "#44ff44" : "#ff4444"));
+    }
+
+    // 同步发射指示灯到PPI覆盖层
+    if (m_lblTransmitIndicator) {
+        bool tx = status.txOn;
+        m_lblTransmitIndicator->setText(tx ? QString::fromUtf8("\u25CF \u53d1\u5c04\u5f00")
+                                           : QString::fromUtf8("\u25CF \u53d1\u5c04\u5173"));
+        m_lblTransmitIndicator->setStyleSheet(
+            QString("color: %1; font-size: 14px; font-weight: bold; background: transparent;")
+                .arg(tx ? "#44ff44" : "#ff4444"));
+    }
+}
+
+// ============================================================================
+// PPI ↔ A显 切换
+// ============================================================================
+
+void MainOverLayOut::setupAScopeToggle()
+{
+    // A显 折线图（初始隐藏，与PPI同区域）
+    m_echoLineChart = new EchoLineChart(ui->viewWidget);
+    m_echoLineChart->setVisible(false);
+
+    // 切换按钮（放在PPI覆盖层右上角）
+    m_btnToggleAScope = new QPushButton("A", ui->viewWidget);
+    m_btnToggleAScope->setToolTip(QString::fromUtf8("PPI / A\u663e \u5207\u6362"));
+    m_btnToggleAScope->setFixedSize(36, 36);
+    m_btnToggleAScope->setStyleSheet(
+        "QPushButton { background: #1a1a1a; color: #ff8800; border: 2px solid #ff8800; "
+        "border-radius: 18px; font-size: 16px; font-weight: bold; }"
+        "QPushButton:hover { background: #333; }"
+        "QPushButton:checked { background: #ff8800; color: #000; }");
+    m_btnToggleAScope->setCheckable(true);
+    m_btnToggleAScope->setChecked(false);
+    m_btnToggleAScope->raise();
+
+    // 初始位置
+    QTimer::singleShot(200, this, [this]() {
+        if (ui->viewWidget && m_btnToggleAScope) {
+            m_btnToggleAScope->move(ui->viewWidget->width() - 50, 10);
+        }
+    });
+
+    // 切换逻辑
+    connect(m_btnToggleAScope, &QPushButton::toggled, this, [this](bool checked) {
+        m_showAScope = checked;
+        if (checked) {
+            // 显示A显，调整大小铺满viewWidget
+            m_echoLineChart->setGeometry(0, 0, ui->viewWidget->width(), ui->viewWidget->height());
+            m_echoLineChart->setVisible(true);
+            m_echoLineChart->raise();
+            m_btnToggleAScope->raise(); // 保持按钮在最上层
+            if (m_colorBar) m_colorBar->setVisible(false);
+        } else {
+            m_echoLineChart->setVisible(false);
+            if (m_colorBar) m_colorBar->setVisible(true);
+        }
+    });
+
+    // 连接回波数据到A显
+    connect(CON_INS, &Controller::marineEchoLine,
+            m_echoLineChart, &EchoLineChart::updateEchoLine);
+
+    // 量程同步到A显
+    if (m_rangeCombo) {
+        connect(m_rangeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                this, [this](int idx) {
+            if (m_echoLineChart)
+                m_echoLineChart->setRangeMeters(marineRangeMeters(idx));
+        });
+        // 初始量程
+        m_echoLineChart->setRangeMeters(marineRangeMeters(m_rangeCombo->currentIndex()));
+    }
 }

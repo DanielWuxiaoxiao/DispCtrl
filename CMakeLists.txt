@@ -136,6 +136,7 @@ set(SRC_FILES
     PolarDisp/ppiview.cpp                      # PPI主视图
     PolarDisp/echorenderer.cpp                 # 船用雷达回波渲染引擎
     PolarDisp/colorbarwidget.cpp               # 色阶图例控件
+    PolarDisp/echolinechart.cpp                # 回波A显折线图控件
 
     # 点管理模块 - 目标检测和航迹管理
     PointManager/detmanager.cpp                # 检测点管理器

@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-03-30 11:45:26
+ * @Date: 2026-03-30 15:27:09
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 15:27:09
+ * @LastEditTime: 2026-04-07 11:18:02
  * @Description: 
  */
 /**
@@ -111,8 +111,7 @@ void MarineRadarManager::setTxOn(bool on)
 
 void MarineRadarManager::setServoSpeed(uint16_t speed)
 {
-    m_ctrl.speedL = static_cast<uint8_t>(speed & 0xFF);
-    m_ctrl.speedH = static_cast<uint8_t>((speed >> 8) & 0xFF);
+    m_ctrl.servo = static_cast<uint8_t>(speed);
     sendControl(m_ctrl);
 }
 
