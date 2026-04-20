@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-01-30 11:45:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:32
+ * @LastEditTime: 2026-04-20 11:30:46
  * @Description: 
  */
 /*
@@ -184,6 +184,13 @@ public:
     void setTrackVisible(bool visible);
 
     /**
+     * @brief 设置无人机专属过滤模式
+     * @param droneOnly true=只显示无人机航迹(targetRecResult==1)，false=显示所有
+     * @details 与现有可见性控制保持AND关系
+     */
+    void setDroneOnlyFilter(bool droneOnly);
+
+    /**
      * @brief 设置检测点大小比例
      * @param ratio 大小比例（0.5-3.0）
      */
@@ -251,6 +258,7 @@ private:
 
     bool m_detectionVisible = true;           ///< 检测点可见性
     bool m_trackVisible = true;               ///< 航迹可见性
+    bool m_droneOnlyFilter = false;           ///< true=只显示无人机航迹(targetRecResult==1)
 
     double m_detectionSizeRatio = 1.0;        ///< 检测点大小比例
     double m_trackSizeRatio = 1.0;            ///< 航迹大小比例

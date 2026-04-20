@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 10:08:59
+ * @LastEditTime: 2026-04-20 11:30:44
  * @Description: 
  */
 #ifndef DISPBASCI_H
@@ -82,8 +82,10 @@ private:
 
 //COLOR
 const QColor DET_COLOR = Qt::green;              // 检测点：绿色 (0, 255, 0)
-const QColor TRA_COLOR = Qt::red;                // 航迹：红色
-const QColor TBD_COLOR = Qt::yellow;              // TBD航迹：黄色 (255, 255, 0)
+const QColor TRA_COLOR = Qt::red;                // 航迹默认色（保留兼容）
+const QColor TBD_COLOR = Qt::yellow;             // TBD航迹：黄色 (255, 255, 0)
+const QColor TRA_DRONE_COLOR = Qt::red;          // 无人机目标航迹：红色
+const QColor TRA_OTHER_COLOR = QColor(0, 120, 255); // 非无人机目标航迹：蓝色
 
 //STRING
 constexpr char APP_NAME[] = "雷达控制平台";

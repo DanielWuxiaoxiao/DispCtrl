@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:31
+ * @LastEditTime: 2026-04-20 11:30:45
  * @Description: 
  */
 /**
@@ -107,6 +107,7 @@ struct TrackSeries {
     bool visible = true;                        ///< 航迹可见性标志
     QColor color;                               ///< 航迹颜色
     PointType type = PointType::Track;          ///< 航迹类型（区分DBT/TBD）
+    int lastTargetRecResult = 0;                ///< 最新一帧的目标识别结果（1=无人机）
 };
 
 /**
@@ -201,6 +202,13 @@ public:
      *          - 保持各批次的相对可见性状态
      */
     void setAllVisible(bool vis);
+
+    /**
+     * @brief 设置无人机专属过滤模式
+     * @param droneOnly true=只显示无人机航迹(targetRecResult==1)，false=显示所有
+     * @details 与现有可见性控制保持AND关系
+     */
+    void setDroneOnlyFilter(bool droneOnly);
 
     /**
      * @brief 删除指定批次的航迹
@@ -335,6 +343,9 @@ private:
     // 角度过滤参数
     double m_angleStart = 0.0;                 ///< 起始角度(度)
     double m_angleEnd = 360.0;                 ///< 结束角度(度)
+
+    // 无人机专属过滤
+    bool m_droneOnlyFilter = false;            ///< true=只显示无人机航迹(targetRecResult==1)
 
     /**
      * @brief 检查角度是否在显示扇区内

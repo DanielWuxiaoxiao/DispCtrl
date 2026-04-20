@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:31
+ * @LastEditTime: 2026-04-20 11:30:45
  * @Description: 
  */
 /**
@@ -274,6 +274,19 @@ void TrackManager::addTrackPoint(const PointInfo& info)
     PointType type = (info.type == PointType::TBDPointType ? PointType::TBDPointType : PointType::Track);
     ensureSeries(info.batch, type);
     auto& s = mSeries[info.batch];  // 获取航迹序列引用
+    s.lastTargetRecResult = info.targetRecResult;  // 记录最新目标识别结果
+
+    // 根据目标识别结果动态更新航迹颜色：无人机(targetRecResult==1)→红色，其它→蓝色
+    // 当识别结果发生变化时，整批航迹颜色和可见性都需要同步更新
+    {
+        QColor targetColor = (info.targetRecResult == 1) ? TRA_DRONE_COLOR : TRA_OTHER_COLOR;
+        if (s.color != targetColor) {
+            s.color = targetColor;
+            setBatchColor(info.batch, targetColor);
+            // 识别结果变化 → 整批可见性可能需要同步（如当前处于无人机过滤模式）
+            updateBatchVisibility(info.batch);
+        }
+    }
 
     // 创建航迹点对象并设置基本属性
     PointInfo copy = info;
@@ -297,10 +310,11 @@ void TrackManager::addTrackPoint(const PointInfo& info)
     //             << "maxRange=" << mAxis->maxRange();
     pt->updatePosition(pos.x(), pos.y());
 
-    // 应用可见性过滤：序列可见性 && 距离范围
-    // 注意：移除角度过滤，因为主PPI界面应该显示所有方向的航迹（与检测点保持一致）
+    // 应用可见性过滤：序列可见性 && 无人机过滤 && 距离范围
+    // 注意：移除角度过滤，因为主 PPI 界面应该显示所有方向的航迹（与检测点保持一致）
     // 角度过滤仅在扇区窗口（SectorWidget）中使用
-    bool vis = s.visible && inRange(copy.range);
+    bool droneOk = !m_droneOnlyFilter || (s.lastTargetRecResult == 1);
+    bool vis = s.visible && droneOk && inRange(copy.range);
     pt->setVisible(vis);
 
     // 添加到图形场景
@@ -334,7 +348,8 @@ void TrackManager::addTrackPoint(const PointInfo& info)
             updateLineGeometry(line, prevScenePos, ptScenePos);
 
             // 连线可见性：两个点都在范围内且航迹序列可见时显示
-            bool lineVis = s.visible && inRange(s.nodes.last().point->infoRef().range) && inRange(copy.range)
+            bool lineDroneOk = !m_droneOnlyFilter || (s.lastTargetRecResult == 1);
+            bool lineVis = s.visible && lineDroneOk && inRange(s.nodes.last().point->infoRef().range) && inRange(copy.range)
                        && inAngle(s.nodes.last().point->infoRef().azimuth) && inAngle(copy.azimuth);
             line->setVisible(lineVis);
             mScene->addItem(line);
@@ -397,8 +412,9 @@ void TrackManager::updateLatestLabel(int batchID)
     // 更新标签连线
     updateLineGeometry(s.labelLine, s.label->mapToScene(s.label->boundingRect().center()), anchor);
 
-    // 可见性跟随最新点 & series
-    bool vis = s.visible && inRange(pi.range);
+    // 可见性跟随最新点 & series（含无人机过滤）
+    bool droneOk = !m_droneOnlyFilter || (s.lastTargetRecResult == 1);
+    bool vis = s.visible && droneOk && inRange(pi.range);
     if (s.label)     s.label->setVisible(vis);
     if (s.labelLine) s.labelLine->setVisible(vis);
 }
@@ -408,6 +424,7 @@ void TrackManager::refreshAll()
     // Axis 像素比例或 min/max 变了：重算每个点的位置与显隐；连线也随之更新
     for (auto it = mSeries.begin(); it != mSeries.end(); ++it) {
         auto& s = it.value();
+        bool droneOk = !m_droneOnlyFilter || (s.lastTargetRecResult == 1);
 
         // 逐点更新位置与显隐
         for (int i = 0; i < s.nodes.size(); ++i) {
@@ -424,7 +441,7 @@ void TrackManager::refreshAll()
                 auto* prevPt = s.nodes[i-1].point;
                 if (prevPt) {
                     updateLineGeometry(n.lineFromPrev, prevPt->scenePos(), n.point->scenePos());
-                    bool vis = s.visible && inRange(prevPt->infoRef().range) && inRange(pi.range)
+                    bool vis = s.visible && droneOk && inRange(prevPt->infoRef().range) && inRange(pi.range)
                                && inAngle(prevPt->infoRef().azimuth) && inAngle(pi.azimuth);
                     n.lineFromPrev->setVisible(vis);
                 }
@@ -439,7 +456,7 @@ void TrackManager::refreshAll()
                 if (s.label && s.labelLine) {
                     QPointF anchor = latest.point->scenePos();
                     updateLineGeometry(s.labelLine, s.label->mapToScene(s.label->boundingRect().center()), anchor);
-                    bool vis = s.visible && inRange(latest.point->infoRef().range);
+                    bool vis = s.visible && droneOk && inRange(latest.point->infoRef().range);
                     s.label->setVisible(vis);
                     s.labelLine->setVisible(vis);
                 } else {
@@ -518,6 +535,14 @@ void TrackManager::setAllVisible(bool vis)
     }
 }
 
+void TrackManager::setDroneOnlyFilter(bool droneOnly)
+{
+    m_droneOnlyFilter = droneOnly;
+    for (auto it = mSeries.begin(); it != mSeries.end(); ++it) {
+        updateBatchVisibility(it.key());
+    }
+}
+
 //更新航迹批的可见性
 void TrackManager::updateBatchVisibility(int batchID)
 {
@@ -525,18 +550,19 @@ void TrackManager::updateBatchVisibility(int batchID)
     if (it == mSeries.end()) return;
 
     auto& s = it.value();
+    bool droneOk = !m_droneOnlyFilter || (s.lastTargetRecResult == 1);
     for (int i = 0; i < s.nodes.size(); ++i) {
         auto& n = s.nodes[i];
         if (n.point) {
             bool in = inRange(n.point->infoRef().range);
-            n.point->setVisible(s.visible && in);
+            n.point->setVisible(s.visible && droneOk && in);
         }
         if (n.lineFromPrev) {
             auto* prev = s.nodes[i-1].point;
             if (prev) {
                 bool inCur = n.point ? inRange(n.point->infoRef().range) : false;
                 bool inPrev = inRange(prev->infoRef().range);
-                n.lineFromPrev->setVisible(s.visible && inCur && inPrev);
+                n.lineFromPrev->setVisible(s.visible && droneOk && inCur && inPrev);
             } else {
                 n.lineFromPrev->setVisible(false);
             }
@@ -546,8 +572,8 @@ void TrackManager::updateBatchVisibility(int batchID)
     // 最新点的标签与连线
     if (!s.nodes.isEmpty()) {
         auto& latest = s.nodes.last();
-        if (s.label)     s.label->setVisible(s.visible && inRange(latest.point->infoRef().range));
-        if (s.labelLine) s.labelLine->setVisible(s.visible && inRange(latest.point->infoRef().range));
+        if (s.label)     s.label->setVisible(s.visible && droneOk && inRange(latest.point->infoRef().range));
+        if (s.labelLine) s.labelLine->setVisible(s.visible && droneOk && inRange(latest.point->infoRef().range));
     }
 }
 

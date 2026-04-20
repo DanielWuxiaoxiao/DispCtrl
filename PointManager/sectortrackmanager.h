@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 10:04:10
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:31
+ * @LastEditTime: 2026-04-20 11:30:45
  * @Description: 
  */
 /**
@@ -101,6 +101,7 @@ struct SectorTrackSeries {
     bool visible = true;                        ///< 航迹可见性标志
     QColor color;                               ///< 航迹颜色
     PointType type = PointType::Track;          ///< 航迹类型（DBT/TBD）
+    int lastTargetRecResult = 0;                ///< 最新目标识别结果（1=无人机）
 };
 
 /**
@@ -215,6 +216,12 @@ public:
     void setAngleRange(float minAngle, float maxAngle);
 
     /**
+     * @brief 设置无人机过滤模式
+     * @param droneOnly true=仅显示无人机航迹，false=显示全部
+     */
+    void setDroneOnlyFilter(bool droneOnly);
+
+    /**
      * @brief 删除指定批次的航迹
      * @param batchID 要删除的批次ID
      * @details 完全删除扇形区域内一条航迹
@@ -327,6 +334,7 @@ private:
     // 扇形角度范围参数
     float m_minAngle = -30.0f;                 ///< 扇形最小角度(度)
     float m_maxAngle = 30.0f;                  ///< 扇形最大角度(度)
+    bool m_droneOnlyFilter = false;            ///< 仅显示无人机航迹
 };
 
 #endif

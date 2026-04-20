@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 22:07:38
+ * @LastEditTime: 2026-04-20 11:30:46
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -754,6 +754,24 @@ void MainOverLayOut::setupTrackManagement() {
         m_droneTableFrozenHelper->syncFrozenContent();
     }
 
+    // 切换tab时刷新冻结列几何（隐藏tab的Stretch列宽为0，需切换后重算）
+    // 同时根据当前tab控制P显/B显航迹可见性：
+    //   航迹管理 tab(0) → 显示所有航迹
+    //   无人机航迹 tab(1) → 只显示无人机航迹(targetRecResult==1)
+    connect(ui->trackTab, &QTabWidget::currentChanged, this, [this](int index) {
+        if (m_trackTableFrozenHelper)
+            m_trackTableFrozenHelper->syncFrozenContent();
+        if (m_droneTableFrozenHelper)
+            m_droneTableFrozenHelper->syncFrozenContent();
+        bool droneOnly = (index == 1);
+        if (mScene && mScene->track())
+            mScene->track()->setDroneOnlyFilter(droneOnly);
+        if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart())
+            m_rangeAzimuthWidget->chart()->setDroneOnlyFilter(droneOnly);
+        if (m_sectorWidget && m_sectorWidget->scene() && m_sectorWidget->scene()->trackManager())
+            m_sectorWidget->scene()->trackManager()->setDroneOnlyFilter(droneOnly);
+    });
+
     // 连接RadarDataManager的信号
     connect(&RADAR_DATA_MGR, &RadarDataManager::trackReceived, this,
             &MainOverLayOut::updateTrackList);
@@ -800,16 +818,30 @@ void MainOverLayOut::updateDroneTrackList(const PointInfo& info) {
     // statMethod==2 是消批指令，不应插入/更新行
     if (info.statMethod == 2) return;
 
-    // 只显示无人机类型的航迹
-    if (m_targetTypes.value(info.batch, 0) == 1) {  // 1 = 无人机
-        QString targetType = getTargetTypeText(1);
-        addOrUpdateTrackRow(ui->droneTableWidget, info, targetType,
-                            info.type == PointType::TBDPointType);
+    // 只显示检测结果为"无人机"的航迹（info.targetRecResult == 1）
+    if (info.targetRecResult == 1) {
+        // 使用与总航迹表相同的显示逻辑，但仅针对无人机
+        bool isTBD = (info.type == PointType::TBDPointType);
+        QString targetType =
+            isTBD ? QStringLiteral("TBD") : getTargetTypeText(m_targetTypes.value(info.batch, 0));
+        addOrUpdateTrackRow(ui->droneTableWidget, info, targetType, isTBD);
         sortTrackTable(ui->droneTableWidget);
 
         // 同步冻结列内容
         if (m_droneTableFrozenHelper) {
             m_droneTableFrozenHelper->syncFrozenContent();
+        }
+    } else {
+        // targetRecResult 不再是无人机，从无人机表格中移除该批次
+        QTableWidget* droneTable = ui->droneTableWidget;
+        for (int row = droneTable->rowCount() - 1; row >= 0; --row) {
+            if (droneTable->item(row, 0) && droneTable->item(row, 0)->text().toUInt() == info.batch) {
+                droneTable->removeRow(row);
+                if (m_droneTableFrozenHelper) {
+                    m_droneTableFrozenHelper->syncFrozenContent();
+                }
+                break;
+            }
         }
     }
 }
@@ -819,51 +851,8 @@ void MainOverLayOut::updateTargetClassification(unsigned int batchID, int target
 
     // classification update (no debug log)
 
-    // 不覆盖显示列 "类型"（该列用于显示识别结果），只更新内部映射 m_targetTypes
-    QTableWidget* trackTable = ui->tableWidget;
-
-    // 如果是无人机类型，添加到无人机表格；否则从无人机表格中移除
-    if (targetType == 1) {  // 无人机
-        // 从总表格中找到该批次的数据，添加到无人机表格
-        for (int row = 0; row < trackTable->rowCount(); ++row) {
-            if (trackTable->item(row, 0) && trackTable->item(row, 0)->text().toUInt() == batchID) {
-                PointInfo info;
-                info.batch = batchID;
-                info.azimuth = trackTable->item(row, 1)->text().toFloat();
-                info.elevation = trackTable->item(row, 2)->text().toFloat();
-                info.altitute = trackTable->item(row, 3)->text().toFloat();
-                info.range = trackTable->item(row, 4)->text().toFloat();
-                info.speed = trackTable->item(row, 5)->text().toFloat();
-                info.SNR = trackTable->item(row, 6)->text().toFloat();
-                info.targetRecResult = 0;
-
-                addOrUpdateTrackRow(ui->droneTableWidget, info, getTargetTypeText(targetType),
-                                    false);
-                break;
-            }
-        }
-    } else {
-        // 从无人机表格中移除非无人机目标
-        QTableWidget* droneTable = ui->droneTableWidget;
-        for (int row = droneTable->rowCount() - 1; row >= 0; --row) {
-            if (droneTable->item(row, 0) && droneTable->item(row, 0)->text().toUInt() == batchID) {
-                droneTable->removeRow(row);
-                break;
-            }
-        }
-    }
-
-    // 重新排序两个表格
-    sortTrackTable(ui->tableWidget);
-    sortTrackTable(ui->droneTableWidget);
-
-    // 同步冻结列内容
-    if (m_trackTableFrozenHelper) {
-        m_trackTableFrozenHelper->syncFrozenContent();
-    }
-    if (m_droneTableFrozenHelper) {
-        m_droneTableFrozenHelper->syncFrozenContent();
-    }
+    // 无人机表格由 updateDroneTrackList 根据 info.targetRecResult 驱动，
+    // 此处只更新内部映射 m_targetTypes，不操作无人机表格
 }
 
 void MainOverLayOut::onTrackRemoved(int batchID) {

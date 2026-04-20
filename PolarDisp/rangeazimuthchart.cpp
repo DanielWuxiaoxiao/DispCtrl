@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-01-30 11:45:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:32
+ * @LastEditTime: 2026-04-20 11:30:45
  * @Description: 
  */
 /*
@@ -254,6 +254,29 @@ void RangeAzimuthChart::addTrackPoint(const trackInfo& info)
     double azimuth = info.azi;
     double range = info.dis / 1000.0;  // 转换为km用于坐标系
 
+    // 颜色依据目标识别结果：无人机(1)→红色，其他→蓝色
+    QColor trackColor = (info.targetRecResult == 1) ? TRA_DRONE_COLOR : TRA_OTHER_COLOR;
+
+    // 当识别结果变化时，回溯更新同批次已有点的颜色、识别结果和可见性
+    {
+        ChartAxisConfig yAxis = yAxisConfig();
+        for (TrackItem& existing : m_tracks) {
+            if (existing.trackData.batch == info.batch &&
+                existing.trackData.targetRecResult != info.targetRecResult) {
+                existing.trackData.targetRecResult = info.targetRecResult;
+                if (existing.graphicsItem) {
+                    existing.graphicsItem->setPen(QPen(trackColor, 1));
+                    existing.graphicsItem->setBrush(QBrush(trackColor));
+                    double rkm = existing.trackData.dis / 1000.0;
+                    bool inAz = isAzimuthInRange(existing.trackData.azi);
+                    bool inDist = (rkm >= yAxis.minValue && rkm <= yAxis.maxValue);
+                    bool dOk = !m_droneOnlyFilter || (info.targetRecResult == 1);
+                    existing.graphicsItem->setVisible(m_trackVisible && dOk && inAz && inDist);
+                }
+            }
+        }
+    }
+
     // 将数据坐标转换为场景坐标
     QPointF scenePos = dataToScene(azimuth, range);
 
@@ -267,8 +290,8 @@ void RangeAzimuthChart::addTrackPoint(const trackInfo& info)
         size,
         size
     );
-    item->setPen(QPen(m_trackColor, 1));
-    item->setBrush(QBrush(m_trackColor));
+    item->setPen(QPen(trackColor, 1));
+    item->setBrush(QBrush(trackColor));
 
     // 设置tooltip（与PPI航迹点格式一致）
     QString tooltip = QString("%1\nID:%2\nR:%3m\nA:%4°\nE:%5°\nSNR:%6dB\nV:%7m/s\nH:%8m\nAmp:%9")
@@ -292,7 +315,8 @@ void RangeAzimuthChart::addTrackPoint(const trackInfo& info)
     ChartAxisConfig yAxis = yAxisConfig();
     bool inAzimuthRange = isAzimuthInRange(azimuth);
     bool inDistanceRange = (range >= yAxis.minValue && range <= yAxis.maxValue);
-    bool shouldShow = m_trackVisible && inAzimuthRange && inDistanceRange;
+    bool droneOk = !m_droneOnlyFilter || (info.targetRecResult == 1);
+    bool shouldShow = m_trackVisible && droneOk && inAzimuthRange && inDistanceRange;
 
     item->setVisible(shouldShow);
 
@@ -334,6 +358,29 @@ void RangeAzimuthChart::addPointInfo(const PointInfo& info)
         double azimuth = info.azimuth;
         double range = info.range / 1000.0;  // 转换为km用于坐标系
 
+        // 颜色依据目标识别结果：无人机(1)→红色，其他→蓝色
+        QColor trackColor = (info.targetRecResult == 1) ? TRA_DRONE_COLOR : TRA_OTHER_COLOR;
+
+        // 当识别结果变化时，回溯更新同批次已有点的颜色、识别结果和可见性
+        {
+            ChartAxisConfig yAxisCfg = yAxisConfig();
+            for (TrackItem& existing : m_tracks) {
+                if (existing.trackData.batch == info.batch &&
+                    existing.trackData.targetRecResult != info.targetRecResult) {
+                    existing.trackData.targetRecResult = info.targetRecResult;
+                    if (existing.graphicsItem) {
+                        existing.graphicsItem->setPen(QPen(trackColor, 1));
+                        existing.graphicsItem->setBrush(QBrush(trackColor));
+                        double rkm = existing.trackData.dis / 1000.0;
+                        bool inAz = isAzimuthInRange(existing.trackData.azi);
+                        bool inDist = (rkm >= yAxisCfg.minValue && rkm <= yAxisCfg.maxValue);
+                        bool dOk = !m_droneOnlyFilter || (info.targetRecResult == 1);
+                        existing.graphicsItem->setVisible(m_trackVisible && dOk && inAz && inDist);
+                    }
+                }
+            }
+        }
+
         // 将数据坐标转换为场景坐标
         QPointF scenePos = dataToScene(azimuth, range);
 
@@ -347,8 +394,8 @@ void RangeAzimuthChart::addPointInfo(const PointInfo& info)
             size,
             size
         );
-        item->setPen(QPen(m_trackColor, 1));
-        item->setBrush(QBrush(m_trackColor));
+        item->setPen(QPen(trackColor, 1));
+        item->setBrush(QBrush(trackColor));
 
         // 设置tooltip（与PPI格式一致）
         QString typeStr = (info.type == Track) ? TRA_LABEL : "TBD航迹";
@@ -373,7 +420,8 @@ void RangeAzimuthChart::addPointInfo(const PointInfo& info)
         ChartAxisConfig yAxis = yAxisConfig();
         bool inAzimuthRange = isAzimuthInRange(azimuth);
         bool inDistanceRange = (range >= yAxis.minValue && range <= yAxis.maxValue);
-        bool shouldShow = m_trackVisible && inAzimuthRange && inDistanceRange;
+        bool droneOk = !m_droneOnlyFilter || (info.targetRecResult == 1);
+        bool shouldShow = m_trackVisible && droneOk && inAzimuthRange && inDistanceRange;
 
         item->setVisible(shouldShow);
 
@@ -385,6 +433,7 @@ void RangeAzimuthChart::addPointInfo(const PointInfo& info)
         track.azi = info.azimuth;
         track.dis = info.range;
         track.batch = info.batch;
+        track.targetRecResult = info.targetRecResult;
         trackItem.trackData = track;
         trackItem.timestamp = QDateTime::currentMSecsSinceEpoch();
 
@@ -567,7 +616,8 @@ void RangeAzimuthChart::setRangeFromMain(double minRange, double maxRange)
         // 检查是否应该显示（使用km比较）
         bool inAzimuthRange = isAzimuthInRange(track.azi);
         bool inDistanceRange = (rangeKm >= minRangeKm && rangeKm <= maxRangeKm);
-        bool shouldShow = m_trackVisible && inAzimuthRange && inDistanceRange;
+        bool droneOk = !m_droneOnlyFilter || (track.targetRecResult == 1);
+        bool shouldShow = m_trackVisible && droneOk && inAzimuthRange && inDistanceRange;
         graphicsItem->setVisible(shouldShow);
 
         scene()->addItem(graphicsItem);
@@ -606,10 +656,17 @@ void RangeAzimuthChart::setTrackVisible(bool visible)
             double rangeKm = track.dis / 1000.0;  // 转换为km
             bool inAzimuthRange = isAzimuthInRange(track.azi);
             bool inDistanceRange = (rangeKm >= yAxis.minValue && rangeKm <= yAxis.maxValue);
-            bool shouldShow = visible && inAzimuthRange && inDistanceRange;
+            bool droneOk = !m_droneOnlyFilter || (track.targetRecResult == 1);
+            bool shouldShow = visible && droneOk && inAzimuthRange && inDistanceRange;
             item.graphicsItem->setVisible(shouldShow);
         }
     }
+}
+
+void RangeAzimuthChart::setDroneOnlyFilter(bool droneOnly)
+{
+    m_droneOnlyFilter = droneOnly;
+    refreshAllPoints();
 }
 
 void RangeAzimuthChart::setDetectionSizeRatio(double ratio)
@@ -747,7 +804,8 @@ void RangeAzimuthChart::refreshAllPoints()
             // 更新可见性
             bool inAzimuthRange = isAzimuthInRange(azimuth);
             bool inDistanceRange = (rangeKm >= yAxis.minValue && rangeKm <= yAxis.maxValue);
-            bool shouldShow = m_trackVisible && inAzimuthRange && inDistanceRange;
+            bool droneOk = !m_droneOnlyFilter || (track.targetRecResult == 1);
+            bool shouldShow = m_trackVisible && droneOk && inAzimuthRange && inDistanceRange;
             item.graphicsItem->setVisible(shouldShow);
         }
     }

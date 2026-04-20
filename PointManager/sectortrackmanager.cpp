@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 10:04:10
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:31
+ * @LastEditTime: 2026-04-20 11:30:45
  * @Description: 
  */
 /**
@@ -131,6 +131,30 @@ void SectorTrackManager::addTrackPoint(const PointInfo& info)
     ensureSeries(info.batch, type);
     SectorTrackSeries& series = m_series[info.batch];
 
+    // 更新识别结果并检测变化
+    QColor newColor = (info.targetRecResult == 1) ? TRA_DRONE_COLOR : TRA_OTHER_COLOR;
+    bool recChanged = (series.lastTargetRecResult != static_cast<int>(info.targetRecResult));
+    series.lastTargetRecResult = info.targetRecResult;
+    if (recChanged) {
+        series.color = newColor;
+        // 回溯更新同批次已有点/线/标签颜色
+        for (SectorTrackNode& n : series.nodes) {
+            if (n.point) n.point->setColor(newColor);
+            if (n.lineFromPrev) {
+                QPen p(newColor); p.setWidth(1);
+                n.lineFromPrev->setPen(p);
+            }
+        }
+        if (series.labelLine) {
+            QPen p(newColor); p.setStyle(Qt::DashLine);
+            series.labelLine->setPen(p);
+        }
+        updateBatchVisibility(info.batch);
+    }
+
+    // 判断droneOk
+    bool droneOk = !m_droneOnlyFilter || (info.targetRecResult == 1);
+
     // 创建航迹点
     PointInfo copy = info;
 
@@ -143,7 +167,7 @@ void SectorTrackManager::addTrackPoint(const PointInfo& info)
     pt->updatePosition(pos.x(), pos.y());
 
     // 设置可见性
-    bool visible = series.visible && isPointVisible(copy);
+    bool visible = series.visible && droneOk && isPointVisible(copy);
     pt->setVisible(visible);
 
     m_scene->addItem(pt);
@@ -163,7 +187,8 @@ void SectorTrackManager::addTrackPoint(const PointInfo& info)
             updateLineGeometry(line, prevPoint->scenePos(), pt->scenePos());
 
             // 连线只有当两个点都在扇形内时才可见
-            bool lineVisible = series.visible &&
+            bool lineDroneOk = !m_droneOnlyFilter || (series.lastTargetRecResult == 1);
+            bool lineVisible = series.visible && lineDroneOk &&
                              isPointVisible(prevPoint->infoRef()) &&
                              isPointVisible(copy);
             line->setVisible(lineVisible);
@@ -183,6 +208,7 @@ void SectorTrackManager::refreshAll()
 {
     for (auto it = m_series.begin(); it != m_series.end(); ++it) {
         SectorTrackSeries& series = it.value();
+        bool droneOk = !m_droneOnlyFilter || (series.lastTargetRecResult == 1);
 
         // 更新所有节点
         for (int i = 0; i < series.nodes.size(); ++i) {
@@ -196,7 +222,7 @@ void SectorTrackManager::refreshAll()
             node.point->updatePosition(pos.x(), pos.y());
 
             // 更新可见性
-            bool visible = series.visible && isPointVisible(info);
+            bool visible = series.visible && droneOk && isPointVisible(info);
             node.point->setVisible(visible);
 
             // 更新连线
@@ -207,7 +233,7 @@ void SectorTrackManager::refreshAll()
                                      prevPoint->scenePos(),
                                      node.point->scenePos());
 
-                    bool lineVisible = series.visible &&
+                    bool lineVisible = series.visible && droneOk &&
                                      isPointVisible(prevPoint->infoRef()) &&
                                      isPointVisible(info);
                     node.lineFromPrev->setVisible(lineVisible);
@@ -224,7 +250,7 @@ void SectorTrackManager::refreshAll()
                                  series.label->mapToScene(series.label->boundingRect().center()),
                                  anchorPos);
 
-                bool labelVisible = series.visible && isPointVisible(latestNode.point->infoRef());
+                bool labelVisible = series.visible && droneOk && isPointVisible(latestNode.point->infoRef());
                 series.label->setVisible(labelVisible);
                 series.labelLine->setVisible(labelVisible);
             }
@@ -351,27 +377,23 @@ void SectorTrackManager::ensureSeries(int batchID, PointType type)
     if (!m_series.contains(batchID)) {
         SectorTrackSeries series;
         series.type = type;
-        // 统一使用红色显示所有航迹（TBD和Track都用红色）
-        series.color = Qt::red;  // 修改：统一颜色为红色
+        series.color = TRA_OTHER_COLOR;  // 默认蓝色，收到数据后按targetRecResult更新
         series.visible = true;
         m_series.insert(batchID, series);
 
         qDebug() << "[SectorTrackManager] New track series created, batch:" << batchID
-                 << "type:" << (type == PointType::TBDPointType ? "TBD" : "Track")
-                 << "color: Red";
+                 << "type:" << (type == PointType::TBDPointType ? "TBD" : "Track");
         return;
     }
 
     auto& series = m_series[batchID];
     if (series.type != type) {
         series.type = type;
-        // 统一使用红色
-        QColor newColor = Qt::red;  // 修改：统一颜色为红色
+        QColor newColor = (series.lastTargetRecResult == 1) ? TRA_DRONE_COLOR : TRA_OTHER_COLOR;
         series.color = newColor;
 
         qDebug() << "[SectorTrackManager] Track type changed, batch:" << batchID
-                 << "new type:" << (type == PointType::TBDPointType ? "TBD" : "Track")
-                 << "color: Red";
+                 << "new type:" << (type == PointType::TBDPointType ? "TBD" : "Track");
 
         // 更新已有节点和连线颜色
         for (auto& node : series.nodes) {
@@ -436,7 +458,8 @@ void SectorTrackManager::updateLatestLabel(int batchID)
                      anchorPos);
 
     // 设置可见性
-    bool visible = series.visible && isPointVisible(info);
+    bool droneOk = !m_droneOnlyFilter || (series.lastTargetRecResult == 1);
+    bool visible = series.visible && droneOk && isPointVisible(info);
     series.label->setVisible(visible);
     series.labelLine->setVisible(visible);
 }
@@ -447,18 +470,19 @@ void SectorTrackManager::updateBatchVisibility(int batchID)
     if (it == m_series.end()) return;
 
     SectorTrackSeries& series = it.value();
+    bool droneOk = !m_droneOnlyFilter || (series.lastTargetRecResult == 1);
 
     for (int i = 0; i < series.nodes.size(); ++i) {
         SectorTrackNode& node = series.nodes[i];
         if (node.point) {
-            bool visible = series.visible && isPointVisible(node.point->infoRef());
+            bool visible = series.visible && droneOk && isPointVisible(node.point->infoRef());
             node.point->setVisible(visible);
         }
 
         if (node.lineFromPrev && i > 0) {
             TrackPoint* prevPoint = series.nodes[i-1].point;
             if (prevPoint) {
-                bool lineVisible = series.visible &&
+                bool lineVisible = series.visible && droneOk &&
                                  isPointVisible(prevPoint->infoRef()) &&
                                  isPointVisible(node.point->infoRef());
                 node.lineFromPrev->setVisible(lineVisible);
@@ -470,7 +494,7 @@ void SectorTrackManager::updateBatchVisibility(int batchID)
     if (!series.nodes.isEmpty()) {
         SectorTrackNode& latestNode = series.nodes.last();
         if (series.label && series.labelLine) {
-            bool visible = series.visible && isPointVisible(latestNode.point->infoRef());
+            bool visible = series.visible && droneOk && isPointVisible(latestNode.point->infoRef());
             series.label->setVisible(visible);
             series.labelLine->setVisible(visible);
         }
@@ -482,6 +506,15 @@ void SectorTrackManager::updateLineGeometry(QGraphicsLineItem* line, const QPoin
     if (!line) return;
     line->setLine(QLineF(a, b));
     line->setZValue(LINE_Z);
+}
+
+void SectorTrackManager::setDroneOnlyFilter(bool droneOnly)
+{
+    if (m_droneOnlyFilter == droneOnly) return;
+    m_droneOnlyFilter = droneOnly;
+    for (auto it = m_series.begin(); it != m_series.end(); ++it) {
+        updateBatchVisibility(it.key());
+    }
 }
 
 QPointF SectorTrackManager::polarToPixel(float range, float azimuthDeg) const
