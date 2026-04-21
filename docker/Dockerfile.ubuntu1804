@@ -1,0 +1,100 @@
+##############################################################################
+# DispCtrl Docker 编译环境 — Ubuntu 18.04 目标
+# 编译产物可在 Ubuntu 18.04+ (glibc ≥2.27) 上运行
+#
+# 策略:
+#   - 基于 Ubuntu 18.04 (glibc 2.27) 编译 → 产物兼容 18.04+
+#   - GCC 9 (ubuntu-toolchain-r PPA) → 完整 C++17 支持
+#   - aqtinstall 下载 Qt 5.15.2 官方预编译包 (Qt Company 在 CentOS 7
+#     上编译，glibc ≥2.17 即可运行，自带 WebEngine + .pak + QtWebEngineProcess)
+#   - 打包时捆绑 libstdc++.so.6 (GCC 9 版本 > 18.04 系统自带)
+#
+# 用法 (由 docker_build.sh 1804 自动调用):
+#   docker build -f docker/Dockerfile.ubuntu1804 -t dispctrl-builder-1804 .
+#   docker run --rm -v $(pwd):/src:rw -v $(pwd)/deploy:/output:rw dispctrl-builder-1804
+##############################################################################
+
+FROM ubuntu:18.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asia/Shanghai
+
+# ---- 1) 添加 GCC 9 PPA 并安装工具链 ----
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        software-properties-common gpg-agent wget ca-certificates \
+    # GCC 9 PPA — C++17 完整支持
+    && add-apt-repository ppa:ubuntu-toolchain-r/test -y \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        # 编译工具链
+        gcc-9 g++-9 make pkg-config \
+        # Qt/WebEngine 运行时系统依赖
+        libgl1-mesa-dev libxkbcommon-dev libxkbcommon-x11-0 libfontconfig1-dev \
+        libxcb-xinerama0 libxcb-icccm4 libxcb-image0 \
+        libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
+        libxcb-shape0 libxcb-xfixes0 libxcb-sync1 \
+        libxcb-shm0 libxcb-cursor0 libxcb-render0 libxcb-glx0 \
+        libnss3 libasound2 libdbus-1-3 \
+        libxcomposite1 libxdamage1 libxrandr2 libxtst6 libxss1 \
+        # Qt5Network 依赖 Kerberos; WebEngineCore 依赖 Xcursor/Xi
+        libkrb5-dev libxcursor-dev libxi-dev \
+        # RPATH 修补 + 打包
+        patchelf tar gzip \
+    # 设置 GCC 9 为默认编译器
+    && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 90 \
+    && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 90 \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---- 2) 安装 Miniconda (提供 Python 3.9+, pip, cmake, ninja, aqtinstall) ----
+#   deadsnakes PPA 已不再维护 bionic 的 Python 3.9 包
+#   最新版 Miniconda 要求 glibc ≥2.28，18.04 只有 2.27
+#   使用 2022 年旧版 Miniconda (py39_4.12.0)，支持 glibc ≥2.17
+RUN wget -q https://repo.anaconda.com/miniconda/Miniconda3-py39_4.12.0-Linux-x86_64.sh \
+        -O /tmp/miniconda.sh \
+    && bash /tmp/miniconda.sh -b -p /opt/miniconda \
+    && rm /tmp/miniconda.sh
+ENV PATH="/opt/miniconda/bin:${PATH}"
+
+# ---- 3) 通过 pip 安装 cmake, ninja, aqtinstall ----
+#   旧版 Miniconda 自带 pip 版本过低，无法解析新包元数据，需先升级
+#   aqtinstall 3.1.x 是最后支持 Python 3.9 的版本
+RUN pip install --no-cache-dir --upgrade pip setuptools \
+    && pip install --no-cache-dir cmake ninja "aqtinstall<3.2"
+
+# ---- 4) 下载 Qt 5.15.2 预编译包 (含 WebEngine) ----
+#   Qt Company 官方 Linux 包基于 CentOS 7 (glibc 2.17) 编译
+#   包含: qtbase, qtwebengine, qtwebchannel, QtWebEngineProcess, .pak, ICU 等
+RUN aqt install-qt linux desktop 5.15.2 gcc_64 \
+        -m qtwebengine \
+        --outputdir /opt/Qt
+
+# ---- 5) Qt 环境变量 ----
+ENV QT_ROOT=/opt/Qt/5.15.2/gcc_64
+ENV CMAKE_PREFIX_PATH=${QT_ROOT}
+ENV PATH="${QT_ROOT}/bin:${PATH}"
+ENV LD_LIBRARY_PATH="${QT_ROOT}/lib"
+
+# ---- 6) 告知 package_linux.sh 捆绑 libstdc++ ----
+#   GCC 9 的 libstdc++.so.6 (GLIBCXX_3.4.28) 比 18.04 系统自带的
+#   GCC 7 版本 (GLIBCXX_3.4.25) 更新，必须随部署包一起分发
+ENV DISPCTRL_BUNDLE_STDCPP=1
+
+WORKDIR /src
+
+# ---- 编译 + 打包入口 ----
+CMD ["/bin/bash", "-c", "\
+    echo '=== Docker Build: DispCtrl (Ubuntu 18.04+ target) ===' && \
+    echo \"Qt version: $(qmake -query QT_VERSION 2>/dev/null || echo UNKNOWN)\" && \
+    echo \"GCC: $(g++ --version | head -1)\" && \
+    echo \"glibc: $(ldd --version | head -1)\" && \
+    echo '' && \
+    cd /src && \
+    bash scripts/build_linux.sh Release && \
+    bash scripts/package_linux.sh Release && \
+    echo '' && \
+    if [ -d /output ]; then \
+        cp deploy/DispCtrl-linux-x64.tar.gz /output/ && \
+        echo '=== 已复制到 /output/DispCtrl-linux-x64.tar.gz ===' ; \
+    fi \
+"]

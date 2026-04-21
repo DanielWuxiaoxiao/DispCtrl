@@ -1,0 +1,8 @@
+build/
+deploy/
+.git/
+*.bak
+*.o
+*.obj
+*.exe
+*.user
