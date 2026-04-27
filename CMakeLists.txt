@@ -137,6 +137,7 @@ set(SRC_FILES
     PolarDisp/echorenderer.cpp                 # 船用雷达回波渲染引擎
     PolarDisp/colorbarwidget.cpp               # 色阶图例控件
     PolarDisp/echolinechart.cpp                # 回波A显折线图控件
+    PolarDisp/geofenceitem.cpp                 # PPI 电子围栏多边形图形项
 
     # 点管理模块 - 目标检测和航迹管理
     PointManager/detmanager.cpp                # 检测点管理器
@@ -158,6 +159,10 @@ set(SRC_FILES
     Controller/RadarDataManager.cpp            # 雷达数据统一管理器
     Controller/RadarSimulator.cpp              # 船用雷达回波模拟器
     Controller/MarineRadarManager.cpp          # 船用雷达协议管理器
+    Controller/ascanmanager.cpp                # A显数据 UDP 接收管理器
+    Controller/geofencemanager.cpp             # 电子围栏管理器
+    Controller/recordmanager.cpp               # 场景录制与回放管理器
+    Controller/beamschedulemanager.cpp         # 波束调度报告 UDP 接收管理器
     Controller/ErrorHandler.cpp                # 错误处理框架
     Controller/disp2sigmanager.cpp             # 显示到信号管理
     Controller/disp2resmanager.cpp             # 显示到资源管理
@@ -170,6 +175,11 @@ set(SRC_FILES
     mainPanel/azelrangewidget.cpp              # 方位角高低角范围控件
     mainPanel/screenrecorderwidget.cpp         # 屏幕录制与回放
     mainPanel/simpleavi.cpp                    # 纯Qt AVI视频写入器
+    mainPanel/logpanel.cpp                     # 操作日志面板
+    mainPanel/statspanel.cpp                   # 统计面板（每秒点迹数折线图）
+    mainPanel/healthdashboard.cpp              # 系统健康仪表板
+    mainPanel/ascanwidget.cpp                  # A显波形图控件
+    mainPanel/beamschedulewidget.cpp           # 波束调度甘特图控件
 
     # 自定义组件模块 - UI扩展控件
     cusWidgets/detachablewidget.cpp            # 可分离窗口部件
@@ -225,6 +235,11 @@ set(HDR_FILES
     Controller/controller.h                    # 主控制器
     Controller/ExternalCtrlManager.h           # 外部雷控/调度链路
     Controller/RadarSimulator.h                # 船用雷达回波模拟器
+    Controller/MarineRadarManager.h            # 船用雷达协议管理器
+    Controller/ascanmanager.h                  # A显数据 UDP 接收管理器
+    Controller/geofencemanager.h               # 电子围栏管理器
+    Controller/recordmanager.h                 # 场景录制与回放管理器
+    Controller/beamschedulemanager.h           # 波束调度报告 UDP 接收管理器
 
     # 自定义组件头文件 - UI扩展控件
     cusWidgets/detachablewidget.h              # 可分离窗口部件
@@ -273,12 +288,20 @@ set(HDR_FILES
     PolarDisp/rangeazimuthchart.h             # 距离-方位图表（直角坐标系）
     PolarDisp/ppiview.h                       # PPI主视图
     PolarDisp/ppisscene.h                     # PPI场景管理
+    PolarDisp/echorenderer.h                  # 船用雷达回波渲染引擎
+    PolarDisp/colorbarwidget.h                # 色阶图例控件
+    PolarDisp/geofenceitem.h                  # PPI 电子围栏多边形图形项
 
     # 主界面模块头文件 - 控制面板和布局
     mainPanel/mainoverlayout.h                # 主界面覆盖布局
     mainPanel/azelrangewidget.h               # 方位角高低角范围控件
     mainPanel/screenrecorderwidget.h          # 屏幕录制与回放
     mainPanel/simpleavi.h                     # 纯Qt AVI视频写入器
+    mainPanel/logpanel.h                      # 操作日志面板
+    mainPanel/statspanel.h                    # 统计面板（每秒点迹数折线图）
+    mainPanel/healthdashboard.h               # 系统健康仪表板
+    mainPanel/ascanwidget.h                   # A显波形图控件
+    mainPanel/beamschedulewidget.h            # 波束调度甘特图控件
 
     # 点管理模块头文件 - 目标检测和航迹
     PointManager/sectordetmanager.h           # 扇区检测管理
