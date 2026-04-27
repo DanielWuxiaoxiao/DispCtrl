@@ -1,7 +1,7 @@
 # DispCtrl 功能扩展路线图
 
-> **分支**: `ship-radar`  
-> **创建时间**: 2026-04-27  
+> **分支**: `ship-radar`
+> **创建时间**: 2026-04-27
 > **状态**: 开发中
 
 本文件夹包含 DispCtrl 系统各扩展功能的设计文档与实现说明。
@@ -87,3 +87,16 @@ Basic/Protocol.h                            ← 新增协议结构体（A显、�
 新端口：`RES_2_DISP_PORT = 6013` / `DISP_GET_RES_PORT = 8013`
 
 消息ID：`0xCC02`（调度帧信息），`0xCC03`（单波束时间槽）
+
+
+8个计划功能（5个已排除的不在范围内），逐一核对：
+
+#	功能	状态	实现文件
+1	操作日志时间轴	✅	mainPanel/logpanel.h/cpp
+2	多目标实时统计	✅	mainPanel/statspanel.h/cpp
+3	截图一键导出	⚠️	见下方说明
+4	系统健康大屏	✅	mainPanel/healthdashboard.h/cpp
+5	电子围栏告警	✅	Controller/geofencemanager.h/cpp + PolarDisp/geofenceitem.h/cpp
+6	A显+CFAR门限	✅	Controller/ascanmanager.h/cpp + mainPanel/ascanwidget.h/cpp
+7	波束调度甘特图	✅	Controller/beamschedulemanager.h/cpp + mainPanel/beamschedulewidget.h/cpp
+8	场景数据录制/回放	✅	Controller/recordmanager.h/cpp + mainPanel/screenrecorderwidget.h/cpp
