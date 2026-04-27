@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-04-27 11:21:00
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-27 11:35:13
+ * @LastEditTime: 2026-04-27 11:45:26
  * @Description: 
  */
 /**
@@ -65,11 +65,11 @@ void BeamScheduleManager::processData(const QByteArray& data)
     const int expectedSize = kHeaderSize + slotCount * static_cast<int>(sizeof(BeamSlot));
     if (data.size() < expectedSize) return;
 
-    QVector<BeamSlot> slots(slotCount);
+    QVector<BeamSlot> beamSlots(slotCount);
     if (slotCount > 0) {
-        memcpy(slots.data(), data.constData() + kHeaderSize,
+        memcpy(beamSlots.data(), data.constData() + kHeaderSize,
                static_cast<size_t>(slotCount) * sizeof(BeamSlot));
     }
 
-    emit beamScheduleReceived(header, slots);
+    emit beamScheduleReceived(header, beamSlots);
 }

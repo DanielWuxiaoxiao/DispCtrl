@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-04-27 11:16:47
+ * @Date: 2026-04-27 11:21:00
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-27 11:21:02
+ * @LastEditTime: 2026-04-27 11:45:27
  * @Description: 
  */
 /**
@@ -41,7 +41,7 @@ public:
     explicit BeamScheduleChart(QWidget* parent = nullptr);
 
     /// 更新数据并重绘
-    void setSchedule(const BeamScheduleReport& hdr, const QVector<BeamSlot>& slots);
+    void setSchedule(const BeamScheduleReport& hdr, const QVector<BeamSlot>& beamSlots);
 
 protected:
     void paintEvent(QPaintEvent*) override;
@@ -75,7 +75,7 @@ public:
     explicit BeamScheduleWidget(QWidget* parent = nullptr);
 
 public slots:
-    void onBeamSchedule(const BeamScheduleReport& hdr, const QVector<BeamSlot>& slots);
+    void onBeamSchedule(const BeamScheduleReport& hdr, const QVector<BeamSlot>& beamSlots);
 
 private:
     BeamScheduleChart* m_chart      = nullptr;

@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-04-27 11:16:47
+ * @Date: 2026-04-27 11:21:00
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-27 11:21:01
+ * @LastEditTime: 2026-04-27 11:45:27
  * @Description: 
  */
 /**
@@ -32,10 +32,10 @@ BeamScheduleChart::BeamScheduleChart(QWidget* parent)
 }
 
 void BeamScheduleChart::setSchedule(const BeamScheduleReport& hdr,
-                                    const QVector<BeamSlot>& slots)
+                                    const QVector<BeamSlot>& beamSlots)
 {
     m_header  = hdr;
-    m_slots   = slots;
+    m_slots   = beamSlots;
     m_hasData = true;
     update();
 }
@@ -184,10 +184,10 @@ BeamScheduleWidget::BeamScheduleWidget(QWidget* parent)
 }
 
 void BeamScheduleWidget::onBeamSchedule(const BeamScheduleReport& hdr,
-                                        const QVector<BeamSlot>& slots)
+                                        const QVector<BeamSlot>& beamSlots)
 {
     m_lblSeq->setText(QStringLiteral("帧序: %1").arg(hdr.frameSeq));
     m_lblSlotNum->setText(QStringLiteral("槽数: %1").arg(hdr.slotNum));
     m_lblFrameUs->setText(QStringLiteral("帧长: %1µs").arg(hdr.frameTimeUs));
-    m_chart->setSchedule(hdr, slots);
+    m_chart->setSchedule(hdr, beamSlots);
 }

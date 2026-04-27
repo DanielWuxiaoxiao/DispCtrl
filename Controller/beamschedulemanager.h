@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-04-27 11:16:28
+ * @Date: 2026-04-27 11:21:00
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-27 11:21:01
+ * @LastEditTime: 2026-04-27 11:45:27
  * @Description: 
  */
 /**
@@ -54,7 +54,7 @@ signals:
      * @param slots   本帧所有波束时间槽
      */
     void beamScheduleReceived(const BeamScheduleReport& header,
-                              const QVector<BeamSlot>&   slots);
+                              const QVector<BeamSlot>&   beamSlots);
 
     void logMessage(const QString& msg);
 
