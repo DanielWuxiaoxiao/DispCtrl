@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 22:07:37
+ * @LastEditTime: 2026-04-27 11:21:01
  * @Description: 
  */
 #ifndef PROTOCOL_H
@@ -995,9 +995,78 @@ char checkAccusation(char* data, unsigned len);
 
 char* packData(char* data, unsigned dataLen, unsigned short srcID, unsigned short destID, unsigned commCount);
 
+// =========================
+// 扩展功能新协议（A显 / 波束调度）
+// =========================
+
+// 新增端口常量（避免与现有端口冲突）
+constexpr unsigned short SIG_2_DISP_PORT3   = 6005;   // 信处 → 显控：A显数据
+constexpr unsigned short DISP_GET_SIG_PORT3 = 8005;   // 本机监听端口
+constexpr unsigned short RES_2_DISP_PORT    = 6013;   // 资源调度 → 显控：波束调度报告
+constexpr unsigned short DISP_GET_RES_PORT  = 8013;   // 本机监听端口
+
+// A显数据帧 (信处 → 显控)，消息ID: 0xEE10
+// 每帧包含一条方位线的原始回波幅度序列 + CFAR门限
+// 结构：AScanFrame头 + pointNum 个 float (PC后幅度dB)
+//       + pointNum 个 float (MTD后幅度dB)
+typedef struct _AScanFrame
+{
+    unsigned short mesID;        // 0xEE10
+    unsigned short pointNum;     // 采样点数（距离单元个数）
+    short  azimuth;              // 0.01° 量化，当前方位角
+    short  elevation;            // 0.01° 量化，当前俯仰角
+    float  rangeResM;            // 距离分辨率（米/单元）
+    float  cfar;                 // CFAR统一门限 (dB)
+    unsigned char waveID;        // 波形编号
+    unsigned char reserved[5];
+
+    _AScanFrame()
+    {
+        memset(this, 0, sizeof(_AScanFrame));
+        mesID = 0xEE10;
+    }
+} AScanFrame;
+// 帧头之后紧跟:
+//   float pcAmps[pointNum];   PC后幅度 (dB)
+//   float mtdAmps[pointNum];  MTD后幅度 (dB)
+
+// 波束时间槽（单个时间槽描述）
+typedef struct _BeamSlot
+{
+    unsigned char  taskType;     // 0=搜索 1=跟踪 2=空闲
+    unsigned char  beamID;       // 波束编号
+    unsigned short azimuth;      // 波束方位 0.01°
+    short          elevation;    // 波束俯仰 0.01°
+    unsigned int   startUs;      // 槽起始时间（相对帧起始，µs）
+    unsigned int   durationUs;   // 槽持续时间（µs）
+    unsigned int   batchID;      // 关联航迹批号（taskType==1时有效）
+    unsigned char  reserved[4];
+} BeamSlot;
+
+// 波束调度报告帧头 (资源调度 → 显控)，消息ID: 0xEE11
+// 帧头之后紧跟 slotNum 个 BeamSlot
+typedef struct _BeamScheduleReport
+{
+    unsigned short mesID;        // 0xEE11
+    unsigned short slotNum;      // 本帧槽数量
+    unsigned int   frameTimeUs;  // 帧总时长（µs）
+    unsigned int   frameSeq;     // 帧序号（循环计数）
+    unsigned char  reserved[4];
+
+    _BeamScheduleReport()
+    {
+        memset(this, 0, sizeof(_BeamScheduleReport));
+        mesID = 0xEE11;
+    }
+} BeamScheduleReport;
+
 #pragma pack()
 
 // Qt 元类型注册（必须在 #pragma pack() 之后）
 Q_DECLARE_METATYPE(PointInfo)
+
+// 便于跨线程传递的 Q_DECLARE_METATYPE
+Q_DECLARE_METATYPE(BeamScheduleReport)
+Q_DECLARE_METATYPE(AScanFrame)
 
 #endif // PROTOCOL_H

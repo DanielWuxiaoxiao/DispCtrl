@@ -140,6 +140,7 @@ set(SRC_FILES
     PolarDisp/tooltip.cpp                      # 工具提示
     PolarDisp/zoomview.cpp                     # 缩放视图
     PolarDisp/ppiview.cpp                      # PPI主视图
+    PolarDisp/geofenceitem.cpp                 # PPI围栏图形项
 
     # 点管理模块 - 目标检测和航迹管理
     PointManager/detmanager.cpp                # 检测点管理器
@@ -165,12 +166,21 @@ set(SRC_FILES
     Controller/res2dispmanager.cpp             # 资源到显示管理
     Controller/disp2photomanager.cpp           # 显示到照片管理
     Controller/disp2datamanager.cpp            # 显示到数据管理
+    Controller/ascanmanager.cpp                # A显数据UDP接收管理器
+    Controller/beamschedulemanager.cpp         # 波束调度报告UDP接收管理器
+    Controller/geofencemanager.cpp             # 电子围栏检测管理器
+    Controller/recordmanager.cpp               # 场景录制/回放管理器
 
     # 主界面模块 - 控制面板和布局
     mainPanel/mainoverlayout.cpp               # 主界面覆盖布局
     mainPanel/azelrangewidget.cpp              # 方位角高低角范围控件
     mainPanel/screenrecorderwidget.cpp         # 屏幕录制与回放
     mainPanel/simpleavi.cpp                    # 纯Qt AVI视频写入器
+    mainPanel/logpanel.cpp                     # 日志面板
+    mainPanel/statspanel.cpp                   # 统计面板
+    mainPanel/healthdashboard.cpp              # 健康仪表板
+    mainPanel/ascanwidget.cpp                  # A显波形控件
+    mainPanel/beamschedulewidget.cpp           # 波束调度甘特图控件
 
     # 自定义组件模块 - UI扩展控件
     cusWidgets/detachablewidget.cpp            # 可分离窗口部件
@@ -226,6 +236,10 @@ set(HDR_FILES
     Controller/tbd2dispmanager.h               # TBD数据到显示管理器
     Controller/controller.h                    # 主控制器
     Controller/ExternalCtrlManager.h           # 外部雷控/调度链路
+    Controller/ascanmanager.h                  # A显数据UDP接收管理器
+    Controller/beamschedulemanager.h           # 波束调度报告UDP接收管理器
+    Controller/geofencemanager.h               # 电子围栏检测管理器
+    Controller/recordmanager.h                 # 场景录制/回放管理器
 
     # 自定义组件头文件 - UI扩展控件
     cusWidgets/detachablewidget.h              # 可分离窗口部件
@@ -276,12 +290,18 @@ set(HDR_FILES
     PolarDisp/rangeazimuthchart.h             # 距离-方位图表（直角坐标系）
     PolarDisp/ppiview.h                       # PPI主视图
     PolarDisp/ppisscene.h                     # PPI场景管理
+    PolarDisp/geofenceitem.h                  # PPI围栏图形项
 
     # 主界面模块头文件 - 控制面板和布局
     mainPanel/mainoverlayout.h                # 主界面覆盖布局
     mainPanel/azelrangewidget.h               # 方位角高低角范围控件
     mainPanel/screenrecorderwidget.h          # 屏幕录制与回放
     mainPanel/simpleavi.h                     # 纯Qt AVI视频写入器
+    mainPanel/logpanel.h                      # 日志面板
+    mainPanel/statspanel.h                    # 统计面板
+    mainPanel/healthdashboard.h               # 健康仪表板
+    mainPanel/ascanwidget.h                   # A显波形控件
+    mainPanel/beamschedulewidget.h            # 波束调度甘特图控件
 
     # 点管理模块头文件 - 目标检测和航迹
     PointManager/sectordetmanager.h           # 扇区检测管理
