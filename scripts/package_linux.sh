@@ -330,13 +330,15 @@ echo "[7/8] 修补 RPATH..."
 
 if command -v patchelf &>/dev/null; then
     # 主程序: 从 bin/ 查找 ../lib
-    patchelf --set-rpath '$ORIGIN/../lib' "${DEPLOY_DIR}/bin/${APP_NAME}"
-    echo "  ✓ ${APP_NAME}"
+    patchelf --set-rpath '$ORIGIN/../lib' "${DEPLOY_DIR}/bin/${APP_NAME}" 2>/dev/null \
+        && echo "  ✓ ${APP_NAME}" \
+        || echo "  ⚠ ${APP_NAME} RPATH 修补失败 (run.sh 使用 LD_LIBRARY_PATH 兜底)"
 
     # QtWebEngineProcess: 同样从 bin/ 查找 ../lib
     if [ -f "${DEPLOY_DIR}/bin/QtWebEngineProcess" ]; then
-        patchelf --set-rpath '$ORIGIN/../lib' "${DEPLOY_DIR}/bin/QtWebEngineProcess"
-        echo "  ✓ QtWebEngineProcess"
+        patchelf --set-rpath '$ORIGIN/../lib' "${DEPLOY_DIR}/bin/QtWebEngineProcess" 2>/dev/null \
+            && echo "  ✓ QtWebEngineProcess" \
+            || echo "  ⚠ QtWebEngineProcess RPATH 修补失败"
     fi
 
     # lib/ 下的库: 从 lib/ 查找自身目录

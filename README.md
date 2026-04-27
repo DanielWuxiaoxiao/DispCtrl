@@ -81,6 +81,8 @@ max = 30
 ```
 
 ## 构建与运行
+
+### Windows 开发构建
 依赖：Windows 10/11，Qt 5.14+（Widgets、Network、WebEngine、WebChannel），CMake ≥ 3.16，MSVC 2017+。
 - VS Code（推荐）：安装 CMake Tools，`Ctrl+Shift+P` 选择 `CMake: Configure`，选好工具链后执行 `CMake: Build`。
 - 命令行：
@@ -91,6 +93,111 @@ cmake .. -G "Visual Studio 16 2019" -A x64
 cmake --build . --config Debug
 ```
 - 运行：`./build/bin/Debug/DispCtrl.exe` 或对应 `Release` 目录；确保输出目录下存在 `config.toml` 与资源文件（通过 CMake 自定义目标已自动复制）。
+
+---
+
+## Linux 部署完整流程
+
+完成 Windows 端编码后，按以下任一方式生成可在 Linux 上直接运行的部署包（`deploy/DispCtrl-linux-x64.tar.gz`）。
+
+### 方式一：WSL 原生编译（推荐，无 Docker）
+
+**前提：WSL2 + Ubuntu 已安装 Qt 5 开发库**
+
+```bash
+# 1. 安装编译依赖（首次）
+sudo apt update
+sudo apt install -y build-essential cmake ninja-build \
+    qtbase5-dev qt5-qmake qtwebengine5-dev \
+    libqt5webchannel5-dev patchelf \
+    libgl1-mesa-dev libxkbcommon-dev libfontconfig1-dev
+
+# 2. 进入项目目录
+cd /mnt/d/DispCtrl/DispCtrl
+
+# 3. 修复脚本换行符（首次只需执行一次）
+find scripts docker -name "*.sh" -exec sed -i 's/\r//' {} \; -exec chmod +x {} \;
+
+# 4. 编译（Release）
+./scripts/build_linux.sh Release
+
+# 5. 打包为独立部署目录 + tar.gz
+./scripts/package_linux.sh Release
+```
+
+**产物：**
+```
+deploy/
+├── DispCtrl-linux-x64/        # 独立目录（含 Qt 库、插件、资源）
+│   ├── bin/DispCtrl           # 可执行文件
+│   ├── lib/                   # Qt & xcb 动态库
+│   ├── plugins/               # Qt 平台/图像插件
+│   ├── resources/             # QSS、图标
+│   ├── run.sh                 # 一键启动脚本（设置 LD_LIBRARY_PATH）
+│   └── install_desktop.sh     # 安装到系统桌面快捷方式
+└── DispCtrl-linux-x64.tar.gz  # 打包好的离线部署压缩包
+```
+
+---
+
+### 方式二：Docker 编译（兼容旧系统 / 无需本地安装 Qt）
+
+适用于需要兼容 **Ubuntu 18.04+（glibc ≥ 2.27）** 或本机没有安装 Qt 的场景。
+
+**前提：WSL2 中已安装 Docker**
+
+```bash
+# 安装 Docker（首次）
+sudo apt install -y docker.io
+sudo usermod -aG docker $USER
+# 重启 WSL：在 PowerShell 执行 wsl --shutdown，再重新打开 WSL
+
+# 进入项目目录
+cd /mnt/d/DispCtrl/DispCtrl
+
+# 修复脚本换行符（首次）
+find scripts docker -name "*.sh" -exec sed -i 's/\r//' {} \; -exec chmod +x {} \;
+
+# 一键构建（Ubuntu 22.04 目标）
+./docker/docker_build.sh
+
+# 或构建 Ubuntu 18.04 兼容版（glibc 2.27，适合更旧的目标机器）
+./docker/docker_build.sh 1804
+```
+
+Docker 脚本会自动完成：镜像构建 → cmake 编译 → package_linux.sh 打包 → 输出 `deploy/DispCtrl-linux-x64.tar.gz`。
+
+---
+
+### 部署到目标 Linux 机器
+
+```bash
+# 将 tar.gz 拷贝到目标机器后：
+tar -xzf DispCtrl-linux-x64.tar.gz
+cd DispCtrl-linux-x64
+
+# 直接运行
+./run.sh
+
+# 或安装桌面快捷方式（可选）
+chmod +x install_desktop.sh
+./install_desktop.sh
+```
+
+> **注意：** 目标机器需要 X11 或 Wayland 图形环境（libxcb 等已打包在 `lib/` 中，无需额外安装 Qt）。
+
+---
+
+### 脚本说明汇总
+
+| 脚本 | 用途 |
+|------|------|
+| `scripts/build_linux.sh [Release\|Debug]` | WSL 原生 cmake 编译 |
+| `scripts/package_linux.sh [Release\|Debug]` | 打包编译产物 + Qt 依赖为独立目录 + tar.gz |
+| `scripts/install_desktop.sh` | 在目标机器创建桌面快捷方式 |
+| `docker/docker_build.sh [1804\|2204]` | Docker 一键编译+打包（无需本地 Qt） |
+| `docker/Dockerfile` | Ubuntu 22.04 构建镜像定义 |
+| `docker/Dockerfile.ubuntu1804` | Ubuntu 18.04 构建镜像（兼容旧 glibc） |
 
 ## 开发指引
 - 新增显示模块：继承 `QGraphicsItem` 或 `QGraphicsScene`，实现 `paint()`/`boundingRect()`，在对应 Manager 注册，并更新 `CMakeLists.txt`。

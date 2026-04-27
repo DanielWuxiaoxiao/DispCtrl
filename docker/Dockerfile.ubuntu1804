@@ -69,13 +69,18 @@ RUN aqt install-qt linux desktop 5.15.2 gcc_64 \
         -m qtwebengine \
         --outputdir /opt/Qt
 
-# ---- 5) Qt 环境变量 ----
+# ---- 5) 升级 patchelf (apt 版 0.9 有 stat() bug，pip 版 0.17.x 修复) ----
+#   放在 Qt 下载之后，不会使前面的缓存层失效
+#   /opt/miniconda/bin 在 PATH 中优先于 /usr/bin，自动覆盖 apt 版
+RUN pip install --no-cache-dir --upgrade patchelf
+
+# ---- 6) Qt 环境变量 ----
 ENV QT_ROOT=/opt/Qt/5.15.2/gcc_64
 ENV CMAKE_PREFIX_PATH=${QT_ROOT}
 ENV PATH="${QT_ROOT}/bin:${PATH}"
 ENV LD_LIBRARY_PATH="${QT_ROOT}/lib"
 
-# ---- 6) 告知 package_linux.sh 捆绑 libstdc++ ----
+# ---- 7) 告知 package_linux.sh 捆绑 libstdc++ ----
 #   GCC 9 的 libstdc++.so.6 (GLIBCXX_3.4.28) 比 18.04 系统自带的
 #   GCC 7 版本 (GLIBCXX_3.4.25) 更新，必须随部署包一起分发
 ENV DISPCTRL_BUNDLE_STDCPP=1
