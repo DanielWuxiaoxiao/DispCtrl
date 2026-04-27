@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-04-27 11:16:28
+ * @Date: 2026-04-27 11:21:00
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-27 11:21:01
+ * @LastEditTime: 2026-04-27 11:35:14
  * @Description: 
  */
 /**
@@ -72,16 +72,16 @@ void GeoFenceManager::checkPoint(const PointInfo& pt)
         if (!fence.enabled || fence.vertices.size() < 3)
             continue;
 
-        if (pointInPolygon(static_cast<double>(pt.azi),
-                           static_cast<double>(pt.dis),
+        if (pointInPolygon(static_cast<double>(pt.azimuth),
+                           static_cast<double>(pt.range),
                            fence.vertices)) {
             const QString msg = QStringLiteral(
                 "\u26a0 \u76ee\u6807[\u6279\u53f7%1]\u8fdb\u5165\u56f4\u680f[%2]  "
                 "\u8ddd\u79bb%.0fm @\u65b9\u4f4d%.1f\u00b0")
-                    .arg(pt.batchNum)
+                    .arg(pt.batch)
                     .arg(fence.name)
-                    .arg(static_cast<double>(pt.dis))
-                    .arg(static_cast<double>(pt.azi));
+                    .arg(static_cast<double>(pt.range))
+                    .arg(static_cast<double>(pt.azimuth));
             emit fenceAlert(msg, fence.id, pt);
         }
     }

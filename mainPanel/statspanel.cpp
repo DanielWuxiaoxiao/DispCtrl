@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-04-27 11:16:47
+ * @Date: 2026-04-27 11:21:00
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-27 11:21:02
+ * @LastEditTime: 2026-04-27 11:35:14
  * @Description: 
  */
 /**
@@ -66,7 +66,7 @@ void StatsChart::paintEvent(QPaintEvent*)
     int yMax = m_maxY;
     if (yMax == 0) {
         for (const auto& s : m_samples)
-            yMax = qMax({yMax, s.dets, s.tracks, s.tbds});
+            yMax = qMax(qMax(yMax, s.dets), qMax(s.tracks, s.tbds));
         yMax = qMax(yMax + 2, 10);
     }
 

@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-04-27 11:16:28
+ * @Date: 2026-04-27 11:21:00
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-27 11:21:01
+ * @LastEditTime: 2026-04-27 11:35:13
  * @Description: 
  */
 /**
@@ -56,24 +56,24 @@ void AScanManager::processData(const QByteArray& data)
 
     if (frame.mesID != 0xEE10) return;
 
-    const int N = frame.pointNum;
-    const int expectedMin = kHeaderSize + N * static_cast<int>(sizeof(float));
-    if (N <= 0 || N > 4096 || data.size() < expectedMin) {
+    const int pointCount = frame.pointNum;
+    const int expectedMin = kHeaderSize + pointCount * static_cast<int>(sizeof(float));
+    if (pointCount <= 0 || pointCount > 4096 || data.size() < expectedMin) {
         emit logMessage(QStringLiteral("AScanManager: 帧格式错误 pointNum=%1 dataSize=%2")
-                        .arg(N).arg(data.size()));
+                        .arg(pointCount).arg(data.size()));
         return;
     }
 
     // 解析 PC后幅度
-    QVector<float> pcAmps(N);
-    memcpy(pcAmps.data(), data.constData() + kHeaderSize, N * sizeof(float));
+    QVector<float> pcAmps(pointCount);
+    memcpy(pcAmps.data(), data.constData() + kHeaderSize, pointCount * sizeof(float));
 
     // 解析 MTD后幅度（如果存在）
     QVector<float> mtdAmps;
-    const int mtdOffset = kHeaderSize + N * static_cast<int>(sizeof(float));
-    if (data.size() >= mtdOffset + N * static_cast<int>(sizeof(float))) {
-        mtdAmps.resize(N);
-        memcpy(mtdAmps.data(), data.constData() + mtdOffset, N * sizeof(float));
+    const int mtdOffset = kHeaderSize + pointCount * static_cast<int>(sizeof(float));
+    if (data.size() >= mtdOffset + pointCount * static_cast<int>(sizeof(float))) {
+        mtdAmps.resize(pointCount);
+        memcpy(mtdAmps.data(), data.constData() + mtdOffset, pointCount * sizeof(float));
     }
 
     emit ascanReceived(frame, pcAmps, mtdAmps);

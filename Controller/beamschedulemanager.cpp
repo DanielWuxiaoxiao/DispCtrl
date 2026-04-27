@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-04-27 11:16:28
+ * @Date: 2026-04-27 11:21:00
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-27 11:21:01
+ * @LastEditTime: 2026-04-27 11:35:13
  * @Description: 
  */
 /**
@@ -59,16 +59,16 @@ void BeamScheduleManager::processData(const QByteArray& data)
 
     if (header.mesID != 0xEE11) return;
 
-    const int N = static_cast<int>(header.slotNum);
-    if (N < 0 || N > 1024) return;
+    const int slotCount = static_cast<int>(header.slotNum);
+    if (slotCount < 0 || slotCount > 1024) return;
 
-    const int expectedSize = kHeaderSize + N * static_cast<int>(sizeof(BeamSlot));
+    const int expectedSize = kHeaderSize + slotCount * static_cast<int>(sizeof(BeamSlot));
     if (data.size() < expectedSize) return;
 
-    QVector<BeamSlot> slots(N);
-    if (N > 0) {
+    QVector<BeamSlot> slots(slotCount);
+    if (slotCount > 0) {
         memcpy(slots.data(), data.constData() + kHeaderSize,
-               static_cast<size_t>(N) * sizeof(BeamSlot));
+               static_cast<size_t>(slotCount) * sizeof(BeamSlot));
     }
 
     emit beamScheduleReceived(header, slots);
