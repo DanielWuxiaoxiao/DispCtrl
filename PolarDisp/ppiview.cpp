@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 22:07:38
+ * @LastEditTime: 2026-04-27 16:58:33
  * @Description: 
  */
 /**
@@ -32,8 +32,12 @@
 #include "../Basic/ConfigManager.h"
 #include "../Controller/RadarDataManager.h"
 #include "../mainPanel/mainoverlayout.h"
+#include "../Controller/gcsmanager.h"
 
 #include <QMouseEvent>
+#include <QMenu>
+#include <QCursor>
+#include <QDateTime>
 #include <QtMath>
 #include <QGraphicsPathItem>
 #include <QGraphicsEllipseItem>
@@ -467,6 +471,10 @@ void PPIView::setPPIScene(PPIScene* scene) {
     connect(m_scene, &PPIScene::rangeChanged, this, [this]() {
         if (m_roadVisible) refreshRoadPoints();
     });
+
+    // 连接标签右键信号：用于目标下发菜单
+    connect(m_scene, &PPIScene::trackLabelRightClicked,
+            this,    &PPIView::onTrackLabelRightClicked);
 }
 
 /**
@@ -1219,4 +1227,91 @@ void PPIView::setRadarCenter(double longitude, double latitude)
     LOG_INFO(QString("Radar center update: %1,%2, range %3km, Map center %4,%5, Map range %6km")
             .arg(longitude).arg(latitude).arg(m_currentRange)
             .arg(mapCenterLng).arg(mapCenterLat).arg(mapRange));
+}
+
+/**
+ * @brief 注入GCS管理器
+ * @param mgr GCSManager指针（生命周期由外部调用方管理）
+ */
+void PPIView::setGCSManager(GCSManager* mgr)
+{
+    m_gcsMgr = mgr;
+}
+
+/**
+ * @brief 右键菜单事件 — 航迹点目标下发
+ * @details 右键点击TrackPoint时弹出菜单，选择"目标下发"后通过GCSManager
+ *          将目标坐标（经纬高 + 速度 + 航向）以GCS 0x52帧发送给地面站。
+ *
+ * 坐标转换流程：
+ *  - 水平距离 d = range * cos(elevation)      [km]
+ *  - 垂直偏移 dz = range * sin(elevation)     [km]
+ *  - 真方位  true_az = azimuth + radar_yaw     [度]
+ *  - 东向偏移 dx = d * sin(true_az)            [km]
+ *  - 北向偏移 dy = d * cos(true_az)            [km]
+ *  - 目标纬度 = radar_lat + dy*1000/(R*π/180)  [度]
+ *  - 目标经度 = radar_lon + dx*1000/(R*cos(lat_r)*π/180) [度]
+ *  - 目标高度 = radar_alt + dz * 1000          [m]
+ */
+void PPIView::onTrackLabelRightClicked(int batchID)
+{
+    if (!m_gcsMgr || !m_scene || !m_scene->track()) return;
+
+    PointInfo info;
+    if (!m_scene->track()->latestPointInfo(batchID, info)) return;
+
+    QMenu menu(this);
+    QAction* act = menu.addAction(
+        tr("目标下发 [批次: %1]").arg(batchID));
+    QAction* chosen = menu.exec(QCursor::pos());
+
+    if (chosen != act) return;
+
+    // ---- 坐标转换 ----
+    const double DEG2RAD = M_PI / 180.0;
+    const double R       = 6378137.0; // 地球半径(m)
+
+    double radarLat = m_radarLatitude;
+    double radarLon = m_radarLongitude;
+    double radarAlt = 0.0;
+    double radarYaw = 0.0;
+
+    if (radarInfoW) {
+        radarAlt = radarInfoW->getAltitude();
+        radarYaw = radarInfoW->getYaw();
+    }
+
+    double rangeKm = static_cast<double>(info.range);       // km
+    double azDeg   = static_cast<double>(info.azimuth);     // 度（相对雷达北）
+    double elDeg   = static_cast<double>(info.elevation);   // 度
+
+    double elRad    = elDeg * DEG2RAD;
+    double d        = rangeKm * qCos(elRad);                // 水平距离(km)
+    double dz       = rangeKm * qSin(elRad);                // 垂直偏移(km)
+
+    double trueAzRad = (azDeg + radarYaw) * DEG2RAD;
+    double dx = d * qSin(trueAzRad);   // 东(km)
+    double dy = d * qCos(trueAzRad);   // 北(km)
+
+    double latRad    = radarLat * DEG2RAD;
+    double targetLat = radarLat + (dy * 1000.0) / (R * DEG2RAD);
+    double targetLon = radarLon + (dx * 1000.0) / (R * qCos(latRad) * DEG2RAD);
+    double targetAlt = radarAlt + dz * 1000.0;  // m
+
+    // ---- 填充参数 ----
+    GcsTargetParams params;
+    params.targetId   = static_cast<quint32>(batchID);
+    params.longitude  = targetLon;
+    params.latitude   = targetLat;
+    params.altitude   = static_cast<float>(targetAlt);
+    params.speed      = static_cast<float>(info.speed);
+    // 航向：用真方位角（0-360°）
+    double heading    = std::fmod(azDeg + radarYaw, 360.0);
+    if (heading < 0) heading += 360.0;
+    params.heading    = static_cast<float>(heading);
+    params.targetType = (info.targetRecResult == 1) ? 0x40 : 0x00;
+    params.utcTime    = static_cast<quint32>(QDateTime::currentSecsSinceEpoch());
+    params.freqReserve = 0.0f;
+
+    m_gcsMgr->sendTargetAssignment(params);
 }

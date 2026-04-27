@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:32
+ * @LastEditTime: 2026-04-27 16:58:33
  * @Description: 
  */
 /**
@@ -101,6 +101,10 @@ PPIScene::PPIScene(QObject *parent)
     // 从Controller接收TBD航迹数据并添加到TrackManager
     connect(CON_INS, &Controller::tbdInfoProcess,
         m_track, &TrackManager::addTrackPoint);
+
+    // 转发 TrackManager 标签右键信号到 PPIView
+    connect(m_track, &TrackManager::labelRightClicked,
+            this,    &PPIScene::trackLabelRightClicked);
 
     // 连接 TrackManager 的 trackRemoved 信号到 Controller
     connect(m_track, &TrackManager::trackRemoved,

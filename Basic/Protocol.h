@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-27 11:21:01
+ * @LastEditTime: 2026-04-27 16:58:32
  * @Description: 
  */
 #ifndef PROTOCOL_H
@@ -1068,5 +1068,64 @@ Q_DECLARE_METATYPE(PointInfo)
 // 便于跨线程传递的 Q_DECLARE_METATYPE
 Q_DECLARE_METATYPE(BeamScheduleReport)
 Q_DECLARE_METATYPE(AScanFrame)
+
+// =========================
+// GCS 链路协议（雷达平台 ↔ GCS 地面站）
+// 帧格式：[0xF6 0x6F | src | dst | cmd | lenL lenH | params... | checksum]
+// 校验和：累加 src+dst+cmd+lenL+lenH+params，取低8位
+// =========================
+
+constexpr unsigned char GCS_FRAME_HEAD0   = 0xF6;
+constexpr unsigned char GCS_FRAME_HEAD1   = 0x6F;
+constexpr unsigned char GCS_ADDR_RADAR    = 0x20;  // 雷达平台地址
+constexpr unsigned char GCS_ADDR_GCS      = 0xC0;  // GCS地址
+
+constexpr unsigned char GCS_CMD_HEARTBEAT = 0xA4;  // 心跳帧
+constexpr unsigned char GCS_CMD_STATUS    = 0x50;  // 基本工作状态查询
+constexpr unsigned char GCS_CMD_POSITION  = 0x51;  // 设备位置查询
+constexpr unsigned char GCS_CMD_TARGET    = 0x52;  // 目标下发
+
+// GCS帧头（8字节固定头，不含参数和校验）
+#pragma pack(1)
+struct GcsFrameHeader {
+    unsigned char head0   = GCS_FRAME_HEAD0;
+    unsigned char head1   = GCS_FRAME_HEAD1;
+    unsigned char srcAddr = GCS_ADDR_RADAR;
+    unsigned char dstAddr = GCS_ADDR_GCS;
+    unsigned char cmd     = 0;
+    unsigned char lenL    = 0;  // 参数长度低字节
+    unsigned char lenH    = 0;  // 参数长度高字节
+};
+
+/**
+ * @brief GCS目标下发参数块（0x52命令，41字节参数）
+ * @details 字节7-10: Param1 目标编号(uint32)
+ *          字节11-18: Param2 目标经度(double, 度)
+ *          字节19-26: Param3 目标纬度(double, 度)
+ *          字节27-30: Param4 目标高度(float, 米)
+ *          字节31-34: Param5 航速(float, m/s)
+ *          字节35-38: Param6 航向(float, 0-360度)
+ *          字节39:    Param7 目标类型(0x00未知, 0x40无人机)
+ *          字节40-43: Param8 UTC时间戳(uint32, s)
+ *          字节44-47: Param9 频点(float, 10kHz, 预留填0)
+ *          字节48:    校验和
+ */
+struct GcsTargetParams {
+    quint32 targetId    = 0;       // Param1
+    double  longitude   = 0.0;     // Param2 目标经度
+    double  latitude    = 0.0;     // Param3 目标纬度
+    float   altitude    = 0.0f;    // Param4 目标高度(m)
+    float   speed       = 0.0f;    // Param5 航速(m/s)
+    float   heading     = 0.0f;    // Param6 航向(度)
+    quint8  targetType  = 0x00;    // Param7
+    quint32 utcTime     = 0;       // Param8
+    float   freqReserve = 0.0f;    // Param9 预留
+};
+
+// 心跳回执参数：无参数（lenL=0x00, lenH=0x00）
+struct GcsHeartbeatAck {
+    unsigned char dstAddr = GCS_ADDR_GCS;  // 发给GCS
+};
+#pragma pack()
 
 #endif // PROTOCOL_H

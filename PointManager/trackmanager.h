@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:31
+ * @LastEditTime: 2026-04-27 16:58:33
  * @Description: 
  */
 /**
@@ -28,6 +28,8 @@
 #include "point.h"
 #include "PolarDisp/polaraxis.h"
 
+class QGraphicsSceneContextMenuEvent;
+
 /**
  * @class DraggableLabel
  * @brief 可拖拽的航迹标签
@@ -44,6 +46,7 @@
  */
 class DraggableLabel : public QGraphicsTextItem
 {
+    Q_OBJECT
 public:
     /**
      * @brief 构造函数
@@ -62,6 +65,17 @@ public:
      */
     void setAnchorItem(QGraphicsItem* anchor, QGraphicsLineItem* tether);
 
+    /** @brief 绑定所属批次ID，右键菜单使用 */
+    void setBatchID(int id) { m_batchID = id; }
+    int  batchID() const    { return m_batchID; }
+
+signals:
+    /**
+     * @brief 右键点击标签时发出
+     * @param batchID 该标签对应的批次ID
+     */
+    void rightClicked(int batchID);
+
 protected:
     /**
      * @brief 图形项变化事件处理
@@ -72,9 +86,13 @@ protected:
      */
     QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
 
+    /** @brief 右键菜单事件：发出 rightClicked 信号 */
+    void contextMenuEvent(QGraphicsSceneContextMenuEvent* event) override;
+
 private:
     QGraphicsItem* anchor = nullptr;        ///< 锚点图形项指针
     QGraphicsLineItem* tether = nullptr;    ///< 连接线图形项指针
+    int m_batchID = -1;                     ///< 所属批次ID
 };
 
 /**
@@ -251,6 +269,14 @@ public:
      */
     void setAngleRange(double startDeg, double endDeg);
 
+    /**
+     * @brief 获取指定批次最新一个航迹点的数据
+     * @param batchID 批次ID
+     * @param out 输出：最新点的 PointInfo（按添加顺序末尾节点）
+     * @return 找到返回 true；批次不存在或为空返回 false
+     */
+    bool latestPointInfo(int batchID, PointInfo& out) const;
+
 signals:
     /**
      * @brief 航迹被删除信号
@@ -265,6 +291,13 @@ signals:
      * @details 当新航迹点被添加时发出此信号，用于更新选中航迹的信息显示
      */
     void trackPointAdded(const PointInfo& info);
+
+    /**
+     * @brief 右键点击航迹标签时发出
+     * @param batchID 被右键的标签对应批次ID
+     * @details 由 DraggableLabel::rightClicked 转发而来
+     */
+    void labelRightClicked(int batchID);
 
 private:
     /**

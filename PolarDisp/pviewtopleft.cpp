@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-25 17:09:15
+ * @LastEditTime: 2026-04-27 16:58:33
  * @Description: 
  */
 #include "pviewtopleft.h"
@@ -37,6 +37,11 @@ mainviewTopLeft::mainviewTopLeft(QWidget *parent) :
     ui->dir->setText(QString::number(CF_INS.azimuth(), 'f', 1));          // 阵面指北角
     ui->yaw->setText(QString::number(CF_INS.pitch(), 'f', 1));            // 倾角（俯仰角）
 }
+
+double mainviewTopLeft::getLatitude()  const { return ui->lat->text().toDouble(); }
+double mainviewTopLeft::getLongitude() const { return ui->lineEdit->text().toDouble(); }
+double mainviewTopLeft::getAltitude()  const { return ui->height->text().toDouble(); }
+double mainviewTopLeft::getYaw()       const { return ui->dir->text().toDouble(); }
 
 void mainviewTopLeft::paintEvent(QPaintEvent* event) {
     QStyleOption o;

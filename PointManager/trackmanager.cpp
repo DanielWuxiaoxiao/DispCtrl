@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:31
+ * @LastEditTime: 2026-04-27 16:58:33
  * @Description: 
  */
 /**
@@ -20,6 +20,7 @@
 
 #include "trackmanager.h"
 #include <QPen>
+#include <QGraphicsSceneContextMenuEvent>
 #include "Basic/DispBasci.h"
 #include "Basic/log.h"
 #include "Controller/RadarDataManager.h"  // 雷达数据管理器头文件
@@ -76,6 +77,16 @@ QVariant DraggableLabel::itemChange(GraphicsItemChange change, const QVariant &v
         tether->setLine(QLineF(p1, p2));
     }
     return QGraphicsTextItem::itemChange(change, value);
+}
+
+/**
+ * @brief 右键菜单事件：发射 rightClicked 信号，由 PPIView 弹出菜单
+ * @param event 图形场景右键事件
+ */
+void DraggableLabel::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
+{
+    emit rightClicked(m_batchID);
+    event->accept();
 }
 
 // ==================== TrackManager 航迹管理器实现 ====================
@@ -368,6 +379,9 @@ void TrackManager::updateLatestLabel(int batchID)
         s.label = new DraggableLabel();
         s.label->setDefaultTextColor(Qt::white);
         s.label->setZValue(INFO_Z);
+        s.label->setBatchID(batchID);
+        connect(s.label, &DraggableLabel::rightClicked,
+                this,    &TrackManager::labelRightClicked);
         s.labelLine = new QGraphicsLineItem();
         QPen pen(s.color);
         pen.setStyle(Qt::DashLine);
@@ -581,4 +595,16 @@ void TrackManager::updateLineGeometry(QGraphicsLineItem* line, const QPointF& a,
     if (!line) return;
     line->setLine(QLineF(a, b));
     line->setZValue(LINE_Z); // 在点之下、网格之上
+}
+
+bool TrackManager::latestPointInfo(int batchID, PointInfo& out) const
+{
+    auto it = mSeries.constFind(batchID);
+    if (it == mSeries.constEnd()) return false;
+    const TrackSeries& series = it.value();
+    if (series.nodes.isEmpty()) return false;
+    const TrackNode& last = series.nodes.last();
+    if (!last.point) return false;
+    out = last.point->infoRef();
+    return true;
 }

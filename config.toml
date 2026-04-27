@@ -15,6 +15,7 @@ RES_DIS_IP = "192.168.64.3"          # 资源分配主机IP地址
 PHOTO_ELE_IP = "192.168.101.10"      # 光电主机IP地址
 MONITOR_IP = "192.168.64.3"          # 监控主机IP地址
 DISP_CTRL_IP_FOR_PHOTO = "192.168.101.14"  # 显控对光电IP地址
+GCS_IP = "192.168.144.77"            # GCS地面站IP地址
 
 [network.ports]
 # 端口配置（与config.json保持一致）
@@ -40,6 +41,8 @@ MONITOR_2_DISP = 6019                # 监控->显控端口
 DISP_GET_MONITOR_PORT = 8019         # 显控接收监控端口
 DISP_2_PHOTO_PORT = 10100            # 显控->光电端口
 PHOTO_GET_DISP_PORT = 21001          # 光电接收显控端口
+GCS_DST_PORT = 19801                 # GCS接收目标下发端口（雷达→GCS）
+GCS_SRC_PORT = 19800                 # 本地雷达GCS链路端口
 
 [network.ids]
 # 系统ID配置（与config.json保持一致）

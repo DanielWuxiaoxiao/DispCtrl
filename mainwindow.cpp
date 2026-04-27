@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 22:07:38
+ * @LastEditTime: 2026-04-27 16:58:34
  * @Description: 
  */
 /**
@@ -44,6 +44,7 @@
 #include "mainPanel/mainoverlayout.h"
 #include "Controller/controller.h"
 #include "PolarDisp/ppiview.h"
+#include "Controller/gcsmanager.h"
 
 /**
  * @brief FramelessMainWindow构造函数实现
@@ -212,6 +213,12 @@ void FramelessMainWindow::setupOverlayUI()
         double mapCenterLng, mapCenterLat, mapRange;
         ppiView->calculateMapDisplayParameters(mapCenterLng, mapCenterLat, mapRange);
         m_map->syncRadarToMap(mapCenterLng, mapCenterLat, mapRange);
+
+        // 初始化GCS管理器并注入到PPIView
+        GCSManager* gcsMgr = new GCSManager(this);
+        if (gcsMgr->init()) {
+            ppiView->setGCSManager(gcsMgr);
+        }
     }
 }
 

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:32
+ * @LastEditTime: 2026-04-27 16:58:33
  * @Description: 
  */
 /**
@@ -139,6 +139,13 @@ signals:
      * @details 当用户点击航迹点或航迹标签时发出，用于更新PointInfoW显示
      */
     void trackPointClicked(const PointInfo& info);
+
+    /**
+     * @brief 右键点击航迹标签信号
+     * @param batchID 被右键标签对应的批次ID
+     * @details 由 TrackManager::labelRightClicked 转发，供 PPIView 处理目标下发菜单
+     */
+    void trackLabelRightClicked(int batchID);
 
 protected:
     /**

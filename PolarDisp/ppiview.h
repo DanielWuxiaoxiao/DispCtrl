@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 22:07:38
+ * @LastEditTime: 2026-04-27 16:58:33
  * @Description: 
  */
 /**
@@ -29,6 +29,7 @@ class PointInfoW;         ///< 右上角点信息显示组件
 class MousePositionInfo;  ///< 鼠标位置信息显示组件
 class PPIVisualSettings;  ///< PPI视觉设置组件
 class OsmRoadParser;      ///< OSM道路数据解析器
+class GCSManager;         ///< GCS地面站通信管理器
 
 /**
  * @class PPIView
@@ -138,6 +139,12 @@ public:
      */
     void calculateMapDisplayParameters(double& mapCenterLng, double& mapCenterLat, double& mapRange) const;
 
+    /**
+     * @brief 注入GCS管理器（由外部调用方设置，不拥有所有权）
+     * @param mgr GCSManager指针
+     */
+    void setGCSManager(GCSManager* mgr);
+
 signals:
     /**
      * @brief 视图尺寸变化信号
@@ -218,6 +225,13 @@ public slots:
      * @details 响应PPIVisualSettings组件的距离变化，更新场景显示范围
      */
     void onMaxDistanceChanged(double distance);
+
+    /**
+     * @brief 目标标签被右键：弹出目标下发菜单
+     * @param batchID 被右键标签对应的批次ID
+     * @details 连接自 PPIScene::trackLabelRightClicked，获取最新点数据并通过GCSManager下发
+     */
+    void onTrackLabelRightClicked(int batchID);
 
     /**
      * @brief 处理地图类型变化
@@ -318,6 +332,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent* e) override;
 
     /**
+
      * @brief 窗口大小变化事件处理
      * @param e 大小变化事件对象
      * @details 处理视图窗口大小变化：
@@ -361,6 +376,9 @@ private:
     OsmRoadParser* m_roadParser = nullptr;                   ///< OSM道路解析器
     QList<QGraphicsEllipseItem*> m_roadPointItems;           ///< 当前显示的道路点图形项
     bool m_roadVisible = false;                              ///< 道路点可见性标志
+
+    // GCS通信
+    GCSManager* m_gcsMgr = nullptr;          ///< GCS管理器（由外部注入，不拥有所有权）
 
     // 道路点下发状态跟踪（用于浮点容差判断）
     double m_lastSentLat = 0.0;              ///< 上次下发时的雷达纬度

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-25 17:09:15
+ * @LastEditTime: 2026-04-27 16:58:33
  * @Description: 
  */
 #ifndef PVIEWTOPLEFT_H
@@ -23,6 +23,12 @@ class mainviewTopLeft : public QWidget
 public:
     explicit mainviewTopLeft(QWidget *parent = nullptr);
     ~mainviewTopLeft();
+
+    // 雷达平台位置与姿态读取（供坐标转换使用）
+    double getLatitude()  const;
+    double getLongitude() const;
+    double getAltitude()  const;  // 高度，单位：米
+    double getYaw()       const;  // 阵面偏航角（真北参考），单位：度
 
 public slots:
     // 接收BIT上报信息，更新阵面偏航角
