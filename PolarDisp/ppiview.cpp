@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-29 10:48:05
+ * @LastEditTime: 2026-05-06 17:10:25
  * @Description: 
  */
 /**
@@ -1244,14 +1244,14 @@ void PPIView::setGCSManager(GCSManager* mgr)
  *          将目标坐标（经纬高 + 速度 + 航向）以GCS 0x52帧发送给地面站。
  *
  * 坐标转换流程：
- *  - 水平距离 d = range * cos(elevation)      [km]
- *  - 垂直偏移 dz = range * sin(elevation)     [km]
+ *  - 水平距离 d = range * cos(elevation)      [m]
+ *  - 垂直偏移 dz = range * sin(elevation)     [m]
  *  - 真方位  true_az = azimuth + radar_yaw     [度]
- *  - 东向偏移 dx = d * sin(true_az)            [km]
- *  - 北向偏移 dy = d * cos(true_az)            [km]
- *  - 目标纬度 = radar_lat + dy*1000/(R*π/180)  [度]
- *  - 目标经度 = radar_lon + dx*1000/(R*cos(lat_r)*π/180) [度]
- *  - 目标高度 = radar_alt + dz * 1000          [m]
+ *  - 东向偏移 dx = d * sin(true_az)            [m]
+ *  - 北向偏移 dy = d * cos(true_az)            [m]
+ *  - 目标纬度 = radar_lat + dy/(R*π/180)       [度]
+ *  - 目标经度 = radar_lon + dx/(R*cos(lat_r)*π/180) [度]
+ *  - 目标高度 = radar_alt + dz                 [m]
  */
 void PPIView::onTrackLabelRightClicked(int batchID)
 {
@@ -1278,25 +1278,25 @@ void PPIView::onTrackLabelRightClicked(int batchID)
 
     if (radarInfoW) {
         radarAlt = radarInfoW->getAltitude();
-        radarYaw = radarInfoW->getYaw();
+        radarYaw = radarInfoW->getYaw();  //相对正北顺时针偏移角度
     }
 
-    double rangeKm = static_cast<double>(info.range);       // km
+    double rangeM  = static_cast<double>(info.range);       // m
     double azDeg   = static_cast<double>(info.azimuth);     // 度（相对雷达北）
     double elDeg   = static_cast<double>(info.elevation);   // 度
 
     double elRad    = elDeg * DEG2RAD;
-    double d        = rangeKm * qCos(elRad);                // 水平距离(km)
-    double dz       = rangeKm * qSin(elRad);                // 垂直偏移(km)
+    double d        = rangeM * qCos(elRad);                 // 水平距离(m)
+    double dz       = rangeM * qSin(elRad);                 // 垂直偏移(m)
 
     double trueAzRad = (azDeg + radarYaw) * DEG2RAD;
-    double dx = d * qSin(trueAzRad);   // 东(km)
-    double dy = d * qCos(trueAzRad);   // 北(km)
+    double dx = d * qSin(trueAzRad);   // 东(m)
+    double dy = d * qCos(trueAzRad);   // 北(m)
 
     double latRad    = radarLat * DEG2RAD;
-    double targetLat = radarLat + (dy * 1000.0) / (R * DEG2RAD);
-    double targetLon = radarLon + (dx * 1000.0) / (R * qCos(latRad) * DEG2RAD);
-    double targetAlt = radarAlt + dz * 1000.0;  // m
+    double targetLat = radarLat + dy / (R * DEG2RAD);
+    double targetLon = radarLon + dx / (R * qCos(latRad) * DEG2RAD);
+    double targetAlt = radarAlt + dz;  // m
 
     // ---- 填充参数 ----
     GcsTargetParams params;

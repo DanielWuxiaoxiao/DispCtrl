@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 22:07:38
+ * @LastEditTime: 2026-05-06 17:10:25
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -1704,6 +1704,29 @@ void MainOverLayOut::setupLogInfo() {
     // 日志文本框的样式已在darkstyle.qss中配置
 }
 
+void MainOverLayOut::appendExternalLog(const QString& text)
+{
+    if (text.isEmpty()) return;
+
+    const QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
+    appendLogLine(QString("[%1] %2\n").arg(timestamp, text));
+}
+
+void MainOverLayOut::appendLogLine(const QString& line)
+{
+    const QString currentText = ui->logEdit->toPlainText();
+    QString updatedText = line + currentText;
+
+    QStringList lines = updatedText.split('\n', Qt::SkipEmptyParts);
+    if (lines.count() > m_maxLogLines) {
+        lines = lines.mid(0, m_maxLogLines);
+        updatedText = lines.join('\n') + '\n';
+    }
+
+    ui->logEdit->setPlainText(updatedText);
+    ui->logEdit->verticalScrollBar()->setValue(0);
+}
+
 /**
  * @brief 记录命令日志
  * @param commandName 命令名称
@@ -1716,27 +1739,14 @@ void MainOverLayOut::logCommand(const QString& commandName, const QString& param
     QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
 
     // 格式化日志信息
-    QString newLogEntry = QString("[%1] %2: %3\n").arg(timestamp).arg(commandName).arg(parameters);
-
-    // 获取当前QTextEdit的文本
-    QString currentText = ui->logEdit->toPlainText();
-
-    // 将新日志添加到当前文本的最前面
-    QString updatedText = newLogEntry + currentText;
-
-    // 限制日志行数
-    QStringList lines = updatedText.split('\n', Qt::SkipEmptyParts);
-    if (lines.count() > m_maxLogLines) {
-        // 如果超过最大行数，只取最新的 m_maxLogLines 行
-        lines = lines.mid(0, m_maxLogLines);
-        updatedText = lines.join('\n') + '\n';
+    QString newLogEntry;
+    if (parameters.isEmpty()) {
+        newLogEntry = QString("[%1] %2\n").arg(timestamp, commandName);
+    } else {
+        newLogEntry = QString("[%1] %2: %3\n").arg(timestamp).arg(commandName).arg(parameters);
     }
 
-    // 更新QTextEdit的文本
-    ui->logEdit->setPlainText(updatedText);
-
-    // 确保滚动条在顶部
-    ui->logEdit->verticalScrollBar()->setValue(0);
+    appendLogLine(newLogEntry);
 }
 
 /**

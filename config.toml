@@ -15,6 +15,7 @@ RES_DIS_IP = "192.168.64.3"          # 资源分配主机IP地址
 PHOTO_ELE_IP = "192.168.101.10"      # 光电主机IP地址
 MONITOR_IP = "192.168.64.3"          # 监控主机IP地址
 DISP_CTRL_IP_FOR_PHOTO = "192.168.101.14"  # 显控对光电IP地址
+GCS_LOCAL_IP = "192.168.144.66"      # 雷达平台GCS链路本机IP地址
 GCS_IP = "192.168.144.77"            # GCS地面站IP地址
 
 [network.ports]

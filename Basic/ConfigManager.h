@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 22:07:37
+ * @LastEditTime: 2026-05-06 17:10:24
  * @Description: 
  */
 #ifndef CONFIGMANAGER_H
@@ -48,6 +48,22 @@ public:
 
     int port(const QString& key, int def = 0) const {
         return getValue("network.ports." + key, def).toInt();
+    }
+
+    QString gcsIp() const {
+        return getValue("network.ips.GCS_IP", "192.168.144.77").toString();
+    }
+
+    QString gcsLocalIp() const {
+        return getValue("network.ips.GCS_LOCAL_IP", "192.168.144.66").toString();
+    }
+
+    quint16 gcsDstPort() const {
+        return static_cast<quint16>(getValue("network.ports.GCS_DST_PORT", 19801).toUInt());
+    }
+
+    quint16 gcsSrcPort() const {
+        return static_cast<quint16>(getValue("network.ports.GCS_SRC_PORT", 19800).toUInt());
     }
 
     int range(const QString& key, int def = 0) const {

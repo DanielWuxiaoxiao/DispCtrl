@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-29 10:48:05
+ * @LastEditTime: 2026-05-06 17:10:25
  * @Description: 
  */
 /**
@@ -38,6 +38,7 @@
 #include "mainwindow.h"
 #include "Basic/DispBasci.h"
 #include "Basic/ConfigManager.h"
+#include "Basic/log.h"
 #include <QVBoxLayout>
 #include <QTimer>
 #include "mapDisp/mapprox.h"
@@ -217,6 +218,20 @@ void FramelessMainWindow::setupOverlayUI()
         // 初始化GCS管理器并注入到PPIView
         GCSManager* gcsMgr = new GCSManager(this);
         if (gcsMgr->init()) {
+            connect(gcsMgr, &GCSManager::logMessage, this,
+                    [](const QString& msg) {
+                        LOG_INFO(msg);
+                    });
+            connect(gcsMgr, &GCSManager::logMessage, m_overlayWidget,
+                    &MainOverLayOut::appendExternalLog);
+            connect(gcsMgr, &GCSManager::heartbeatReceived, this,
+                    []() {
+                        LOG_INFO("[GCS][HEARTBEAT] heartbeatReceived signal emitted");
+                    });
+            connect(gcsMgr, &GCSManager::heartbeatReceived, m_overlayWidget,
+                    [this]() {
+                        m_overlayWidget->appendExternalLog(QStringLiteral("[GCS][HEARTBEAT] heartbeatReceived signal emitted"));
+                    });
             ppiView->setGCSManager(gcsMgr);
         }
     }

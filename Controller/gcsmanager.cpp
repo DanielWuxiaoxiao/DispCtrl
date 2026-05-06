@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-04-27 16:58:32
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-29 10:48:04
+ * @LastEditTime: 2026-05-06 17:10:25
  * @Description: 
  */
 #include "gcsmanager.h"
@@ -26,20 +26,22 @@ GCSManager::~GCSManager()
 
 bool GCSManager::init()
 {
-    m_gcsHost = QHostAddress(CF_INS.ip("GCS_IP", "192.168.144.77"));
-    m_dstPort = static_cast<quint16>(CF_INS.port("GCS_DST_PORT", 19801));
-    m_srcPort = static_cast<quint16>(CF_INS.port("GCS_SRC_PORT", 19800));
+    const QHostAddress localHost(CF_INS.gcsLocalIp());
+    m_gcsHost = QHostAddress(CF_INS.gcsIp());
+    m_dstPort = CF_INS.gcsDstPort();
+    m_srcPort = CF_INS.gcsSrcPort();
 
     m_socket = new QUdpSocket(this);
     connect(m_socket, &QUdpSocket::readyRead, this, &GCSManager::onReadyRead);
 
-    bool ok = m_socket->bind(QHostAddress::AnyIPv4, m_srcPort, QUdpSocket::ShareAddress);
+    bool ok = m_socket->bind(localHost, m_srcPort, QUdpSocket::ShareAddress);
     if (!ok) {
-        emit logMessage(QString("[GCS] 绑定端口 %1 失败: %2")
-                            .arg(m_srcPort).arg(m_socket->errorString()));
+        emit logMessage(QString("[GCS][INIT][ERROR] 绑定 %1:%2 失败: %3")
+                            .arg(localHost.toString()).arg(m_srcPort).arg(m_socket->errorString()));
     } else {
-        emit logMessage(QString("[GCS] 初始化完成，本地端口=%1，目标=%2:%3")
-                            .arg(m_srcPort).arg(m_gcsHost.toString()).arg(m_dstPort));
+        emit logMessage(QString("[GCS][INIT] 初始化完成，本地=%1:%2，目标=%3:%4")
+                            .arg(localHost.toString()).arg(m_srcPort)
+                            .arg(m_gcsHost.toString()).arg(m_dstPort));
     }
     return ok;
 }
@@ -49,6 +51,11 @@ bool GCSManager::init()
 // ---------------------------------------------------------------------------
 void GCSManager::sendTargetAssignment(const GcsTargetParams& params)
 {
+    if (!m_socket) {
+        emit logMessage(QStringLiteral("[GCS][TARGET_SEND][ERROR] socket 未初始化，取消发送"));
+        return;
+    }
+
     QByteArray payload;
     payload.resize(static_cast<int>(sizeof(GcsTargetParams)));
     std::memcpy(payload.data(), &params, sizeof(GcsTargetParams));
@@ -56,7 +63,7 @@ void GCSManager::sendTargetAssignment(const GcsTargetParams& params)
     QByteArray frame = buildFrame(GCS_ADDR_RADAR, GCS_ADDR_GCS, GCS_CMD_TARGET, payload);
     m_socket->writeDatagram(frame, m_gcsHost, m_dstPort);
 
-    emit logMessage(QString("[GCS] 目标下发 id=%1 lon=%2 lat=%3 alt=%4")
+    emit logMessage(QString("[GCS][TARGET_SEND] id=%1 lon=%2 lat=%3 alt=%4")
                         .arg(params.targetId)
                         .arg(params.longitude, 0, 'f', 6)
                         .arg(params.latitude,  0, 'f', 6)
@@ -68,6 +75,11 @@ void GCSManager::sendTargetAssignment(const GcsTargetParams& params)
 // ---------------------------------------------------------------------------
 void GCSManager::onReadyRead()
 {
+    if (!m_socket) {
+        emit logMessage(QStringLiteral("[GCS][HEARTBEAT][ERROR] socket 未初始化，无法接收"));
+        return;
+    }
+
     while (m_socket->hasPendingDatagrams()) {
         QNetworkDatagram dg = m_socket->receiveDatagram();
         QByteArray data = dg.data();
@@ -75,7 +87,7 @@ void GCSManager::onReadyRead()
         quint8 cmd = 0;
         QByteArray params;
         if (!parseFrame(data, cmd, params)) {
-            emit logMessage("[GCS] 收到非法帧，丢弃");
+            emit logMessage(QStringLiteral("[GCS][RX][ERROR] 收到非法帧，丢弃"));
             continue;
         }
 
@@ -84,7 +96,9 @@ void GCSManager::onReadyRead()
             QByteArray reply = buildFrame(GCS_ADDR_RADAR, GCS_ADDR_GCS, GCS_CMD_HEARTBEAT, QByteArray());
             m_socket->writeDatagram(reply, dg.senderAddress(), dg.senderPort());
             emit heartbeatReceived();
-            emit logMessage("[GCS] 收到心跳，已回复");
+            emit logMessage(QString("[GCS][HEARTBEAT] 收到心跳，已回复 sender=%1:%2")
+                                .arg(dg.senderAddress().toString())
+                                .arg(dg.senderPort()));
         }
     }
 }

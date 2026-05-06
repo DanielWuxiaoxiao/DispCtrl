@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 22:07:38
+ * @LastEditTime: 2026-05-06 17:10:25
  * @Description: 
  */
 /**
@@ -178,6 +178,12 @@ public slots:
      * @details 响应"显清"按钮，清除航迹列表和无人机航迹列表的所有数据
      */
     void clearTrackTables();
+
+    /**
+     * @brief 追加外部系统日志到当前界面日志区
+     * @param text 已格式化日志文本
+     */
+    void appendExternalLog(const QString& text);
 
 signals:
     // TWS/TAS模式设置信号
@@ -396,6 +402,12 @@ private:
      * @details 设置日志文本框为只读，配置样式
      */
     void setupLogInfo();
+
+    /**
+     * @brief 向界面日志区追加一行完整日志
+     * @param line 已包含时间戳后的完整日志行
+     */
+    void appendLogLine(const QString& line);
 
     /**
      * @brief 记录命令日志
