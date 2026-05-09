@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 11:28:41
+ * @LastEditTime: 2026-05-09 17:16:07
  * @Description: 
  */
 #ifndef PROTOCOL_H
@@ -753,6 +753,12 @@ typedef struct _detInfo
     unsigned reserve1;
 }detInfo;
 
+// 三类航迹通用帧头
+// 0xEE01: 常规航迹
+// 0xEE02: TBD 航迹
+// 0xEE03: 协同航迹
+// 帧格式统一为：TrackResult + N * trackInfo
+// 其中 mesID 用于区分航迹类别，trackNum 表示后续 trackInfo 数量
 typedef struct _TrackResult
 {
     unsigned short mesID;
@@ -768,21 +774,8 @@ constexpr unsigned short TRACK_INFO_MSG_ID = 0xEE01;
 constexpr unsigned short TBD_TRACK_MSG_ID = 0xEE02;
 constexpr unsigned short COOPERATIVE_TRACK_MSG_ID = 0xEE03;
 
-// TBD/协同航迹上报帧头
-// 0xEE02: TBD 航迹
-// 0xEE03: 协同航迹
-// 两个通道复用相同的帧体定义：TBDTrackHead + TBDTrackInfo + N * TBDPoint
-typedef struct _TBDTrackHead
-{
-    unsigned short mesID;
-    unsigned short updateFlag;  // 显控更新标志位
-
-    _TBDTrackHead()
-    {
-        mesID = 0xEE02;
-        updateFlag = 0;
-    }
-}TBDTrackHead;
+// 航迹点通用结构
+// 三个通道统一复用相同的 trackInfo 定义，仅通过 mesID 和端口号区分来源
 
 typedef struct _trackInfo
 {
@@ -804,36 +797,6 @@ typedef struct _trackInfo
     unsigned reserve1;
     unsigned reserve2;
 }trackInfo;
-
-typedef struct _TBDInfo
-{
-    unsigned short batch;
-    unsigned length;
-}TBDInfo;
-
-typedef struct _TBDPoint
-{
-    unsigned short CPIID;
-    float UTCtime;
-    float amp;
-    float SNR;
-    float dis;
-    float azi;
-    float ele;
-    float altitute;
-    float vel;
-    unsigned reserve;
-    unsigned reserve1;
-    unsigned reserve2;
-}TBDPoint;
-
-// TBD 航迹节点（批号+长度）
-// TBD/协同航迹节点头（批号+长度）
-typedef struct _TBDTrackInfo
-{
-    unsigned batch;   // 航迹批号
-    unsigned length;  // 点迹数量
-}TBDTrackInfo;
 
 // 伺服控制回送 0xDE01
 typedef struct _ServoCtrlRet

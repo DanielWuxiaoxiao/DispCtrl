@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 11:28:42
+ * @LastEditTime: 2026-05-09 17:16:08
  * @Description: 
  */
 /**
@@ -27,6 +27,7 @@
 #include <cstring>
 
 #include "Basic/Protocol.h"
+#include "Basic/log.h"
 #include "Controller/ErrorHandler.h"
 #include "Controller/controller.h"
 
@@ -205,6 +206,11 @@ void ThreadedUdpSocket::handleDatagram(const QByteArray& data, int senderPort) {
             case 0xEE01: {  // 航迹信息消息
                 if (senderPort == CF_INS.port("DATA_PRO_2_DISP", DATA_PRO_2_DISP) &&
                     m_Port == CF_INS.port("DISP_GET_DATA_PORT", DISP_GET_DATA_PORT)) {
+                    LOG_DEBUG(QString("[ThreadedUdpSocket] route normal track mesID=0x%1 sender=%2 recv=%3 size=%4")
+                              .arg(msgID, 4, 16, QChar('0'))
+                              .arg(senderPort)
+                              .arg(m_Port)
+                              .arg(data.size()));
                     emit traInfo(data);
                 }
                 break;
@@ -212,6 +218,11 @@ void ThreadedUdpSocket::handleDatagram(const QByteArray& data, int senderPort) {
             case 0xEE02: {  // TBD 航迹信息消息
                 if (senderPort == CF_INS.port("DATA_PRO_2_DISP2", DATA_PRO_2_DISP2) &&
                     m_Port == CF_INS.port("DISP_GET_DATA_PORT2", DISP_GET_DATA_PORT2)) {
+                    LOG_DEBUG(QString("[ThreadedUdpSocket] route TBD track mesID=0x%1 sender=%2 recv=%3 size=%4")
+                              .arg(msgID, 4, 16, QChar('0'))
+                              .arg(senderPort)
+                              .arg(m_Port)
+                              .arg(data.size()));
                     emit tbdInfo(data);
                 } else {
                     emit tbdInfo(data);  // 容错：若端口配置不同仍转发
@@ -221,6 +232,11 @@ void ThreadedUdpSocket::handleDatagram(const QByteArray& data, int senderPort) {
             case 0xEE03: {  // 协同航迹信息消息
                 if (senderPort == CF_INS.port("DATA_PRO_2_DISP3", DATA_PRO_2_DISP3) &&
                     m_Port == CF_INS.port("DISP_GET_DATA_PORT3", DISP_GET_DATA_PORT3)) {
+                    LOG_DEBUG(QString("[ThreadedUdpSocket] route cooperative track mesID=0x%1 sender=%2 recv=%3 size=%4")
+                              .arg(msgID, 4, 16, QChar('0'))
+                              .arg(senderPort)
+                              .arg(m_Port)
+                              .arg(data.size()));
                     emit cooperativeTrackInfo(data);
                 } else {
                     qWarning() << "[ThreadedUdpSocket] Cooperative track port mismatch, sender="

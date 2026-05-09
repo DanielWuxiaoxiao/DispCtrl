@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 11:28:41
+ * @LastEditTime: 2026-05-09 17:16:07
  * @Description: 
  */
 #ifndef CONFIGMANAGER_H
@@ -174,8 +174,20 @@ public:
         return getValue("system." + key, def).toInt();
     }
 
+    bool systemFlag(const QString& key, bool def = false) const {
+        return getValue("system." + key, def).toBool();
+    }
+
     QString systemString(const QString& key, const QString& def = "") const {
         return getValue("system." + key, def).toString();
+    }
+
+    bool photoelectricTxEnabled(bool def = false) const {
+        return systemFlag("enable_photoelectric_tx", def);
+    }
+
+    bool photoelectricHeartbeatEnabled(bool def = false) const {
+        return systemFlag("enable_photoelectric_heartbeat", def);
     }
 
     unsigned int protocolCode(const QString& key, unsigned int def = 0) const {

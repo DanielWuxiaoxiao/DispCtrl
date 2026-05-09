@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-05-09 09:43:04
+ * @Date: 2026-05-09 11:28:39
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 11:28:41
+ * @LastEditTime: 2026-05-09 17:16:07
  * @Description: 
  */
 #include "collabtrack2dispmanager.h"
@@ -30,11 +30,12 @@ CollabTrack2DispManager::CollabTrack2DispManager(QObject *parent) : QObject(pare
     host = QHostAddress(CF_INS.ip("DATA_PRO_IP", DATA_PRO_IP));
     port = CF_INS.port("DATA_PRO_2_DISP3", DATA_PRO_2_DISP3);
 
-    LOG_INFO(QString("[CollabTrack2DispManager] listen=%1:%2 peer=%3:%4")
+    LOG_INFO(QString("[CollabTrack2DispManager] listen=%1:%2 peer=%3:%4 mesID=0x%5")
              .arg(CF_INS.ip("DISP_CTRL_IP", DISP_CTRL_IP))
              .arg(CF_INS.port("DISP_GET_DATA_PORT3", DISP_GET_DATA_PORT3))
              .arg(host.toString())
-             .arg(port));
+             .arg(port)
+             .arg(COOPERATIVE_TRACK_MSG_ID, 4, 16, QChar('0')));
 
     connect(socket, &ThreadedUdpSocket::cooperativeTrackInfo,
             this, &CollabTrack2DispManager::cooperativeTrackDecode);
@@ -54,65 +55,50 @@ void CollabTrack2DispManager::cooperativeTrackDecode(QByteArray data)
     const char* raw = data.constData();
     raw += sizeof(ProtocolFrame);
 
-    if (data.size() < static_cast<int>(sizeof(ProtocolFrame) + sizeof(TBDTrackHead))) {
+    if (data.size() < static_cast<int>(sizeof(ProtocolFrame) + sizeof(TrackResult))) {
         LOG_WARNING(QString("[CollabTrack2DispManager] Datagram too small: size=%1, need>=%2")
                     .arg(data.size())
-                    .arg(sizeof(ProtocolFrame) + sizeof(TBDTrackHead)));
+                    .arg(sizeof(ProtocolFrame) + sizeof(TrackResult)));
         return;
     }
 
-    auto head = reinterpret_cast<const TBDTrackHead*>(raw);
-    if (head->mesID != COOPERATIVE_TRACK_MSG_ID) {
+    const auto trackResult = reinterpret_cast<const TrackResult*>(raw);
+    if (trackResult->mesID != COOPERATIVE_TRACK_MSG_ID) {
         LOG_WARNING(QString("[CollabTrack2DispManager] Unexpected mesID=0x%1, expected=0x%2")
-                    .arg(head->mesID, 4, 16, QChar('0'))
+                    .arg(trackResult->mesID, 4, 16, QChar('0'))
                     .arg(COOPERATIVE_TRACK_MSG_ID, 4, 16, QChar('0')));
     }
-    raw += sizeof(TBDTrackHead);
+    raw += sizeof(TrackResult);
 
     const char* end = data.constData() + data.size();
-    int decodedTrackCount = 0;
-    int decodedPointCount = 0;
+    const int trackCount = static_cast<int>(trackResult->trackNum);
+    const int expectedBytes = trackCount * static_cast<int>(sizeof(trackInfo));
+    if (raw + expectedBytes > end) {
+        LOG_WARNING(QString("[CollabTrack2DispManager] Malformed frame: trackNum=%1 exceeds remaining bytes=%2")
+                    .arg(trackCount)
+                    .arg(end - raw));
+        return;
+    }
 
-    while (raw + static_cast<int>(sizeof(TBDTrackInfo)) <= end) {
-        auto trackInfo = reinterpret_cast<const TBDTrackInfo*>(raw);
-        raw += sizeof(TBDTrackInfo);
+    PointInfo info;
+    for (int i = 0; i < trackCount; ++i)
+    {
+        const auto traPointInfo = reinterpret_cast<const trackInfo*>(raw);
+        info.type = CooperativeTrackPointType;
+        info.range = traPointInfo->dis;
+        info.azimuth = traPointInfo->azi;
+        info.elevation = traPointInfo->ele;
+        info.SNR = traPointInfo->SNR;
+        info.speed = traPointInfo->vel;
+        info.altitute = traPointInfo->altitute;
+        info.amp = traPointInfo->amp;
+        info.batch = traPointInfo->batch;
+        info.statMethod = traPointInfo->statMethod;
+        info.targetRecResult = traPointInfo->targetRecResult;
 
-        if (trackInfo->length == 0) {
-            LOG_WARNING(QString("[CollabTrack2DispManager] Batch %1 has zero points").arg(trackInfo->batch));
-            continue;
-        }
-
-        const int pointsLenBytes = static_cast<int>(trackInfo->length) * static_cast<int>(sizeof(TBDPoint));
-        if (raw + pointsLenBytes > end) {
-            LOG_WARNING(QString("[CollabTrack2DispManager] Malformed frame: batch=%1 length=%2 exceeds remaining bytes=%3")
-                        .arg(trackInfo->batch)
-                        .arg(trackInfo->length)
-                        .arg(end - raw));
-            break;
-        }
-
-        ++decodedTrackCount;
-
-        for (unsigned i = 0; i < trackInfo->length; ++i) {
-            auto pt = reinterpret_cast<const TBDPoint*>(raw);
-            PointInfo info;
-            info.type = CooperativeTrackPointType;
-            info.range = pt->dis;
-            info.azimuth = pt->azi;
-            info.elevation = pt->ele;
-            info.SNR = pt->SNR;
-            info.speed = pt->vel;
-            info.altitute = pt->altitute;
-            info.amp = pt->amp;
-            info.batch = trackInfo->batch;
-            info.statMethod = 0;
-            info.targetRecResult = 0;
-
-            RADAR_DATA_MGR.processTrack(info);
-            emit cooperativeTrackProcess(info);
-            raw += sizeof(TBDPoint);
-            ++decodedPointCount;
-        }
+        RADAR_DATA_MGR.processTrack(info);
+        emit cooperativeTrackProcess(info);
+        raw += sizeof(trackInfo);
     }
 
     if (raw != end) {
@@ -120,9 +106,8 @@ void CollabTrack2DispManager::cooperativeTrackDecode(QByteArray data)
                     .arg(end - raw));
     }
 
-    LOG_INFO(QString("[CollabTrack2DispManager] Decoded cooperative frame: tracks=%1 points=%2 size=%3")
-             .arg(decodedTrackCount)
-             .arg(decodedPointCount)
+    LOG_INFO(QString("[CollabTrack2DispManager] Decoded cooperative frame: tracks=%1 size=%2")
+             .arg(trackCount)
              .arg(data.size()));
 }
 

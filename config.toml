@@ -28,14 +28,14 @@ SIG_2_DISP_PORT1 = 6003              # 信号处理->显控端口1
 SIG_2_DISP_PORT2 = 6004              # 信号处理->显控端口2
 DISP_GET_SIG_PORT1 = 8003            # 显控接收信号端口1
 DISP_GET_SIG_PORT2 = 8004            # 显控接收信号端口2
-DATA_PRO_2_DISP = 6006               # 数据处理->显控端口
-DISP_GET_DATA_PORT = 8006            # 显控接收数据端口
+DATA_PRO_2_DISP = 6006               # 数据处理->显控：常规航迹发送端口（0xEE01）
+DISP_GET_DATA_PORT = 8006            # 显控接收常规航迹端口（0xEE01）
 DISP_2_DATA = 6008                   # 显控->数据处理端口
 DATA_GET_DISP = 8008                 # 数据处理接收显控端口
-DATA_PRO_2_DISP2 = 6010              # 数据处理->显控端口2
-DISP_GET_DATA_PORT2 = 8010           # 显控接收数据端口2
-DATA_PRO_2_DISP3 = 6020              # 数据处理->显控协同航迹端口
-DISP_GET_DATA_PORT3 = 8020           # 显控接收协同航迹端口
+DATA_PRO_2_DISP2 = 6010              # 数据处理->显控：TBD航迹发送端口（0xEE02）
+DISP_GET_DATA_PORT2 = 8010           # 显控接收TBD航迹端口（0xEE02）
+DATA_PRO_2_DISP3 = 6020              # 数据处理->显控：协同航迹发送端口（0xEE03）
+DISP_GET_DATA_PORT3 = 8020           # 显控接收协同航迹端口（0xEE03）
 TARGET_2_DISP = 6017                 # 目标分类->显控端口
 DISP_GET_TARGET_PORT = 8017          # 显控接收目标端口
 DISP_2_MONITOR = 6018                # 显控->监控端口
@@ -121,6 +121,8 @@ max = 45                             # 默认最大俯仰角
 # 系统运行参数
 log_level = "INFO"                   # 日志级别：DEBUG/INFO/WARNING/ERROR
 auto_save_interval = 300             # 自动保存间隔（秒）
+enable_photoelectric_tx = false      # 是否启用显控->光电发送（临时不用时建议关闭）
+enable_photoelectric_heartbeat = false # 是否启用光电心跳发送
 
 [webengine]
 # WebEngine调试配置

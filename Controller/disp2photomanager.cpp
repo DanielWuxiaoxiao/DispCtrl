@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:44:55
+ * @LastEditTime: 2026-05-09 17:16:08
  * @Description: 
  */
 #include "disp2photomanager.h"
@@ -27,7 +27,9 @@ Disp2PhotoManager::Disp2PhotoManager(QObject *parent) : QObject(parent)
 
     host = QHostAddress(CF_INS.ip("PHOTO_ELE_IP",PHOTO_ELE_IP));
     port = CF_INS.port("PHOTO_GET_DISP_PORT",PHOTO_GET_DISP_PORT);
-    enableHeartBeat();
+    if (CF_INS.photoelectricHeartbeatEnabled(false)) {
+        enableHeartBeat();
+    }
 }
 
 void Disp2PhotoManager::sendPEParam(PhotoElectricParamSet param)
@@ -43,7 +45,7 @@ void Disp2PhotoManager::sendPEParam(PhotoElectricParamSet param)
     param.checkCode = checksum;
     memcpy(sendData, &param, sizeof(param));
 
-    QByteArray byteArray = QByteArray::fromRawData(sendData, sizeof(param));
+    QByteArray byteArray(sendData, sizeof(param));
     socket->writeData(byteArray, host, port);
     free(sendData);
 }
@@ -61,7 +63,7 @@ void Disp2PhotoManager::sendPEParam2(PhotoElectricParamSet2 param)
     param.checkCode = checksum;
     memcpy(sendData, &param, sizeof(param));
 
-    QByteArray byteArray = QByteArray::fromRawData(sendData, sizeof(param));
+    QByteArray byteArray(sendData, sizeof(param));
     socket->writeData(byteArray, host, port);
     free(sendData);
 }
@@ -80,11 +82,13 @@ void Disp2PhotoManager::enableHeartBeat()
     param.checkCode = checksum;
     memcpy(sendData, &param, sizeof(param));
 
-    heartbeatPacket = QByteArray::fromRawData(sendData, sizeof(param));
+    heartbeatPacket = QByteArray(sendData, sizeof(param));
 
     heartbeatTimer = new QTimer(this);
     connect(heartbeatTimer, &QTimer::timeout, this, &Disp2PhotoManager::sendHeartbeat);
     heartbeatTimer->start(HEARTBEAT_INTERVAL); // 启动定时器
+
+    free(sendData);
 }
 
 void Disp2PhotoManager::sendHeartbeat() {

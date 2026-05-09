@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 11:28:41
+ * @LastEditTime: 2026-05-09 17:16:07
  * @Description: 
  */
 /**
@@ -96,7 +96,9 @@ void Controller::init()
     resMgr = new Disp2ResManager(this);        // 显示到资源管理器
     resRecvMgr = new Res2DispManager(this);    // 资源到显示管理器
     sigMgr = new Disp2SigManager(this);        // 显示到信号管理器
-    photoMgr = new Disp2PhotoManager(this);    // 显示到光电管理器
+    if (CF_INS.photoelectricTxEnabled(false)) {
+        photoMgr = new Disp2PhotoManager(this);    // 显示到光电管理器
+    }
     sigRecvMgr = new sig2dispmanager(this);    // 信号到显示管理器
     sigRecvMgr2 = new sig2dispmanager2(this);  // 信号到显示管理器2
     dataRecvMgr = new Data2DispManager(this);  // 数据到显示管理器
@@ -125,8 +127,10 @@ void Controller::init()
     connect(this, &Controller::sendDPParam, resMgr, &Disp2ResManager::sendDPParam);
 
     // 向光电系统发送控制参数
-    connect(this, &Controller::sendPEParam, photoMgr, &Disp2PhotoManager::sendPEParam);
-    connect(this, &Controller::sendPEParam2, photoMgr, &Disp2PhotoManager::sendPEParam2);
+    if (photoMgr) {
+        connect(this, &Controller::sendPEParam, photoMgr, &Disp2PhotoManager::sendPEParam);
+        connect(this, &Controller::sendPEParam2, photoMgr, &Disp2PhotoManager::sendPEParam2);
+    }
 
     // 向信号系统发送控制参数
     connect(this, &Controller::sendDSParam, sigMgr, &Disp2SigManager::sendDSParam);

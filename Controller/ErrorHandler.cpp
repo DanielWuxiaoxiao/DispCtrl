@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 11:25:55
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:44:54
+ * @LastEditTime: 2026-05-09 17:16:07
  * @Description: 
  */
 /**
@@ -38,6 +38,9 @@
 #include <QDebug>
 #include <QCoreApplication>
 #include <QMessageBox>
+#include <QHash>
+#include <QMutex>
+#include <QMutexLocker>
 
 // =============================================================================
 // LogErrorHandler - 日志错误处理器
@@ -76,6 +79,34 @@ public:
                 contextItems << QString("%1=%2").arg(it.key(), it.value().toString());
             }
             logMessage += QString(" [%1]").arg(contextItems.join(", "));
+        }
+
+        if (error.severity < ErrorSeverity::Critical) {
+            struct DuplicateState {
+                qint64 lastLogMs = 0;
+                int suppressedCount = 0;
+            };
+
+            static QMutex s_mutex;
+            static QHash<QString, DuplicateState> s_states;
+            static const qint64 kSuppressWindowMs = 5000;
+
+            const qint64 nowMs = error.timestamp.toMSecsSinceEpoch();
+            QMutexLocker locker(&s_mutex);
+            DuplicateState& state = s_states[logMessage];
+
+            if (state.lastLogMs > 0 && (nowMs - state.lastLogMs) < kSuppressWindowMs) {
+                ++state.suppressedCount;
+                return;
+            }
+
+            if (state.suppressedCount > 0) {
+                logMessage += QString(" [suppressed %1 duplicates/%2ms]")
+                    .arg(state.suppressedCount)
+                    .arg(kSuppressWindowMs);
+                state.suppressedCount = 0;
+            }
+            state.lastLogMs = nowMs;
         }
         
         // 根据严重级别选择合适的Qt日志输出函数
