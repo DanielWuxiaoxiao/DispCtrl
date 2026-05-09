@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-04-27 10:21:08
+ * @Date: 2026-04-27 10:23:31
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-27 10:23:33
+ * @LastEditTime: 2026-05-09 11:43:48
  * @Description: 
  */
 /**
@@ -41,14 +41,14 @@ public:
     explicit BeamScheduleChart(QWidget* parent = nullptr);
 
     /// 更新数据并重绘
-    void setSchedule(const BeamScheduleReport& hdr, const QVector<BeamSlot>& slots);
+    void setSchedule(const BeamScheduleReport& hdr, const QVector<BeamSlot>& beamSlots);
 
 protected:
     void paintEvent(QPaintEvent*) override;
 
 private:
     BeamScheduleReport m_header{};
-    QVector<BeamSlot>  m_slots;
+    QVector<BeamSlot>  m_beamSlots;
     bool               m_hasData = false;
 
     static QColor  slotColor(quint8 taskType);
@@ -75,7 +75,7 @@ public:
     explicit BeamScheduleWidget(QWidget* parent = nullptr);
 
 public slots:
-    void onBeamSchedule(const BeamScheduleReport& hdr, const QVector<BeamSlot>& slots);
+    void onBeamSchedule(const BeamScheduleReport& hdr, const QVector<BeamSlot>& beamSlots);
 
 private:
     BeamScheduleChart* m_chart      = nullptr;

@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-04-27 10:20:55
+ * @Date: 2026-04-27 10:23:31
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-27 10:23:32
+ * @LastEditTime: 2026-05-09 11:43:47
  * @Description: 
  */
 /**
@@ -11,6 +11,7 @@
  * @brief 波束调度报告 UDP 接收管理器实现
  */
 #include "beamschedulemanager.h"
+#include <cstring>
 #include <QNetworkDatagram>
 #include <QDebug>
 
@@ -55,21 +56,21 @@ void BeamScheduleManager::processData(const QByteArray& data)
     if (data.size() < kHeaderSize) return;
 
     BeamScheduleReport header;
-    memcpy(&header, data.constData(), kHeaderSize);
+    std::memcpy(&header, data.constData(), kHeaderSize);
 
     if (header.mesID != 0xEE11) return;
 
-    const int N = static_cast<int>(header.slotNum);
-    if (N < 0 || N > 1024) return;
+    const int slotCount = static_cast<int>(header.slotNum);
+    if (slotCount < 0 || slotCount > 1024) return;
 
-    const int expectedSize = kHeaderSize + N * static_cast<int>(sizeof(BeamSlot));
+    const int expectedSize = kHeaderSize + slotCount * static_cast<int>(sizeof(BeamSlot));
     if (data.size() < expectedSize) return;
 
-    QVector<BeamSlot> slots(N);
-    if (N > 0) {
-        memcpy(slots.data(), data.constData() + kHeaderSize,
-               static_cast<size_t>(N) * sizeof(BeamSlot));
+    QVector<BeamSlot> beamSlots(slotCount);
+    if (slotCount > 0) {
+        std::memcpy(beamSlots.data(), data.constData() + kHeaderSize,
+                    static_cast<size_t>(slotCount) * sizeof(BeamSlot));
     }
 
-    emit beamScheduleReceived(header, slots);
+    emit beamScheduleReceived(header, beamSlots);
 }

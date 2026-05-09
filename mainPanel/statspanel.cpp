@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-04-27 10:02:30
+ * @Date: 2026-04-27 10:23:31
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-27 10:23:33
+ * @LastEditTime: 2026-05-09 11:43:48
  * @Description: 
  */
 /**
@@ -27,7 +27,7 @@ StatsChart::StatsChart(QWidget* parent)
 
 void StatsChart::setWindowSec(int seconds)
 {
-    m_windowSec = qMax(10, seconds);
+    m_windowSec = (seconds < 10) ? 10 : seconds;
 }
 
 void StatsChart::setMaxY(int maxY)
@@ -65,9 +65,18 @@ void StatsChart::paintEvent(QPaintEvent*)
     // 确定Y轴上限
     int yMax = m_maxY;
     if (yMax == 0) {
-        for (const auto& s : m_samples)
-            yMax = qMax({yMax, s.dets, s.tracks, s.tbds});
-        yMax = qMax(yMax + 2, 10);
+        for (const auto& s : m_samples) {
+            if (s.dets > yMax) {
+                yMax = s.dets;
+            }
+            if (s.tracks > yMax) {
+                yMax = s.tracks;
+            }
+            if (s.tbds > yMax) {
+                yMax = s.tbds;
+            }
+        }
+        yMax = ((yMax + 2) > 10) ? (yMax + 2) : 10;
     }
 
     // 网格
@@ -90,7 +99,10 @@ void StatsChart::paintEvent(QPaintEvent*)
                QStringLiteral("0s"));
 
     const int N = m_samples.size();
-    auto toX = [&](int i) { return marginL + (i * chartW) / qMax(1, m_windowSec - 1); };
+    auto toX = [&](int i) {
+        const int denom = ((m_windowSec - 1) > 1) ? (m_windowSec - 1) : 1;
+        return marginL + (i * chartW) / denom;
+    };
     auto toY = [&](int v) { return marginT + chartH - (v * chartH) / yMax; };
 
     // 三条折线

@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-04-27 10:21:35
+ * @Date: 2026-04-27 10:23:31
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-27 10:23:33
+ * @LastEditTime: 2026-05-09 11:43:48
  * @Description: 
  */
 /**
@@ -32,10 +32,10 @@ BeamScheduleChart::BeamScheduleChart(QWidget* parent)
 }
 
 void BeamScheduleChart::setSchedule(const BeamScheduleReport& hdr,
-                                    const QVector<BeamSlot>& slots)
+                                    const QVector<BeamSlot>& beamSlots)
 {
     m_header  = hdr;
-    m_slots   = slots;
+    m_beamSlots = beamSlots;
     m_hasData = true;
     update();
 }
@@ -117,7 +117,7 @@ void BeamScheduleChart::paintEvent(QPaintEvent*)
     }
 
     // ---- 槽块 ----
-    for (const auto& slot : m_slots) {
+    for (const auto& slot : m_beamSlots) {
         const int row = qMin(static_cast<int>(slot.taskType), kRows - 1);
         const int y   = kTopMargin + row * kRowH + 2;
         const int x0  = kLeftMargin + static_cast<int>(slot.startUs * pxPerUs);
@@ -184,10 +184,10 @@ BeamScheduleWidget::BeamScheduleWidget(QWidget* parent)
 }
 
 void BeamScheduleWidget::onBeamSchedule(const BeamScheduleReport& hdr,
-                                        const QVector<BeamSlot>& slots)
+                                        const QVector<BeamSlot>& beamSlots)
 {
     m_lblSeq->setText(QStringLiteral("帧序: %1").arg(hdr.frameSeq));
     m_lblSlotNum->setText(QStringLiteral("槽数: %1").arg(hdr.slotNum));
     m_lblFrameUs->setText(QStringLiteral("帧长: %1µs").arg(hdr.frameTimeUs));
-    m_chart->setSchedule(hdr, slots);
+    m_chart->setSchedule(hdr, beamSlots);
 }
