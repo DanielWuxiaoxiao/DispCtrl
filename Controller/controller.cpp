@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 22:07:37
+ * @LastEditTime: 2026-05-09 11:28:41
  * @Description: 
  */
 /**
@@ -30,6 +30,7 @@
 #include "sig2dispmanager.h"
 #include "data2dispmanager.h"
 #include "tbd2dispmanager.h"
+#include "collabtrack2dispmanager.h"
 #include "disp2datamanager.h"
 #include "targetdispmanager.h"
 #include "disp2monmanager.h"
@@ -54,7 +55,21 @@ Controller* Controller::getInstance() {
  * @details 初始化基本成员变量，实际的子系统创建在init()函数中
  */
 Controller::Controller(QObject* parent)
-    : QObject(parent) {
+    : QObject(parent)
+    , resMgr(nullptr)
+    , resRecvMgr(nullptr)
+    , sigMgr(nullptr)
+    , photoMgr(nullptr)
+    , sigRecvMgr(nullptr)
+    , sigRecvMgr2(nullptr)
+    , dataRecvMgr(nullptr)
+    , tbdRecvMgr(nullptr)
+    , collabTrackRecvMgr(nullptr)
+    , dataMgr(nullptr)
+    , tarMgr(nullptr)
+    , monMgr(nullptr)
+    , monRecvMgr(nullptr)
+    , extCtrlMgr(nullptr) {
     // 成员指针初始化在init()中进行
 }
 
@@ -85,7 +100,12 @@ void Controller::init()
     sigRecvMgr = new sig2dispmanager(this);    // 信号到显示管理器
     sigRecvMgr2 = new sig2dispmanager2(this);  // 信号到显示管理器2
     dataRecvMgr = new Data2DispManager(this);  // 数据到显示管理器
-    tbdRecvMgr = new Tbd2DispManager(this);    // TBD数据到显示管理器
+    if (CF_INS.iftbd(false)) {
+        tbdRecvMgr = new Tbd2DispManager(this);    // TBD数据到显示管理器
+    }
+    if (CF_INS.ifxietong(false)) {
+        collabTrackRecvMgr = new CollabTrack2DispManager(this); // 协同航迹到显示管理器
+    }
     dataMgr = new Disp2DataManager(this);      // 显示到数据管理器
     tarMgr = new targetDispManager(this);      // 目标显示管理器
     monMgr = new Disp2MonManager(this);        // 显示到监控管理器

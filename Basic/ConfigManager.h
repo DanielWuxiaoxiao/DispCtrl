@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-06 17:10:24
+ * @LastEditTime: 2026-05-09 11:28:41
  * @Description: 
  */
 #ifndef CONFIGMANAGER_H
@@ -194,6 +194,18 @@ public:
     // 显示配置相关
     int displayConfig(const QString& key, int def = 1000) const {
         return getValue("displayConfig." + key, def).toInt();
+    }
+
+    bool displayFlag(const QString& key, bool def = false) const {
+        return getValue("displayConfig." + key, def).toBool();
+    }
+
+    bool iftbd(bool def = false) const {
+        return displayFlag("iftbd", def);
+    }
+
+    bool ifxietong(bool def = false) const {
+        return displayFlag("ifxietong", def);
     }
 
     // 保存显示配置参数

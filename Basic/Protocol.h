@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-29 10:48:04
+ * @LastEditTime: 2026-05-09 11:28:41
  * @Description: 
  */
 #ifndef PROTOCOL_H
@@ -47,6 +47,8 @@ constexpr unsigned short DATA_GET_DISP = 8008;
 
 constexpr unsigned short DATA_PRO_2_DISP2  = 6010;  //TBD端口号
 constexpr unsigned short DISP_GET_DATA_PORT2 = 8010;
+constexpr unsigned short DATA_PRO_2_DISP3  = 6020;  //协同航迹端口号
+constexpr unsigned short DISP_GET_DATA_PORT3 = 8020;
 
 constexpr unsigned short TARGET_2_DISP  = 6017;  //目标识别端口号
 constexpr unsigned short DISP_GET_TARGET_PORT = 8017;
@@ -762,7 +764,14 @@ typedef struct _TrackResult
     }
 }TrackResult;
 
-// TBD 航迹上报帧头
+constexpr unsigned short TRACK_INFO_MSG_ID = 0xEE01;
+constexpr unsigned short TBD_TRACK_MSG_ID = 0xEE02;
+constexpr unsigned short COOPERATIVE_TRACK_MSG_ID = 0xEE03;
+
+// TBD/协同航迹上报帧头
+// 0xEE02: TBD 航迹
+// 0xEE03: 协同航迹
+// 两个通道复用相同的帧体定义：TBDTrackHead + TBDTrackInfo + N * TBDPoint
 typedef struct _TBDTrackHead
 {
     unsigned short mesID;
@@ -819,6 +828,7 @@ typedef struct _TBDPoint
 }TBDPoint;
 
 // TBD 航迹节点（批号+长度）
+// TBD/协同航迹节点头（批号+长度）
 typedef struct _TBDTrackInfo
 {
     unsigned batch;   // 航迹批号
@@ -883,7 +893,7 @@ typedef struct _BITReport
 
 typedef struct _PointInfo
 {
-    unsigned type; //    det = 1,    trak = 2 , TBD = 3
+    unsigned type; // det = 1, track = 2, TBD = 3, cooperative = 4
     float range;
     float azimuth;
     float elevation;
@@ -900,7 +910,8 @@ enum PointType
 {
     Detection = 1,
     Track = 2,
-    TBDPointType = 3
+    TBDPointType = 3,
+    CooperativeTrackPointType = 4
 };
 
 typedef struct _SetTrackManual

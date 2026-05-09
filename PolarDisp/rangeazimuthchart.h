@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-01-30 11:45:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:32
+ * @LastEditTime: 2026-05-09 11:28:42
  * @Description: 
  */
 /*
@@ -36,6 +36,7 @@
 
 #include "../cusWidgets/customlinechart.h"
 #include "../Basic/Protocol.h"
+#include "../Basic/DispBasci.h"
 #include <QWidget>
 #include <QVBoxLayout>
 #include <QPushButton>
@@ -184,6 +185,18 @@ public:
     void setTrackVisible(bool visible);
 
     /**
+     * @brief 设置TBD航迹可见性
+     * @param visible true显示，false隐藏
+     */
+    void setTbdTrackVisible(bool visible);
+
+    /**
+     * @brief 设置协同航迹可见性
+     * @param visible true显示，false隐藏
+     */
+    void setCooperativeTrackVisible(bool visible);
+
+    /**
      * @brief 设置检测点大小比例
      * @param ratio 大小比例（0.5-3.0）
      */
@@ -242,7 +255,7 @@ private:
      */
     struct TrackItem {
         QGraphicsEllipseItem* graphicsItem;  ///< 图形项
-        trackInfo trackData;                 ///< 航迹信息
+        PointInfo info;                      ///< 航迹信息
         qint64 timestamp;                    ///< 添加时间戳
     };
 
@@ -251,6 +264,8 @@ private:
 
     bool m_detectionVisible = true;           ///< 检测点可见性
     bool m_trackVisible = true;               ///< 航迹可见性
+    bool m_tbdTrackVisible = true;            ///< TBD航迹可见性
+    bool m_cooperativeTrackVisible = true;    ///< 协同航迹可见性
 
     double m_detectionSizeRatio = 1.0;        ///< 检测点大小比例
     double m_trackSizeRatio = 1.0;            ///< 航迹大小比例
@@ -265,6 +280,8 @@ private:
     // 样式配置
     QColor m_detectionColor = QColor(0, 255, 0);    ///< 检测点颜色（绿色）
     QColor m_trackColor = Qt::red;                  ///< 航迹颜色（红色，与P显保持一致）
+    QColor m_tbdTrackColor = QColor(TBD_COLOR);     ///< TBD航迹颜色
+    QColor m_cooperativeTrackColor = QColor(CO_TRACK_COLOR); ///< 协同航迹颜色
 
     double m_baseDetectionSize = 3.0;         ///< 基础检测点大小
     double m_baseTrackSize = 5.0;             ///< 基础航迹大小
@@ -289,6 +306,14 @@ private:
      * @details 当坐标轴范围改变时，重新计算所有点的场景位置
      */
     void refreshAllPoints();
+
+    QColor trackColor(unsigned type) const;
+
+    QString trackTooltipLabel(unsigned type) const;
+
+    bool isTrackTypeVisible(unsigned type) const;
+
+    void updateTrackVisibility();
 
     /**
      * @brief 判断方位角是否在过滤范围内

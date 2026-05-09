@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-06 17:10:25
+ * @LastEditTime: 2026-05-09 11:28:42
  * @Description: 
  */
 /**
@@ -1038,7 +1038,7 @@ void PPIView::onTrackVisibilityChanged(bool visible)
     }
 
     if (m_scene->track()) {
-        m_scene->track()->setAllVisible(visible);
+        m_scene->track()->setTypeVisible(PointType::Track, visible);
         // LOG_INFO(QString("Track points visibility changed: %1").arg(visible ? "visible" : "hidden"));
     }
 }

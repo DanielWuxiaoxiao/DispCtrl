@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-29 10:48:05
+ * @LastEditTime: 2026-05-09 11:28:42
  * @Description: 
  */
 /**
@@ -99,8 +99,15 @@ PPIScene::PPIScene(QObject *parent)
             m_track, &TrackManager::addTrackPoint);
 
     // 从Controller接收TBD航迹数据并添加到TrackManager
-    connect(CON_INS, &Controller::tbdInfoProcess,
-        m_track, &TrackManager::addTrackPoint);
+    if (CF_INS.iftbd(false)) {
+        connect(CON_INS, &Controller::tbdInfoProcess,
+            m_track, &TrackManager::addTrackPoint);
+    }
+
+    if (CF_INS.ifxietong(false)) {
+        connect(CON_INS, &Controller::cooperativeTrackProcess,
+            m_track, &TrackManager::addTrackPoint);
+    }
 
     // 转发 TrackManager 标签右键信号到 PPIView
     connect(m_track, &TrackManager::labelRightClicked,

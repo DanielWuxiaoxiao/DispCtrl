@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-25 17:09:16
+ * @LastEditTime: 2026-05-09 11:28:42
  * @Description: 
  */
 /**
@@ -202,6 +202,9 @@ signals:
 
     /// TBD 航迹信息信号
     void tbdInfo(QByteArray);
+
+    /// 协同航迹信息信号
+    void cooperativeTrackInfo(QByteArray);
 
     /// 数据保存确认信号 - 数据存储操作的确认
     void dataSaveOK(DataSaveOK);

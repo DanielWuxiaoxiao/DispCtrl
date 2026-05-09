@@ -34,6 +34,8 @@ DISP_2_DATA = 6008                   # 显控->数据处理端口
 DATA_GET_DISP = 8008                 # 数据处理接收显控端口
 DATA_PRO_2_DISP2 = 6010              # 数据处理->显控端口2
 DISP_GET_DATA_PORT2 = 8010           # 显控接收数据端口2
+DATA_PRO_2_DISP3 = 6020              # 数据处理->显控协同航迹端口
+DISP_GET_DATA_PORT3 = 8020           # 显控接收协同航迹端口
 TARGET_2_DISP = 6017                 # 目标分类->显控端口
 DISP_GET_TARGET_PORT = 8017          # 显控接收目标端口
 DISP_2_MONITOR = 6018                # 显控->监控端口
@@ -231,3 +233,5 @@ interpolation_step = 30
 [displayConfig]
 # 检测点显示配置 Detection Point Display Configuration
 max_points = 1000                    # 最大检测点数量
+iftbd = false                        # 是否启用TBD航迹接收与显示
+ifxietong = false                    # 是否启用协同航迹接收与显示

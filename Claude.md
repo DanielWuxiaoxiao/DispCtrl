@@ -536,6 +536,33 @@ max = 360
 
 ---
 
+### 10. 多通道航迹显示开关（2026-05-09）
+
+**新增通道**:
+- TBD航迹：`0xEE02`，`6010 -> 8010`
+- 协同航迹：`0xEE03`，`6020 -> 8020`
+
+**协议约定**:
+- 协同航迹通道复用 `TBDTrackHead + TBDTrackInfo + TBDPoint` 帧体定义
+- `PointInfo.type` 新增 `CooperativeTrackPointType = 4`
+
+**配置开关** (`config.toml` `[displayConfig]`):
+- `iftbd = false`
+- `ifxietong = false`
+
+**行为规则**:
+- 开关为 `false` 时：不创建对应接收管理器，不监听对应端口，不显示对应UI控件/表页
+- `MousePositionInfo` 按开关动态添加 `TBD航迹` / `协同航迹` 可见性复选框
+- `MainOverLayOut` 动态添加对应航迹表页
+- `RangeAzimuthChart`、`TrackManager`、`SectorTrackManager` 按类型分别控制颜色与可见性
+
+**颜色方案**:
+- 常规航迹：`TRA_COLOR`（红）
+- TBD航迹：`TBD_COLOR`（黄）
+- 协同航迹：`CO_TRACK_COLOR`（青蓝）
+
+---
+
 ### 8. 参数对话框统一规范（2026-01-15）
 
 **参考实现**: `paramWidget/servocontrol.cpp`
@@ -931,6 +958,12 @@ dataToScene            # RangeAzimuth坐标转换
 ### v5.7 (2026-03-23)
 - **外部协议扩展**：AD数据帧（`sendAdFrame`/`adFrameReceived`/`sendSystemControlWithAd`）
 - **Claude.md 全面整合重写**（基于所有34个MD文档）
+
+### v5.8 (2026-05-09)
+- **多通道航迹开关**：新增 TBD / 协同航迹配置开关 `iftbd`、`ifxietong`
+- **协同航迹通道**：新增 `0xEE03`、`6020 -> 8020` 接收链路
+- **UI扩展**：动态新增 TBD / 协同航迹表页与可见性开关
+- **显示扩展**：P显、扇区、B显按航迹类型分别着色与显隐控制
 
 ---
 

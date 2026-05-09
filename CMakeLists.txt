@@ -154,6 +154,7 @@ set(SRC_FILES
     Controller/disp2datamanager.cpp            # 显示到数据管理
     Controller/data2dispmanager.cpp            # 数据到显示管理
     Controller/tbd2dispmanager.cpp             # TBD数据到显示管理
+    Controller/collabtrack2dispmanager.cpp     # 协同航迹到显示管理
     Controller/disp2monmanager.cpp             # 显示到监控管理
     Controller/targetdispmanager.cpp           # 目标显示管理
     Controller/sig2dispmanager.cpp             # 信号到显示管理
@@ -235,6 +236,7 @@ set(HDR_FILES
     Controller/disp2datamanager.h              # 显示到数据管理器
     Controller/data2dispmanager.h              # 数据到显示管理器
     Controller/tbd2dispmanager.h               # TBD数据到显示管理器
+    Controller/collabtrack2dispmanager.h       # 协同航迹到显示管理器
     Controller/controller.h                    # 主控制器
     Controller/ExternalCtrlManager.h           # 外部雷控/调度链路
     Controller/gcsmanager.h                    # GCS地面站通信链路

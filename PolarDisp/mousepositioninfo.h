@@ -3,13 +3,15 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-23 09:44:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:31
+ * @LastEditTime: 2026-05-09 11:28:42
  * @Description: 
  */
 #ifndef MOUSEPOSITIONINFO_H
 #define MOUSEPOSITIONINFO_H
 
 #include <QWidget>
+
+class QCheckBox;
 
 namespace Ui {
 class MousePositionInfo;
@@ -29,6 +31,8 @@ public:
     // 获取当前状态的方法
     bool isDetectionVisible() const;
     bool isTrackVisible() const;
+    bool isTbdTrackVisible() const;
+    bool isCooperativeTrackVisible() const;
     double getDetectionSize() const;
     double getTrackSize() const;
 
@@ -44,6 +48,18 @@ signals:
      * @param visible true表示显示，false表示隐藏
      */
     void trackVisibilityChanged(bool visible);
+
+    /**
+     * @brief TBD航迹可见性变化信号
+     * @param visible true表示显示，false表示隐藏
+     */
+    void tbdTrackVisibilityChanged(bool visible);
+
+    /**
+     * @brief 协同航迹可见性变化信号
+     * @param visible true表示显示，false表示隐藏
+     */
+    void cooperativeTrackVisibilityChanged(bool visible);
 
     /**
      * @brief 检测点大小变化信号
@@ -62,6 +78,8 @@ protected:
 
 private:
     Ui::MousePositionInfo *ui;
+    QCheckBox* m_tbdTrackCheckBox = nullptr;
+    QCheckBox* m_cooperativeTrackCheckBox = nullptr;
 };
 
 #endif // MOUSEPOSITIONINFO_H

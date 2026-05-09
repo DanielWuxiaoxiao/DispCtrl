@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 22:07:37
+ * @LastEditTime: 2026-05-09 11:28:41
  * @Description: 
  */
 /**
@@ -53,6 +53,7 @@ class sig2dispmanager;    ///< 信号到显示管理器
 class sig2dispmanager2;   ///< 信号到显示管理器2
 class Data2DispManager;   ///< 数据到显示管理器
 class Tbd2DispManager;    ///< TBD数据到显示管理器
+class CollabTrack2DispManager; ///< 协同航迹到显示管理器
 class Disp2DataManager;   ///< 显示到数据管理器
 class Disp2PhotoManager;  ///< 显示到光电管理器
 class targetDispManager;  ///< 目标显示管理器
@@ -255,6 +256,12 @@ signals:
     void tbdInfoProcess(PointInfo info);
 
     /**
+     * @brief 协同航迹信息处理信号
+     * @param info 协同航迹点信息
+     */
+    void cooperativeTrackProcess(PointInfo info);
+
+    /**
      * @brief 航迹删除信号 (statMethod==2时)
      * @param batchID 被删除的批号
      */
@@ -356,6 +363,7 @@ private:
     sig2dispmanager2* sigRecvMgr2; ///< 信号到显示管理器2
     Data2DispManager* dataRecvMgr; ///< 数据到显示管理器
     Tbd2DispManager* tbdRecvMgr;   ///< TBD数据到显示管理器
+    CollabTrack2DispManager* collabTrackRecvMgr; ///< 协同航迹到显示管理器
     Disp2DataManager* dataMgr;     ///< 显示到数据管理器
     targetDispManager* tarMgr;     ///< 目标显示管理器
     Disp2MonManager* monMgr;       ///< 显示到监控管理器

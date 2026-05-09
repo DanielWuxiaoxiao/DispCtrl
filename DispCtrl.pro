@@ -91,6 +91,7 @@ SOURCES += \
     Controller/mon2dispmanager.cpp \
     Controller/sig2dispmanager.cpp \
     Controller/tbd2dispmanager.cpp \
+    Controller/collabtrack2dispmanager.cpp \
     Controller/targetdispmanager.cpp \
     Controller/ExternalCtrlManager.cpp \
     Controller/RadarDataManager.cpp \
@@ -183,6 +184,7 @@ HEADERS += \
     Controller/mon2dispmanager.h \
     Controller/sig2dispmanager.h \
     Controller/tbd2dispmanager.h \
+    Controller/collabtrack2dispmanager.h \
     Controller/targetdispmanager.h \
     Controller/ExternalCtrlManager.h \
     Controller/RadarDataManager.h \

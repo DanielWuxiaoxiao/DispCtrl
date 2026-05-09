@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 10:04:10
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:31
+ * @LastEditTime: 2026-05-09 11:28:42
  * @Description: 
  */
 /**
@@ -187,6 +187,13 @@ public:
      * @details 批量控制扇形区域内所有航迹的可见性
      */
     void setAllVisible(bool visible);
+
+    /**
+     * @brief 设置指定类型航迹的全局可见性
+     * @param type 航迹类型
+     * @param visible true显示，false隐藏
+     */
+    void setTypeVisible(PointType type, bool visible);
 
     /**
      * @brief 设置扇形航迹点尺寸比例

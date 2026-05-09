@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-06 17:10:25
+ * @LastEditTime: 2026-05-09 11:28:43
  * @Description: 
  */
 /**
@@ -363,14 +363,22 @@ private:
     // 航迹管理相关成员
     QMap<unsigned int, int> m_targetTypes;  ///< 批次号到目标类型编号的映射
     QMap<unsigned int, QDateTime> m_trackStartTimes; ///< 批次号到航迹开始时间的映射
-    FrozenColumnHelper* m_trackTableFrozenHelper;    ///< 总航迹表格冻结列辅助类
-    FrozenColumnHelper* m_droneTableFrozenHelper;    ///< 无人机表格冻结列辅助类
+    FrozenColumnHelper* m_trackTableFrozenHelper = nullptr;    ///< 总航迹表格冻结列辅助类
+    FrozenColumnHelper* m_droneTableFrozenHelper = nullptr;    ///< 无人机表格冻结列辅助类
+    QTableWidget* m_tbdTrackTable = nullptr;                  ///< TBD航迹表格
+    QTableWidget* m_cooperativeTrackTable = nullptr;          ///< 协同航迹表格
+    FrozenColumnHelper* m_tbdTrackTableFrozenHelper = nullptr; ///< TBD表格冻结列辅助类
+    FrozenColumnHelper* m_cooperativeTrackFrozenHelper = nullptr; ///< 协同表格冻结列辅助类
 
     /**
      * @brief 初始化航迹管理功能
      * @details 设置航迹表格列头、连接信号槽、配置表格属性
      */
     void setupTrackManagement();
+
+    void setupTrackTable(QTableWidget* tableWidget, FrozenColumnHelper*& frozenHelper);
+
+    void syncFrozenTrackTables();
 
     // simulateIncomingTracks (test helper) removed
 
@@ -381,7 +389,9 @@ private:
      * @param targetType 目标类型文本
      * @return 更新的行号
      */
-    int addOrUpdateTrackRow(QTableWidget* tableWidget, const PointInfo& info, const QString& targetType, bool isTBD);
+    int addOrUpdateTrackRow(QTableWidget* tableWidget, const PointInfo& info, const QString& targetType);
+
+    void removeTrackRow(QTableWidget* tableWidget, unsigned type, unsigned int batch);
 
     /**
      * @brief 对航迹表格进行排序

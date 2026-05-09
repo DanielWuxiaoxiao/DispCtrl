@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 10:04:10
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:31
+ * @LastEditTime: 2026-05-09 11:28:41
  * @Description: 
  */
 /**
@@ -100,13 +100,9 @@ SectorTrackManager::SectorTrackManager(QGraphicsScene* scene, PolarAxis* axis, Q
     // 注册到统一数据管理器
     RADAR_DATA_MGR.registerView("SectorTrackManager_" + QString::number((quintptr)this), this);
 
-    // 连接统一数据管理器的信号
-    connect(&RADAR_DATA_MGR, &RadarDataManager::trackReceived,
-            this, &SectorTrackManager::addTrackPoint);
+    // 航迹数据由 MainOverLayOut 通过 Controller 统一分发，避免重复绘制
     connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared,
             this, &SectorTrackManager::clear);
-    connect(&RADAR_DATA_MGR, &RadarDataManager::trackBatchRemoved,
-            this, &SectorTrackManager::removeBatch);
 }
 
 SectorTrackManager::~SectorTrackManager()
@@ -127,7 +123,12 @@ void SectorTrackManager::addTrackPoint(const PointInfo& info)
         return;
     }
 
-    PointType type = (info.type == PointType::TBDPointType ? PointType::TBDPointType : PointType::Track);
+    PointType type = PointType::Track;
+    if (info.type == PointType::TBDPointType) {
+        type = PointType::TBDPointType;
+    } else if (info.type == PointType::CooperativeTrackPointType) {
+        type = PointType::CooperativeTrackPointType;
+    }
     ensureSeries(info.batch, type);
     SectorTrackSeries& series = m_series[info.batch];
 
@@ -249,6 +250,15 @@ void SectorTrackManager::setAllVisible(bool visible)
     }
 }
 
+void SectorTrackManager::setTypeVisible(PointType type, bool visible)
+{
+    for (auto it = m_series.begin(); it != m_series.end(); ++it) {
+        if (it->type != type) continue;
+        it->visible = visible;
+        updateBatchVisibility(it.key());
+    }
+}
+
 void SectorTrackManager::setPointSizeRatio(float ratio)
 {
     if (ratio <= 0.0f) ratio = 1.0f;
@@ -351,27 +361,25 @@ void SectorTrackManager::ensureSeries(int batchID, PointType type)
     if (!m_series.contains(batchID)) {
         SectorTrackSeries series;
         series.type = type;
-        // 统一使用红色显示所有航迹（TBD和Track都用红色）
-        series.color = Qt::red;  // 修改：统一颜色为红色
+        series.color = trackTypeColor(type);
         series.visible = true;
         m_series.insert(batchID, series);
 
         qDebug() << "[SectorTrackManager] New track series created, batch:" << batchID
-                 << "type:" << (type == PointType::TBDPointType ? "TBD" : "Track")
-                 << "color: Red";
+                 << "type:" << trackTypeLabel(type)
+                 << "color:" << series.color;
         return;
     }
 
     auto& series = m_series[batchID];
     if (series.type != type) {
         series.type = type;
-        // 统一使用红色
-        QColor newColor = Qt::red;  // 修改：统一颜色为红色
+        QColor newColor = trackTypeColor(type);
         series.color = newColor;
 
         qDebug() << "[SectorTrackManager] Track type changed, batch:" << batchID
-                 << "new type:" << (type == PointType::TBDPointType ? "TBD" : "Track")
-                 << "color: Red";
+                 << "new type:" << trackTypeLabel(type)
+                 << "color:" << newColor;
 
         // 更新已有节点和连线颜色
         for (auto& node : series.nodes) {
@@ -421,7 +429,7 @@ void SectorTrackManager::updateLatestLabel(int batchID)
 
     // 设置标签内容
     const PointInfo& info = latestNode.point->infoRef();
-    QString typeText = (series.type == PointType::TBDPointType) ? QString("TBD") : QString("Track");
+    QString typeText = trackTypeLabel(series.type);
     QString labelText = QString("%1:%2").arg(typeText).arg(info.batch);
     series.label->setPlainText(labelText);
 

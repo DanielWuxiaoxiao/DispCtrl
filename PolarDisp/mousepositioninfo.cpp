@@ -3,15 +3,19 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-23 09:44:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 22:07:38
+ * @LastEditTime: 2026-05-09 11:28:42
  * @Description: 
  */
 #include "mousepositioninfo.h"
 #include "ui_mousepositioninfo.h"
+#include "Basic/ConfigManager.h"
+#include "Basic/DispBasci.h"
 #include <QStyleOption>
 #include <QPainter>
 #include <QLabel>
 #include <QHBoxLayout>
+#include <QCheckBox>
+#include <QVBoxLayout>
 
 MousePositionInfo::MousePositionInfo(QWidget *parent) :
     QWidget(parent),
@@ -44,6 +48,56 @@ MousePositionInfo::MousePositionInfo(QWidget *parent) :
         trackColorLabel->setStyleSheet("color: #FF0000; font-size: 18px;");
         trackColorLabel->setFixedWidth(16);
         ui->checkboxLayout->addWidget(trackColorLabel);
+    }
+
+    auto addTrackToggle = [this](QHBoxLayout* layout,
+                                 QCheckBox*& checkBox,
+                                 const QString& text,
+                                 const QString& toolTip,
+                                 const QString& objectName,
+                                 const QColor& color,
+                                 void (MousePositionInfo::*signal)(bool)) {
+        checkBox = new QCheckBox(text, this);
+        checkBox->setToolTip(toolTip);
+        checkBox->setChecked(true);
+        checkBox->setObjectName(objectName);
+        checkBox->setStyleSheet("QCheckBox::indicator { width: 12px; height: 12px; }");
+        layout->addWidget(checkBox);
+
+        QLabel* colorLabel = new QLabel("●", this);
+        colorLabel->setStyleSheet(QString("color: %1; font-size: 18px;").arg(color.name()));
+        colorLabel->setFixedWidth(16);
+        layout->addWidget(colorLabel);
+
+        connect(checkBox, &QCheckBox::toggled, this, signal);
+    };
+
+    QHBoxLayout* secondaryCheckboxLayout = nullptr;
+    if (CF_INS.iftbd(false) || CF_INS.ifxietong(false)) {
+        secondaryCheckboxLayout = new QHBoxLayout();
+        secondaryCheckboxLayout->setSpacing(ui->checkboxLayout->spacing());
+        secondaryCheckboxLayout->setContentsMargins(0, 0, 0, 0);
+        ui->verticalLayout->insertLayout(2, secondaryCheckboxLayout);
+    }
+
+    if (CF_INS.iftbd(false)) {
+        addTrackToggle(secondaryCheckboxLayout,
+                       m_tbdTrackCheckBox,
+                       tr("TBD航迹"),
+                       tr("显示/隐藏TBD航迹"),
+                       "MouseCheckBoxTBDTrack",
+                       trackTypeColor(PointType::TBDPointType),
+                       &MousePositionInfo::tbdTrackVisibilityChanged);
+    }
+
+    if (CF_INS.ifxietong(false)) {
+        addTrackToggle(secondaryCheckboxLayout,
+                       m_cooperativeTrackCheckBox,
+                       tr("协同航迹"),
+                       tr("显示/隐藏协同航迹"),
+                       "MouseCheckBoxCooperativeTrack",
+                       trackTypeColor(PointType::CooperativeTrackPointType),
+                       &MousePositionInfo::cooperativeTrackVisibilityChanged);
     }
 
     // 连接checkbox信号
@@ -94,6 +148,16 @@ bool MousePositionInfo::isDetectionVisible() const
 bool MousePositionInfo::isTrackVisible() const
 {
     return ui->checkBoxTrack->isChecked();
+}
+
+bool MousePositionInfo::isTbdTrackVisible() const
+{
+    return m_tbdTrackCheckBox ? m_tbdTrackCheckBox->isChecked() : false;
+}
+
+bool MousePositionInfo::isCooperativeTrackVisible() const
+{
+    return m_cooperativeTrackCheckBox ? m_cooperativeTrackCheckBox->isChecked() : false;
 }
 
 double MousePositionInfo::getDetectionSize() const

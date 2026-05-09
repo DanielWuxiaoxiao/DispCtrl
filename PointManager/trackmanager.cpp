@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-29 10:48:05
+ * @LastEditTime: 2026-05-09 11:28:42
  * @Description: 
  */
 /**
@@ -204,7 +204,7 @@ void TrackManager::ensureSeries(int batchID, PointType type)
     if (!mSeries.contains(batchID)) {
         TrackSeries s;
         s.type = type;
-        s.color = (type == PointType::TBDPointType) ? QColor(TBD_COLOR) : QColor(TRA_COLOR);
+        s.color = trackTypeColor(type);
         // s.visible 默认值是 true（在结构体定义中）
         mSeries.insert(batchID, s);
 
@@ -219,7 +219,7 @@ void TrackManager::ensureSeries(int batchID, PointType type)
     auto& s = mSeries[batchID];
     if (s.type != type) {
         s.type = type;
-        QColor newColor = (type == PointType::TBDPointType) ? QColor(TBD_COLOR) : QColor(TRA_COLOR);
+        QColor newColor = trackTypeColor(type);
         s.color = newColor;
         setBatchColor(batchID, newColor);
     }
@@ -282,7 +282,12 @@ void TrackManager::addTrackPoint(const PointInfo& info)
     }
 
     // 确保指定批次的航迹序列存在，并根据类型选择颜色
-    PointType type = (info.type == PointType::TBDPointType ? PointType::TBDPointType : PointType::Track);
+    PointType type = PointType::Track;
+    if (info.type == PointType::TBDPointType) {
+        type = PointType::TBDPointType;
+    } else if (info.type == PointType::CooperativeTrackPointType) {
+        type = PointType::CooperativeTrackPointType;
+    }
     ensureSeries(info.batch, type);
     auto& s = mSeries[info.batch];  // 获取航迹序列引用
 
@@ -396,7 +401,7 @@ void TrackManager::updateLatestLabel(int batchID)
 
     // 标签内容：根据你的需求自由定制
     const auto& pi = latest.point->infoRef();
-    QString typeText = (s.type == PointType::TBDPointType) ? QString("TBD") : QString("Track");
+    QString typeText = trackTypeLabel(s.type);
     QString labelText = QString("%1:%2").arg(typeText).arg(pi.batch);
     s.label->setPlainText(labelText);
 
@@ -527,6 +532,15 @@ void TrackManager::setAllVisible(bool vis)
 
     for (auto it = mSeries.begin(); it != mSeries.end(); ++it) {
         qDebug() << "  Setting batch" << it.key() << "visible to" << vis;
+        it->visible = vis;
+        updateBatchVisibility(it.key());
+    }
+}
+
+void TrackManager::setTypeVisible(PointType type, bool vis)
+{
+    for (auto it = mSeries.begin(); it != mSeries.end(); ++it) {
+        if (it->type != type) continue;
         it->visible = vis;
         updateBatchVisibility(it.key());
     }

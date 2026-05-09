@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 10:08:59
+ * @LastEditTime: 2026-05-09 11:28:42
  * @Description: 
  */
 /**
@@ -215,6 +215,19 @@ void ThreadedUdpSocket::handleDatagram(const QByteArray& data, int senderPort) {
                     emit tbdInfo(data);
                 } else {
                     emit tbdInfo(data);  // 容错：若端口配置不同仍转发
+                }
+                break;
+            }
+            case 0xEE03: {  // 协同航迹信息消息
+                if (senderPort == CF_INS.port("DATA_PRO_2_DISP3", DATA_PRO_2_DISP3) &&
+                    m_Port == CF_INS.port("DISP_GET_DATA_PORT3", DISP_GET_DATA_PORT3)) {
+                    emit cooperativeTrackInfo(data);
+                } else {
+                    qWarning() << "[ThreadedUdpSocket] Cooperative track port mismatch, sender="
+                               << senderPort << "expected=" << CF_INS.port("DATA_PRO_2_DISP3", DATA_PRO_2_DISP3)
+                               << "recv=" << m_Port << "expectedRecv=" << CF_INS.port("DISP_GET_DATA_PORT3", DISP_GET_DATA_PORT3)
+                               << "forwarding for debug";
+                    emit cooperativeTrackInfo(data);  // 容错：若端口配置不同仍转发
                 }
                 break;
             }

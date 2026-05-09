@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-02-05 16:53:38
+ * @Date: 2026-02-28 16:46:29
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:33
+ * @LastEditTime: 2026-05-09 11:28:43
  * @Description: 
  */
 /*
@@ -40,6 +40,8 @@ void FrozenColumnHelper::init()
     // 创建冻结列覆盖表格，父对象设为主表格
     m_frozenTable = new QTableWidget(m_mainTable);
     m_frozenTable->setFocusPolicy(Qt::NoFocus);
+    // 冻结列表格与主表使用同一 objectName，确保命中同一套 QSS 规则。
+    m_frozenTable->setObjectName(m_mainTable->objectName());
 
     // 设置与主表格相同的基本属性
     m_frozenTable->verticalHeader()->hide();
@@ -48,46 +50,15 @@ void FrozenColumnHelper::init()
     m_frozenTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_frozenTable->setAlternatingRowColors(m_mainTable->alternatingRowColors());
     m_frozenTable->setShowGrid(m_mainTable->showGrid());
+    m_frozenTable->setGridStyle(m_mainTable->gridStyle());
     m_frozenTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
     // 显示表头
     m_frozenTable->horizontalHeader()->setVisible(true);
     m_frozenTable->horizontalHeader()->setStretchLastSection(false);
 
-    // 设置冻结表格的样式，与主表格 darkstyle.qss 完全一致
-    // 适用于 #tableWidget 和 #droneTableWidget
-    m_frozenTable->setStyleSheet(
-        "QTableWidget {"
-        "    border: none;"
-        "    background-color: rgba(16, 24, 24, 0.9);"
-        "    color: #E0E0E0;"
-        "    font-size: 14px;"
-        "    gridline-color: #333333;"
-        "}"
-        "QTableWidget::item {"
-        "    border-bottom: 1px solid #333333;"
-        "    padding: 4px 8px;"
-        "    background-color: rgba(16, 24, 24, 0.8);"
-        "    color: #E0E0E0;"
-        "}"
-        "QTableWidget::item:alternate {"
-        "    background-color: rgba(20, 30, 30, 0.8);"
-        "}"
-        "QTableWidget::item:selected {"
-        "    background-color: rgba(0, 255, 200, 0.3);"
-        "    color: #FFFFFF;"
-        "    border: 1px solid #00ffc8;"
-        "}"
-        "QHeaderView::section {"
-        "    background-color: rgba(24, 36, 36, 0.95);"
-        "    color: #00ffc8;"
-        "    border: 1px solid #444444;"
-        "    padding: 4px;"
-        "    font-weight: bold;"
-        "    font-size: 13px;"
-        "    text-align: left;"
-        "}"
-    );
+    // 使用应用级 QSS，不在这里覆写局部样式，避免破坏主表既有外观。
+    m_frozenTable->setStyleSheet(QString());
 
     // 同步垂直滚动
     connect(m_mainTable->verticalScrollBar(), &QScrollBar::valueChanged,
@@ -111,7 +82,9 @@ void FrozenColumnHelper::init()
             this, &FrozenColumnHelper::onSectionResized);
 
     // 监听主表格大小变化（使用事件过滤器方式更可靠）
+    m_mainTable->installEventFilter(this);
     m_mainTable->viewport()->installEventFilter(this);
+    m_mainTable->horizontalHeader()->installEventFilter(this);
 
     // 初始化
     syncFrozenContent();
@@ -255,9 +228,21 @@ void FrozenColumnHelper::setFrozenColumnCount(int count)
 
 bool FrozenColumnHelper::eventFilter(QObject* watched, QEvent* event)
 {
-    // 监听主表格viewport的大小变化
+    if (!m_mainTable || !m_frozenTable) {
+        return QObject::eventFilter(watched, event);
+    }
+
+    // 主表和表头真正显示/布局完成后，再同步一次，避免初始高度未稳定导致遮挡。
+    if ((watched == m_mainTable || watched == m_mainTable->horizontalHeader()) &&
+        (event->type() == QEvent::Show || event->type() == QEvent::Resize || event->type() == QEvent::LayoutRequest)) {
+        syncFrozenContent();
+        return QObject::eventFilter(watched, event);
+    }
+
+    // 监听主表格 viewport 的大小变化，保持冻结列几何同步。
     if (watched == m_mainTable->viewport() && event->type() == QEvent::Resize) {
         updateGeometry();
     }
+
     return QObject::eventFilter(watched, event);
 }

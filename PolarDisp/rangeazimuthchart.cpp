@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-01-30 11:45:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:32
+ * @LastEditTime: 2026-05-09 11:28:42
  * @Description: 
  */
 /*
@@ -250,72 +250,36 @@ void RangeAzimuthChart::addDetectionPoint(const PointInfo& info)
 
 void RangeAzimuthChart::addTrackPoint(const trackInfo& info)
 {
-    // 提取方位角和距离（trackInfo 使用 azi 和 dis）
-    double azimuth = info.azi;
-    double range = info.dis / 1000.0;  // 转换为km用于坐标系
-
-    // 将数据坐标转换为场景坐标
-    QPointF scenePos = dataToScene(azimuth, range);
-
-    // 计算实际点大小
-    double size = m_baseTrackSize * m_trackSizeRatio;
-
-    // 创建图形项
-    QGraphicsEllipseItem* item = new QGraphicsEllipseItem(
-        scenePos.x() - size/2,
-        scenePos.y() - size/2,
-        size,
-        size
-    );
-    item->setPen(QPen(m_trackColor, 1));
-    item->setBrush(QBrush(m_trackColor));
-
-    // 设置tooltip（与PPI航迹点格式一致）
-    QString tooltip = QString("%1\nID:%2\nR:%3m\nA:%4°\nE:%5°\nSNR:%6dB\nV:%7m/s\nH:%8m\nAmp:%9")
-        .arg(TRA_LABEL)
-        .arg(info.batch)
-        .arg(info.dis, 0, 'f', 1)
-        .arg(info.azi, 0, 'f', 1)
-        .arg(info.ele, 0, 'f', 1)
-        .arg(info.SNR, 0, 'f', 1)
-        .arg(info.vel, 0, 'f', 1)
-        .arg(info.altitute, 0, 'f', 1)
-        .arg(info.amp);
-    item->setToolTip(tooltip);
-
-    // 启用hover事件
-    item->setAcceptHoverEvents(true);
-
-    scene()->addItem(item);
-
-    // 检查是否在显示范围内
-    ChartAxisConfig yAxis = yAxisConfig();
-    bool inAzimuthRange = isAzimuthInRange(azimuth);
-    bool inDistanceRange = (range >= yAxis.minValue && range <= yAxis.maxValue);
-    bool shouldShow = m_trackVisible && inAzimuthRange && inDistanceRange;
-
-    item->setVisible(shouldShow);
-
-    // 存储到列表
-    TrackItem trackItem;
-    trackItem.graphicsItem = item;
-    trackItem.trackData = info;
-    trackItem.timestamp = QDateTime::currentMSecsSinceEpoch();
-
-    m_tracks.append(trackItem);
-
-    // 限制航迹数
-    limitTrackPoints();
-
-    // 更新统计
-    updatePointCount();
+    PointInfo pointInfo;
+    pointInfo.type = PointType::Track;
+    pointInfo.range = info.dis;
+    pointInfo.azimuth = info.azi;
+    pointInfo.elevation = info.ele;
+    pointInfo.SNR = info.SNR;
+    pointInfo.speed = info.vel;
+    pointInfo.altitute = info.altitute;
+    pointInfo.amp = info.amp;
+    pointInfo.batch = info.batch;
+    pointInfo.statMethod = info.statMethod;
+    pointInfo.targetRecResult = info.targetRecResult;
+    addPointInfo(pointInfo);
 }
 
 void RangeAzimuthChart::addPointInfo(const PointInfo& info)
 {
     // statMethod==2 表示消批命令，不添加新点（批次已由 removeBatch 删除）
     if (info.statMethod == 2) {
-        LOG_INFO(QString("[RangeAzimuthChart::addPointInfo] statMethod==2 ignored (batch=%1)").arg(info.batch));
+        for (int i = m_tracks.size() - 1; i >= 0; --i) {
+            if (m_tracks[i].info.batch != info.batch || m_tracks[i].info.type != info.type) {
+                continue;
+            }
+            if (m_tracks[i].graphicsItem) {
+                scene()->removeItem(m_tracks[i].graphicsItem);
+                delete m_tracks[i].graphicsItem;
+            }
+            m_tracks.removeAt(i);
+        }
+        updatePointCount();
         return;
     }
 
@@ -323,37 +287,25 @@ void RangeAzimuthChart::addPointInfo(const PointInfo& info)
     if (info.type == Detection) {
         // 检测点
         addDetectionPoint(info);
-    } else if (info.type == Track || info.type == TBDPointType) {
-        // 航迹或TBD航迹 - 需要转换为 trackInfo 格式
-        // 注意：PointInfo 和 trackInfo 字段名不同
-        // PointInfo: azimuth, range
-        // trackInfo: azi, dis
-        // 这里直接使用 PointInfo 的数据绘制
-
-        // 提取方位角和距离
+    } else if (info.type == Track || info.type == TBDPointType || info.type == CooperativeTrackPointType) {
         double azimuth = info.azimuth;
-        double range = info.range / 1000.0;  // 转换为km用于坐标系
+        double range = info.range / 1000.0;
 
-        // 将数据坐标转换为场景坐标
         QPointF scenePos = dataToScene(azimuth, range);
-
-        // 计算实际点大小
         double size = m_baseTrackSize * m_trackSizeRatio;
+        QColor color = trackColor(info.type);
 
-        // 创建图形项
         QGraphicsEllipseItem* item = new QGraphicsEllipseItem(
             scenePos.x() - size/2,
             scenePos.y() - size/2,
             size,
             size
         );
-        item->setPen(QPen(m_trackColor, 1));
-        item->setBrush(QBrush(m_trackColor));
+        item->setPen(QPen(color, 1));
+        item->setBrush(QBrush(color));
 
-        // 设置tooltip（与PPI格式一致）
-        QString typeStr = (info.type == Track) ? TRA_LABEL : "TBD航迹";
         QString tooltip = QString("%1\nID:%2\nR:%3m\nA:%4°\nE:%5°\nSNR:%6dB\nV:%7m/s\nH:%8m\nAmp:%9")
-            .arg(typeStr)
+            .arg(trackTooltipLabel(info.type))
             .arg(info.batch)
             .arg(info.range, 0, 'f', 1)
             .arg(info.azimuth, 0, 'f', 1)
@@ -364,36 +316,24 @@ void RangeAzimuthChart::addPointInfo(const PointInfo& info)
             .arg(info.amp);
         item->setToolTip(tooltip);
 
-        // 启用hover事件
         item->setAcceptHoverEvents(true);
-
         scene()->addItem(item);
 
-        // 检查是否在显示范围内
         ChartAxisConfig yAxis = yAxisConfig();
         bool inAzimuthRange = isAzimuthInRange(azimuth);
         bool inDistanceRange = (range >= yAxis.minValue && range <= yAxis.maxValue);
-        bool shouldShow = m_trackVisible && inAzimuthRange && inDistanceRange;
+        bool shouldShow = isTrackTypeVisible(info.type) && inAzimuthRange && inDistanceRange;
 
         item->setVisible(shouldShow);
 
-        // 存储到列表（使用伪造的trackInfo）
         TrackItem trackItem;
         trackItem.graphicsItem = item;
-        // 创建一个临时的 trackInfo 来存储
-        trackInfo track;
-        track.azi = info.azimuth;
-        track.dis = info.range;
-        track.batch = info.batch;
-        trackItem.trackData = track;
+        trackItem.info = info;
         trackItem.timestamp = QDateTime::currentMSecsSinceEpoch();
 
         m_tracks.append(trackItem);
 
-        // 限制航迹数
         limitTrackPoints();
-
-        // 更新统计
         updatePointCount();
     }
 }
@@ -403,7 +343,7 @@ void RangeAzimuthChart::removeBatch(int batchID)
     int removedCount = 0;
     // 从后向前遍历，删除匹配的航迹
     for (int i = m_tracks.size() - 1; i >= 0; --i) {
-        if (m_tracks[i].trackData.batch == batchID) {
+        if (m_tracks[i].info.batch == batchID) {
             // 从场景中移除图形项
             if (m_tracks[i].graphicsItem) {
                 scene()->removeItem(m_tracks[i].graphicsItem);
@@ -535,11 +475,12 @@ void RangeAzimuthChart::setRangeFromMain(double minRange, double maxRange)
 
     // 重新创建航迹图形项
     for (TrackItem& item : m_tracks) {
-        const trackInfo& track = item.trackData;
-        double rangeKm = track.dis / 1000.0;  // 转换为km
+        const PointInfo& track = item.info;
+        double rangeKm = track.range / 1000.0;
 
-        QPointF scenePos = dataToScene(track.azi, rangeKm);
+        QPointF scenePos = dataToScene(track.azimuth, rangeKm);
         double size = m_baseTrackSize * m_trackSizeRatio;
+        QColor color = trackColor(track.type);
 
         QGraphicsEllipseItem* graphicsItem = new QGraphicsEllipseItem(
             scenePos.x() - size/2,
@@ -547,27 +488,25 @@ void RangeAzimuthChart::setRangeFromMain(double minRange, double maxRange)
             size,
             size
         );
-        graphicsItem->setPen(QPen(m_trackColor, 1));
-        graphicsItem->setBrush(QBrush(m_trackColor));
+        graphicsItem->setPen(QPen(color, 1));
+        graphicsItem->setBrush(QBrush(color));
 
-        // 设置tooltip（与PPI格式一致）
         QString tooltip = QString("%1\nID:%2\nR:%3m\nA:%4°\nE:%5°\nSNR:%6dB\nV:%7m/s\nH:%8m\nAmp:%9")
-            .arg(TRA_LABEL)
+            .arg(trackTooltipLabel(track.type))
             .arg(track.batch)
-            .arg(track.dis, 0, 'f', 1)
-            .arg(track.azi, 0, 'f', 1)
-            .arg(track.ele, 0, 'f', 1)
+            .arg(track.range, 0, 'f', 1)
+            .arg(track.azimuth, 0, 'f', 1)
+            .arg(track.elevation, 0, 'f', 1)
             .arg(track.SNR, 0, 'f', 1)
-            .arg(track.vel, 0, 'f', 1)
+            .arg(track.speed, 0, 'f', 1)
             .arg(track.altitute, 0, 'f', 1)
             .arg(track.amp);
         graphicsItem->setToolTip(tooltip);
         graphicsItem->setAcceptHoverEvents(true);
 
-        // 检查是否应该显示（使用km比较）
-        bool inAzimuthRange = isAzimuthInRange(track.azi);
+        bool inAzimuthRange = isAzimuthInRange(track.azimuth);
         bool inDistanceRange = (rangeKm >= minRangeKm && rangeKm <= maxRangeKm);
-        bool shouldShow = m_trackVisible && inAzimuthRange && inDistanceRange;
+        bool shouldShow = isTrackTypeVisible(track.type) && inAzimuthRange && inDistanceRange;
         graphicsItem->setVisible(shouldShow);
 
         scene()->addItem(graphicsItem);
@@ -598,18 +537,21 @@ void RangeAzimuthChart::setTrackVisible(bool visible)
 {
     m_trackVisible = visible;
 
-    // 更新所有航迹的可见性（同时考虑范围过滤）
-    ChartAxisConfig yAxis = yAxisConfig();
-    for (const TrackItem& item : m_tracks) {
-        if (item.graphicsItem) {
-            const trackInfo& track = item.trackData;
-            double rangeKm = track.dis / 1000.0;  // 转换为km
-            bool inAzimuthRange = isAzimuthInRange(track.azi);
-            bool inDistanceRange = (rangeKm >= yAxis.minValue && rangeKm <= yAxis.maxValue);
-            bool shouldShow = visible && inAzimuthRange && inDistanceRange;
-            item.graphicsItem->setVisible(shouldShow);
-        }
-    }
+    updateTrackVisibility();
+}
+
+void RangeAzimuthChart::setTbdTrackVisible(bool visible)
+{
+    m_tbdTrackVisible = visible;
+
+    updateTrackVisibility();
+}
+
+void RangeAzimuthChart::setCooperativeTrackVisible(bool visible)
+{
+    m_cooperativeTrackVisible = visible;
+
+    updateTrackVisibility();
 }
 
 void RangeAzimuthChart::setDetectionSizeRatio(double ratio)
@@ -640,8 +582,8 @@ void RangeAzimuthChart::setTrackSizeRatio(double ratio)
     for (const TrackItem& item : m_tracks) {
         if (item.graphicsItem) {
             double size = m_baseTrackSize * m_trackSizeRatio;
-            double rangeKm = item.trackData.dis / 1000.0;  // 转换为km
-            QPointF scenePos = dataToScene(item.trackData.azi, rangeKm);
+            double rangeKm = item.info.range / 1000.0;
+            QPointF scenePos = dataToScene(item.info.azimuth, rangeKm);
             item.graphicsItem->setRect(
                 scenePos.x() - size/2,
                 scenePos.y() - size/2,
@@ -735,19 +677,17 @@ void RangeAzimuthChart::refreshAllPoints()
     // 更新航迹位置和可见性
     for (TrackItem& item : m_tracks) {
         if (item.graphicsItem) {
-            const trackInfo& track = item.trackData;
-            double azimuth = track.azi;
-            double rangeKm = track.dis / 1000.0;  // 转换为km
+            const PointInfo& track = item.info;
+            double azimuth = track.azimuth;
+            double rangeKm = track.range / 1000.0;
 
-            // 重新计算场景位置
             QPointF scenePos = dataToScene(azimuth, rangeKm);
             double size = m_baseTrackSize * m_trackSizeRatio;
             item.graphicsItem->setRect(scenePos.x() - size/2, scenePos.y() - size/2, size, size);
 
-            // 更新可见性
             bool inAzimuthRange = isAzimuthInRange(azimuth);
             bool inDistanceRange = (rangeKm >= yAxis.minValue && rangeKm <= yAxis.maxValue);
-            bool shouldShow = m_trackVisible && inAzimuthRange && inDistanceRange;
+            bool shouldShow = isTrackTypeVisible(track.type) && inAzimuthRange && inDistanceRange;
             item.graphicsItem->setVisible(shouldShow);
         }
     }
@@ -797,6 +737,50 @@ bool RangeAzimuthChart::isAzimuthInRange(double azimuth) const
     } else {
         // 跨越0°的情况：例如 330° - 30°
         return azimuth >= m_minAzimuth || azimuth <= m_maxAzimuth;
+    }
+}
+
+QColor RangeAzimuthChart::trackColor(unsigned type) const
+{
+    switch (static_cast<PointType>(type)) {
+    case PointType::TBDPointType:
+        return m_tbdTrackColor;
+    case PointType::CooperativeTrackPointType:
+        return m_cooperativeTrackColor;
+    case PointType::Track:
+    default:
+        return m_trackColor;
+    }
+}
+
+QString RangeAzimuthChart::trackTooltipLabel(unsigned type) const
+{
+    return trackTypeLabel(type);
+}
+
+bool RangeAzimuthChart::isTrackTypeVisible(unsigned type) const
+{
+    switch (static_cast<PointType>(type)) {
+    case PointType::TBDPointType:
+        return m_tbdTrackVisible;
+    case PointType::CooperativeTrackPointType:
+        return m_cooperativeTrackVisible;
+    case PointType::Track:
+    default:
+        return m_trackVisible;
+    }
+}
+
+void RangeAzimuthChart::updateTrackVisibility()
+{
+    ChartAxisConfig yAxis = yAxisConfig();
+    for (const TrackItem& item : m_tracks) {
+        if (!item.graphicsItem) continue;
+        double rangeKm = item.info.range / 1000.0;
+        bool inAzimuthRange = isAzimuthInRange(item.info.azimuth);
+        bool inDistanceRange = (rangeKm >= yAxis.minValue && rangeKm <= yAxis.maxValue);
+        bool shouldShow = isTrackTypeVisible(item.info.type) && inAzimuthRange && inDistanceRange;
+        item.graphicsItem->setVisible(shouldShow);
     }
 }
 

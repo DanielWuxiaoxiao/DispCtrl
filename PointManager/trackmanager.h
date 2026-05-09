@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-29 10:48:05
+ * @LastEditTime: 2026-05-09 11:28:42
  * @Description: 
  */
 /**
@@ -219,6 +219,13 @@ public:
      *          - 保持各批次的相对可见性状态
      */
     void setAllVisible(bool vis);
+
+    /**
+     * @brief 设置指定类型航迹的全局可见性
+     * @param type 航迹类型
+     * @param vis true显示，false隐藏
+     */
+    void setTypeVisible(PointType type, bool vis);
 
     /**
      * @brief 删除指定批次的航迹
