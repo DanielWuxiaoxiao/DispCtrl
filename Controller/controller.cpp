@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 17:16:07
+ * @LastEditTime: 2026-05-18 15:26:18
  * @Description: 
  */
 /**
@@ -36,6 +36,7 @@
 #include "disp2monmanager.h"
 #include "mon2dispmanager.h"
 #include "ExternalCtrlManager.h"
+#include "Basic/log.h"
 
 // 全局静态单例实例定义
 Q_GLOBAL_STATIC(Controller, ControllerInstance)
@@ -92,6 +93,14 @@ Controller::Controller(QObject* parent)
  */
 void Controller::init()
 {
+    LOG_INFO(QString("[Controller::init] displayConfig iftbd=%1 ifxietong=%2 detListen=%3 trackListen=%4 tbdListen=%5 collabListen=%6")
+             .arg(CF_INS.iftbd(false))
+             .arg(CF_INS.ifxietong(false))
+             .arg(CF_INS.port("DISP_GET_SIG_PORT1", DISP_GET_SIG_PORT1))
+             .arg(CF_INS.port("DISP_GET_DATA_PORT", DISP_GET_DATA_PORT))
+             .arg(CF_INS.port("DISP_GET_DATA_PORT2", DISP_GET_DATA_PORT2))
+             .arg(CF_INS.port("DISP_GET_DATA_PORT3", DISP_GET_DATA_PORT3)));
+
     // === 创建子系统管理器实例 ===
     resMgr = new Disp2ResManager(this);        // 显示到资源管理器
     resRecvMgr = new Res2DispManager(this);    // 资源到显示管理器
@@ -104,9 +113,13 @@ void Controller::init()
     dataRecvMgr = new Data2DispManager(this);  // 数据到显示管理器
     if (CF_INS.iftbd(false)) {
         tbdRecvMgr = new Tbd2DispManager(this);    // TBD数据到显示管理器
+    } else {
+        LOG_INFO("[Controller::init] TBD receive/display path disabled by config iftbd=false");
     }
     if (CF_INS.ifxietong(false)) {
         collabTrackRecvMgr = new CollabTrack2DispManager(this); // 协同航迹到显示管理器
+    } else {
+        LOG_INFO("[Controller::init] Cooperative track receive/display path disabled by config ifxietong=false");
     }
     dataMgr = new Disp2DataManager(this);      // 显示到数据管理器
     tarMgr = new targetDispManager(this);      // 目标显示管理器
@@ -198,8 +211,9 @@ void Controller::sendRoadPointsToDataPro(const RoadPointGeo* points, int count)
         dataMgr->sendParam(buffer.data(), static_cast<unsigned>(dataSize));
     }
 
-    qDebug() << "[Controller] Sent" << count << "road points to data processing in"
-             << frameTotal << "frames";
+    LOG_DEBUG(QString("[Controller] Sent %1 road points to data processing in %2 frames")
+                  .arg(count)
+                  .arg(frameTotal));
 }
 
 void Controller::updateHeadingFromCtrlTable(double headingDeg) {

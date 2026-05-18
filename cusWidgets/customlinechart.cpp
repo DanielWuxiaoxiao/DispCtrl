@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-01-30 11:45:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:32
+ * @LastEditTime: 2026-05-18 15:26:22
  * @Description: 
  */
 /*
@@ -19,6 +19,43 @@
 #include <QResizeEvent>
 #include <QDebug>
 #include <cmath>
+
+namespace {
+
+int decimalsForInterval(double interval)
+{
+    if (interval <= 0) {
+        return 0;
+    }
+
+    int decimals = 0;
+    double scaled = interval;
+    while (decimals < 3 && std::fabs(std::round(scaled) - scaled) > 0.001) {
+        scaled *= 10.0;
+        ++decimals;
+    }
+    return decimals;
+}
+
+QString formatAxisValue(double value, double interval, const QString& unit)
+{
+    QString text = QString::number(value, 'f', decimalsForInterval(interval));
+    if (text.contains('.')) {
+        while (text.endsWith('0')) {
+            text.chop(1);
+        }
+        if (text.endsWith('.')) {
+            text.chop(1);
+        }
+    }
+
+    if (!unit.isEmpty()) {
+        text += unit;
+    }
+    return text;
+}
+
+}
 
 CustomLineChart::CustomLineChart(QWidget* parent)
     : QGraphicsView(parent)
@@ -256,10 +293,7 @@ void CustomLineChart::drawAxes()
             double ratio = (x - m_xAxisConfig.minValue) / xRange;
             double sceneX = m_leftMargin + ratio * width;
 
-            QString labelText = QString::number(x, 'f', 0);
-            if (!m_xAxisConfig.unit.isEmpty()) {
-                labelText += m_xAxisConfig.unit;
-            }
+            QString labelText = formatAxisValue(x, m_xAxisConfig.majorTickInterval, m_xAxisConfig.unit);
 
             QGraphicsTextItem* label = new QGraphicsTextItem(labelText);
             label->setFont(labelFont);
@@ -285,10 +319,7 @@ void CustomLineChart::drawAxes()
             double ratio = (y - m_yAxisConfig.minValue) / yRange;
             double sceneY = m_topMargin + height - ratio * height;
 
-            QString labelText = QString::number(y, 'f', 0);
-            if (!m_yAxisConfig.unit.isEmpty()) {
-                labelText += m_yAxisConfig.unit;
-            }
+            QString labelText = formatAxisValue(y, m_yAxisConfig.majorTickInterval, m_yAxisConfig.unit);
 
             QGraphicsTextItem* label = new QGraphicsTextItem(labelText);
             label->setFont(labelFont);

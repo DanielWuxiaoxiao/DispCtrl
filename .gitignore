@@ -87,6 +87,7 @@ compile_commands.json
 
 # IDE and editor files
 .vscode/
+.vs/
 .idea/
 *.swp
 *.swo
@@ -94,6 +95,7 @@ compile_commands.json
 # Log files
 *.log
 disp_ctrl_log.txt
+disp_ctrl_log*.txt
 
 # Qt autogen files
 *_autogen/

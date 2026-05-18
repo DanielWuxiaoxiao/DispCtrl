@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-04-27 16:58:32
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-29 10:48:04
+ * @LastEditTime: 2026-05-18 15:26:19
  * @Description: 
  */
 #ifndef GCSMANAGER_H
@@ -12,6 +12,7 @@
 #include <QObject>
 #include <QUdpSocket>
 #include <QHostAddress>
+#include <QtGlobal>
 #include "Basic/Protocol.h"
 
 /**
@@ -68,6 +69,10 @@ private:
     QHostAddress m_gcsHost;
     quint16      m_dstPort = 0;
     quint16      m_srcPort = 0;
+    QHostAddress m_lastPeerHost;
+    quint16      m_lastPeerPort = 0;
+    qint64       m_lastHeartbeatLogMs = 0;
+    quint32      m_suppressedHeartbeatCount = 0;
 };
 
 #endif // GCSMANAGER_H

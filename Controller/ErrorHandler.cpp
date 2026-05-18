@@ -3,31 +3,31 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 11:25:55
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 17:16:07
+ * @LastEditTime: 2026-05-18 15:26:17
  * @Description: 
  */
 /**
  * @file ErrorHandler.cpp
  * @brief 统一错误处理框架实现
  * @details 提供企业级错误处理机制的完整实现
- * 
+ *
  * 实现功能：
  * - 多级错误处理器（日志、UI、自定义）
  * - 错误分类和严重级别管理
  * - 线程安全的错误报告
  * - 错误统计和历史记录
  * - 自动重试机制支持
- * 
+ *
  * 设计模式：
  * - 策略模式：可插拔的错误处理器
  * - 单例模式：全局错误管理器
  * - 观察者模式：错误事件通知
- * 
+ *
  * 性能优化：
  * - 轻量级错误信息结构
  * - 异步错误处理选项
  * - 高效的错误统计算法
- * 
+ *
  * @author DispCtrl Team
  * @version 1.0
  * @date 2024
@@ -71,7 +71,7 @@ public:
             .arg(QMetaEnum::fromType<ErrorCategory>().valueToKey(static_cast<int>(error.category)))
             .arg(error.code)
             .arg(error.message);
-        
+
         // 添加上下文信息（端口、IP、文件名等额外调试信息）
         if (!error.context.isEmpty()) {
             QStringList contextItems;
@@ -108,17 +108,17 @@ public:
             }
             state.lastLogMs = nowMs;
         }
-        
+
         // 根据严重级别选择合适的Qt日志输出函数
         switch (error.severity) {
             case ErrorSeverity::Info:
-                qInfo() << logMessage;
+                LOG_INFO(logMessage);
                 break;
             case ErrorSeverity::Warning:
-                qWarning() << logMessage;
+                LOG_WARNING(logMessage);
                 break;
             case ErrorSeverity::Error:
-                qCritical() << logMessage;
+                LOG_ERROR(logMessage);
                 break;
             case ErrorSeverity::Critical:
             case ErrorSeverity::Fatal:
@@ -130,7 +130,7 @@ public:
 };
 
 // =============================================================================
-// UIErrorHandler - UI错误处理器  
+// UIErrorHandler - UI错误处理器
 // =============================================================================
 
 /**
@@ -157,14 +157,14 @@ public:
         if (error.severity >= ErrorSeverity::Error) {
             QString title = "错误";
             QString message = QString("%1\n\n%2").arg(error.code, error.message);
-            
+
             // 根据严重级别选择合适的图标和标题
             QMessageBox::Icon icon = QMessageBox::Warning;
             if (error.severity == ErrorSeverity::Critical || error.severity == ErrorSeverity::Fatal) {
                 icon = QMessageBox::Critical;
                 title = "严重错误";
             }
-            
+
             // 使用Qt::QueuedConnection确保在主线程中显示消息框
             // 这样可以从任意线程安全地调用此方法
             QMetaObject::invokeMethod(qApp, [=]() {
@@ -193,13 +193,13 @@ ErrorHandler::ErrorHandler(QObject* parent)
 {
     // 注册默认错误处理器 - 根据错误分类分配合适的处理器
     registerHandler(ErrorCategory::System, new LogErrorHandler());      // 系统错误 -> 日志
-    registerHandler(ErrorCategory::Network, new LogErrorHandler());     // 网络错误 -> 日志  
+    registerHandler(ErrorCategory::Network, new LogErrorHandler());     // 网络错误 -> 日志
     registerHandler(ErrorCategory::DataProcessing, new LogErrorHandler()); // 数据处理错误 -> 日志
     registerHandler(ErrorCategory::Configuration, new LogErrorHandler());  // 配置错误 -> 日志
     registerHandler(ErrorCategory::UI, new UIErrorHandler());           // UI错误 -> 消息框
-    
+
     // 连接关键错误信号到处理槽 - 用于处理严重错误的特殊逻辑
-    connect(this, &ErrorHandler::criticalErrorOccurred, 
+    connect(this, &ErrorHandler::criticalErrorOccurred,
             this, &ErrorHandler::handleCriticalError);
 }
 
@@ -246,7 +246,7 @@ void ErrorHandler::registerHandler(ErrorCategory category, IErrorHandler* handle
  *          5. 调用相应分类的错误处理器
  *          6. 对于关键错误，触发特殊处理逻辑
  */
-void ErrorHandler::reportError(const QString& code, const QString& message, 
+void ErrorHandler::reportError(const QString& code, const QString& message,
                               ErrorSeverity severity, ErrorCategory category,
                               const QMap<QString, QVariant>& context)
 {
@@ -258,24 +258,24 @@ void ErrorHandler::reportError(const QString& code, const QString& message,
     error.category = category;
     error.timestamp = QDateTime::currentDateTime();
     error.context = context;
-    
+
     // 更新错误统计 - 用于错误分析和监控
     m_errorCounts[category]++;
-    
+
     // 维护最近错误列表 - 保存最近的错误用于调试和分析
     m_recentErrors.append(error);
     if (m_recentErrors.size() > MAX_RECENT_ERRORS) {
         m_recentErrors.removeFirst();  // 保持列表大小在限制范围内
     }
-    
+
     // 发送错误信号 - 允许其他组件监听和响应错误事件
     emit errorReported(error);
-    
+
     // 对于关键错误，发送特殊信号
     if (severity >= ErrorSeverity::Critical) {
         emit criticalErrorOccurred(error);
     }
-    
+
     // 调用相应分类的错误处理器进行实际处理
     if (m_handlers.contains(category)) {
         m_handlers[category]->handleError(error);
@@ -305,8 +305,8 @@ QMap<ErrorCategory, int> ErrorHandler::getErrorStats() const
  */
 void ErrorHandler::handleCriticalError(const ErrorInfo& error)
 {
-    qCritical() << "Critical error occurred:" << error.code << error.message;
-    
+    LOG_CRITICAL(QString("Critical error occurred: %1 %2").arg(error.code, error.message));
+
     // 对于Fatal错误，需要优雅关闭应用程序
     if (error.severity == ErrorSeverity::Fatal) {
         qApp->exit(1);  // 退出应用程序，返回错误代码1

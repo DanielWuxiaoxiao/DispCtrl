@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-29 10:48:05
+ * @LastEditTime: 2026-05-18 15:26:21
  * @Description: 
  */
 /**
@@ -21,6 +21,7 @@
 #pragma once
 #include <QGraphicsView>
 #include <QRubberBand>
+#include <QSet>
 
 // 前向声明 - 避免头文件循环依赖
 class PPIScene;           ///< PPI场景管理器
@@ -145,6 +146,12 @@ public:
      */
     void setGCSManager(GCSManager* mgr);
 
+    /**
+     * @brief 设置是否仅显示识别为无人机的普通航迹
+     * @param enabled true时仅显示普通航迹中的无人机
+     */
+    void setOnlyRecognizedDroneTracksVisible(bool enabled);
+
 signals:
     /**
      * @brief 视图尺寸变化信号
@@ -203,6 +210,12 @@ signals:
     void maxPointsSettingChanged(int maxPoints);
 
     /**
+     * @brief 单批航迹最大点数变化信号（转发给外部组件）
+     * @param maxPoints 新的单批航迹最大点数
+     */
+    void maxTrackPointsSettingChanged(int maxPoints);
+
+    /**
      * @brief 测距结果信号
      * @param distance 测量得到的距离值（米）
      * @details 当用户完成测距操作时发出，提供测量结果
@@ -253,6 +266,12 @@ public slots:
      * @details 响应PPIVisualSettings组件的最大检测点数量变化，转发给DetManager
      */
     void onMaxPointsChanged(int maxPoints);
+
+    /**
+     * @brief 处理单批航迹最大点数变化
+     * @param maxPoints 新的单批航迹最大点数
+     */
+    void onMaxTrackPointsChanged(int maxPoints);
 
     /**
      * @brief 处理清除P显数据请求
@@ -344,6 +363,8 @@ protected:
     void resizeEvent(QResizeEvent* e) override;
 
 private:
+    bool sendTrackTargetAssignment(int batchID);
+
     // 核心组件
     PPIScene* m_scene;                ///< PPI场景对象指针
 
@@ -379,11 +400,13 @@ private:
 
     // GCS通信
     GCSManager* m_gcsMgr = nullptr;          ///< GCS管理器（由外部注入，不拥有所有权）
+    QSet<int> m_autoSendTrackBatches;        ///< 已订阅自动下发的航迹批次
 
     // 道路点下发状态跟踪（用于浮点容差判断）
     double m_lastSentLat = 0.0;              ///< 上次下发时的雷达纬度
     double m_lastSentLon = 0.0;              ///< 上次下发时的雷达经度
     double m_lastSentRange = 0.0;            ///< 上次下发时的量程（km）
+    bool m_sendRoadPointsEnabled = true;     ///< 是否向数据处理下发道路点
 
     /**
      * @brief 收集量程内道路点经纬度并下发给数据处理模块

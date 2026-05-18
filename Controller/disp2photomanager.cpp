@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 17:16:08
+ * @LastEditTime: 2026-05-18 15:26:19
  * @Description: 
  */
 #include "disp2photomanager.h"
@@ -106,5 +106,3 @@ Disp2PhotoManager::~Disp2PhotoManager() {
     thread->quit();
     thread->wait();
 }
-
-

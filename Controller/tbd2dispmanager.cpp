@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-12-25 16:19:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 17:16:08
+ * @LastEditTime: 2026-05-18 15:26:19
  * @Description: 
  */
 #include "tbd2dispmanager.h"
@@ -78,6 +78,34 @@ void Tbd2DispManager::tbdInfoDecode(QByteArray data)
         return;
     }
 
+    ++m_frameCount;
+    m_pointCount += static_cast<quint64>(trackCount);
+
+    static quint64 s_tbdFrameLogCount = 0;
+    ++s_tbdFrameLogCount;
+    const bool shouldLogFrame = (s_tbdFrameLogCount <= 3) || (s_tbdFrameLogCount % 100 == 0);
+
+    if (trackCount <= 0 && shouldLogFrame) {
+        LOG_WARNING(QString("[Tbd2DispManager] Empty TBD track frame: frame=%1 size=%2 mesID=0x%3")
+                    .arg(m_frameCount)
+                    .arg(data.size())
+                    .arg(trackResult->mesID, 4, 16, QChar('0')));
+    } else if (shouldLogFrame) {
+        const auto firstTrack = reinterpret_cast<const trackInfo*>(raw);
+        const auto lastTrack = reinterpret_cast<const trackInfo*>(raw + (trackCount - 1) * static_cast<int>(sizeof(trackInfo)));
+        LOG_INFO(QString("[Tbd2DispManager] Frame #%1 decoded: tracks=%2 totalTracks=%3 size=%4 firstBatch=%5 lastBatch=%6 firstStat=%7 firstRange=%8 firstAz=%9 targetRec=%10")
+                 .arg(m_frameCount)
+                 .arg(trackCount)
+                 .arg(m_pointCount)
+                 .arg(data.size())
+                 .arg(firstTrack->batch)
+                 .arg(lastTrack->batch)
+                 .arg(firstTrack->statMethod)
+                 .arg(firstTrack->dis, 0, 'f', 1)
+             .arg(firstTrack->azi, 0, 'f', 2)
+                 .arg(firstTrack->targetRecResult));
+    }
+
     PointInfo info;
     for (int i = 0; i < trackCount; ++i)
     {
@@ -94,19 +122,29 @@ void Tbd2DispManager::tbdInfoDecode(QByteArray data)
         info.statMethod = traPointInfo->statMethod;
         info.targetRecResult = traPointInfo->targetRecResult;
 
+        if (info.statMethod == 2) {
+            LOG_INFO(QString("[Tbd2DispManager] Removal track received: batch=%1 range=%2 azimuthDeg=%3")
+                     .arg(info.batch)
+                     .arg(info.range, 0, 'f', 1)
+                     .arg(info.azimuth, 0, 'f', 2));
+        }
+
         RADAR_DATA_MGR.processTrack(info);
         emit tbdInfoProcess(info);
         raw += sizeof(trackInfo);
     }
 
-    if (raw != end) {
-        LOG_WARNING(QString("[Tbd2DispManager] Trailing bytes detected: %1")
-                    .arg(end - raw));
+    const qsizetype trailingBytes = end - raw;
+    if (trailingBytes > 0 && trailingBytes != static_cast<qsizetype>(sizeof(ProtocolEnd))) {
+        LOG_WARNING(QString("[Tbd2DispManager] Unexpected trailing bytes: %1")
+                    .arg(trailingBytes));
     }
 
-    LOG_INFO(QString("[Tbd2DispManager] Decoded TBD frame: tracks=%1 size=%2")
-             .arg(trackCount)
-             .arg(data.size()));
+    if (shouldLogFrame) {
+        LOG_INFO(QString("[Tbd2DispManager] Frame #%1 dispatched to Controller::tbdInfoProcess, tracks=%2")
+                 .arg(m_frameCount)
+                 .arg(trackCount));
+    }
 }
 
 Tbd2DispManager::~Tbd2DispManager()

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:31
+ * @LastEditTime: 2026-05-18 15:26:21
  * @Description: 
  */
 /**
@@ -141,15 +141,6 @@ QPointF PolarAxis::polarToScene(double distance, double azimuthDeg) const {
     double r = rangeToPixel(distance);
     double rad = qDegreesToRadians(azimuthDeg);
     QPointF result(r * qSin(rad), -r * qCos(rad));
-
-    // 添加调试打印（每100个点打印一次，避免刷屏）
-    static int callCount = 0;
-    if (++callCount % 100 == 0) {
-        qDebug() << "[PolarAxis::polarToScene] distance=" << distance
-                 << "m, azimuth=" << azimuthDeg << "°";
-        qDebug() << "    -> r_pixel=" << r << "rad=" << rad
-                 << "result=(" << result.x() << "," << result.y() << ")";
-    }
 
     return result;
 }

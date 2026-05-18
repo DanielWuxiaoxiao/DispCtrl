@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 11:28:42
+ * @LastEditTime: 2026-05-18 15:26:20
  * @Description: 
  */
 /**
@@ -19,11 +19,305 @@
  */
 
 #include "trackmanager.h"
+#include "Basic/log.h"
+#include <QBrush>
+#include <QDateTime>
+#include <QFontMetricsF>
+#include <QPainter>
 #include <QPen>
+#include <QVariant>
+#include <QVarLengthArray>
 #include <QGraphicsSceneContextMenuEvent>
+#include <QGraphicsSceneHoverEvent>
+#include <QGraphicsSceneMouseEvent>
+#include "Basic/ConfigManager.h"
 #include "Basic/DispBasci.h"
 #include "Basic/log.h"
 #include "Controller/RadarDataManager.h"  // 雷达数据管理器头文件
+#include "PolarDisp/tooltip.h"
+
+namespace {
+
+constexpr qreal kFocusedPointZ = INFO_Z + 20;
+constexpr qreal kFocusedLineZ = INFO_Z + 19;
+constexpr qreal kFocusedLabelZ = INFO_Z + 21;
+constexpr qreal kFocusedLabelFontScale = 1.2;
+constexpr int kPpiRefreshIntervalMs = 16; // ~60 FPS when the GUI thread keeps up.
+
+QColor displayTrackColor(const PointInfo& info)
+{
+    if (info.type == PointType::Track) {
+        return (info.targetRecResult == 1) ? TRA_COLOR : DRONE_COLOR;
+    }
+    return trackTypeColor(info.type);
+}
+
+QString trackTooltipText(const PointInfo& info)
+{
+    const QString targetRecStr = (info.targetRecResult == 1) ? "无人机" : "其它";
+    return QString("%1\nNum:%2\nR:%3m\nA:%4°\nE:%5°\nSNR:%6dB\nV:%7m/s\nH:%8m\nAmp:%9\n识别:%10")
+            .arg(trackTypeLabel(info.type))
+            .arg(info.batch)
+            .arg(info.range)
+            .arg(info.azimuth)
+            .arg(info.elevation)
+            .arg(info.SNR)
+            .arg(info.speed)
+            .arg(info.altitute)
+            .arg(info.amp)
+            .arg(targetRecStr);
+}
+
+}
+
+class TrackBatchItem : public QGraphicsItem
+{
+public:
+    explicit TrackBatchItem(const TrackSeries* series)
+        : m_series(series)
+    {
+        setZValue(LINE_Z);
+        setAcceptHoverEvents(true);
+        setAcceptedMouseButtons(Qt::LeftButton);
+    }
+
+    QRectF boundingRect() const override
+    {
+        return m_bounds;
+    }
+
+    void includePoint(const QPointF& point)
+    {
+        const QRectF pointRect(point.x() - m_pointRadius,
+                               point.y() - m_pointRadius,
+                               m_pointRadius * 2.0,
+                               m_pointRadius * 2.0);
+        const QRectF nextRect = pointRect.adjusted(-10.0, -10.0, 10.0, 10.0);
+        if (m_hasContentBounds && m_bounds.contains(nextRect)) {
+            return;
+        }
+
+        prepareGeometryChange();
+        m_bounds = m_hasContentBounds ? m_bounds.united(nextRect) : nextRect;
+        m_hasContentBounds = true;
+    }
+
+    void rebuildBounds()
+    {
+        prepareGeometryChange();
+        QRectF nextBounds;
+        bool hasVisibleNode = false;
+        if (m_series) {
+            for (const TrackNode& node : m_series->nodes) {
+                if (!node.pointVisible && !node.lineFromPrevVisible) {
+                    continue;
+                }
+                const QRectF pointRect(node.scenePos.x() - m_pointRadius,
+                                       node.scenePos.y() - m_pointRadius,
+                                       m_pointRadius * 2.0,
+                                       m_pointRadius * 2.0);
+                nextBounds = hasVisibleNode ? nextBounds.united(pointRect) : pointRect;
+                hasVisibleNode = true;
+            }
+        }
+        m_hasContentBounds = hasVisibleNode;
+        m_bounds = hasVisibleNode ? nextBounds.adjusted(-10.0, -10.0, 10.0, 10.0)
+                                  : QRectF(-1.0, -1.0, 2.0, 2.0);
+    }
+
+    void setPointSizeRatio(float ratio)
+    {
+        if (ratio <= 0.0f) {
+            ratio = 1.0f;
+        }
+        m_pointRadius = qMax<qreal>(1.0, TRA_SIZE * ratio * 0.5);
+        rebuildBounds();
+    }
+
+    void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override
+    {
+        Q_UNUSED(option)
+        Q_UNUSED(widget)
+
+        if (!m_series) {
+            return;
+        }
+
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, m_series->focused);
+
+        if (!m_series->focused) {
+            QVarLengthArray<QLineF, 256> trackLines;
+            QVarLengthArray<QLineF, 256> otherLines;
+            QVarLengthArray<QLineF, 256> tbdLines;
+            QVarLengthArray<QLineF, 256> cooperativeLines;
+            QVarLengthArray<QPointF, 256> trackPoints;
+            QVarLengthArray<QPointF, 256> otherPoints;
+            QVarLengthArray<QPointF, 256> tbdPoints;
+            QVarLengthArray<QPointF, 256> cooperativePoints;
+
+            auto lineBucket = [&](const PointInfo& info) -> QVarLengthArray<QLineF, 256>& {
+                if (info.type == PointType::TBDPointType) return tbdLines;
+                if (info.type == PointType::CooperativeTrackPointType) return cooperativeLines;
+                return (info.targetRecResult == 1) ? trackLines : otherLines;
+            };
+            auto pointBucket = [&](const PointInfo& info) -> QVarLengthArray<QPointF, 256>& {
+                if (info.type == PointType::TBDPointType) return tbdPoints;
+                if (info.type == PointType::CooperativeTrackPointType) return cooperativePoints;
+                return (info.targetRecResult == 1) ? trackPoints : otherPoints;
+            };
+
+            for (int i = 1; i < m_series->nodes.size(); ++i) {
+                const TrackNode& node = m_series->nodes[i];
+                if (node.lineFromPrevVisible) {
+                    const TrackNode& prevNode = m_series->nodes[i - 1];
+                    lineBucket(node.info).append(QLineF(prevNode.scenePos, node.scenePos));
+                }
+            }
+
+            for (const TrackNode& node : m_series->nodes) {
+                if (node.pointVisible) {
+                    pointBucket(node.info).append(node.scenePos);
+                }
+            }
+
+            auto drawLines = [&](const QColor& color, const QVarLengthArray<QLineF, 256>& lines) {
+                if (lines.isEmpty()) return;
+                QPen pen(color);
+                pen.setWidth(1);
+                pen.setStyle(Qt::SolidLine);
+                painter->setPen(pen);
+                painter->drawLines(lines.constData(), lines.size());
+            };
+            auto drawPoints = [&](const QColor& color, const QVarLengthArray<QPointF, 256>& points) {
+                if (points.isEmpty()) return;
+                QPen pen(color);
+                pen.setWidthF(qMax<qreal>(1.0, m_pointRadius * 2.0));
+                pen.setCapStyle(Qt::RoundCap);
+                painter->setPen(pen);
+                painter->drawPoints(points.constData(), points.size());
+            };
+
+            drawLines(TRA_COLOR, trackLines);
+            drawLines(DRONE_COLOR, otherLines);
+            drawLines(trackTypeColor(PointType::TBDPointType), tbdLines);
+            drawLines(trackTypeColor(PointType::CooperativeTrackPointType), cooperativeLines);
+            drawPoints(TRA_COLOR, trackPoints);
+            drawPoints(DRONE_COLOR, otherPoints);
+            drawPoints(trackTypeColor(PointType::TBDPointType), tbdPoints);
+            drawPoints(trackTypeColor(PointType::CooperativeTrackPointType), cooperativePoints);
+        } else {
+            for (int i = 1; i < m_series->nodes.size(); ++i) {
+                const TrackNode& node = m_series->nodes[i];
+                if (!node.lineFromPrevVisible) {
+                    continue;
+                }
+                const TrackNode& prevNode = m_series->nodes[i - 1];
+                QPen linePen(displayTrackColor(node.info));
+                linePen.setWidth(2);
+                linePen.setStyle(Qt::SolidLine);
+                linePen.setCapStyle(Qt::RoundCap);
+                linePen.setJoinStyle(Qt::RoundJoin);
+                painter->setPen(linePen);
+                painter->drawLine(prevNode.scenePos, node.scenePos);
+            }
+
+            for (const TrackNode& node : m_series->nodes) {
+                if (!node.pointVisible) {
+                    continue;
+                }
+
+                const QColor color = displayTrackColor(node.info);
+                QPen pointPen(color);
+                pointPen.setWidth(2);
+                painter->setPen(pointPen);
+
+                painter->setBrush(Qt::NoBrush);
+                const QRectF pointRect(node.scenePos.x() - m_pointRadius,
+                                       node.scenePos.y() - m_pointRadius,
+                                       m_pointRadius * 2.0,
+                                       m_pointRadius * 2.0);
+                const QPointF triangle[3] = {
+                    QPointF(pointRect.center().x(), pointRect.top()),
+                    QPointF(pointRect.right(), pointRect.bottom()),
+                    QPointF(pointRect.left(), pointRect.bottom())
+                };
+                painter->drawPolygon(triangle, 3);
+            }
+        }
+
+        painter->restore();
+    }
+
+protected:
+    void hoverMoveEvent(QGraphicsSceneHoverEvent* event) override
+    {
+        const TrackNode* node = nearestVisibleNode(event->pos());
+        if (!node) {
+            TOOL_TIP->setVisible(false);
+            QGraphicsItem::hoverMoveEvent(event);
+            return;
+        }
+
+        TOOL_TIP->showTooltip(event->scenePos() + QPointF(15.0, 15.0),
+                              trackTooltipText(node->info));
+        QGraphicsItem::hoverMoveEvent(event);
+    }
+
+    void hoverLeaveEvent(QGraphicsSceneHoverEvent* event) override
+    {
+        TOOL_TIP->setVisible(false);
+        QGraphicsItem::hoverLeaveEvent(event);
+    }
+
+    void mousePressEvent(QGraphicsSceneMouseEvent* event) override
+    {
+        if (event->button() == Qt::LeftButton) {
+            const TrackNode* node = nearestVisibleNode(event->pos());
+            if (node && scene()) {
+                scene()->setProperty("selectedBatchID", node->info.batch);
+                scene()->setProperty("selectedPointInfo", QVariant::fromValue(node->info));
+                event->accept();
+                return;
+            }
+        }
+
+        QGraphicsItem::mousePressEvent(event);
+    }
+
+private:
+    const TrackNode* nearestVisibleNode(const QPointF& scenePos) const
+    {
+        if (!m_series) {
+            return nullptr;
+        }
+
+        const qreal pickRadius = qMax<qreal>(8.0, m_pointRadius * 3.0);
+        const qreal pickRadiusSq = pickRadius * pickRadius;
+        const TrackNode* nearest = nullptr;
+        qreal nearestDistanceSq = pickRadiusSq;
+
+        for (const TrackNode& node : m_series->nodes) {
+            if (!node.pointVisible) {
+                continue;
+            }
+            const QPointF delta = node.scenePos - scenePos;
+            const qreal distanceSq = delta.x() * delta.x() + delta.y() * delta.y();
+            if (distanceSq <= nearestDistanceSq) {
+                nearestDistanceSq = distanceSq;
+                nearest = &node;
+            }
+        }
+
+        return nearest;
+    }
+
+private:
+    const TrackSeries* m_series = nullptr;
+    QRectF m_bounds = QRectF(-1.0, -1.0, 2.0, 2.0);
+    qreal m_pointRadius = qMax<qreal>(1.0, TRA_SIZE * 0.5);
+    bool m_hasContentBounds = false;
+};
 
 // ==================== DraggableLabel 可拖拽标签实现 ====================
 
@@ -40,6 +334,7 @@ DraggableLabel::DraggableLabel(QGraphicsItem* parent)
     setFlag(ItemIsMovable, true);                // 启用拖拽移动
     setFlag(ItemSendsGeometryChanges, true);     // 启用几何变化通知
     setZValue(INFO_Z);                           // 设置高层级，确保在点之上显示
+    m_baseFont = font();
 }
 
 /**
@@ -55,6 +350,31 @@ void DraggableLabel::setAnchorItem(QGraphicsItem* a, QGraphicsLineItem* t)
     anchor = a;
     tether = t;
     if (tether) tether->setZValue(zValue()-1);  // 连线层级低于标签
+}
+
+void DraggableLabel::setFocused(bool focused)
+{
+    if (m_focused == focused) {
+        return;
+    }
+
+    m_focused = focused;
+
+    QFont nextFont = m_baseFont;
+    if (focused) {
+        const qreal pointSize = nextFont.pointSizeF();
+        if (pointSize > 0.0) {
+            nextFont.setPointSizeF(pointSize * kFocusedLabelFontScale);
+        } else {
+            const int pixelSize = nextFont.pixelSize();
+            if (pixelSize > 0) {
+                nextFont.setPixelSize(qRound(pixelSize * kFocusedLabelFontScale));
+            }
+        }
+        nextFont.setBold(true);
+    }
+    setFont(nextFont);
+    update();
 }
 
 /**
@@ -89,6 +409,24 @@ void DraggableLabel::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
     event->accept();
 }
 
+void DraggableLabel::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
+{
+    if (m_focused) {
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, true);
+
+        QRectF backgroundRect = boundingRect().adjusted(-6.0, -4.0, 6.0, 4.0);
+        QColor borderColor = defaultTextColor();
+        QColor fillColor(8, 18, 18, 230);
+        painter->setPen(QPen(borderColor, 1.5));
+        painter->setBrush(QBrush(fillColor));
+        painter->drawRoundedRect(backgroundRect, 4.0, 4.0);
+        painter->restore();
+    }
+
+    QGraphicsTextItem::paint(painter, option, widget);
+}
+
 // ==================== TrackManager 航迹管理器实现 ====================
 
 /**
@@ -105,6 +443,23 @@ void DraggableLabel::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
 TrackManager::TrackManager(QGraphicsScene* scene, PolarAxis* axis, QObject* parent)
     : QObject(parent), mScene(scene), mAxis(axis)
 {
+    m_maxPointsPerBatch = qMax(1, CF_INS.displayConfig("max_track_points", 200));
+    m_labelRefreshIntervalMs = qMax(0, CF_INS.displayConfig("track_label_refresh_ms", 200));
+
+    m_batchRepaintTimer.setSingleShot(true);
+    m_batchRepaintTimer.setInterval(kPpiRefreshIntervalMs);
+    connect(&m_batchRepaintTimer, &QTimer::timeout, this, [this]() {
+        const QSet<int> pending = m_pendingBatchRepaints;
+        m_pendingBatchRepaints.clear();
+        for (int batchID : pending) {
+            auto it = mSeries.find(batchID);
+            if (it == mSeries.end() || !it->batchItem) {
+                continue;
+            }
+            it->batchItem->update();
+        }
+    });
+
     // 注册到统一数据管理器，使用唯一标识符
     RADAR_DATA_MGR.registerView("TrackManager_" + QString::number((quintptr)this), this);
 
@@ -147,9 +502,11 @@ void TrackManager::setPointSizeRatio(float ratio)
 
     // 遍历所有航迹序列
     for (auto it = mSeries.begin(); it != mSeries.end(); ++it) {
-        // 对每个航迹的所有节点应用新比例
-        for (auto& n : it->nodes) {
-            if (n.point) n.point->resize(mPointSizeRatio);
+        if (it->batchItem) {
+            it->batchItem->setPointSizeRatio(mPointSizeRatio);
+        }
+        if (it->latestPoint) {
+            it->latestPoint->resize(mPointSizeRatio);
         }
     }
     // 刷新所有显示以确保尺寸更新生效
@@ -172,15 +529,13 @@ void TrackManager::setBatchColor(int batchID, const QColor& c)
         ensureSeries(batchID);  // 默认使用DBT颜色
     }
     auto& s = mSeries[batchID]; // 获取航迹序列引用
+    s.color = c;
 
-    // 更新所有节点的点和连线颜色
-    for (auto& n : s.nodes) {
-        if (n.point) n.point->setColor(c);      // 航迹点颜色
-        if (n.lineFromPrev) {
-            QPen pen(c);
-            pen.setWidth(1);
-            n.lineFromPrev->setPen(pen);        // 连线颜色
-        }
+    if (s.latestPoint) {
+        s.latestPoint->setColor(c);
+    }
+    if (s.batchItem) {
+        s.batchItem->update();
     }
 
     // 更新标签连线颜色
@@ -208,20 +563,69 @@ void TrackManager::ensureSeries(int batchID, PointType type)
         // s.visible 默认值是 true（在结构体定义中）
         mSeries.insert(batchID, s);
 
-        qDebug() << "[TrackManager::ensureSeries] Created new series:"
-                 << "batch" << batchID
-                 << "type" << (int)type
-                 << "visible" << s.visible;
+        LOG_DEBUG(QString("[TrackManager] Created %1 display series: batch=%2 visible=%3 totalSeries=%4")
+                  .arg(trackTypeLabel(type))
+                  .arg(batchID)
+                  .arg(s.visible)
+                  .arg(mSeries.size()));
         return;
     }
 
     // 如果已存在但类型发生变化，更新颜色并同步所有节点
     auto& s = mSeries[batchID];
     if (s.type != type) {
+        const QString oldType = trackTypeLabel(s.type);
         s.type = type;
         QColor newColor = trackTypeColor(type);
         s.color = newColor;
         setBatchColor(batchID, newColor);
+        LOG_DEBUG(QString("[TrackManager] Series type changed: batch=%1 %2 -> %3")
+              .arg(batchID)
+              .arg(oldType)
+              .arg(trackTypeLabel(type)));
+    }
+}
+
+void TrackManager::ensureBatchGraphics(int batchID)
+{
+    auto it = mSeries.find(batchID);
+    if (it == mSeries.end()) {
+        return;
+    }
+
+    TrackSeries& s = it.value();
+    if (!s.batchItem) {
+        s.batchItem = new TrackBatchItem(&s);
+        s.batchItem->setPointSizeRatio(mPointSizeRatio);
+        mScene->addItem(s.batchItem);
+    }
+}
+
+void TrackManager::scheduleBatchRepaint(TrackSeries& series)
+{
+    if (!series.batchItem) {
+        return;
+    }
+
+    if (!series.nodes.isEmpty()) {
+        m_pendingBatchRepaints.insert(series.nodes.last().info.batch);
+    }
+    if (!m_batchRepaintTimer.isActive()) {
+        m_batchRepaintTimer.start();
+    }
+}
+
+void TrackManager::scheduleBatchRepaintAll()
+{
+    for (auto it = mSeries.begin(); it != mSeries.end(); ++it) {
+        if (!it->batchItem) {
+            continue;
+        }
+        it->batchItem->rebuildBounds();
+        m_pendingBatchRepaints.insert(it.key());
+    }
+    if (!m_pendingBatchRepaints.isEmpty() && !m_batchRepaintTimer.isActive()) {
+        m_batchRepaintTimer.start();
     }
 }
 
@@ -289,14 +693,14 @@ void TrackManager::addTrackPoint(const PointInfo& info)
         type = PointType::CooperativeTrackPointType;
     }
     ensureSeries(info.batch, type);
+    ensureBatchGraphics(info.batch);
     auto& s = mSeries[info.batch];  // 获取航迹序列引用
+    const QColor color = displayTrackColor(info);
+    s.color = color;
+    const bool firstPointInBatch = s.nodes.isEmpty();
 
-    // 创建航迹点对象并设置基本属性
     PointInfo copy = info;
     copy.type = info.type;          // 保持传入类型，用于标识DBT/TBD
-    auto* pt = new TrackPoint(copy);
-    pt->setColor(s.color);          // 应用航迹序列的颜色
-    pt->resize(mPointSizeRatio);    // 应用当前缩放比例
 
     // 调试输出：查看原始数据和坐标转换
     // 使用 qCritical 确保在 Release 模式下也能看到（输出到 stderr）
@@ -311,64 +715,111 @@ void TrackManager::addTrackPoint(const PointInfo& info)
     // qCritical() << "    -> Screen pos: x=" << pos.x() << "y=" << pos.y()
     //             << "pixelsPerMeter=" << mAxis->pixelsPerMeter()
     //             << "maxRange=" << mAxis->maxRange();
-    pt->updatePosition(pos.x(), pos.y());
-
     // 应用可见性过滤：序列可见性 && 距离范围
     // 注意：移除角度过滤，因为主PPI界面应该显示所有方向的航迹（与检测点保持一致）
     // 角度过滤仅在扇区窗口（SectorWidget）中使用
-    bool vis = s.visible && inRange(copy.range);
-    pt->setVisible(vis);
+    bool vis = s.visible && inRange(copy.range) && isTrackRecognitionVisible(copy);
 
-    // 添加到图形场景
-    mScene->addItem(pt);
+    if (firstPointInBatch && info.type != PointType::Track) {
+        LOG_INFO(QString("[TrackManager] First %1 point reached PPI: batch=%2 range=%3 azimuth=%4 visible=%5 batchVisible=%6 inRange=%7 recogVisible=%8")
+                 .arg(trackTypeLabel(info.type))
+                 .arg(info.batch)
+                 .arg(copy.range, 0, 'f', 1)
+                 .arg(copy.azimuth, 0, 'f', 2)
+                 .arg(vis)
+                 .arg(s.visible)
+                 .arg(inRange(copy.range))
+                 .arg(isTrackRecognitionVisible(copy)));
+    }
 
     // 创建航迹节点
     TrackNode node;
-    node.point = pt;
-
-    // 与前一节点建立连线关系
-    if (!s.nodes.isEmpty()) {
-        auto* prev = s.nodes.last().point;  // 获取前一个航迹点
-        if (prev) {
-            // 创建连线对象
-            auto* line = new QGraphicsLineItem();
-            QPen pen(s.color);
-            pen.setWidth(2);  // 增加线宽从1到2，使航迹更明显
-            pen.setStyle(Qt::SolidLine);  // 实线
-            pen.setCapStyle(Qt::RoundCap);  // 圆形端点
-            pen.setJoinStyle(Qt::RoundJoin);  // 圆形连接
-            line->setPen(pen);
-            line->setOpacity(0.8);  // 设置80%不透明度，避免过于刺眼
-
-            // 设置连线几何形状
-            QPointF prevScenePos = prev->scenePos();
-            QPointF ptScenePos = pt->scenePos();
-            // qCritical() << "[TrackManager::addTrackPoint] Line geometry:"
-            //             << "prev->scenePos()=" << prevScenePos
-            //             << "pt->scenePos()=" << ptScenePos
-            //             << "pt->pos()=" << pt->pos();
-            updateLineGeometry(line, prevScenePos, ptScenePos);
-
-            // 连线可见性：两个点都在范围内且航迹序列可见时显示
-            bool lineVis = s.visible && inRange(s.nodes.last().point->infoRef().range) && inRange(copy.range)
-                       && inAngle(s.nodes.last().point->infoRef().azimuth) && inAngle(copy.azimuth);
-            line->setVisible(lineVis);
-            mScene->addItem(line);
-            node.lineFromPrev = line;  // 保存连线引用
-        }
-    }
+    node.info = copy;
+    node.scenePos = pos;
+    node.pointVisible = vis;
 
     // 将节点添加到航迹序列
     s.nodes.push_back(node);
+    limitBatchPoints(s);
+    updateNodeLineVisibility(s);
+    if (s.batchItem && s.nodes.last().pointVisible) {
+        s.batchItem->includePoint(s.nodes.last().scenePos);
+    }
 
     // 更新最新点的动态标签显示
-    updateLatestLabel(info.batch);
+    updateLatestInteractivePoint(info.batch);
+    updateLatestLabel(info.batch, firstPointInBatch);
+    updateBatchFocusStyle(info.batch);
+
+    scheduleBatchRepaint(s);
 
     // 发出航迹点添加信号，用于更新选中航迹的信息显示
     emit trackPointAdded(info);
 }
 
-void TrackManager::updateLatestLabel(int batchID)
+void TrackManager::limitBatchPoints(TrackSeries& series)
+{
+    while (series.nodes.size() > m_maxPointsPerBatch) {
+        series.nodes.removeFirst();
+    }
+}
+
+void TrackManager::updateLatestInteractivePoint(int batchID)
+{
+    auto it = mSeries.find(batchID);
+    if (it == mSeries.end()) {
+        return;
+    }
+
+    TrackSeries& s = it.value();
+    if (s.nodes.isEmpty()) {
+        if (s.latestPoint) {
+            s.latestPoint->setVisible(false);
+        }
+        return;
+    }
+
+    TrackNode& latest = s.nodes.last();
+    PointInfo copy = latest.info;
+    const QColor color = displayTrackColor(copy);
+    if (!s.latestPoint) {
+        s.latestPoint = new TrackPoint(copy);
+        mScene->addItem(s.latestPoint);
+    } else {
+        s.latestPoint->setInfo(copy);
+    }
+
+    s.latestPoint->setColor(color);
+    s.latestPoint->resize(mPointSizeRatio);
+    s.latestPoint->setFocused(m_focusedBatches.contains(batchID));
+    s.latestPoint->updatePosition(latest.scenePos.x(), latest.scenePos.y());
+    s.latestPoint->setVisible(latest.pointVisible);
+}
+
+void TrackManager::updateNodeLineVisibility(TrackSeries& series)
+{
+    const bool recognitionVisible = isSeriesRecognitionVisible(series);
+    for (int i = 0; i < series.nodes.size(); ++i) {
+        TrackNode& node = series.nodes[i];
+        node.pointVisible = series.visible
+                         && recognitionVisible
+                         && inRange(node.info.range);
+        if (i == 0) {
+            node.lineFromPrevVisible = false;
+            continue;
+        }
+
+        const TrackNode& prevNode = series.nodes[i - 1];
+        node.lineFromPrevVisible = series.visible
+                                && recognitionVisible
+                                && inRange(prevNode.info.range)
+                                && inRange(node.info.range)
+                                && inAngle(prevNode.info.azimuth)
+                                && inAngle(node.info.azimuth);
+    }
+}
+
+void TrackManager::updateLatestLabel(int batchID, bool force)
 {
     auto it = mSeries.find(batchID);
     if (it == mSeries.end()) return;
@@ -377,36 +828,69 @@ void TrackManager::updateLatestLabel(int batchID)
     if (s.nodes.isEmpty()) return;
 
     TrackNode& latest = s.nodes.last();
-    if (!latest.point) return;
+    if (!s.latestPoint) {
+        updateLatestInteractivePoint(batchID);
+    }
+    if (!s.latestPoint) return;
+    const auto& pi = latest.info;
+    const QColor labelColor = displayTrackColor(pi);
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+    const bool labelExists = (s.label != nullptr);
 
     // 创建/更新 label 与连线
     if (!s.label) {
         s.label = new DraggableLabel();
-        s.label->setDefaultTextColor(Qt::white);
+        s.label->setDefaultTextColor(labelColor);
         s.label->setZValue(INFO_Z);
         s.label->setBatchID(batchID);
         connect(s.label, &DraggableLabel::rightClicked,
                 this,    &TrackManager::labelRightClicked);
         s.labelLine = new QGraphicsLineItem();
-        QPen pen(s.color);
+        QPen pen(labelColor);
         pen.setStyle(Qt::DashLine);
         s.labelLine->setPen(pen);
         s.labelLine->setZValue(INFO_Z);
         mScene->addItem(s.label);
         mScene->addItem(s.labelLine);
-        s.label->setAnchorItem(latest.point, s.labelLine);
+        s.label->setAnchorItem(s.latestPoint, s.labelLine);
     } else {
-        s.label->setAnchorItem(latest.point, s.labelLine);
+        s.label->setAnchorItem(s.latestPoint, s.labelLine);
     }
 
+    const bool shouldThrottle = labelExists
+                             && !force
+                             && m_labelRefreshIntervalMs > 0
+                             && !m_focusedBatches.contains(batchID)
+                             && (nowMs - s.lastLabelRefreshMs) < m_labelRefreshIntervalMs;
+    if (shouldThrottle) {
+        bool vis = s.visible && isSeriesRecognitionVisible(s) && inRange(pi.range);
+        if (s.label) {
+            s.label->setVisible(vis);
+        }
+        if (s.labelLine) {
+            updateLineGeometry(s.labelLine, s.label->mapToScene(s.label->boundingRect().center()), latest.scenePos);
+            s.labelLine->setVisible(vis);
+        }
+        return;
+    }
+
+    s.label->setDefaultTextColor(labelColor);
+    QPen pen(labelColor);
+    pen.setStyle(Qt::DashLine);
+    s.labelLine->setPen(pen);
+
     // 标签内容：根据你的需求自由定制
-    const auto& pi = latest.point->infoRef();
-    QString typeText = trackTypeLabel(s.type);
-    QString labelText = QString("%1:%2").arg(typeText).arg(pi.batch);
+    QString labelText;
+    if (s.type == PointType::Track) {
+        labelText = QString("batch : %1").arg(pi.batch);
+    } else {
+        QString typeText = trackTypeLabel(s.type);
+        labelText = QString("%1:%2").arg(typeText).arg(pi.batch);
+    }
     s.label->setPlainText(labelText);
 
     // 初始放在最新点的右上方
-    QPointF anchor = latest.point->scenePos();
+    QPointF anchor = latest.scenePos;
     QPointF labelPos = anchor + QPointF(30, -20);
     if (s.label->scene() == nullptr) {
         mScene->addItem(s.label);
@@ -415,9 +899,11 @@ void TrackManager::updateLatestLabel(int batchID)
 
     // 更新标签连线
     updateLineGeometry(s.labelLine, s.label->mapToScene(s.label->boundingRect().center()), anchor);
+    updateBatchFocusStyle(batchID);
+    s.lastLabelRefreshMs = nowMs;
 
     // 可见性跟随最新点 & series
-    bool vis = s.visible && inRange(pi.range);
+    bool vis = s.visible && isSeriesRecognitionVisible(s) && inRange(pi.range);
     if (s.label)     s.label->setVisible(vis);
     if (s.labelLine) s.labelLine->setVisible(vis);
 }
@@ -431,60 +917,50 @@ void TrackManager::refreshAll()
         // 逐点更新位置与显隐
         for (int i = 0; i < s.nodes.size(); ++i) {
             auto& n = s.nodes[i];
-            if (!n.point) continue;
 
-            const auto& pi = n.point->infoRef();
+            const auto& pi = n.info;
             QPointF pos = polarToPixel(pi.range, pi.azimuth);
-            n.point->updatePosition(pos.x(), pos.y());
-            updateNodeVisibility(n);
-
-            // 更新与前一个点的连线
-            if (n.lineFromPrev) {
-                auto* prevPt = s.nodes[i-1].point;
-                if (prevPt) {
-                    updateLineGeometry(n.lineFromPrev, prevPt->scenePos(), n.point->scenePos());
-                    bool vis = s.visible && inRange(prevPt->infoRef().range) && inRange(pi.range)
-                               && inAngle(prevPt->infoRef().azimuth) && inAngle(pi.azimuth);
-                    n.lineFromPrev->setVisible(vis);
-                }
-            }
+            n.scenePos = pos;
+            updateNodeVisibility(s, n);
         }
+        updateNodeLineVisibility(s);
+        if (s.batchItem) {
+            s.batchItem->rebuildBounds();
+        }
+        updateLatestInteractivePoint(it.key());
+        scheduleBatchRepaint(s);
 
         // 最新点标签与其连线
         if (s.nodes.size() > 0) {
             auto& latest = s.nodes.last();
-            if (latest.point) {
-                // 如果用户曾经拖动过 label，我们不改它位置，只更新 tether 线
-                if (s.label && s.labelLine) {
-                    QPointF anchor = latest.point->scenePos();
-                    updateLineGeometry(s.labelLine, s.label->mapToScene(s.label->boundingRect().center()), anchor);
-                    bool vis = s.visible && inRange(latest.point->infoRef().range);
-                    s.label->setVisible(vis);
-                    s.labelLine->setVisible(vis);
-                } else {
-                    updateLatestLabel(it.key());
-                }
+            // 如果用户曾经拖动过 label，我们不改它位置，只更新 tether 线
+            if (s.label && s.labelLine) {
+                QPointF anchor = latest.scenePos;
+                updateLineGeometry(s.labelLine, s.label->mapToScene(s.label->boundingRect().center()), anchor);
+                bool vis = s.visible && isSeriesRecognitionVisible(s)
+                           && inRange(latest.info.range);
+                s.label->setVisible(vis);
+                s.labelLine->setVisible(vis);
+            } else {
+                updateLatestLabel(it.key(), true);
             }
         }
     }
 }
 
-void TrackManager::updateNodeVisibility(TrackNode& node)
+void TrackManager::updateNodeVisibility(const TrackSeries& series, TrackNode& node)
 {
-    if (!node.point) return;
     // 移除角度过滤，与 addTrackPoint 保持一致
-    bool vis = inRange(node.point->infoRef().range);
-    node.point->setVisible(vis);
-    if (node.lineFromPrev) {
-        // 线的显隐会在 refreshAll / addTrackPoint 中同时考虑前一点
-        // 这里不单独处理，以免缺 prev 状态
-    }
+    bool vis = series.visible && isSeriesRecognitionVisible(series)
+            && inRange(node.info.range);
+    node.pointVisible = vis;
 }
 
 void TrackManager::setAngleRange(double startDeg, double endDeg)
 {
-    qDebug() << "[TrackManager::setAngleRange] Setting angle range:"
-             << "start" << startDeg << "end" << endDeg;
+    LOG_DEBUG(QString("[TrackManager::setAngleRange] Setting angle range: start %1 end %2")
+                  .arg(startDeg)
+                  .arg(endDeg));
     m_angleStart = startDeg;
     m_angleEnd = endDeg;
     refreshAll();
@@ -509,10 +985,12 @@ bool TrackManager::inAngle(float azimuthDeg) const
     // 添加调试日志（每100次只打印一次以减少日志量）
     static int callCount = 0;
     if (++callCount % 100 == 0) {
-        qDebug() << "[TrackManager::inAngle] azimuth" << azimuthDeg
-                 << "normalized" << a
-                 << "range [" << s << "-" << e << "]"
-                 << "result" << result;
+        LOG_DEBUG(QString("[TrackManager::inAngle] azimuth %1 normalized %2 range [%3-%4] result %5")
+                  .arg(azimuthDeg)
+                  .arg(a)
+                  .arg(s)
+                  .arg(e)
+                  .arg(result));
     }
 
     return result;
@@ -526,12 +1004,30 @@ void TrackManager::setBatchVisible(int batchID, bool vis)
     updateBatchVisibility(batchID);
 }
 
+void TrackManager::setBatchFocused(int batchID, bool focused)
+{
+    if (focused) {
+        m_focusedBatches.insert(batchID);
+    } else {
+        m_focusedBatches.remove(batchID);
+    }
+
+    updateBatchFocusStyle(batchID);
+}
+
+bool TrackManager::isBatchFocused(int batchID) const
+{
+    return m_focusedBatches.contains(batchID);
+}
+
 void TrackManager::setAllVisible(bool vis)
 {
-    qDebug() << "[TrackManager::setAllVisible]" << vis << "- Series count:" << mSeries.size();
+    LOG_DEBUG(QString("[TrackManager::setAllVisible] %1 - Series count: %2")
+                  .arg(vis)
+                  .arg(mSeries.size()));
 
     for (auto it = mSeries.begin(); it != mSeries.end(); ++it) {
-        qDebug() << "  Setting batch" << it.key() << "visible to" << vis;
+        LOG_DEBUG(QString("  Setting batch %1 visible to %2").arg(it.key()).arg(vis));
         it->visible = vis;
         updateBatchVisibility(it.key());
     }
@@ -546,6 +1042,30 @@ void TrackManager::setTypeVisible(PointType type, bool vis)
     }
 }
 
+void TrackManager::setMaxPointsPerBatch(int maxPoints)
+{
+    if (maxPoints < 1) {
+        maxPoints = 1;
+    }
+
+    m_maxPointsPerBatch = maxPoints;
+    for (auto it = mSeries.begin(); it != mSeries.end(); ++it) {
+        limitBatchPoints(it.value());
+        updateLatestLabel(it.key(), true);
+        updateBatchVisibility(it.key());
+        updateBatchFocusStyle(it.key());
+    }
+}
+
+void TrackManager::setOnlyRecognizedDroneTracksVisible(bool enabled)
+{
+    if (m_onlyRecognizedDroneTracksVisible == enabled) return;
+    m_onlyRecognizedDroneTracksVisible = enabled;
+    for (auto it = mSeries.begin(); it != mSeries.end(); ++it) {
+        updateBatchVisibility(it.key());
+    }
+}
+
 //更新航迹批的可见性
 void TrackManager::updateBatchVisibility(int batchID)
 {
@@ -553,30 +1073,66 @@ void TrackManager::updateBatchVisibility(int batchID)
     if (it == mSeries.end()) return;
 
     auto& s = it.value();
-    for (int i = 0; i < s.nodes.size(); ++i) {
-        auto& n = s.nodes[i];
-        if (n.point) {
-            bool in = inRange(n.point->infoRef().range);
-            n.point->setVisible(s.visible && in);
-        }
-        if (n.lineFromPrev) {
-            auto* prev = s.nodes[i-1].point;
-            if (prev) {
-                bool inCur = n.point ? inRange(n.point->infoRef().range) : false;
-                bool inPrev = inRange(prev->infoRef().range);
-                n.lineFromPrev->setVisible(s.visible && inCur && inPrev);
-            } else {
-                n.lineFromPrev->setVisible(false);
-            }
-        }
+    updateNodeLineVisibility(s);
+    if (s.batchItem) {
+        s.batchItem->rebuildBounds();
     }
+    updateLatestInteractivePoint(batchID);
+    scheduleBatchRepaint(s);
 
     // 最新点的标签与连线
     if (!s.nodes.isEmpty()) {
         auto& latest = s.nodes.last();
-        if (s.label)     s.label->setVisible(s.visible && inRange(latest.point->infoRef().range));
-        if (s.labelLine) s.labelLine->setVisible(s.visible && inRange(latest.point->infoRef().range));
+        if (s.label) {
+            s.label->setVisible(s.visible && isSeriesRecognitionVisible(s) && inRange(latest.info.range));
+        }
+        if (s.labelLine) {
+            s.labelLine->setVisible(s.visible && isSeriesRecognitionVisible(s) && inRange(latest.info.range));
+        }
     }
+}
+
+void TrackManager::updateBatchFocusStyle(int batchID)
+{
+    auto it = mSeries.find(batchID);
+    if (it == mSeries.end()) return;
+
+    const bool focused = m_focusedBatches.contains(batchID);
+    auto& s = it.value();
+    s.focused = focused;
+
+    if (s.latestPoint) {
+        s.latestPoint->setFocused(focused);
+        s.latestPoint->setZValue(focused ? kFocusedPointZ : POINT_Z);
+    }
+    if (s.batchItem) {
+        s.batchItem->setZValue(focused ? kFocusedLineZ : LINE_Z);
+        s.batchItem->update();
+    }
+
+    if (s.label) {
+        s.label->setFocused(focused);
+        s.label->setZValue(focused ? kFocusedLabelZ : INFO_Z);
+    }
+    if (s.labelLine) {
+        s.labelLine->setZValue(focused ? kFocusedLineZ : INFO_Z);
+    }
+}
+
+bool TrackManager::isTrackRecognitionVisible(const PointInfo& info) const
+{
+    if (!m_onlyRecognizedDroneTracksVisible) return true;
+    if (info.type != PointType::Track) return true;
+    return info.targetRecResult == 1;
+}
+
+bool TrackManager::isSeriesRecognitionVisible(const TrackSeries& series) const
+{
+    if (!m_onlyRecognizedDroneTracksVisible) return true;
+    if (series.type != PointType::Track) return true;
+    if (series.nodes.isEmpty()) return false;
+    const TrackNode& latest = series.nodes.last();
+    return isTrackRecognitionVisible(latest.info);
 }
 
 void TrackManager::removeBatch(int batchID)
@@ -584,13 +1140,14 @@ void TrackManager::removeBatch(int batchID)
     auto it = mSeries.find(batchID);
     if (it == mSeries.end()) return;
 
+    m_focusedBatches.remove(batchID);
+    m_pendingBatchRepaints.remove(batchID);
+
     auto& s = it.value();
-    for (auto& n : s.nodes) {
-        if (n.lineFromPrev) { mScene->removeItem(n.lineFromPrev); delete n.lineFromPrev; n.lineFromPrev = nullptr; }
-        if (n.point)        { mScene->removeItem(n.point);        delete n.point;        n.point = nullptr; }
-    }
     s.nodes.clear();
 
+    if (s.batchItem) { mScene->removeItem(s.batchItem); delete s.batchItem; s.batchItem = nullptr; }
+    if (s.latestPoint) { mScene->removeItem(s.latestPoint); delete s.latestPoint; s.latestPoint = nullptr; }
     if (s.labelLine) { mScene->removeItem(s.labelLine); delete s.labelLine; s.labelLine = nullptr; }
     if (s.label)     { mScene->removeItem(s.label);     delete s.label;     s.label = nullptr; }
 
@@ -602,6 +1159,7 @@ void TrackManager::clear()
     QList<int> keys = mSeries.keys();
     for (int id : keys) removeBatch(id);
     mSeries.clear();
+    m_focusedBatches.clear();
 }
 
 void TrackManager::updateLineGeometry(QGraphicsLineItem* line, const QPointF& a, const QPointF& b)
@@ -618,7 +1176,35 @@ bool TrackManager::latestPointInfo(int batchID, PointInfo& out) const
     const TrackSeries& series = it.value();
     if (series.nodes.isEmpty()) return false;
     const TrackNode& last = series.nodes.last();
-    if (!last.point) return false;
-    out = last.point->infoRef();
+    out = last.info;
+    return true;
+}
+
+bool TrackManager::pointInfoAt(const QPointF& scenePos, PointInfo& out, qreal pickRadius) const
+{
+    const qreal pickRadiusSq = pickRadius * pickRadius;
+    const TrackNode* nearest = nullptr;
+    qreal nearestDistanceSq = pickRadiusSq;
+
+    for (auto it = mSeries.cbegin(); it != mSeries.cend(); ++it) {
+        const TrackSeries& series = it.value();
+        for (const TrackNode& node : series.nodes) {
+            if (!node.pointVisible) {
+                continue;
+            }
+            const QPointF delta = node.scenePos - scenePos;
+            const qreal distanceSq = delta.x() * delta.x() + delta.y() * delta.y();
+            if (distanceSq <= nearestDistanceSq) {
+                nearestDistanceSq = distanceSq;
+                nearest = &node;
+            }
+        }
+    }
+
+    if (!nearest) {
+        return false;
+    }
+
+    out = nearest->info;
     return true;
 }

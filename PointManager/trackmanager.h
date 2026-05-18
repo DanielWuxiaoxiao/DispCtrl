@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 11:28:42
+ * @LastEditTime: 2026-05-18 15:26:20
  * @Description: 
  */
 /**
@@ -22,13 +22,22 @@
 #include <QObject>
 #include <QGraphicsScene>
 #include <QGraphicsLineItem>
+#include <QGraphicsItem>
 #include <QGraphicsTextItem>
 #include <QMap>
+#include <QSet>
 #include <QVector>
+#include <QFont>
+#include <QPointF>
+#include <QTimer>
 #include "point.h"
 #include "PolarDisp/polaraxis.h"
 
+class TrackBatchItem;
 class QGraphicsSceneContextMenuEvent;
+class QPainter;
+class QStyleOptionGraphicsItem;
+class QWidget;
 
 /**
  * @class DraggableLabel
@@ -65,6 +74,9 @@ public:
      */
     void setAnchorItem(QGraphicsItem* anchor, QGraphicsLineItem* tether);
 
+    void setFocused(bool focused);
+    bool isFocused() const { return m_focused; }
+
     /** @brief 绑定所属批次ID，右键菜单使用 */
     void setBatchID(int id) { m_batchID = id; }
     int  batchID() const    { return m_batchID; }
@@ -89,10 +101,14 @@ protected:
     /** @brief 右键菜单事件：发出 rightClicked 信号 */
     void contextMenuEvent(QGraphicsSceneContextMenuEvent* event) override;
 
+    void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget = nullptr) override;
+
 private:
     QGraphicsItem* anchor = nullptr;        ///< 锚点图形项指针
     QGraphicsLineItem* tether = nullptr;    ///< 连接线图形项指针
     int m_batchID = -1;                     ///< 所属批次ID
+    QFont m_baseFont;                       ///< 默认字体
+    bool m_focused = false;                 ///< 是否处于关注高亮态
 };
 
 /**
@@ -104,9 +120,10 @@ private:
  *          - 支持时间序列的航迹重建
  */
 struct TrackNode {
-    TrackPoint* point = nullptr;                ///< 航迹点对象指针
-    QGraphicsLineItem* lineFromPrev = nullptr; ///< 与前一节点的连线
-    // 如需时间戳/序列号，可在此处再加字段
+    PointInfo info;                             ///< 航迹点数据
+    QPointF scenePos;                           ///< 场景坐标
+    bool pointVisible = true;                   ///< 当前点是否可见
+    bool lineFromPrevVisible = false;           ///< 与前一节点的连线是否可见
 };
 
 /**
@@ -120,11 +137,15 @@ struct TrackNode {
  */
 struct TrackSeries {
     QVector<TrackNode> nodes;                   ///< 航迹节点序列
+    TrackBatchItem* batchItem = nullptr;        ///< 批量绘制历史点和线
+    TrackPoint* latestPoint = nullptr;          ///< 最新点交互图元
     DraggableLabel* label = nullptr;            ///< 最新点标签
     QGraphicsLineItem* labelLine = nullptr;     ///< 标签到最新点的连线
     bool visible = true;                        ///< 航迹可见性标志
+    bool focused = false;                       ///< 是否关注该批次
     QColor color;                               ///< 航迹颜色
     PointType type = PointType::Track;          ///< 航迹类型（区分DBT/TBD）
+    qint64 lastLabelRefreshMs = 0;              ///< 最近一次标签重绘时间
 };
 
 /**
@@ -228,6 +249,18 @@ public:
     void setTypeVisible(PointType type, bool vis);
 
     /**
+     * @brief 设置单批航迹最大点数
+     * @param maxPoints 单批航迹最大点数
+     */
+    void setMaxPointsPerBatch(int maxPoints);
+
+    /**
+     * @brief 设置是否仅显示识别为无人机的普通航迹
+     * @param enabled true时仅显示普通航迹中的无人机
+     */
+    void setOnlyRecognizedDroneTracksVisible(bool enabled);
+
+    /**
      * @brief 删除指定批次的航迹
      * @param batchID 要删除的批次ID
      * @details 完全删除一条航迹：
@@ -284,6 +317,12 @@ public:
      */
     bool latestPointInfo(int batchID, PointInfo& out) const;
 
+    bool pointInfoAt(const QPointF& scenePos, PointInfo& out, qreal pickRadius = 8.0) const;
+
+    void setBatchFocused(int batchID, bool focused);
+
+    bool isBatchFocused(int batchID) const;
+
 signals:
     /**
      * @brief 航迹被删除信号
@@ -314,19 +353,29 @@ private:
      */
     void ensureSeries(int batchID, PointType type = PointType::Track);
 
+    void ensureBatchGraphics(int batchID);
+
+    void updateLatestInteractivePoint(int batchID);
+
+    void updateNodeLineVisibility(TrackSeries& series);
+
+    void scheduleBatchRepaint(TrackSeries& series);
+
+    void scheduleBatchRepaintAll();
+
     /**
      * @brief 更新最新点标签
      * @param batchID 批次ID
      * @details 更新指定航迹的动态标签显示和连线
      */
-    void updateLatestLabel(int batchID);
+    void updateLatestLabel(int batchID, bool force = false);
 
     /**
      * @brief 更新节点可见性
      * @param node 航迹节点引用
      * @details 根据当前过滤条件更新单个节点的可见性
      */
-    void updateNodeVisibility(TrackNode& node);
+    void updateNodeVisibility(const TrackSeries& series, TrackNode& node);
 
     /**
      * @brief 更新批次可见性
@@ -334,6 +383,10 @@ private:
      * @details 批量更新指定航迹的所有元素可见性
      */
     void updateBatchVisibility(int batchID);
+
+    void limitBatchPoints(TrackSeries& series);
+
+    void updateBatchFocusStyle(int batchID);
 
     /**
      * @brief 更新连线几何形状
@@ -368,13 +421,19 @@ private:
 
     // 航迹管理
     QMap<int, TrackSeries> mSeries;            ///< 批次ID到航迹序列的映射
+    QSet<int> m_focusedBatches;                ///< 已关注批次集合
 
     // 显示控制参数
     float mPointSizeRatio = 1.f;               ///< 点尺寸缩放比例
+    int m_maxPointsPerBatch = 200;             ///< 单批航迹最大点数
+    int m_labelRefreshIntervalMs = 200;        ///< 标签最小刷新间隔
+    QTimer m_batchRepaintTimer;                ///< 历史轨迹批量绘制刷新限速
+    QSet<int> m_pendingBatchRepaints;          ///< 待刷新批次
 
     // 角度过滤参数
     double m_angleStart = 0.0;                 ///< 起始角度(度)
     double m_angleEnd = 360.0;                 ///< 结束角度(度)
+    bool m_onlyRecognizedDroneTracksVisible = false; ///< 是否仅显示普通航迹中的无人机
 
     /**
      * @brief 检查角度是否在显示扇区内
@@ -383,4 +442,7 @@ private:
      * @details 处理角度跨越0度的情况，支持任意角度扇区
      */
     bool inAngle(float azimuthDeg) const;
+
+    bool isTrackRecognitionVisible(const PointInfo& info) const;
+    bool isSeriesRecognitionVisible(const TrackSeries& series) const;
 };

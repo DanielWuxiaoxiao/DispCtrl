@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 10:04:10
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:31
+ * @LastEditTime: 2026-05-18 15:26:20
  * @Description: 
  */
 /**
@@ -18,7 +18,10 @@
  * @date 2024
  */
 
+#include "Basic/log.h"
+
 #include "sectordetmanager.h"
+#include "Basic/ConfigManager.h"
 #include "Basic/DispBasci.h"
 #include "Controller/RadarDataManager.h"  // 雷达数据管理器头文件
 #include <QtMath>
@@ -38,13 +41,14 @@
 SectorDetManager::SectorDetManager(QGraphicsScene* scene, PolarAxis* axis, QObject* parent)
     : QObject(parent), m_scene(scene), m_axis(axis)
 {
+    m_maxPoints = CF_INS.displayConfig("max_points", 1000);
+
     // 注册到统一数据管理器，使用唯一标识符
     RADAR_DATA_MGR.registerView("SectorDetManager_" + QString::number((quintptr)this), this);
 
-    // 连接统一数据管理器的信号到本地处理函数
-    connect(&RADAR_DATA_MGR, &RadarDataManager::detectionReceived,
-            this, &SectorDetManager::addDetPoint);     // 接收检测点数据
-    connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared,
+        // 检测点数据由 MainOverLayOut 通过 Controller::detInfoProcess 统一分发，
+        // 这里仅保留清空通知，避免扇区检测点被重复绘制。
+        connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared,
             this, &SectorDetManager::clear);           // 响应数据清理
 }
 
@@ -89,23 +93,24 @@ void SectorDetManager::addDetPoint(const PointInfo& info)
 
     // 设置可见性（只有在扇形范围内的点才可见）
     bool visible = m_visible && isPointVisible(copy);
-    pt->setVisible(visible);
-
-    // 添加到场景
-    m_scene->addItem(pt);
+    setPointSceneVisible(pt, visible);
 
     // 保存节点
     SectorDetNode node;
     node.point = pt;
     m_nodes.push_back(node);
 
-    // 每100个点打印一次统计
-    static int addCount = 0;
-    if (++addCount % 100 == 0) {
-        qDebug() << "[SectorDetManager::addDetPoint] Total points:" << m_nodes.size()
-                 << "Range:" << copy.range << "m, Azimuth:" << copy.azimuth
-                 << "° Visible:" << visible;
+    while (m_nodes.size() > m_maxPoints) {
+        SectorDetNode& oldNode = m_nodes.first();
+        if (oldNode.point) {
+            if (oldNode.point->scene() == m_scene) {
+                m_scene->removeItem(oldNode.point);
+            }
+            delete oldNode.point;
+        }
+        m_nodes.removeFirst();
     }
+
 }
 
 void SectorDetManager::refreshAll()
@@ -124,15 +129,14 @@ void SectorDetManager::refreshAll()
 
         // 更新可见性
         bool visible = m_visible && isPointVisible(info);
-        node.point->setVisible(visible);
+        setPointSceneVisible(node.point, visible);
 
         if (visible) visibleCount++;
         else hiddenCount++;
     }
 
-    qDebug() << "[SectorDetManager::refreshAll] Range:" << m_axis->minRange() << "~" << m_axis->maxRange()
-             << "km, Angle:" << m_minAngle << "~" << m_maxAngle
-             << "°, Visible:" << visibleCount << "Hidden:" << hiddenCount;
+    Q_UNUSED(visibleCount)
+    Q_UNUSED(hiddenCount)
 }
 
 void SectorDetManager::setAllVisible(bool visible)
@@ -142,7 +146,7 @@ void SectorDetManager::setAllVisible(bool visible)
     for (auto& node : m_nodes) {
         if (node.point) {
             bool shouldShow = m_visible && isPointVisible(node.point->infoRef());
-            node.point->setVisible(shouldShow);
+            setPointSceneVisible(node.point, shouldShow);
         }
     }
 }
@@ -160,6 +164,25 @@ void SectorDetManager::setPointSizeRatio(float ratio)
     }
 }
 
+void SectorDetManager::setMaxPoints(int maxPoints)
+{
+    if (maxPoints < 100) {
+        maxPoints = 100;
+    }
+
+    m_maxPoints = maxPoints;
+    while (m_nodes.size() > m_maxPoints) {
+        SectorDetNode& oldNode = m_nodes.first();
+        if (oldNode.point) {
+            if (oldNode.point->scene() == m_scene) {
+                m_scene->removeItem(oldNode.point);
+            }
+            delete oldNode.point;
+        }
+        m_nodes.removeFirst();
+    }
+}
+
 void SectorDetManager::setAngleRange(float minAngle, float maxAngle)
 {
     m_minAngle = minAngle;
@@ -171,18 +194,22 @@ void SectorDetManager::setAngleRange(float minAngle, float maxAngle)
 
 void SectorDetManager::clear()
 {
-    qDebug() << "[SectorDetManager::clear] Clearing" << m_nodes.size() << "detection points";
+    LOG_DEBUG(QString("[SectorDetManager::clear] Clearing %1 detection points")
+                  .arg(m_nodes.size()));
 
     for (auto& node : m_nodes) {
         if (node.point) {
-            m_scene->removeItem(node.point);
+            if (node.point->scene() == m_scene) {
+                m_scene->removeItem(node.point);
+            }
             delete node.point;
             node.point = nullptr;
         }
     }
     m_nodes.clear();
 
-    qDebug() << "[SectorDetManager::clear] Clear complete, nodes count:" << m_nodes.size();
+    LOG_DEBUG(QString("[SectorDetManager::clear] Clear complete, nodes count: %1")
+                  .arg(m_nodes.size()));
 }
 
 QPointF SectorDetManager::polarToPixel(float range, float azimuthDeg) const
@@ -218,4 +245,23 @@ bool SectorDetManager::inAngle(float azimuthDeg) const
 bool SectorDetManager::isPointVisible(const PointInfo& info) const
 {
     return inRange(info.range) && inAngle(info.azimuth);
+}
+
+void SectorDetManager::setPointSceneVisible(DetPoint* point, bool visible)
+{
+    if (!point || !m_scene) {
+        return;
+    }
+
+    point->setVisible(visible);
+    if (visible) {
+        if (!point->scene()) {
+            m_scene->addItem(point);
+        }
+        return;
+    }
+
+    if (point->scene() == m_scene) {
+        m_scene->removeItem(point);
+    }
 }

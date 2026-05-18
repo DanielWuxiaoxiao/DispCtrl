@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:45
+ * @LastEditTime: 2026-05-18 15:26:20
  * @Description: 
  */
 /**
@@ -18,10 +18,187 @@
  * @date 2024
  */
 
+#include "Basic/log.h"
+
 #include "detmanager.h"
+#include "Basic/ConfigManager.h"
 #include "Basic/DispBasci.h"
 #include "Controller/RadarDataManager.h"  // 雷达数据管理器头文件
 #include <QDebug>
+#include <QGraphicsSceneHoverEvent>
+#include <QPainter>
+#include <QStyleOptionGraphicsItem>
+#include <QVarLengthArray>
+#include "PolarDisp/tooltip.h"
+
+namespace {
+
+constexpr int kPpiRefreshIntervalMs = 16; // ~60 FPS when the GUI thread keeps up.
+
+QString detectionTooltipText(const PointInfo& info)
+{
+    return QString("%1\nR:%2m\nA:%3°\nE:%4°\nSNR:%5dB\nV:%6m/s\nH:%7m\nAmp:%8")
+            .arg(QString::fromUtf8(DET_LABEL))
+            .arg(info.range)
+            .arg(info.azimuth)
+            .arg(info.elevation)
+            .arg(info.SNR)
+            .arg(info.speed)
+            .arg(info.altitute)
+            .arg(info.amp);
+}
+
+} // namespace
+
+class DetBatchItem : public QGraphicsItem
+{
+public:
+    explicit DetBatchItem(const QVector<DetNode>* nodes)
+        : m_nodes(nodes)
+    {
+        setZValue(POINT_Z - 1);
+        setAcceptHoverEvents(true);
+        setAcceptedMouseButtons(Qt::NoButton);
+    }
+
+    QRectF boundingRect() const override
+    {
+        return m_bounds;
+    }
+
+    void includePoint(const QPointF& point)
+    {
+        const QRectF pointRect(point.x() - m_radius,
+                               point.y() - m_radius,
+                               m_radius * 2.0,
+                               m_radius * 2.0);
+        const QRectF nextRect = pointRect.adjusted(-8.0, -8.0, 8.0, 8.0);
+        if (m_hasContentBounds && m_bounds.contains(nextRect)) {
+            return;
+        }
+
+        prepareGeometryChange();
+        m_bounds = m_hasContentBounds ? m_bounds.united(nextRect) : nextRect;
+        m_hasContentBounds = true;
+    }
+
+    void rebuildBounds()
+    {
+        prepareGeometryChange();
+        QRectF nextBounds;
+        bool hasVisiblePoint = false;
+        if (m_nodes) {
+            for (const DetNode& node : *m_nodes) {
+                if (!node.visible) {
+                    continue;
+                }
+                const QRectF pointRect(node.scenePos.x() - m_radius,
+                                       node.scenePos.y() - m_radius,
+                                       m_radius * 2.0,
+                                       m_radius * 2.0);
+                nextBounds = hasVisiblePoint ? nextBounds.united(pointRect) : pointRect;
+                hasVisiblePoint = true;
+            }
+        }
+
+        m_hasContentBounds = hasVisiblePoint;
+        m_bounds = hasVisiblePoint ? nextBounds.adjusted(-8.0, -8.0, 8.0, 8.0)
+                                   : QRectF(-1.0, -1.0, 2.0, 2.0);
+    }
+
+    void setPointSizeRatio(float ratio)
+    {
+        if (ratio <= 0.0f) {
+            ratio = 1.0f;
+        }
+        m_radius = qMax<qreal>(1.0, DET_SIZE * ratio * 0.5);
+        rebuildBounds();
+    }
+
+    void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override
+    {
+        Q_UNUSED(option)
+        Q_UNUSED(widget)
+
+        if (!m_nodes) {
+            return;
+        }
+
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing, false);
+        QPen pen(DET_COLOR);
+        pen.setWidthF(qMax<qreal>(1.0, m_radius * 2.0));
+        painter->setPen(pen);
+        painter->setBrush(Qt::NoBrush);
+
+        QVarLengthArray<QPointF, 2048> visiblePoints;
+        for (const DetNode& node : *m_nodes) {
+            if (node.visible) {
+                visiblePoints.append(node.scenePos);
+            }
+        }
+
+        if (!visiblePoints.isEmpty()) {
+            painter->drawPoints(visiblePoints.constData(), visiblePoints.size());
+        }
+
+        painter->restore();
+    }
+
+protected:
+    void hoverMoveEvent(QGraphicsSceneHoverEvent* event) override
+    {
+        const DetNode* nearest = nearestVisibleNode(event->pos());
+        if (!nearest) {
+            TOOL_TIP->setVisible(false);
+            QGraphicsItem::hoverMoveEvent(event);
+            return;
+        }
+
+        TOOL_TIP->showTooltip(event->scenePos() + QPointF(15.0, 15.0),
+                              detectionTooltipText(nearest->info));
+        QGraphicsItem::hoverMoveEvent(event);
+    }
+
+    void hoverLeaveEvent(QGraphicsSceneHoverEvent* event) override
+    {
+        TOOL_TIP->setVisible(false);
+        QGraphicsItem::hoverLeaveEvent(event);
+    }
+
+private:
+    const DetNode* nearestVisibleNode(const QPointF& scenePos) const
+    {
+        if (!m_nodes) {
+            return nullptr;
+        }
+
+        const qreal pickRadius = qMax<qreal>(6.0, m_radius * 3.0);
+        const qreal pickRadiusSq = pickRadius * pickRadius;
+        const DetNode* nearest = nullptr;
+        qreal nearestDistanceSq = pickRadiusSq;
+
+        for (const DetNode& node : *m_nodes) {
+            if (!node.visible) {
+                continue;
+            }
+            const QPointF delta = node.scenePos - scenePos;
+            const qreal distanceSq = delta.x() * delta.x() + delta.y() * delta.y();
+            if (distanceSq <= nearestDistanceSq) {
+                nearestDistanceSq = distanceSq;
+                nearest = &node;
+            }
+        }
+
+        return nearest;
+    }
+
+private:
+    const QVector<DetNode>* m_nodes = nullptr;
+    QRectF m_bounds = QRectF(-1.0, -1.0, 2.0, 2.0);
+    qreal m_radius = qMax<qreal>(1.0, DET_SIZE * 0.5);
+    bool m_hasContentBounds = false;
+};
 
 /**
  * @brief DetManager构造函数实现
@@ -37,13 +214,27 @@
 DetManager::DetManager(QGraphicsScene* scene, PolarAxis* axis, QObject* parent)
     : QObject(parent), mScene(scene), mAxis(axis)
 {
+    m_maxPoints = qMax(100, CF_INS.displayConfig("max_points", 1000));
+
+    mBatchItem = new DetBatchItem(&mNodes);
+    mScene->addItem(mBatchItem);
+
+    mRepaintTimer.setSingleShot(true);
+    mRepaintTimer.setInterval(kPpiRefreshIntervalMs);
+    connect(&mRepaintTimer, &QTimer::timeout, this, [this]() {
+        if (!mRepaintPending || !mBatchItem) {
+            return;
+        }
+        mRepaintPending = false;
+        mBatchItem->update();
+    });
+
     // 注册到统一数据管理器，使用唯一标识符
     RADAR_DATA_MGR.registerView("DetManager_" + QString::number((quintptr)this), this);
 
-    // 连接统一数据管理器的信号到本地处理函数
-    connect(&RADAR_DATA_MGR, &RadarDataManager::detectionReceived,
-            this, &DetManager::addDetPoint);       // 接收检测点数据
-    connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared,
+        // 检测点数据由 PPIScene 通过 Controller::detInfoProcess 统一分发，
+        // 这里仅保留清空通知，避免同一批点被重复添加两次。
+        connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared,
             this, &DetManager::clear);             // 响应数据清理
 }
 
@@ -58,7 +249,12 @@ DetManager::~DetManager()
 {
     // 从统一数据管理器注销
     RADAR_DATA_MGR.unregisterView("DetManager_" + QString::number((quintptr)this));
-    clear();  // 清理所有检测点
+    mNodes.clear();
+    if (mBatchItem) {
+        mScene->removeItem(mBatchItem);
+        delete mBatchItem;
+        mBatchItem = nullptr;
+    }
 }
 
 /**
@@ -76,39 +272,30 @@ void DetManager::addDetPoint(const PointInfo& info)
 {
     // 创建检测点信息副本并设置类型
     PointInfo copy = info;
-    copy.type = 1; // 标记为检测点类型
-
-    // 创建检测点对象并配置外观
-    auto* pt = new DetPoint(copy);
-    pt->resize(mPointSizeRatio);      // 应用当前缩放比例
-    pt->setColor(DET_COLOR);          // 设置检测点颜色
+    copy.type = PointType::Detection; // 标记为检测点类型
 
     // 计算屏幕坐标位置
     QPointF pos = polarToPixel(copy.range, copy.azimuth);
-    pt->updatePosition(pos.x(), pos.y());
 
     // 应用可见性过滤：全局可见性 && 距离范围 && 角度范围
     bool vis = mVisible && inRange(copy.range) && inAngle(copy.azimuth);
-    pt->setVisible(vis);
-
-    // 添加到图形场景
-    mScene->addItem(pt);
 
     // 创建节点并加入内部容器
     DetNode node;
-    node.point = pt;
+    node.info = copy;
+    node.scenePos = pos;
+    node.visible = vis;
     mNodes.push_back(node);
 
     // 检查是否超出最大数量限制
     while (mNodes.size() > m_maxPoints) {
-        // 删除最旧的检测点（FIFO策略）
-        DetNode& oldNode = mNodes.first();
-        if (oldNode.point) {
-            mScene->removeItem(oldNode.point);
-            delete oldNode.point;
-        }
         mNodes.removeFirst();
     }
+
+    if (mBatchItem && vis) {
+        mBatchItem->includePoint(pos);
+    }
+    scheduleRepaint();
 }
 
 /**
@@ -122,17 +309,19 @@ void DetManager::addDetPoint(const PointInfo& info)
 void DetManager::refreshAll()
 {
     for (auto& n : mNodes) {
-        if (!n.point) continue;  // 跳过无效节点
-
         // 获取检测点信息并重新计算位置
-        const auto& pi = n.point->infoRef();
+        const auto& pi = n.info;
         QPointF pos = polarToPixel(pi.range, pi.azimuth);
-        n.point->updatePosition(pos.x(), pos.y());
+        n.scenePos = pos;
 
         // 重新应用可见性过滤
-        bool vis = mVisible && inRange(pi.range) && inAngle(pi.azimuth);
-        n.point->setVisible(vis);
+        n.visible = mVisible && inRange(pi.range) && inAngle(pi.azimuth);
     }
+
+    if (mBatchItem) {
+        mBatchItem->rebuildBounds();
+    }
+    scheduleRepaint();
 }
 
 /**
@@ -147,12 +336,13 @@ void DetManager::setAllVisible(bool vis)
 {
     mVisible = vis;
     for (auto& n : mNodes) {
-        if (n.point) {
-            // 综合考虑全局可见性和过滤条件
-            bool in = inRange(n.point->infoRef().range) && inAngle(n.point->infoRef().azimuth);
-            n.point->setVisible(mVisible && in);
-        }
+        const bool in = inRange(n.info.range) && inAngle(n.info.azimuth);
+        n.visible = mVisible && in;
     }
+    if (mBatchItem) {
+        mBatchItem->rebuildBounds();
+    }
+    scheduleRepaint();
 }
 
 /**
@@ -187,16 +377,16 @@ void DetManager::setMaxPoints(int maxPoints)
 
     // 立即清理超出限制的旧监测点
     while (mNodes.size() > m_maxPoints) {
-        DetNode& oldNode = mNodes.first();
-        if (oldNode.point) {
-            mScene->removeItem(oldNode.point);
-            delete oldNode.point;
-        }
         mNodes.removeFirst();
     }
+    if (mBatchItem) {
+        mBatchItem->rebuildBounds();
+    }
+    scheduleRepaint();
 
-    qDebug() << "DetManager: Max points limit set to" << m_maxPoints
-             << ", current count:" << mNodes.size();
+    LOG_DEBUG(QString("DetManager: Max points limit set to %1, current count: %2")
+                  .arg(m_maxPoints)
+                  .arg(mNodes.size()));
 }
 
 /**
@@ -250,11 +440,10 @@ void DetManager::setPointSizeRatio(float ratio)
     if (ratio <= 0.f) ratio = 1.f;  // 防护性检查
     mPointSizeRatio = ratio;
 
-    // 应用到所有检测点
-    for (auto& n : mNodes) {
-        if (n.point) n.point->resize(mPointSizeRatio);
+    if (mBatchItem) {
+        mBatchItem->setPointSizeRatio(mPointSizeRatio);
     }
-    refreshAll();  // 确保显示更新
+    scheduleRepaint();
 }
 
 /**
@@ -267,14 +456,46 @@ void DetManager::setPointSizeRatio(float ratio)
  */
 void DetManager::clear()
 {
-    for (auto& n : mNodes) {
-        if (n.point) {
-            mScene->removeItem(n.point);  // 从场景移除
-            delete n.point;               // 释放内存
-            n.point = nullptr;            // 重置指针
+    mNodes.clear();  // 清空容器
+    if (mBatchItem) {
+        mBatchItem->rebuildBounds();
+    }
+    scheduleRepaint();
+}
+
+void DetManager::scheduleRepaint()
+{
+    mRepaintPending = true;
+    if (!mRepaintTimer.isActive()) {
+        mRepaintTimer.start();
+    }
+}
+
+bool DetManager::pointInfoAt(const QPointF& scenePos, PointInfo& out, qreal pickRadius) const
+{
+    const qreal pickRadiusSq = pickRadius * pickRadius;
+    const DetNode* nearest = nullptr;
+    qreal nearestDistanceSq = pickRadiusSq;
+
+    for (const DetNode& node : mNodes) {
+        if (!node.visible) {
+            continue;
+        }
+
+        const QPointF delta = node.scenePos - scenePos;
+        const qreal distanceSq = delta.x() * delta.x() + delta.y() * delta.y();
+        if (distanceSq <= nearestDistanceSq) {
+            nearestDistanceSq = distanceSq;
+            nearest = &node;
         }
     }
-    mNodes.clear();  // 清空容器
+
+    if (!nearest) {
+        return false;
+    }
+
+    out = nearest->info;
+    return true;
 }
 
 /**

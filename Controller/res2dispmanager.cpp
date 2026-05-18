@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-01-26 11:28:06
+ * @Date: 2026-01-30 11:45:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:45
+ * @LastEditTime: 2026-05-18 15:26:19
  * @Description: 
  */
 /*
@@ -15,6 +15,7 @@
  * @Description: 资源管理到显控管理器实现
  */
 #include "res2dispmanager.h"
+#include "Basic/log.h"
 #include "UDP/threadudpsocket.h"
 #include "controller.h"
 #include <QThread>
@@ -52,7 +53,9 @@ Res2DispManager::Res2DispManager(QObject *parent) : QObject(parent)
     bool conn1 = connect(socket, &ThreadedUdpSocket::servoCtrlRet, CON_INS, &Controller::servoCtrlRet);
     bool conn2 = connect(socket, &ThreadedUdpSocket::bitReport, CON_INS, &Controller::onBITReport);
 
-    qDebug() << "[Res2DispManager] Signal connections - servoCtrlRet:" << conn1 << "bitReport:" << conn2;
+    LOG_DEBUG(QString("[Res2DispManager] Signal connections - servoCtrlRet: %1 bitReport: %2")
+                  .arg(conn1)
+                  .arg(conn2));
 
     thread->start();
 
@@ -60,7 +63,7 @@ Res2DispManager::Res2DispManager(QObject *parent) : QObject(parent)
     host = QHostAddress(CF_INS.ip("RES_DIS_IP", RES_DIS_IP));     // 资源系统IP
     port = CF_INS.port("DATA_PRO_2_DISP", 6008);                   // 资源系统发送端口（实际端口）
 
-    qInfo() << "[Res2DispManager] 已启动，监听端口8008，接收来自192.168.64.3:6008的消息";
+    LOG_INFO("[Res2DispManager] 已启动，监听端口8008，接收来自192.168.64.3:6008的消息");
 }
 
 /**

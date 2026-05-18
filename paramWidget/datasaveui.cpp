@@ -3,12 +3,14 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:33
+ * @LastEditTime: 2026-05-18 15:26:24
  * @Description: 
  */
 #include "datasaveui.h"
 #include "ui_datasaveui.h"
+#include "Basic/log.h"
 #include "Basic/DispBasci.h"
+#include "cusWidgets/custommessagebox.h"
 #include <QAction>
 #include <QPushButton>
 #include <QMenu>
@@ -16,6 +18,7 @@
 #include <QFile>
 #include <QTextStream>
 #include <QMessageBox>
+#include <QString>
 #include <QDir>
 #include <QDebug>
 
@@ -153,9 +156,8 @@ void DataSaveUI::showContextMenu(const QPoint &pos)
     if(currentRow >= 0)
         currentDataID = ui->tab->item(currentRow,0)->text().toInt();
 
-    qDebug() << ifCurrentoffline;
-
-    qDebug() << offlineDataID;
+    LOG_DEBUG(QString("DataSaveUI offline flag: %1").arg(ifCurrentoffline));
+    LOG_DEBUG(QString("DataSaveUI offline data ID: %1").arg(offlineDataID));
     if(ifCurrentoffline == false)
     {
         QAction* offlineAction = new QAction(tr("离线处理"),this);
@@ -177,14 +179,29 @@ void DataSaveUI::showContextMenu(const QPoint &pos)
 
 void DataSaveUI::deleteData()
 {
+    int currentRow = ui->tab->currentRow();
+    if(currentRow < 0)
+    {
+        return;
+    }
+
+    QTableWidgetItem* currentItem = ui->tab->item(currentRow,0);
+    if(!currentItem)
+    {
+        return;
+    }
+
+    const int dataID = currentItem->text().toInt();
+    const QString confirmText = QString::fromUtf8("是否删除数据 ID: ") + QString::number(dataID) + QString::fromUtf8("？");
+    if(!CustomMessageBox::showConfirm(this, tr("确认删除"), confirmText))
+    {
+        return;
+    }
+
     DataSet param;
     param.ifdel = true;
 
-    int currentRow = ui->tab->currentRow();
-    if(currentRow >= 0)
-    {
-        param.del.dataID = ui->tab->item(currentRow,0)->text().toInt();
-    }
+    param.del.dataID = dataID;
     emit setParam(param);
 }
 

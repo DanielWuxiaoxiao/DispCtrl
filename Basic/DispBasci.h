@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 11:28:41
+ * @LastEditTime: 2026-05-18 15:26:17
  * @Description: 
  */
 #ifndef DISPBASCI_H
@@ -85,7 +85,8 @@ private:
 //COLOR
 const QColor DET_COLOR = Qt::green;              // 检测点：绿色 (0, 255, 0)
 const QColor TRA_COLOR = Qt::red;                // 航迹：红色
-const QColor TBD_COLOR = Qt::yellow;              // TBD航迹：黄色 (255, 255, 0)
+const QColor DRONE_COLOR = Qt::yellow;                // 无人机 ： 黄色
+const QColor TBD_COLOR = QColor(160, 64, 255);    // TBD航迹：紫色
 const QColor CO_TRACK_COLOR = QColor(0, 170, 255); // 协同航迹：青蓝色
 
 //STRING
@@ -112,24 +113,24 @@ constexpr int MAP_Z = -5;
 constexpr int MAIN_FONT_SIZE = 9;
 
 inline QColor trackTypeColor(unsigned type) {
-    switch (static_cast<PointType>(type)) {
-    case PointType::TBDPointType:
+    switch (type) {
+    case 3:
         return TBD_COLOR;
-    case PointType::CooperativeTrackPointType:
+    case 4:
         return CO_TRACK_COLOR;
-    case PointType::Track:
+    case 2:
     default:
         return TRA_COLOR;
     }
 }
 
 inline QString trackTypeLabel(unsigned type) {
-    switch (static_cast<PointType>(type)) {
-    case PointType::TBDPointType:
+    switch (type) {
+    case 3:
         return QString::fromUtf8(TBD_LABEL);
-    case PointType::CooperativeTrackPointType:
+    case 4:
         return QString::fromUtf8(CO_TRACK_LABEL);
-    case PointType::Track:
+    case 2:
     default:
         return QString::fromUtf8(TRA_LABEL);
     }

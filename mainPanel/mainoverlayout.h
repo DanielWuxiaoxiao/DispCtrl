@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 11:28:43
+ * @LastEditTime: 2026-05-18 15:26:23
  * @Description: 
  */
 /**
@@ -53,6 +53,7 @@ class PPIScene;       ///< PPI雷达场景管理器
 class ZoomViewWidget; ///< 缩放视图控制器
 class SectorWidget;   ///< 扇区控制面板
 class RangeAzimuthChartWidget; ///< 距离-方位图表显示面板
+class RangeHeightChartWidget; ///< 距离-高度图表显示面板
 class AzElRangeWidget; ///< 方位角和俯仰角范围控制部件
 class mainviewTopLeft; ///< PPI视图左上角控制面板
 class CustomComboBox;  ///< 自定义组合框
@@ -62,6 +63,7 @@ class QLabel;          ///< Qt标签
 class DataSaveUI;      ///< 数据存储管理对话框
 class FrozenColumnHelper; ///< 表格冻结列辅助类
 class ScreenRecorderWidget; ///< 屏幕录制与回放组件
+class QTabWidget;      ///< Qt标签页控件
 
 
 namespace Ui {
@@ -227,6 +229,17 @@ private slots:
      */
     void clearAllTracks();
 
+    void flushPendingTrackTableUpdates();
+
+    void flushPendingLogLines();
+
+    /**
+     * @brief 航迹标签页切换处理
+     * @param index 当前标签页索引
+     * @details 切换到无人机页签时，仅显示普通无人机航迹
+     */
+    void onTrackTabChanged(int index);
+
     // 雷达控制槽函数
     /**
      * @brief 打开处理软件启动对话框
@@ -355,14 +368,18 @@ private:
     PPIView* mView;                   ///< PPI雷达显示视图
     PPIScene* mScene;                 ///< PPI雷达场景管理器
     ZoomViewWidget* m_zoomView;       ///< 缩放视图控制器
-    SectorWidget* m_sectorWidget;     ///< 扇区显示控制器
+    SectorWidget* m_sectorWidget = nullptr;     ///< 扇区显示控制器
     RangeAzimuthChartWidget* m_rangeAzimuthWidget; ///< 距离-方位图表显示控制器
+    RangeHeightChartWidget* m_rangeHeightWidget; ///< 距离-高度图表显示控制器
     AzElRangeWidget* m_azElRangeWidget; ///< 方位角和俯仰角范围控制器
     mainviewTopLeft* m_topLeftWidget;   ///< PPI视图左上角控制面板，用于联动偏航和倾角
 
     // 航迹管理相关成员
     QMap<unsigned int, int> m_targetTypes;  ///< 批次号到目标类型编号的映射
     QMap<unsigned int, QDateTime> m_trackStartTimes; ///< 批次号到航迹开始时间的映射
+    QMap<quint64, PointInfo> m_pendingTrackUpdates;  ///< 等待批量刷新的总航迹更新
+    QMap<unsigned int, PointInfo> m_pendingDroneTrackUpdates;  ///< 等待批量刷新的无人机航迹更新
+    QTimer* m_trackTableRefreshTimer = nullptr;      ///< 航迹表批量刷新定时器
     FrozenColumnHelper* m_trackTableFrozenHelper = nullptr;    ///< 总航迹表格冻结列辅助类
     FrozenColumnHelper* m_droneTableFrozenHelper = nullptr;    ///< 无人机表格冻结列辅助类
     QTableWidget* m_tbdTrackTable = nullptr;                  ///< TBD航迹表格
@@ -376,9 +393,20 @@ private:
      */
     void setupTrackManagement();
 
+    void updateTrackStatsWidgets();
+
     void setupTrackTable(QTableWidget* tableWidget, FrozenColumnHelper*& frozenHelper);
 
     void syncFrozenTrackTables();
+
+    void scheduleTrackTableRefresh();
+
+    void applyTrackListUpdate(const PointInfo& info, bool& sortMain, bool& sortTbd,
+                              bool& sortCooperative);
+
+    void applyDroneTrackListUpdate(const PointInfo& info, bool& sortDrone);
+
+    void applyTrackTabDisplayMode();
 
     // simulateIncomingTracks (test helper) removed
 
@@ -389,7 +417,8 @@ private:
      * @param targetType 目标类型文本
      * @return 更新的行号
      */
-    int addOrUpdateTrackRow(QTableWidget* tableWidget, const PointInfo& info, const QString& targetType);
+    int addOrUpdateTrackRow(QTableWidget* tableWidget, const PointInfo& info, const QString& targetType,
+                            bool* inserted = nullptr);
 
     void removeTrackRow(QTableWidget* tableWidget, unsigned type, unsigned int batch);
 
@@ -412,6 +441,8 @@ private:
      * @details 设置日志文本框为只读，配置样式
      */
     void setupLogInfo();
+
+    void scheduleLogFlush();
 
     /**
      * @brief 向界面日志区追加一行完整日志
@@ -451,6 +482,8 @@ private:
     ServoControlParam m_servoControlParam;    ///< 伺服控制参数
 
     int m_maxLogLines;                   ///< 最大日志行数限制
+    QStringList m_pendingLogLines;       ///< 等待批量刷新的日志行
+    QTimer* m_logFlushTimer = nullptr;   ///< 日志批量刷新定时器
 
     // 一键全数配置相关成员
     QTimer* m_commandTimer;              ///< 命令执行定时器

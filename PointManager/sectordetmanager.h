@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 10:04:10
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:45:06
+ * @LastEditTime: 2026-05-18 15:26:20
  * @Description: 
  */
 /**
@@ -46,13 +46,13 @@ struct SectorDetNode {
  *          - 扇形角度范围的实时过滤和显示
  *          - 与扇形网格系统的协调显示
  *          - 扇形区域的性能优化管理
- * 
+ *
  * 功能特点：
  * - 专门针对扇形显示区域优化
  * - 支持动态角度范围调整
  * - 高效的扇形过滤算法
  * - 与主PPI显示的分离管理
- * 
+ *
  * @example 基本使用：
  * @code
  * SectorDetManager* mgr = new SectorDetManager(scene, axis);
@@ -77,7 +77,7 @@ public:
      *          - 初始化扇形点容器
      */
     explicit SectorDetManager(QGraphicsScene* scene, PolarAxis* axis, QObject* parent = nullptr);
-    
+
     /**
      * @brief 虚析构函数
      * @details 清理所有扇形检测点对象和相关资源
@@ -94,7 +94,7 @@ public:
      *          4. 应用扇形过滤和显示设置
      */
     void addDetPoint(const PointInfo& info);
-    
+
     /**
      * @brief 刷新所有扇形检测点显示
      * @details 当坐标轴参数或扇形范围变化时调用：
@@ -103,21 +103,27 @@ public:
      *          - 更新点的显示位置和可见性
      */
     void refreshAll();
-    
+
     /**
      * @brief 设置扇形区域全局可见性
      * @param visible true显示所有扇形检测点，false隐藏所有扇形检测点
      * @details 批量控制扇形区域内所有检测点的可见性
      */
     void setAllVisible(bool visible);
-    
+
     /**
      * @brief 设置扇形检测点尺寸比例
      * @param ratio 缩放比例，1.0为默认大小
      * @details 批量调整扇形区域内所有检测点的显示尺寸
      */
     void setPointSizeRatio(float ratio);
-    
+
+    /**
+     * @brief 设置最大检测点数量限制
+     * @param maxPoints 最大检测点数量
+     */
+    void setMaxPoints(int maxPoints);
+
     /**
      * @brief 设置扇形角度范围
      * @param minAngle 最小角度(度)
@@ -128,7 +134,7 @@ public:
      *          - 通常用于雷达扇形扫描显示
      */
     void setAngleRange(float minAngle, float maxAngle);
-    
+
     /**
      * @brief 清理所有扇形检测点
      * @details 删除扇形区域内的所有检测点对象：
@@ -137,7 +143,7 @@ public:
      *          - 重置内部状态
      */
     void clear();
-    
+
     /**
      * @brief 获取扇形检测点数量
      * @return 当前扇形区域内的检测点总数
@@ -154,7 +160,7 @@ private:
      * @details 利用PolarAxis进行坐标变换
      */
     QPointF polarToPixel(float range, float azimuthDeg) const;
-    
+
     /**
      * @brief 检查距离是否在显示范围内
      * @param range 距离值(公里)
@@ -162,7 +168,7 @@ private:
      * @details 根据PolarAxis的最小/最大距离判断
      */
     bool inRange(float range) const;
-    
+
     /**
      * @brief 检查角度是否在扇形范围内
      * @param azimuthDeg 方位角(度)
@@ -170,7 +176,7 @@ private:
      * @details 判断检测点是否在设置的扇形角度范围内
      */
     bool inAngle(float azimuthDeg) const;
-    
+
     /**
      * @brief 检查点是否应该可见
      * @param info 检测点信息
@@ -179,18 +185,21 @@ private:
      */
     bool isPointVisible(const PointInfo& info) const;
 
+    void setPointSceneVisible(DetPoint* point, bool visible);
+
 private:
     // 核心组件引用
     QGraphicsScene* m_scene;                ///< 图形场景指针
     PolarAxis* m_axis;                     ///< 极坐标轴指针
-    
+
     // 扇形检测点管理
     QVector<SectorDetNode> m_nodes;        ///< 扇形检测点节点容器
-    
+
     // 显示控制参数
     bool m_visible = true;                 ///< 全局可见性标志
     float m_pointSizeRatio = 1.0f;         ///< 点尺寸缩放比例
-    
+    int m_maxPoints = 1000;                ///< 最大检测点数量限制
+
     // 扇形角度范围参数
     float m_minAngle = -30.0f;             ///< 扇形最小角度(度)
     float m_maxAngle = 30.0f;              ///< 扇形最大角度(度)

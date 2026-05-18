@@ -134,6 +134,7 @@ set(SRC_FILES
     PolarDisp/sectorpolargrid.cpp              # 扇区极坐标网格
     PolarDisp/rangeazimuthwidget.cpp           # 距离-方位显示部件
     PolarDisp/rangeazimuthchart.cpp            # 距离-方位图表（直角坐标系）
+    PolarDisp/rangeheightchart.cpp             # 距离-高度图表（直角坐标系）
     PolarDisp/pviewtopleft.cpp                 # 左上角视图
     PolarDisp/mousepositioninfo.cpp            # 鼠标位置信息
     PolarDisp/ppivisualsettings.cpp            # PPI视觉设置
@@ -221,6 +222,7 @@ set(SRC_FILES
 set(HDR_FILES
     # 主界面头文件
     mainwindow.h                               # 主窗口类定义
+    PolarDisp/rangeheightchart.h               # 距离-高度图表
 
     # 控制模块头文件 - 数据流和业务逻辑
     Controller/targetdispmanager.h             # 目标显示管理器

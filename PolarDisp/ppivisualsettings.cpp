@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-23 09:44:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 22:07:38
+ * @LastEditTime: 2026-05-18 15:26:21
  * @Description: 
  */
 /**
@@ -35,6 +35,7 @@
 #include <QStyleOption>
 #include <QPolygon>
 #include <QEvent>
+#include <QIntValidator>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QHBoxLayout>
@@ -79,6 +80,8 @@ PPIVisualSettings::PPIVisualSettings(QWidget *parent)
     QIntValidator* pointsValidator = new QIntValidator(1, 1000000, this);
     ui->maxPointsEdit->setValidator(pointsValidator);
 
+    setupTrackPointLimitRow();
+
     // 连接信号槽
     connectSignals();
 
@@ -92,11 +95,15 @@ PPIVisualSettings::PPIVisualSettings(QWidget *parent)
     // 设置默认最大检测点数量
     int maxPoints = CF_INS.displayConfig("max_points", 1000);
     ui->maxPointsEdit->setText(QString::number(maxPoints));
+    setMaxTrackPoints(CF_INS.displayConfig("max_track_points", 200));
 
     // 设置工具提示
     ui->maxDistanceEdit->setToolTip("设置雷达显示的最大距离范围");
     ui->mapTypeCombo->setToolTip("选择背景地图显示类型");
     ui->maxPointsEdit->setToolTip("设置最大检测点数量，超出后删除旧数据");
+    if (m_maxTrackPointsEdit) {
+        m_maxTrackPointsEdit->setToolTip("设置单批航迹最大点数，超出后删除该批次最旧数据");
+    }
 
     // 添加数据处理状态标签行
     {
@@ -123,36 +130,36 @@ PPIVisualSettings::PPIVisualSettings(QWidget *parent)
 
     // 添加道路点勾选框（在处理状态行之后）
     {
-        QHBoxLayout* roadLayout = new QHBoxLayout();
-        roadLayout->setSpacing(4);
+        // QHBoxLayout* roadLayout = new QHBoxLayout();
+        // roadLayout->setSpacing(4);
 
-        QLabel* roadLabel = new QLabel("道路点", this);
-        roadLabel->setMinimumWidth(80);
-        roadLabel->setAlignment(Qt::AlignCenter);
-        roadLabel->setObjectName("PPIRoadLabel");
+        // QLabel* roadLabel = new QLabel("道路点", this);
+        // roadLabel->setMinimumWidth(80);
+        // roadLabel->setAlignment(Qt::AlignCenter);
+        // roadLabel->setObjectName("PPIRoadLabel");
 
-        m_roadCheckBox = new QCheckBox(this);
-        m_roadCheckBox->setChecked(false);
-        m_roadCheckBox->setToolTip("显示/隐藏OSM道路点");
-        m_roadCheckBox->setObjectName("PPIRoadCheckBox");
-        // 让道路点的checkbox指示器稍大一些，便于识别
-        m_roadCheckBox->setStyleSheet("QCheckBox::indicator { width: 18px; height: 18px; }");
+        // m_roadCheckBox = new QCheckBox(this);
+        // m_roadCheckBox->setChecked(false);
+        // m_roadCheckBox->setToolTip("显示/隐藏OSM道路点");
+        // m_roadCheckBox->setObjectName("PPIRoadCheckBox");
+        // // 让道路点的checkbox指示器稍大一些，便于识别
+        // m_roadCheckBox->setStyleSheet("QCheckBox::indicator { width: 18px; height: 18px; }");
 
-        roadLayout->addWidget(roadLabel);
-        roadLayout->addWidget(m_roadCheckBox);
+        // roadLayout->addWidget(roadLabel);
+        // roadLayout->addWidget(m_roadCheckBox);
 
-        // 在道路点右侧添加颜色指示圆圈（比MousePositionInfo中圆圈更大）
-        QLabel* roadColorLabel = new QLabel("●", this);
-        roadColorLabel->setStyleSheet("color: #FF8000; font-size: 18px;");
-        roadColorLabel->setFixedWidth(20);
-        roadColorLabel->setAlignment(Qt::AlignCenter);
-        roadColorLabel->setObjectName("PPIRoadColorLabel");
-        roadLayout->addWidget(roadColorLabel);
+        // // 在道路点右侧添加颜色指示圆圈（比MousePositionInfo中圆圈更大）
+        // QLabel* roadColorLabel = new QLabel("●", this);
+        // roadColorLabel->setStyleSheet("color: #FF8000; font-size: 18px;");
+        // roadColorLabel->setFixedWidth(20);
+        // roadColorLabel->setAlignment(Qt::AlignCenter);
+        // roadColorLabel->setObjectName("PPIRoadColorLabel");
+        // roadLayout->addWidget(roadColorLabel);
 
-        // 插入到处理状态行之后（索引4）
-        ui->verticalLayout->insertLayout(4, roadLayout);
+        // // 插入到处理状态行之后（索引4）
+        // ui->verticalLayout->insertLayout(4, roadLayout);
 
-        connect(m_roadCheckBox, &QCheckBox::toggled, this, &PPIVisualSettings::roadVisibilityChanged);
+        // connect(m_roadCheckBox, &QCheckBox::toggled, this, &PPIVisualSettings::roadVisibilityChanged);
     }
 
     // Map engine selection removed per rollback decision (OSM/MapLibre UI disabled)
@@ -232,6 +239,11 @@ int PPIVisualSettings::getMaxPoints() const
     return ui->maxPointsEdit->text().toInt();
 }
 
+int PPIVisualSettings::getMaxTrackPoints() const
+{
+    return m_maxTrackPointsEdit ? m_maxTrackPointsEdit->text().toInt() : 200;
+}
+
 /**
  * @brief 设置最大监测点数量
  * @param maxPoints 最大监测点数量
@@ -240,6 +252,13 @@ int PPIVisualSettings::getMaxPoints() const
 void PPIVisualSettings::setMaxPoints(int maxPoints)
 {
     ui->maxPointsEdit->setText(QString::number(maxPoints));
+}
+
+void PPIVisualSettings::setMaxTrackPoints(int maxPoints)
+{
+    if (m_maxTrackPointsEdit) {
+        m_maxTrackPointsEdit->setText(QString::number(maxPoints));
+    }
 }
 
 /**
@@ -301,6 +320,47 @@ void PPIVisualSettings::onMaxPointsEditReturnPressed()
         ui->maxPointsEdit->selectAll();
         ui->maxPointsEdit->setFocus();
     }
+}
+
+void PPIVisualSettings::onMaxTrackPointsEditReturnPressed()
+{
+    if (!m_maxTrackPointsEdit) {
+        return;
+    }
+
+    bool ok;
+    int maxPoints = m_maxTrackPointsEdit->text().toInt(&ok);
+
+    if (ok && maxPoints >= 1 && maxPoints <= 1000000) {
+        CF_INS.saveDisplayConfig("max_track_points", maxPoints);
+        CF_INS.save();
+        emit maxTrackPointsChanged(maxPoints);
+    } else {
+        QMessageBox::warning(this, "输入错误", "请输入有效的航迹点数量 (1-1000000)");
+        m_maxTrackPointsEdit->selectAll();
+        m_maxTrackPointsEdit->setFocus();
+    }
+}
+
+void PPIVisualSettings::setupTrackPointLimitRow()
+{
+    QHBoxLayout* trackLayout = new QHBoxLayout();
+    trackLayout->setSpacing(4);
+
+    m_maxTrackPointsLabel = new QLabel("航迹点", this);
+    m_maxTrackPointsLabel->setMinimumWidth(80);
+    m_maxTrackPointsLabel->setAlignment(Qt::AlignCenter);
+
+    m_maxTrackPointsEdit = new QLineEdit(this);
+    m_maxTrackPointsEdit->setMinimumSize(QSize(60, 0));
+    m_maxTrackPointsEdit->setMaximumSize(QSize(80, QWIDGETSIZE_MAX));
+    m_maxTrackPointsEdit->setAlignment(Qt::AlignCenter);
+    m_maxTrackPointsEdit->setValidator(new QIntValidator(1, 1000000, m_maxTrackPointsEdit));
+
+    trackLayout->addWidget(m_maxTrackPointsLabel);
+    trackLayout->addWidget(m_maxTrackPointsEdit);
+
+    ui->verticalLayout->insertLayout(3, trackLayout);
 }
 
 /**
@@ -409,6 +469,10 @@ void PPIVisualSettings::connectSignals()
 
     connect(ui->maxPointsEdit, &QLineEdit::returnPressed,
             this, &PPIVisualSettings::onMaxPointsEditReturnPressed);
+    if (m_maxTrackPointsEdit) {
+        connect(m_maxTrackPointsEdit, &QLineEdit::returnPressed,
+                this, &PPIVisualSettings::onMaxTrackPointsEditReturnPressed);
+    }
 
     connect(ui->mapTypeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &PPIVisualSettings::onMapTypeChanged);

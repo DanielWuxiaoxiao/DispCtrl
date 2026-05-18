@@ -235,5 +235,12 @@ interpolation_step = 30
 [displayConfig]
 # 检测点显示配置 Detection Point Display Configuration
 max_points = 1000                    # 最大检测点数量
+max_track_points = 200               # 单批航迹最大点数
 iftbd = false                        # 是否启用TBD航迹接收与显示
 ifxietong = false                    # 是否启用协同航迹接收与显示
+sector_display_enabled = false       # Create the sector display widget
+sector_display_data_enabled = false  # Feed live points/tracks into sector display; keep false for benchmark
+track_label_refresh_ms = 200         # 主P显航迹标签最小刷新间隔，0=每点刷新
+chart_track_labels_enabled = false   # B显/高显是否显示航迹批号标签，压测建议关闭
+chart_track_label_refresh_ms = 200   # B显/高显航迹标签最小刷新间隔，0=每点刷新
+send_road_points_to_datapro = false  # 是否向数处下发道路点，压测建议关闭

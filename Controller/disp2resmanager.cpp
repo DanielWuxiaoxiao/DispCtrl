@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:12
+ * @LastEditTime: 2026-05-18 15:26:19
  * @Description: 
  */
 /**
@@ -30,6 +30,7 @@
  */
 
 #include "disp2resmanager.h"
+#include "Basic/log.h"
 #include "UDP/threadudpsocket.h"
 #include <QThread>
 #include "controller.h"
@@ -148,13 +149,13 @@ void Disp2ResManager::sendWCParam(BeamControl param)
 
 void Disp2ResManager::sendSPParam(SigProParam param)
 {
-    qDebug() << "[Disp2ResManager] sendSPParam called, commCount:" << commCount;
+    LOG_DEBUG(QString("[Disp2ResManager] sendSPParam called, commCount: %1").arg(commCount));
     sendParam(reinterpret_cast<char *>(&param),sizeof(param));
 }
 
 void Disp2ResManager::sendDPParam(DataProParam param)
 {
-    qDebug() << "[Disp2ResManager] sendDPParam called, commCount:" << commCount;
+    LOG_DEBUG(QString("[Disp2ResManager] sendDPParam called, commCount: %1").arg(commCount));
     sendParam(reinterpret_cast<char *>(&param),sizeof(param));
 }
 

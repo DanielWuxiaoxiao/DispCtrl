@@ -3,10 +3,11 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-03-10 17:18:12
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-25 17:09:16
+ * @LastEditTime: 2026-05-18 15:26:23
  * @Description: 
  */
 #include "simpleavi.h"
+#include "Basic/log.h"
 #include <QDebug>
 #include <QBuffer>
 #include <cstring>
@@ -43,7 +44,7 @@ bool SimpleAviWriter::open(const QString& filePath, int width, int height, int f
 
     m_file.setFileName(filePath);
     if (!m_file.open(QIODevice::WriteOnly)) {
-        qWarning() << "[SimpleAviWriter] Cannot open:" << filePath;
+        LOG_WARNING(QString("[SimpleAviWriter] Cannot open: %1").arg(filePath));
         return false;
     }
     quint32 usPerFrame = 1000000 / static_cast<quint32>(m_fps);

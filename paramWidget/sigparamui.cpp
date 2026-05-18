@@ -3,13 +3,14 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:34
+ * @LastEditTime: 2026-05-18 15:26:24
  * @Description: 
  */
 #include "sigparamui.h"
 #include "ui_sigparamui.h"
 #include "Basic/ConfigManager.h"
 #include "Basic/DispBasci.h"
+#include "Basic/log.h"
 #include "cusWidgets/custommessagebox.h"
 #include <QPushButton>
 #include <QDebug>
@@ -41,7 +42,7 @@ sigParamUI::sigParamUI(QWidget *parent) :
 
 void sigParamUI::onAccept()
 {
-    qDebug() << "[sigParamUI] onAccept() called";
+    LOG_DEBUG("[sigParamUI] onAccept() called");
     SigProParam param;
     param.algorithmSwitch = 0;
     param.noise = ui->noise->text().toFloat()/0.01f;
@@ -74,7 +75,7 @@ void sigParamUI::onAccept()
     else
         param.algorithmSwitch &= ~(1 << 2);
 
-    qDebug() << "[sigParamUI] emitting setParam signal";
+    LOG_DEBUG("[sigParamUI] emitting setParam signal");
     emit setParam(param);
     // 保持窗口与布局，不关闭父窗口
 }

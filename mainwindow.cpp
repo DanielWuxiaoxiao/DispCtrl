@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-06 17:10:25
+ * @LastEditTime: 2026-05-18 15:26:24
  * @Description: 
  */
 /**
@@ -224,14 +224,6 @@ void FramelessMainWindow::setupOverlayUI()
                     });
             connect(gcsMgr, &GCSManager::logMessage, m_overlayWidget,
                     &MainOverLayOut::appendExternalLog);
-            connect(gcsMgr, &GCSManager::heartbeatReceived, this,
-                    []() {
-                        LOG_INFO("[GCS][HEARTBEAT] heartbeatReceived signal emitted");
-                    });
-            connect(gcsMgr, &GCSManager::heartbeatReceived, m_overlayWidget,
-                    [this]() {
-                        m_overlayWidget->appendExternalLog(QStringLiteral("[GCS][HEARTBEAT] heartbeatReceived signal emitted"));
-                    });
             ppiView->setGCSManager(gcsMgr);
         }
     }

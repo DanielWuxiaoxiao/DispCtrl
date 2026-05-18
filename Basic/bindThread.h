@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-09-23 09:44:53
+ * @LastEditTime: 2026-05-18 15:26:17
  * @Description: 
  */
 #ifndef BINDTHREAD_H     
@@ -16,6 +16,7 @@
 #include <QDebug>       // For Qt's debugging output
 #include <QThread>      // If binding QThreads
 #include <pthread.h>    // If binding std::thread or raw pthreads
+#include "log.h"
 
 bool bindThreadToCpu(int cpu_id)
 {
@@ -31,7 +32,7 @@ bool bindThreadToCpu(int cpu_id)
 #else
     // 非Linux系统，此函数可能不适用或需要平台特定的实现
     Q_UNUSED(tid); // 避免编译警告
-    qWarning() << "CPU affinity is Linux-specific or requires platform-specific implementation.";
+    LOG_WARNING("CPU affinity is Linux-specific or requires platform-specific implementation.");
     return false;
 #endif
 
@@ -45,11 +46,14 @@ bool bindThreadToCpu(int cpu_id)
     // 第三个参数是CPU集合
     if (sched_setaffinity(tid, sizeof(cpu_set_t), &cpuset) == -1)
     {
-        qCritical() << "Failed to set CPU affinity for thread" << tid << "to CPU" << cpu_id << ":" << strerror(errno);
+        LOG_ERROR(QString("Failed to set CPU affinity for thread %1 to CPU %2: %3")
+                      .arg(tid)
+                      .arg(cpu_id)
+                      .arg(strerror(errno)));
         return false;
     }
 
-    qDebug() << "Thread" << tid << "successfully bound to CPU" << cpu_id;
+    LOG_DEBUG(QString("Thread %1 successfully bound to CPU %2").arg(tid).arg(cpu_id));
     return true;
 }
 

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-23 09:44:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 22:07:38
+ * @LastEditTime: 2026-05-18 15:26:21
  * @Description: 
  */
 /**
@@ -124,11 +124,23 @@ public:
     int getMaxPoints() const;
 
     /**
+     * @brief 获取当前单批航迹最大点数设置
+     * @return 单批航迹最大点数
+     */
+    int getMaxTrackPoints() const;
+
+    /**
      * @brief 设置最大检测点数量
      * @param maxPoints 最大检测点数量
      * @details 程序化设置最大检测点数量，更新UI显示但不触发信号
      */
     void setMaxPoints(int maxPoints);
+
+    /**
+     * @brief 设置单批航迹最大点数
+     * @param maxPoints 单批航迹最大点数
+     */
+    void setMaxTrackPoints(int maxPoints);
 
     /**
      * @brief 更新离线处理状态显示
@@ -166,6 +178,12 @@ signals:
      * @details 当用户修改最大检测点数量设置时发出，通知DetManager更新限制
      */
     void maxPointsChanged(int maxPoints);
+
+    /**
+     * @brief 单批航迹最大点数变化信号
+     * @param maxPoints 新的单批航迹最大点数
+     */
+    void maxTrackPointsChanged(int maxPoints);
 
     /**
      * @brief 请求清除P显数据信号
@@ -225,6 +243,11 @@ private slots:
     void onMaxPointsEditReturnPressed();
 
     /**
+     * @brief 单批航迹最大点数输入回车处理
+     */
+    void onMaxTrackPointsEditReturnPressed();
+
+    /**
      * @brief 显清按钮点击处理
      * @details 响应用户点击"显清"按钮，弹出确认对话框后清除P显数据
      */
@@ -234,6 +257,8 @@ private:
     Ui::PPIVisualSettings *ui;  ///< UI界面对象指针
     QLabel *m_processStatusLabel = nullptr;  ///< 数据处理状态标签
     QCheckBox *m_roadCheckBox = nullptr;     ///< 道路点显示开关
+    QLabel *m_maxTrackPointsLabel = nullptr; ///< 单批航迹最大点数标签
+    QLineEdit *m_maxTrackPointsEdit = nullptr; ///< 单批航迹最大点数输入框
     // Map engine selection removed per rollback decision
 
     /**
@@ -247,6 +272,11 @@ private:
      * @details 建立UI控件与处理函数的信号槽连接
      */
     void connectSignals();
+
+    /**
+     * @brief 创建单批航迹最大点数配置行
+     */
+    void setupTrackPointLimitRow();
 
     /**
      * @brief 验证距离输入

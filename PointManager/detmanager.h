@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-20 16:29:53
+ * @LastEditTime: 2026-05-18 15:26:20
  * @Description: 
  */
 /**
@@ -25,8 +25,12 @@
 #include <QObject>
 #include <QGraphicsScene>
 #include <QVector>
+#include <QPointF>
+#include <QTimer>
 #include "point.h"
 #include "PolarDisp/polaraxis.h"
+
+class DetBatchItem;
 
 /**
  * @struct DetNode
@@ -37,7 +41,9 @@
  *          - 支持批量操作和内存管理
  */
 struct DetNode {
-    DetPoint* point = nullptr;   ///< 检测点对象指针
+    PointInfo info;              ///< 检测点数据
+    QPointF scenePos;            ///< 场景坐标
+    bool visible = true;         ///< 当前过滤后的可见性
 };
 
 /**
@@ -178,7 +184,11 @@ public:
      */
     int getPointCount() const { return mNodes.size(); }
 
+    bool pointInfoAt(const QPointF& scenePos, PointInfo& out, qreal pickRadius = 8.0) const;
+
 private:
+    void scheduleRepaint();
+
     /**
      * @brief 极坐标转屏幕坐标
      * @param range 距离值(公里)
@@ -216,10 +226,13 @@ private:
 
     // 检测点管理
     QVector<DetNode> mNodes;             ///< 检测点节点容器
+    DetBatchItem* mBatchItem = nullptr;  ///< 批量绘制检测点图元
 
     // 显示控制参数
     float mPointSizeRatio = 1.f;         ///< 点尺寸缩放比例
     bool mVisible = true;                ///< 全局可见性标志
+    QTimer mRepaintTimer;                ///< UI刷新限速定时器
+    bool mRepaintPending = false;        ///< 是否存在待刷新内容
 
     // 角度过滤参数
     double m_angleStart = 0.0;           ///< 起始角度(度)

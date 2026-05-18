@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 10:04:10
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 11:28:41
+ * @LastEditTime: 2026-05-18 15:26:20
  * @Description: 
  */
 /**
@@ -19,7 +19,9 @@
  */
 
 #include "sectortrackmanager.h"
+#include "Basic/ConfigManager.h"
 #include "Basic/DispBasci.h"
+#include "Basic/log.h"
 #include "Controller/RadarDataManager.h"  // 雷达数据管理器头文件
 #include <QPen>
 #include <QtMath>
@@ -97,6 +99,8 @@ QVariant SectorDraggableLabel::itemChange(GraphicsItemChange change, const QVari
 SectorTrackManager::SectorTrackManager(QGraphicsScene* scene, PolarAxis* axis, QObject* parent)
     : QObject(parent), m_scene(scene), m_axis(axis)
 {
+    m_maxPointsPerBatch = CF_INS.displayConfig("max_track_points", 200);
+
     // 注册到统一数据管理器
     RADAR_DATA_MGR.registerView("SectorTrackManager_" + QString::number((quintptr)this), this);
 
@@ -116,7 +120,8 @@ void SectorTrackManager::addTrackPoint(const PointInfo& info)
 {
     // 检查 statMethod==2，表示需要删除该批号的航迹
     if (info.statMethod == 2) {
-        qDebug() << "[SectorTrackManager::addTrackPoint] statMethod==2, removing batch" << info.batch;
+        LOG_DEBUG(QString("[SectorTrackManager::addTrackPoint] statMethod==2, removing batch %1")
+                  .arg(info.batch));
         removeBatch(info.batch);
         // 发出信号通知其他组件删除对应航迹
         emit trackRemoved(info.batch);
@@ -131,6 +136,7 @@ void SectorTrackManager::addTrackPoint(const PointInfo& info)
     }
     ensureSeries(info.batch, type);
     SectorTrackSeries& series = m_series[info.batch];
+    const bool firstPointInBatch = series.nodes.isEmpty();
 
     // 创建航迹点
     PointInfo copy = info;
@@ -145,9 +151,18 @@ void SectorTrackManager::addTrackPoint(const PointInfo& info)
 
     // 设置可见性
     bool visible = series.visible && isPointVisible(copy);
-    pt->setVisible(visible);
+    setItemSceneVisible(pt, visible);
 
-    m_scene->addItem(pt);
+    if (firstPointInBatch && info.type != PointType::Track) {
+        LOG_INFO(QString("[SectorTrackManager] First %1 point reached sector view: batch=%2 range=%3 azimuth=%4 visible=%5 batchVisible=%6 inSector=%7")
+                 .arg(trackTypeLabel(info.type))
+                 .arg(info.batch)
+                 .arg(copy.range, 0, 'f', 1)
+                 .arg(copy.azimuth, 0, 'f', 2)
+                 .arg(visible)
+                 .arg(series.visible)
+                 .arg(isPointVisible(copy)));
+    }
 
     SectorTrackNode node;
     node.point = pt;
@@ -167,17 +182,46 @@ void SectorTrackManager::addTrackPoint(const PointInfo& info)
             bool lineVisible = series.visible &&
                              isPointVisible(prevPoint->infoRef()) &&
                              isPointVisible(copy);
-            line->setVisible(lineVisible);
-
-            m_scene->addItem(line);
+            setItemSceneVisible(line, lineVisible);
             node.lineFromPrev = line;
         }
     }
 
     series.nodes.append(node);
+    limitBatchPoints(series);
 
     // 更新最新点标签
     updateLatestLabel(info.batch);
+}
+
+void SectorTrackManager::limitBatchPoints(SectorTrackSeries& series)
+{
+    while (series.nodes.size() > m_maxPointsPerBatch) {
+        SectorTrackNode oldNode = series.nodes.takeFirst();
+        if (oldNode.lineFromPrev) {
+            if (oldNode.lineFromPrev->scene() == m_scene) {
+                m_scene->removeItem(oldNode.lineFromPrev);
+            }
+            delete oldNode.lineFromPrev;
+        }
+        if (oldNode.point) {
+            if (oldNode.point->scene() == m_scene) {
+                m_scene->removeItem(oldNode.point);
+            }
+            delete oldNode.point;
+        }
+
+        if (!series.nodes.isEmpty()) {
+            SectorTrackNode& firstNode = series.nodes.first();
+            if (firstNode.lineFromPrev) {
+                if (firstNode.lineFromPrev->scene() == m_scene) {
+                    m_scene->removeItem(firstNode.lineFromPrev);
+                }
+                delete firstNode.lineFromPrev;
+                firstNode.lineFromPrev = nullptr;
+            }
+        }
+    }
 }
 
 void SectorTrackManager::refreshAll()
@@ -198,7 +242,7 @@ void SectorTrackManager::refreshAll()
 
             // 更新可见性
             bool visible = series.visible && isPointVisible(info);
-            node.point->setVisible(visible);
+            setItemSceneVisible(node.point, visible);
 
             // 更新连线
             if (node.lineFromPrev && i > 0) {
@@ -211,7 +255,7 @@ void SectorTrackManager::refreshAll()
                     bool lineVisible = series.visible &&
                                      isPointVisible(prevPoint->infoRef()) &&
                                      isPointVisible(info);
-                    node.lineFromPrev->setVisible(lineVisible);
+                    setItemSceneVisible(node.lineFromPrev, lineVisible);
                 }
             }
         }
@@ -226,8 +270,8 @@ void SectorTrackManager::refreshAll()
                                  anchorPos);
 
                 bool labelVisible = series.visible && isPointVisible(latestNode.point->infoRef());
-                series.label->setVisible(labelVisible);
-                series.labelLine->setVisible(labelVisible);
+                setItemSceneVisible(series.label, labelVisible);
+                setItemSceneVisible(series.labelLine, labelVisible);
             }
         }
     }
@@ -255,6 +299,20 @@ void SectorTrackManager::setTypeVisible(PointType type, bool visible)
     for (auto it = m_series.begin(); it != m_series.end(); ++it) {
         if (it->type != type) continue;
         it->visible = visible;
+        updateBatchVisibility(it.key());
+    }
+}
+
+void SectorTrackManager::setMaxPointsPerBatch(int maxPoints)
+{
+    if (maxPoints < 1) {
+        maxPoints = 1;
+    }
+
+    m_maxPointsPerBatch = maxPoints;
+    for (auto it = m_series.begin(); it != m_series.end(); ++it) {
+        limitBatchPoints(it.value());
+        updateLatestLabel(it.key());
         updateBatchVisibility(it.key());
     }
 }
@@ -312,36 +370,46 @@ void SectorTrackManager::setAngleRange(float minAngle, float maxAngle)
 
 void SectorTrackManager::removeBatch(int batchID)
 {
-    qDebug() << "[SectorTrackManager::removeBatch] ===== CALLED with batchID:" << batchID << "=====";
+    LOG_DEBUG(QString("[SectorTrackManager::removeBatch] ===== CALLED with batchID: %1 =====")
+                  .arg(batchID));
 
     auto it = m_series.find(batchID);
     if (it == m_series.end()) {
-        qDebug() << "[SectorTrackManager::removeBatch] Batch" << batchID << "not found in series";
+        LOG_DEBUG(QString("[SectorTrackManager::removeBatch] Batch %1 not found in series")
+                      .arg(batchID));
         return;
     }
 
-    qDebug() << "[SectorTrackManager::removeBatch] Found batch" << batchID << ", removing...";
+    LOG_DEBUG(QString("[SectorTrackManager::removeBatch] Found batch %1, removing...").arg(batchID));
     SectorTrackSeries& series = it.value();
 
     // 删除所有节点
     for (SectorTrackNode& node : series.nodes) {
         if (node.lineFromPrev) {
-            m_scene->removeItem(node.lineFromPrev);
+            if (node.lineFromPrev->scene() == m_scene) {
+                m_scene->removeItem(node.lineFromPrev);
+            }
             delete node.lineFromPrev;
         }
         if (node.point) {
-            m_scene->removeItem(node.point);
+            if (node.point->scene() == m_scene) {
+                m_scene->removeItem(node.point);
+            }
             delete node.point;
         }
     }
 
     // 删除标签
     if (series.labelLine) {
-        m_scene->removeItem(series.labelLine);
+        if (series.labelLine->scene() == m_scene) {
+            m_scene->removeItem(series.labelLine);
+        }
         delete series.labelLine;
     }
     if (series.label) {
-        m_scene->removeItem(series.label);
+        if (series.label->scene() == m_scene) {
+            m_scene->removeItem(series.label);
+        }
         delete series.label;
     }
 
@@ -365,21 +433,24 @@ void SectorTrackManager::ensureSeries(int batchID, PointType type)
         series.visible = true;
         m_series.insert(batchID, series);
 
-        qDebug() << "[SectorTrackManager] New track series created, batch:" << batchID
-                 << "type:" << trackTypeLabel(type)
-                 << "color:" << series.color;
+        LOG_DEBUG(QString("[SectorTrackManager] Created %1 display series: batch=%2 totalSeries=%3")
+              .arg(trackTypeLabel(type))
+              .arg(batchID)
+              .arg(m_series.size()));
         return;
     }
 
     auto& series = m_series[batchID];
     if (series.type != type) {
+        const QString oldType = trackTypeLabel(series.type);
         series.type = type;
         QColor newColor = trackTypeColor(type);
         series.color = newColor;
 
-        qDebug() << "[SectorTrackManager] Track type changed, batch:" << batchID
-                 << "new type:" << trackTypeLabel(type)
-                 << "color:" << newColor;
+        LOG_DEBUG(QString("[SectorTrackManager] Series type changed: batch=%1 %2 -> %3")
+              .arg(batchID)
+              .arg(oldType)
+              .arg(trackTypeLabel(type)));
 
         // 更新已有节点和连线颜色
         for (auto& node : series.nodes) {
@@ -419,9 +490,6 @@ void SectorTrackManager::updateLatestLabel(int batchID)
         series.labelLine->setPen(pen);
         series.labelLine->setZValue(INFO_Z);
 
-        m_scene->addItem(series.label);
-        m_scene->addItem(series.labelLine);
-
         series.label->setAnchorItem(latestNode.point, series.labelLine);
     } else {
         series.label->setAnchorItem(latestNode.point, series.labelLine);
@@ -445,8 +513,8 @@ void SectorTrackManager::updateLatestLabel(int batchID)
 
     // 设置可见性
     bool visible = series.visible && isPointVisible(info);
-    series.label->setVisible(visible);
-    series.labelLine->setVisible(visible);
+    setItemSceneVisible(series.label, visible);
+    setItemSceneVisible(series.labelLine, visible);
 }
 
 void SectorTrackManager::updateBatchVisibility(int batchID)
@@ -460,7 +528,7 @@ void SectorTrackManager::updateBatchVisibility(int batchID)
         SectorTrackNode& node = series.nodes[i];
         if (node.point) {
             bool visible = series.visible && isPointVisible(node.point->infoRef());
-            node.point->setVisible(visible);
+            setItemSceneVisible(node.point, visible);
         }
 
         if (node.lineFromPrev && i > 0) {
@@ -469,7 +537,7 @@ void SectorTrackManager::updateBatchVisibility(int batchID)
                 bool lineVisible = series.visible &&
                                  isPointVisible(prevPoint->infoRef()) &&
                                  isPointVisible(node.point->infoRef());
-                node.lineFromPrev->setVisible(lineVisible);
+                setItemSceneVisible(node.lineFromPrev, lineVisible);
             }
         }
     }
@@ -479,8 +547,8 @@ void SectorTrackManager::updateBatchVisibility(int batchID)
         SectorTrackNode& latestNode = series.nodes.last();
         if (series.label && series.labelLine) {
             bool visible = series.visible && isPointVisible(latestNode.point->infoRef());
-            series.label->setVisible(visible);
-            series.labelLine->setVisible(visible);
+            setItemSceneVisible(series.label, visible);
+            setItemSceneVisible(series.labelLine, visible);
         }
     }
 }
@@ -490,6 +558,25 @@ void SectorTrackManager::updateLineGeometry(QGraphicsLineItem* line, const QPoin
     if (!line) return;
     line->setLine(QLineF(a, b));
     line->setZValue(LINE_Z);
+}
+
+void SectorTrackManager::setItemSceneVisible(QGraphicsItem* item, bool visible)
+{
+    if (!item || !m_scene) {
+        return;
+    }
+
+    item->setVisible(visible);
+    if (visible) {
+        if (!item->scene()) {
+            m_scene->addItem(item);
+        }
+        return;
+    }
+
+    if (item->scene() == m_scene) {
+        m_scene->removeItem(item);
+    }
 }
 
 QPointF SectorTrackManager::polarToPixel(float range, float azimuthDeg) const

@@ -3,14 +3,21 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-04-27 16:58:32
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-06 17:10:25
+ * @LastEditTime: 2026-05-18 15:26:19
  * @Description: 
  */
 #include "gcsmanager.h"
 #include "Basic/ConfigManager.h"
+#include <QDateTime>
 #include <QNetworkDatagram>
 #include <QtEndian>
 #include <cstring>
+
+namespace {
+
+constexpr qint64 kHeartbeatLogIntervalMs = 10000;
+
+}
 
 GCSManager::GCSManager(QObject* parent)
     : QObject(parent)
@@ -56,18 +63,40 @@ void GCSManager::sendTargetAssignment(const GcsTargetParams& params)
         return;
     }
 
+    if (m_socket->state() != QAbstractSocket::BoundState) {
+        emit logMessage(QString("[GCS][TARGET_SEND][ERROR] socket 未绑定，state=%1")
+                            .arg(static_cast<int>(m_socket->state())));
+        return;
+    }
+
     QByteArray payload;
     payload.resize(static_cast<int>(sizeof(GcsTargetParams)));
     std::memcpy(payload.data(), &params, sizeof(GcsTargetParams));
 
     QByteArray frame = buildFrame(GCS_ADDR_RADAR, GCS_ADDR_GCS, GCS_CMD_TARGET, payload);
-    m_socket->writeDatagram(frame, m_gcsHost, m_dstPort);
 
-    emit logMessage(QString("[GCS][TARGET_SEND] id=%1 lon=%2 lat=%3 alt=%4")
+    const QHostAddress targetHost = m_gcsHost;
+    const quint16 targetPort = m_dstPort;
+
+    const qint64 bytesWritten = m_socket->writeDatagram(frame, targetHost, targetPort);
+    if (bytesWritten < 0) {
+        emit logMessage(QString("[GCS][TARGET_SEND][ERROR] writeDatagram失败 target=%1:%2 bytes=%3 err=%4")
+                            .arg(targetHost.toString())
+                            .arg(targetPort)
+                            .arg(frame.size())
+                            .arg(m_socket->errorString()));
+        return;
+    }
+
+    emit logMessage(QString("[GCS][TARGET_SEND] id=%1 lon=%2 lat=%3 alt=%4 bytes=%5 target=%6:%7 route=%8")
                         .arg(params.targetId)
                         .arg(params.longitude, 0, 'f', 6)
                         .arg(params.latitude,  0, 'f', 6)
-                        .arg(params.altitude,  0, 'f', 1));
+                        .arg(params.altitude,  0, 'f', 1)
+                        .arg(bytesWritten)
+                        .arg(targetHost.toString())
+                        .arg(targetPort)
+                        .arg(QStringLiteral("config")));
 }
 
 // ---------------------------------------------------------------------------
@@ -92,13 +121,38 @@ void GCSManager::onReadyRead()
         }
 
         if (cmd == GCS_CMD_HEARTBEAT) {
+            m_lastPeerHost = dg.senderAddress();
+            m_lastPeerPort = dg.senderPort();
+
             // 回复心跳：空参数帧，src/dst互换
             QByteArray reply = buildFrame(GCS_ADDR_RADAR, GCS_ADDR_GCS, GCS_CMD_HEARTBEAT, QByteArray());
-            m_socket->writeDatagram(reply, dg.senderAddress(), dg.senderPort());
+            const qint64 replyBytes = m_socket->writeDatagram(reply, dg.senderAddress(), dg.senderPort());
+            if (replyBytes < 0) {
+                emit logMessage(QString("[GCS][HEARTBEAT][ERROR] 回复失败 sender=%1:%2 err=%3")
+                                    .arg(dg.senderAddress().toString())
+                                    .arg(dg.senderPort())
+                                    .arg(m_socket->errorString()));
+            } else {
+                const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+                const bool shouldLog = (m_lastHeartbeatLogMs == 0)
+                                    || (nowMs - m_lastHeartbeatLogMs >= kHeartbeatLogIntervalMs);
+                if (shouldLog) {
+                    QString suffix;
+                    if (m_suppressedHeartbeatCount > 0) {
+                        suffix = QString(" suppressed=%1").arg(m_suppressedHeartbeatCount);
+                    }
+                    emit logMessage(QString("[GCS][HEARTBEAT][RX] sender=%1:%2 replyBytes=%3%4")
+                                        .arg(dg.senderAddress().toString())
+                                        .arg(dg.senderPort())
+                                        .arg(replyBytes)
+                                        .arg(suffix));
+                    m_lastHeartbeatLogMs = nowMs;
+                    m_suppressedHeartbeatCount = 0;
+                } else {
+                    ++m_suppressedHeartbeatCount;
+                }
+            }
             emit heartbeatReceived();
-            emit logMessage(QString("[GCS][HEARTBEAT] 收到心跳，已回复 sender=%1:%2")
-                                .arg(dg.senderAddress().toString())
-                                .arg(dg.senderPort()));
         }
     }
 }

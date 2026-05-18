@@ -3,13 +3,14 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-01-15 14:23:10
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:34
+ * @LastEditTime: 2026-05-18 15:26:24
  * @Description: 
  */
 #include "servocontrol.h"
 #include "ui_servocontrol.h"
 #include "Basic/ConfigManager.h"
 #include "Basic/DispBasci.h"
+#include "Basic/log.h"
 #include "cusWidgets/custommessagebox.h"
 #include <QPushButton>
 #include <algorithm>
@@ -43,11 +44,11 @@ ServoControl::ServoControl(QWidget *parent) :
     ui->angleSpin->setSingleStep(0.1);
 
     // 从配置文件加载默认值
-    qInfo() << "ServoControl: Loading from ConfigManager...";
-    qInfo() << "  Config file path:" << CF_INS.getConfigFilePath();
-    qInfo() << "  servoCmd:" << CF_INS.servoCmd(0);
-    qInfo() << "  servoSpeed:" << CF_INS.servoSpeed(10);
-    qInfo() << "  servoAz:" << CF_INS.servoAz(0);
+    LOG_INFO("ServoControl: Loading from ConfigManager...");
+    LOG_INFO(QString("  Config file path: %1").arg(CF_INS.getConfigFilePath()));
+    LOG_INFO(QString("  servoCmd: %1").arg(CF_INS.servoCmd(0)));
+    LOG_INFO(QString("  servoSpeed: %1").arg(CF_INS.servoSpeed(10)));
+    LOG_INFO(QString("  servoAz: %1").arg(CF_INS.servoAz(0)));
 
     ui->cmdCombo->setCurrentIndex(CF_INS.servoCmd(0));
     ui->speedSpin->setValue(CF_INS.servoSpeed(10));

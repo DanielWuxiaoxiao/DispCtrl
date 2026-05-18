@@ -3,10 +3,11 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 22:07:38
+ * @LastEditTime: 2026-05-18 15:26:24
  * @Description: 
  */
 #include "mapprox.h"
+#include "../Basic/log.h"
 #include <QWebEngineSettings>
 #include <QWebEngineProfile>
 #include <QTimer>
@@ -36,7 +37,7 @@ MapProxyWidget::MapProxyWidget()
         QDir dir(appDir + "/" + tileDir);
         if (dir.exists()) {
             tilesAvailable = true;
-            qDebug() << "Found tile directory:" << tileDir;
+            LOG_DEBUG(QString("Found tile directory: %1").arg(tileDir));
             break;
         }
     }
@@ -46,7 +47,7 @@ MapProxyWidget::MapProxyWidget()
 
     if (!tilesAvailable) {
         // 瓦片文件夹不存在，设置为透明黑色背景
-        qWarning() << "Map tile directories not found. Setting transparent black background.";
+        LOG_WARNING("Map tile directories not found. Setting transparent black background.");
         mView->setStyleSheet("background-color: rgba(16, 24, 24, 0.9);");
         mView->setHtml("<html><body style='background-color: rgba(16, 24, 24, 0.9); margin: 0; padding: 0;'></body></html>");
         return;
@@ -57,16 +58,16 @@ MapProxyWidget::MapProxyWidget()
     QString htmlFile;
     // 仅使用高德离线 HTML 路径
     htmlFile = appDir + "/indexNoL.html";
-    qDebug() << htmlFile;
+    LOG_DEBUG(QString("Map HTML file: %1").arg(htmlFile));
 
     // 从配置文件读取WebEngine调试设置
     if (CF_INS.webEngineDebugEnabled()) {
         int debugPort = CF_INS.webEngineDebugPort();
         qputenv("QTWEBENGINE_REMOTE_DEBUGGING", QString::number(debugPort).toLocal8Bit());
-        qDebug() << "WebEngine remote debugging enabled on port:" << debugPort;
-        qDebug() << "Open Chrome and navigate to: http://localhost:" << debugPort;
+        LOG_DEBUG(QString("WebEngine remote debugging enabled on port: %1").arg(debugPort));
+        LOG_DEBUG(QString("Open Chrome and navigate to: http://localhost:%1").arg(debugPort));
     } else {
-        qDebug() << "WebEngine remote debugging disabled. Set webengine.enable_debug=true in config.toml to enable.";
+        LOG_DEBUG("WebEngine remote debugging disabled. Set webengine.enable_debug=true in config.toml to enable.");
     }
 
     //开启WebGL支持
@@ -115,7 +116,7 @@ void MapProxyWidget::chooseMap(int index)
         if (dir.exists()) { tilesAvailable = true; break; }
     }
     if (!tilesAvailable) {
-        qWarning() << "AMap tiles not available. Cannot switch map.";
+        LOG_WARNING("AMap tiles not available. Cannot switch map.");
         mView->setHtml("<html><body style='background-color: rgba(16, 24, 24, 0.9); margin: 0; padding: 0;'></body></html>");
         return;
     }
@@ -139,7 +140,7 @@ void MapProxyWidget::chooseMap(int index)
     baseUrl.setQuery(query);
     mView->setUrl(baseUrl);
 
-    qDebug() << "Map switched: AMap, typeIndex=" << index;
+    LOG_DEBUG(QString("Map switched: AMap, typeIndex=%1").arg(index));
 }
 
 void MapProxyWidget::setCenterOn(float lng, float lat,float range)
@@ -166,14 +167,20 @@ void MapProxyWidget::syncRadarToMap(double longitude, double latitude, double ra
     // 调用现有的setCenterOn方法来同步地图显示
     setCenterOn(static_cast<float>(longitude), static_cast<float>(latitude), static_cast<float>(range));
 
-    qDebug() << "Map sync radar position:" << longitude << "," << latitude << ", range:" << range << "km";
+    LOG_DEBUG(QString("Map sync radar position: %1, %2, range: %3km")
+                  .arg(longitude)
+                  .arg(latitude)
+                  .arg(range));
 }
 
 void MapProxyWidget::syncCurrentRadarState()
 {
     // 使用当前存储的雷达状态同步地图
     setCenterOn(static_cast<float>(m_currentLongitude), static_cast<float>(m_currentLatitude), static_cast<float>(m_currentRange));
-    qDebug() << "Synced current radar state to new map:" << m_currentLongitude << "," << m_currentLatitude << ", range:" << m_currentRange << "km";
+    LOG_DEBUG(QString("Synced current radar state to new map: %1, %2, range: %3km")
+                  .arg(m_currentLongitude)
+                  .arg(m_currentLatitude)
+                  .arg(m_currentRange));
 }
 
 void MapProxyWidget::setGray(int value)
@@ -189,7 +196,8 @@ void MapProxyWidget::switchEngine(int engineIndex, int mapTypeIndex)
     }
 
     m_currentEngine = newEngine;
-    qDebug() << "Map engine switched to:" << (newEngine == EngineOSM ? "OSM/MapLibre" : "AMap/高德");
+    LOG_DEBUG(QString("Map engine switched to: %1")
+                  .arg(newEngine == EngineOSM ? "OSM/MapLibre" : "AMap/高德"));
 
     // 用chooseMap加载对应HTML
     chooseMap(mapTypeIndex);

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:31
+ * @LastEditTime: 2026-05-18 15:26:20
  * @Description: 
  */
 /**
@@ -23,7 +23,12 @@
 
 #include <QGraphicsEllipseItem>
 #include <QColor>
+#include "Basic/DispBasci.h"
 #include "Basic/Protocol.h"
+
+class QPainter;
+class QStyleOptionGraphicsItem;
+class QWidget;
 
 /**
  * @defgroup PointSizeConstants 点尺寸常量定义
@@ -119,6 +124,12 @@ public:
      */
     const PointInfo& infoRef() const { return info; }
 
+    /**
+     * @brief 更新点数据并重建交互提示文本
+     * @param nextInfo 新的点信息
+     */
+    void setInfo(const PointInfo& nextInfo);
+
 protected:
     /**
      * @defgroup HoverEvents 鼠标悬停事件处理
@@ -186,6 +197,8 @@ protected:
     // 核心数据
     PointInfo info;              ///< 雷达点信息数据
     QString text;                ///< 工具提示文本内容
+
+    void rebuildTooltipText();
 
     // 当前显示尺寸(像素)
     float w = 3.f, h = 3.f;      ///< 当前宽度和高度
@@ -290,6 +303,12 @@ public:
      */
     void setColor(QColor color) override;
 
+    void setFocused(bool focused);
+    bool isFocused() const { return m_focused; }
+
+protected:
+    void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget = nullptr) override;
+
 protected:
     /**
      * @brief 设置航迹点普通尺寸
@@ -302,6 +321,10 @@ protected:
      * @details 重写基类方法，设置航迹点悬停时的大尺寸
      */
     void setBigRect() override;
+
+private:
+    QColor m_color;
+    bool m_focused = false;
 };
 
 #endif // POINT_H

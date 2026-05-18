@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2025-12-25 14:13:45
+ * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2025-12-25 16:19:34
+ * @LastEditTime: 2026-05-18 15:26:20
  * @Description: 
  */
 /*
@@ -37,6 +37,8 @@ private:
     ThreadedUdpSocket* socket;
     QThread* thread;
     unsigned commCount;
+    quint64 m_frameCount = 0;
+    quint64 m_pointCount = 0;
     QHostAddress host;
     quint16 port;
     quint16 src;

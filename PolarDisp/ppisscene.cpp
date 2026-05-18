@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 11:28:42
+ * @LastEditTime: 2026-05-18 15:26:21
  * @Description: 
  */
 /**
@@ -17,9 +17,11 @@
  */
 
 #include "ppisscene.h"
+#include "Basic/log.h"
 #include "polaraxis.h"
 #include <QGraphicsTextItem>
 #include <QGraphicsSceneMouseEvent>
+#include <QVariant>
 #include "polargrid.h"
 #include "PointManager/trackmanager.h"
 #include "PointManager/detmanager.h"
@@ -102,11 +104,17 @@ PPIScene::PPIScene(QObject *parent)
     if (CF_INS.iftbd(false)) {
         connect(CON_INS, &Controller::tbdInfoProcess,
             m_track, &TrackManager::addTrackPoint);
+        LOG_INFO("[PPIScene] Connected Controller::tbdInfoProcess -> TrackManager::addTrackPoint");
+    } else {
+        LOG_INFO("[PPIScene] TBD PPI display connection skipped because iftbd=false");
     }
 
     if (CF_INS.ifxietong(false)) {
         connect(CON_INS, &Controller::cooperativeTrackProcess,
             m_track, &TrackManager::addTrackPoint);
+        LOG_INFO("[PPIScene] Connected Controller::cooperativeTrackProcess -> TrackManager::addTrackPoint");
+    } else {
+        LOG_INFO("[PPIScene] Cooperative PPI display connection skipped because ifxietong=false");
     }
 
     // 转发 TrackManager 标签右键信号到 PPIView
@@ -285,6 +293,8 @@ void PPIScene::setRange(float minR, float maxR)
 void PPIScene::mousePressEvent(QGraphicsSceneMouseEvent* event)
 {
     if (event->button() == Qt::LeftButton) {
+        bool emittedTrackPoint = false;
+
         // 获取点击位置的图形项
         QGraphicsItem* item = itemAt(event->scenePos(), QTransform());
 
@@ -292,8 +302,10 @@ void PPIScene::mousePressEvent(QGraphicsSceneMouseEvent* event)
         if (item) {
             Point* point = dynamic_cast<Point*>(item);
             if (point) {
-                qDebug() << "[PPIScene::mousePressEvent] Clicked on Point, batch:" << point->infoRef().batch;
+                LOG_DEBUG(QString("[PPIScene::mousePressEvent] Clicked on Point, batch: %1")
+                              .arg(point->infoRef().batch));
                 emit trackPointClicked(point->infoRef());
+                emittedTrackPoint = true;
             }
 
             // 如果点击的是文本标签，尝试获取其父项（可能是Point）
@@ -301,9 +313,34 @@ void PPIScene::mousePressEvent(QGraphicsSceneMouseEvent* event)
             if (textItem && textItem->parentItem()) {
                 Point* parentPoint = dynamic_cast<Point*>(textItem->parentItem());
                 if (parentPoint) {
-                    qDebug() << "[PPIScene::mousePressEvent] Clicked on label, batch:" << parentPoint->infoRef().batch;
+                    LOG_DEBUG(QString("[PPIScene::mousePressEvent] Clicked on label, batch: %1")
+                                  .arg(parentPoint->infoRef().batch));
                     emit trackPointClicked(parentPoint->infoRef());
+                    emittedTrackPoint = true;
                 }
+            }
+        }
+
+        if (!emittedTrackPoint && m_track) {
+            PointInfo info;
+            if (m_track->pointInfoAt(event->scenePos(), info)) {
+                LOG_DEBUG(QString("[PPIScene::mousePressEvent] Clicked on batched track point, batch: %1")
+                              .arg(info.batch));
+                setProperty("selectedBatchID", info.batch);
+                setProperty("selectedPointInfo", QVariant::fromValue(info));
+                emit trackPointClicked(info);
+                emittedTrackPoint = true;
+            }
+        }
+
+        if (!emittedTrackPoint && m_det) {
+            PointInfo info;
+            if (m_det->pointInfoAt(event->scenePos(), info)) {
+                LOG_DEBUG(QString("[PPIScene::mousePressEvent] Clicked on batched detection point, batch: %1")
+                              .arg(info.batch));
+                setProperty("selectedBatchID", info.batch);
+                setProperty("selectedPointInfo", QVariant::fromValue(info));
+                emit trackPointClicked(info);
             }
         }
     }

@@ -1,23 +1,13 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-01-30 11:45:43
+ * @Date: 2026-05-12 16:10:26
  * @LastEditors: wuxiaoxiao
  * @LastEditTime: 2026-05-18 15:26:22
  * @Description: 
  */
-/*
- * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-01-28
- * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-28
- * @Description: 距离-方位图表显示组件实现
- */
-
-#include "rangeazimuthchart.h"
+#include "rangeheightchart.h"
 #include "../Basic/ConfigManager.h"
-#include "../Basic/DispBasci.h"
 #include "../Basic/log.h"
 #include <QDateTime>
 #include <QGraphicsItem>
@@ -34,6 +24,8 @@
 
 namespace {
 
+constexpr double kDefaultMinHeight = 0.0;
+constexpr double kDefaultMaxHeight = 500.0;
 constexpr qreal kTrackLabelOffsetX = 8.0;
 constexpr qreal kTrackLabelOffsetY = -18.0;
 constexpr int kDistanceMajorTickCount = 5;
@@ -59,10 +51,10 @@ void applyDistanceAxisTicks(ChartAxisConfig& axis, double minRangeKm, double max
 
 }
 
-class RangeAzimuthBatchItem : public QGraphicsItem
+class RangeHeightBatchItem : public QGraphicsItem
 {
 public:
-    explicit RangeAzimuthBatchItem(RangeAzimuthChart* chart)
+    explicit RangeHeightBatchItem(RangeHeightChart* chart)
         : m_chart(chart)
     {
         setZValue(POINT_Z);
@@ -98,7 +90,7 @@ public:
 
         for (const auto& item : m_chart->m_detections) {
             if (m_chart->shouldShowDetection(item.info)) {
-                detections.append(detectionPoint(item.info));
+                detections.append(pointFor(item.info));
             }
         }
         for (const auto& item : m_chart->m_tracks) {
@@ -106,7 +98,7 @@ public:
                 continue;
             }
             trackBucket(item.info, normalTracks, otherTracks, tbdTracks, cooperativeTracks)
-                .append(trackPoint(item.info));
+                .append(pointFor(item.info));
         }
 
         painter->save();
@@ -141,11 +133,11 @@ protected:
         bool found = false;
         qreal nearestDistanceSq = 64.0;
 
-        auto testPoint = [&](const PointInfo& info, const QPointF& pos, bool visible) {
+        auto testPoint = [&](const PointInfo& info, bool visible) {
             if (!visible) {
                 return;
             }
-            const QPointF delta = pos - event->pos();
+            const QPointF delta = pointFor(info) - event->pos();
             const qreal distanceSq = delta.x() * delta.x() + delta.y() * delta.y();
             if (distanceSq <= nearestDistanceSq) {
                 nearestDistanceSq = distanceSq;
@@ -155,10 +147,10 @@ protected:
         };
 
         for (const auto& item : m_chart->m_detections) {
-            testPoint(item.info, detectionPoint(item.info), m_chart->shouldShowDetection(item.info));
+            testPoint(item.info, m_chart->shouldShowDetection(item.info));
         }
         for (const auto& item : m_chart->m_tracks) {
-            testPoint(item.info, trackPoint(item.info), m_chart->shouldShowTrack(item.info));
+            testPoint(item.info, m_chart->shouldShowTrack(item.info));
         }
 
         if (!found) {
@@ -178,14 +170,9 @@ protected:
     }
 
 private:
-    QPointF detectionPoint(const PointInfo& info) const
+    QPointF pointFor(const PointInfo& info) const
     {
-        return m_chart->dataToScene(info.azimuth, info.range / 1000.0);
-    }
-
-    QPointF trackPoint(const PointInfo& info) const
-    {
-        return m_chart->dataToScene(info.azimuth, info.range / 1000.0);
+        return m_chart->dataToScene(info.range / 1000.0, info.altitute);
     }
 
     static QVarLengthArray<QPointF, 2048>& trackBucket(const PointInfo& info,
@@ -236,7 +223,7 @@ private:
             .arg(info.amp);
     }
 
-    RangeAzimuthChart* m_chart = nullptr;
+    RangeHeightChart* m_chart = nullptr;
     QRectF m_bounds = QRectF(0.0, 0.0, 1.0, 1.0);
 
     void updateBounds(bool prepare)
@@ -259,174 +246,142 @@ private:
     }
 };
 
-//==============================================================================
-// RangeAzimuthChartToolBar 实现
-//==============================================================================
-
-RangeAzimuthChartToolBar::RangeAzimuthChartToolBar(QWidget* parent)
+RangeHeightChartToolBar::RangeHeightChartToolBar(QWidget* parent)
     : QWidget(parent)
 {
     setObjectName("RangeAzimuthChartToolBar");
-    // 让 QSS background-color 生效
     setAttribute(Qt::WA_StyledBackground, true);
 
     QHBoxLayout* layout = new QHBoxLayout(this);
     layout->setContentsMargins(5, 2, 5, 2);
     layout->setSpacing(10);
 
-    // 方位角范围控制
-    QLabel* azimuthLabel = new QLabel(tr("方位角:"), this);
-    azimuthLabel->setObjectName("RangeAzimuthLabel");
-    layout->addWidget(azimuthLabel);
+    QLabel* heightLabel = new QLabel(tr("高度:"), this);
+    heightLabel->setObjectName("RangeAzimuthLabel");
+    layout->addWidget(heightLabel);
 
-    m_minAzimuthEdit = new QLineEdit(this);
-    m_minAzimuthEdit->setObjectName("RangeAzimuthMinEdit");
-    m_minAzimuthEdit->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-    m_minAzimuthEdit->setFixedWidth(60);
-    m_minAzimuthEdit->setToolTip(tr("最小方位角 (0-360°)"));
-    m_minAzimuthEdit->setText(QString::number(CF_INS.rangeAzimuthAngle("min", 0)));
-    layout->addWidget(m_minAzimuthEdit);
+    m_minHeightEdit = new QLineEdit(this);
+    m_minHeightEdit->setObjectName("RangeAzimuthMinEdit");
+    m_minHeightEdit->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    m_minHeightEdit->setFixedWidth(60);
+    m_minHeightEdit->setToolTip(tr("最小高度 (m)"));
+    m_minHeightEdit->setText(QString::number(kDefaultMinHeight, 'f', 0));
+    layout->addWidget(m_minHeightEdit);
 
     QLabel* separatorLabel = new QLabel("~", this);
     separatorLabel->setObjectName("RangeAzimuthSeparatorLabel");
     layout->addWidget(separatorLabel);
 
-    m_maxAzimuthEdit = new QLineEdit(this);
-    m_maxAzimuthEdit->setObjectName("RangeAzimuthMaxEdit");
-    m_maxAzimuthEdit->setFixedWidth(60);
-    m_maxAzimuthEdit->setToolTip(tr("最大方位角 (0-360°)"));
-    m_maxAzimuthEdit->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-    m_maxAzimuthEdit->setText(QString::number(CF_INS.rangeAzimuthAngle("max", 360)));
-    layout->addWidget(m_maxAzimuthEdit);
+    m_maxHeightEdit = new QLineEdit(this);
+    m_maxHeightEdit->setObjectName("RangeAzimuthMaxEdit");
+    m_maxHeightEdit->setFixedWidth(60);
+    m_maxHeightEdit->setToolTip(tr("最大高度 (m)"));
+    m_maxHeightEdit->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    m_maxHeightEdit->setText(QString::number(kDefaultMaxHeight, 'f', 0));
+    layout->addWidget(m_maxHeightEdit);
 
-    // 连接方位角范围变化信号
-    connect(m_minAzimuthEdit, &QLineEdit::returnPressed, this, &RangeAzimuthChartToolBar::onAzimuthRangeChanged);
-    connect(m_maxAzimuthEdit, &QLineEdit::returnPressed, this, &RangeAzimuthChartToolBar::onAzimuthRangeChanged);
+    connect(m_minHeightEdit, &QLineEdit::returnPressed, this, &RangeHeightChartToolBar::onHeightRangeChanged);
+    connect(m_maxHeightEdit, &QLineEdit::returnPressed, this, &RangeHeightChartToolBar::onHeightRangeChanged);
 
     layout->addStretch();
 
-
-    // 清除按钮
     m_clearButton = new QPushButton(tr("清除"), this);
     m_clearButton->setObjectName("RangeAzimuthClearButton");
-    //m_clearButton->setFixedWidth(80);
     layout->addWidget(m_clearButton);
-    connect(m_clearButton, &QPushButton::clicked, this, &RangeAzimuthChartToolBar::clearRequested);
+    connect(m_clearButton, &QPushButton::clicked, this, &RangeHeightChartToolBar::clearRequested);
 
-    // 重置按钮
     m_resetButton = new QPushButton(tr("重置"), this);
     m_resetButton->setObjectName("RangeAzimuthResetButton");
-   // m_resetButton->setFixedWidth(80);
     layout->addWidget(m_resetButton);
-    connect(m_resetButton, &QPushButton::clicked, this, &RangeAzimuthChartToolBar::resetRequested);
+    connect(m_resetButton, &QPushButton::clicked, this, &RangeHeightChartToolBar::resetRequested);
 }
 
-double RangeAzimuthChartToolBar::getMinAzimuth() const
+double RangeHeightChartToolBar::getMinHeight() const
 {
     bool ok;
-    double value = m_minAzimuthEdit->text().toDouble(&ok);
-    return ok ? value : 0.0;
+    double value = m_minHeightEdit->text().toDouble(&ok);
+    return ok ? value : kDefaultMinHeight;
 }
 
-double RangeAzimuthChartToolBar::getMaxAzimuth() const
+double RangeHeightChartToolBar::getMaxHeight() const
 {
     bool ok;
-    double value = m_maxAzimuthEdit->text().toDouble(&ok);
-    return ok ? value : 360.0;
+    double value = m_maxHeightEdit->text().toDouble(&ok);
+    return ok ? value : kDefaultMaxHeight;
 }
 
-void RangeAzimuthChartToolBar::updateStatus(int detectionCount, int trackCount)
+void RangeHeightChartToolBar::setHeightRange(double minHeight, double maxHeight)
 {
-    //m_statusLabel->setText(QString(tr("检测点: %1 | 航迹: %2")).arg(detectionCount).arg(trackCount));
+    m_minHeightEdit->setText(QString::number(minHeight, 'f', 0));
+    m_maxHeightEdit->setText(QString::number(maxHeight, 'f', 0));
 }
 
-void RangeAzimuthChartToolBar::onAzimuthRangeChanged()
+void RangeHeightChartToolBar::updateStatus(int detectionCount, int trackCount)
 {
-    double minAz = getMinAzimuth();
-    double maxAz = getMaxAzimuth();
-
-    // 验证范围
-    if (minAz < 0 || minAz >= 360) {
-        m_minAzimuthEdit->setText("0");
-        minAz = 0;
-    }
-    if (maxAz <= 0 || maxAz > 360) {
-        m_maxAzimuthEdit->setText("360");
-        maxAz = 360;
-    }
-    if (minAz >= maxAz) {
-        m_minAzimuthEdit->setText("0");
-        m_maxAzimuthEdit->setText("360");
-        minAz = 0;
-        maxAz = 360;
-    }
-
-    emit azimuthRangeChanged(minAz, maxAz);
+    Q_UNUSED(detectionCount);
+    Q_UNUSED(trackCount);
 }
 
-//==============================================================================
-// RangeAzimuthChart 实现
-//==============================================================================
+void RangeHeightChartToolBar::onHeightRangeChanged()
+{
+    double minHeight = getMinHeight();
+    double maxHeight = getMaxHeight();
 
-RangeAzimuthChart::RangeAzimuthChart(QWidget* parent)
+    if (minHeight >= maxHeight) {
+        minHeight = kDefaultMinHeight;
+        maxHeight = kDefaultMaxHeight;
+        setHeightRange(minHeight, maxHeight);
+    }
+
+    emit heightRangeChanged(minHeight, maxHeight);
+}
+
+RangeHeightChart::RangeHeightChart(QWidget* parent)
     : CustomLineChart(parent)
-    , m_minAzimuth(0.0)
-    , m_maxAzimuth(360.0)
 {
     m_trackLabelsEnabled = CF_INS.displayFlag("chart_track_labels_enabled", false);
     m_trackLabelRefreshIntervalMs = qMax(0, CF_INS.displayConfig("chart_track_label_refresh_ms", 200));
 
     setObjectName("RangeAzimuthChart");
-
-    // 移除边框
     setFrameShape(QFrame::NoFrame);
     setFrameStyle(QFrame::NoFrame);
 
-    // 配置X轴（方位角）
     ChartAxisConfig xAxis;
     xAxis.minValue = 0;
-    xAxis.maxValue = 360;
-    xAxis.majorTickInterval = 45;   // 主刻度：45°
-    xAxis.minorTickInterval = 15;   // 副刻度：15°
-    xAxis.label = tr("方位角（°）");
-    xAxis.unit = "";                // 单位已包含在label中，刻度不再显示
+    xAxis.maxValue = 5;
+    applyDistanceAxisTicks(xAxis, xAxis.minValue, xAxis.maxValue);
+    xAxis.label = tr("距离 (km)");
+    xAxis.unit = "";
     setXAxisConfig(xAxis);
 
-    // 配置Y轴（距离）- 使用km单位
     ChartAxisConfig yAxis;
-    yAxis.minValue = 0;
-    yAxis.maxValue = 5;              // 默认5公里
-    applyDistanceAxisTicks(yAxis, yAxis.minValue, yAxis.maxValue);
-    yAxis.label = tr("距离 (km)");
-    yAxis.unit = "";                 // 单位已包含在label中，刻度不再显示
+    yAxis.minValue = kDefaultMinHeight;
+    yAxis.maxValue = kDefaultMaxHeight;
+    yAxis.majorTickInterval = 100;
+    yAxis.minorTickInterval = 50;
+    yAxis.label = tr("高度 (m)");
+    yAxis.unit = "";
     setYAxisConfig(yAxis);
 
-    // 启用网格和坐标轴
     setGridVisible(true);
     setAxisVisible(true);
 
-    // ---------- 黑绿配色主题（与 darkstyle.qss 保持一致）----------
-    // 背景：深黑
     setChartBgColor(QColor(10, 16, 16));
-    // 主网格线：低饱和深绿
     setChartGridMajorColor(QColor(0, 80, 60));
-    // 次网格线：更暗的绿
     setChartGridMinorColor(QColor(0, 50, 38));
-    // 坐标轴线：绿色
     setChartAxisColor(QColor(0, 255, 136));
-    // 刻度/标签文字：青绿色
     setChartTextColor(QColor(102, 255, 204));
 
-    m_batchItem = new RangeAzimuthBatchItem(this);
+    m_batchItem = new RangeHeightBatchItem(this);
     scene()->addItem(m_batchItem);
 }
 
-RangeAzimuthChart::~RangeAzimuthChart()
+RangeHeightChart::~RangeHeightChart()
 {
     clearRadarData();
 }
 
-void RangeAzimuthChart::rebuildLatestTrackIndices()
+void RangeHeightChart::rebuildLatestTrackIndices()
 {
     m_latestTrackIndices.clear();
     m_trackCountsByKey.clear();
@@ -438,7 +393,7 @@ void RangeAzimuthChart::rebuildLatestTrackIndices()
     }
 }
 
-void RangeAzimuthChart::removeTrackAt(int index)
+void RangeHeightChart::removeTrackAt(int index)
 {
     if (index < 0 || index >= m_tracks.size()) {
         return;
@@ -467,7 +422,7 @@ void RangeAzimuthChart::removeTrackAt(int index)
     }
 }
 
-const RangeAzimuthChart::TrackItem* RangeAzimuthChart::latestTrackItem(unsigned type, int batch) const
+const RangeHeightChart::TrackItem* RangeHeightChart::latestTrackItem(unsigned type, int batch) const
 {
     const quint64 key = makeTrackLabelKey(type, batch);
     const auto it = m_latestTrackIndices.constFind(key);
@@ -483,47 +438,42 @@ const RangeAzimuthChart::TrackItem* RangeAzimuthChart::latestTrackItem(unsigned 
     return &m_tracks[index];
 }
 
-bool RangeAzimuthChart::shouldShowDetection(const PointInfo& info) const
+bool RangeHeightChart::shouldShowDetection(const PointInfo& info) const
 {
-    const ChartAxisConfig yAxis = yAxisConfig();
-    const double rangeKm = info.range / 1000.0;
+    const ChartAxisConfig xAxis = xAxisConfig();
+    const double distanceKm = info.range / 1000.0;
     return m_detectionVisible
-        && isAzimuthInRange(info.azimuth)
-        && rangeKm >= yAxis.minValue
-        && rangeKm <= yAxis.maxValue;
+        && distanceKm >= xAxis.minValue
+        && distanceKm <= xAxis.maxValue
+        && isHeightInRange(info.altitute);
 }
 
-bool RangeAzimuthChart::shouldShowTrack(const PointInfo& info) const
+bool RangeHeightChart::shouldShowTrack(const PointInfo& info) const
 {
-    const ChartAxisConfig yAxis = yAxisConfig();
-    const double rangeKm = info.range / 1000.0;
+    const ChartAxisConfig xAxis = xAxisConfig();
+    const double distanceKm = info.range / 1000.0;
     return isTrackTypeVisible(info.type)
         && isTrackRecognitionVisible(info)
-        && isAzimuthInRange(info.azimuth)
-        && rangeKm >= yAxis.minValue
-        && rangeKm <= yAxis.maxValue;
+        && distanceKm >= xAxis.minValue
+        && distanceKm <= xAxis.maxValue
+        && isHeightInRange(info.altitute);
 }
 
-void RangeAzimuthChart::addDetectionPoint(const PointInfo& info)
+void RangeHeightChart::addDetectionPoint(const PointInfo& info)
 {
-    // 存储到检测点列表
     DetectionItem detItem;
     detItem.info = info;
     detItem.timestamp = QDateTime::currentMSecsSinceEpoch();
-
     m_detections.append(detItem);
 
-    // 限制点数
     limitDetectionPoints();
     if (m_batchItem) {
         m_batchItem->update();
     }
-
-    // 更新统计
     updatePointCount();
 }
 
-void RangeAzimuthChart::addTrackPoint(const trackInfo& info)
+void RangeHeightChart::addTrackPoint(const trackInfo& info)
 {
     PointInfo pointInfo;
     pointInfo.type = PointType::Track;
@@ -540,9 +490,8 @@ void RangeAzimuthChart::addTrackPoint(const trackInfo& info)
     addPointInfo(pointInfo);
 }
 
-void RangeAzimuthChart::addPointInfo(const PointInfo& info)
+void RangeHeightChart::addPointInfo(const PointInfo& info)
 {
-    // statMethod==2 表示消批命令，不添加新点（批次已由 removeBatch 删除）
     if (info.statMethod == 2) {
         for (int i = m_tracks.size() - 1; i >= 0; --i) {
             if (m_tracks[i].info.batch != info.batch || m_tracks[i].info.type != info.type) {
@@ -559,52 +508,48 @@ void RangeAzimuthChart::addPointInfo(const PointInfo& info)
         return;
     }
 
-    // 根据 type 字段判断点类型并分发
     if (info.type == Detection) {
-        // 检测点
         addDetectionPoint(info);
-    } else if (info.type == Track || info.type == TBDPointType || info.type == CooperativeTrackPointType) {
-        TrackItem trackItem;
-        trackItem.info = info;
-        trackItem.timestamp = QDateTime::currentMSecsSinceEpoch();
-
-        m_tracks.append(trackItem);
-        const quint64 key = makeTrackLabelKey(info.type, info.batch);
-        m_latestTrackIndices[key] = m_tracks.size() - 1;
-        m_trackCountsByKey[key] = m_trackCountsByKey.value(key, 0) + 1;
-
-        limitTrackPointsForBatch(info.type, info.batch);
-        refreshTrackLabels();
-        updatePointCount();
-        if (m_batchItem) {
-            m_batchItem->update();
-        }
-    }
-}
-
-void RangeAzimuthChart::removeBatch(int batchID)
-{
-    int removedCount = 0;
-    // 从后向前遍历，删除匹配的航迹
-    for (int i = m_tracks.size() - 1; i >= 0; --i) {
-        if (m_tracks[i].info.batch == batchID) {
-            // 从列表中移除
-            m_tracks.removeAt(i);
-            ++removedCount;
-        }
+        return;
     }
 
-    rebuildLatestTrackIndices();
+    if (info.type != Track && info.type != TBDPointType && info.type != CooperativeTrackPointType) {
+        return;
+    }
+
+    TrackItem trackItem;
+    trackItem.info = info;
+    trackItem.timestamp = QDateTime::currentMSecsSinceEpoch();
+    m_tracks.append(trackItem);
+    const quint64 key = makeTrackLabelKey(info.type, info.batch);
+    m_latestTrackIndices[key] = m_tracks.size() - 1;
+    m_trackCountsByKey[key] = m_trackCountsByKey.value(key, 0) + 1;
+
+    limitTrackPointsForBatch(info.type, info.batch);
     refreshTrackLabels();
-
-    // 更新统计显示
-    updatePointCount();
     if (m_batchItem) {
         m_batchItem->update();
     }
+    updatePointCount();
 }
 
-void RangeAzimuthChart::clearRadarData()
+void RangeHeightChart::removeBatch(int batchID)
+{
+    for (int i = m_tracks.size() - 1; i >= 0; --i) {
+        if (m_tracks[i].info.batch != batchID) {
+            continue;
+        }
+        m_tracks.removeAt(i);
+    }
+    rebuildLatestTrackIndices();
+    refreshTrackLabels();
+    if (m_batchItem) {
+        m_batchItem->update();
+    }
+    updatePointCount();
+}
+
+void RangeHeightChart::clearRadarData()
 {
     m_detections.clear();
 
@@ -613,99 +558,115 @@ void RangeAzimuthChart::clearRadarData()
     m_trackCountsByKey.clear();
     m_trackLabelRefreshMs.clear();
     clearTrackLabels();
-
-    // 更新统计
-    updatePointCount();
     if (m_batchItem) {
         m_batchItem->update();
     }
+    updatePointCount();
 }
 
-void RangeAzimuthChart::setRangeFromMain(double minRange, double maxRange)
+void RangeHeightChart::setRangeFromMain(double minRange, double maxRange)
 {
-    // 输入是米，转换为km
     double minRangeKm = minRange / 1000.0;
     double maxRangeKm = maxRange / 1000.0;
 
-    // 更新Y轴配置
-    ChartAxisConfig yAxis = yAxisConfig();
-    yAxis.minValue = minRangeKm;
-    yAxis.maxValue = maxRangeKm;
-    applyDistanceAxisTicks(yAxis, minRangeKm, maxRangeKm);
+    ChartAxisConfig xAxis = xAxisConfig();
+    xAxis.minValue = minRangeKm;
+    xAxis.maxValue = maxRangeKm;
+    applyDistanceAxisTicks(xAxis, minRangeKm, maxRangeKm);
 
-    setYAxisConfig(yAxis);
-
+    setXAxisConfig(xAxis);
     refreshAllPoints();
     if (m_batchItem) {
         m_batchItem->refreshGeometry();
     }
 }
 
-void RangeAzimuthChart::setDetectionVisible(bool visible)
+void RangeHeightChart::setHeightRange(double minHeight, double maxHeight)
+{
+    m_minHeight = minHeight;
+    m_maxHeight = maxHeight;
+
+    ChartAxisConfig yAxis = yAxisConfig();
+    yAxis.minValue = minHeight;
+    yAxis.maxValue = maxHeight;
+
+    double span = maxHeight - minHeight;
+    if (span <= 100) {
+        yAxis.majorTickInterval = 20;
+        yAxis.minorTickInterval = 10;
+    } else if (span <= 500) {
+        yAxis.majorTickInterval = 100;
+        yAxis.minorTickInterval = 50;
+    } else if (span <= 1000) {
+        yAxis.majorTickInterval = 200;
+        yAxis.minorTickInterval = 100;
+    } else {
+        yAxis.majorTickInterval = 500;
+        yAxis.minorTickInterval = 100;
+    }
+
+    setYAxisConfig(yAxis);
+    refreshAllPoints();
+    if (m_batchItem) {
+        m_batchItem->refreshGeometry();
+    }
+}
+
+void RangeHeightChart::setDetectionVisible(bool visible)
 {
     m_detectionVisible = visible;
-
     if (m_batchItem) {
         m_batchItem->update();
     }
 }
 
-void RangeAzimuthChart::setTrackVisible(bool visible)
+void RangeHeightChart::setTrackVisible(bool visible)
 {
     m_trackVisible = visible;
-
     updateTrackVisibility();
 }
 
-void RangeAzimuthChart::setTbdTrackVisible(bool visible)
+void RangeHeightChart::setTbdTrackVisible(bool visible)
 {
     m_tbdTrackVisible = visible;
-
     updateTrackVisibility();
 }
 
-void RangeAzimuthChart::setCooperativeTrackVisible(bool visible)
+void RangeHeightChart::setCooperativeTrackVisible(bool visible)
 {
     m_cooperativeTrackVisible = visible;
-
     updateTrackVisibility();
 }
 
-void RangeAzimuthChart::setOnlyRecognizedDroneTracksVisible(bool enabled)
+void RangeHeightChart::setOnlyRecognizedDroneTracksVisible(bool enabled)
 {
     m_onlyRecognizedDroneTracksVisible = enabled;
     updateTrackVisibility();
 }
 
-void RangeAzimuthChart::setDetectionSizeRatio(double ratio)
+void RangeHeightChart::setDetectionSizeRatio(double ratio)
 {
     m_detectionSizeRatio = qBound(0.5, ratio, 3.0);
-
     if (m_batchItem) {
         m_batchItem->update();
     }
 }
 
-void RangeAzimuthChart::setTrackSizeRatio(double ratio)
+void RangeHeightChart::setTrackSizeRatio(double ratio)
 {
     m_trackSizeRatio = qBound(0.5, ratio, 3.0);
-
     if (m_batchItem) {
         m_batchItem->update();
     }
 }
 
-void RangeAzimuthChart::setMaxDetectionPoints(int maxPoints)
+void RangeHeightChart::setMaxDetectionPoints(int maxPoints)
 {
-    LOG_INFO(QString("[RangeAzimuthChart::setMaxDetectionPoints] max=%1, current detections=%2")
-             .arg(maxPoints).arg(m_detections.size()));
     m_maxDetectionPoints = maxPoints;
     limitDetectionPoints();
-    LOG_INFO(QString("[RangeAzimuthChart::setMaxDetectionPoints] after limit: detections=%1")
-             .arg(m_detections.size()));
 }
 
-void RangeAzimuthChart::setMaxTrackPoints(int maxTracks)
+void RangeHeightChart::setMaxTrackPoints(int maxTracks)
 {
     if (maxTracks < 1) {
         maxTracks = 1;
@@ -714,15 +675,14 @@ void RangeAzimuthChart::setMaxTrackPoints(int maxTracks)
     limitTrackPoints();
 }
 
-void RangeAzimuthChart::limitDetectionPoints()
+void RangeHeightChart::limitDetectionPoints()
 {
-    // FIFO：删除最旧的点（列表头部是最旧的）
     while (m_detections.size() > m_maxDetectionPoints) {
         m_detections.removeFirst();
     }
 }
 
-void RangeAzimuthChart::limitTrackPoints()
+void RangeHeightChart::limitTrackPoints()
 {
     QMap<quint64, int> batchCounts;
 
@@ -746,7 +706,7 @@ void RangeAzimuthChart::limitTrackPoints()
     }
 }
 
-void RangeAzimuthChart::limitTrackPointsForBatch(unsigned type, int batch)
+void RangeHeightChart::limitTrackPointsForBatch(unsigned type, int batch)
 {
     const quint64 key = makeTrackLabelKey(type, batch);
     while (m_trackCountsByKey.value(key, 0) > m_maxTrackPoints) {
@@ -768,20 +728,18 @@ void RangeAzimuthChart::limitTrackPointsForBatch(unsigned type, int batch)
     }
 }
 
-void RangeAzimuthChart::updatePointCount()
+void RangeHeightChart::updatePointCount()
 {
     emit pointCountChanged(m_detections.size(), m_tracks.size());
 }
 
-void RangeAzimuthChart::resizeEvent(QResizeEvent* event)
+void RangeHeightChart::resizeEvent(QResizeEvent* event)
 {
-    // 基类处理：更新 sceneRect 并重绘网格/坐标轴
     CustomLineChart::resizeEvent(event);
-    // 基类 rebuild() 完成后，重新计算雷达数据点的场景坐标
     refreshAllPoints();
 }
 
-void RangeAzimuthChart::refreshAllPoints()
+void RangeHeightChart::refreshAllPoints()
 {
     if (m_batchItem) {
         m_batchItem->refreshGeometry();
@@ -790,54 +748,7 @@ void RangeAzimuthChart::refreshAllPoints()
     updatePointCount();
 }
 
-void RangeAzimuthChart::setAzimuthRange(double minAz, double maxAz)
-{
-    m_minAzimuth = minAz;
-    m_maxAzimuth = maxAz;
-
-    // 更新X轴配置
-    ChartAxisConfig xAxis = xAxisConfig();
-    xAxis.minValue = minAz;
-    xAxis.maxValue = maxAz;
-    // 根据范围动态调整刻度间隔
-    double range = maxAz - minAz;
-    if (range <= 90) {
-        xAxis.majorTickInterval = 15;
-        xAxis.minorTickInterval = 5;
-    } else if (range <= 180) {
-        xAxis.majorTickInterval = 30;
-        xAxis.minorTickInterval = 10;
-    } else {
-        xAxis.majorTickInterval = 45;
-        xAxis.minorTickInterval = 15;
-    }
-    setXAxisConfig(xAxis);
-
-    // 保存配置
-    CF_INS.setRangeAzimuthAngle("min", minAz);
-    CF_INS.setRangeAzimuthAngle("max", maxAz);
-
-    // 刷新所有点的位置和可见性
-    refreshAllPoints();
-
-    LOG_DEBUG(QString("[RangeAzimuthChart::setAzimuthRange] Updated to %1~%2")
-                  .arg(minAz)
-                  .arg(maxAz));
-}
-
-bool RangeAzimuthChart::isAzimuthInRange(double azimuth) const
-{
-    // 处理跨越0°的情况
-    if (m_minAzimuth <= m_maxAzimuth) {
-        // 正常情况：例如 30° - 120°
-        return azimuth >= m_minAzimuth && azimuth <= m_maxAzimuth;
-    } else {
-        // 跨越0°的情况：例如 330° - 30°
-        return azimuth >= m_minAzimuth || azimuth <= m_maxAzimuth;
-    }
-}
-
-QColor RangeAzimuthChart::trackColor(const PointInfo& info) const
+QColor RangeHeightChart::trackColor(const PointInfo& info) const
 {
     if (info.type == PointType::Track) {
         return (info.targetRecResult == 1) ? m_trackColor : m_tbdTrackColor;
@@ -854,17 +765,17 @@ QColor RangeAzimuthChart::trackColor(const PointInfo& info) const
     }
 }
 
-QString RangeAzimuthChart::trackTooltipLabel(unsigned type) const
+QString RangeHeightChart::trackTooltipLabel(unsigned type) const
 {
     return trackTypeLabel(type);
 }
 
-QString RangeAzimuthChart::trackLabelText(const PointInfo& info) const
+QString RangeHeightChart::trackLabelText(const PointInfo& info) const
 {
     return QString("batch : %1").arg(info.batch);
 }
 
-bool RangeAzimuthChart::isTrackTypeVisible(unsigned type) const
+bool RangeHeightChart::isTrackTypeVisible(unsigned type) const
 {
     switch (static_cast<PointType>(type)) {
     case PointType::TBDPointType:
@@ -877,7 +788,7 @@ bool RangeAzimuthChart::isTrackTypeVisible(unsigned type) const
     }
 }
 
-bool RangeAzimuthChart::isTrackBatchRecognitionVisible(unsigned type, int batch) const
+bool RangeHeightChart::isTrackBatchRecognitionVisible(unsigned type, int batch) const
 {
     if (!m_onlyRecognizedDroneTracksVisible) return true;
     if (type != PointType::Track) return true;
@@ -886,20 +797,21 @@ bool RangeAzimuthChart::isTrackBatchRecognitionVisible(unsigned type, int batch)
     return trackItem && trackItem->info.targetRecResult == 1;
 }
 
-bool RangeAzimuthChart::isTrackRecognitionVisible(const PointInfo& info) const
+bool RangeHeightChart::isTrackRecognitionVisible(const PointInfo& info) const
 {
     return isTrackBatchRecognitionVisible(info.type, info.batch);
 }
 
-void RangeAzimuthChart::updateTrackVisibility()
+void RangeHeightChart::updateTrackVisibility()
 {
     if (m_batchItem) {
         m_batchItem->update();
     }
+
     refreshTrackLabels();
 }
 
-void RangeAzimuthChart::updateTrackVisibilityForBatch(unsigned type, int batch)
+void RangeHeightChart::updateTrackVisibilityForBatch(unsigned type, int batch)
 {
     const quint64 key = makeTrackLabelKey(type, batch);
     for (TrackItem& item : m_tracks) {
@@ -914,7 +826,12 @@ void RangeAzimuthChart::updateTrackVisibilityForBatch(unsigned type, int batch)
     refreshTrackLabels();
 }
 
-void RangeAzimuthChart::refreshTrackLabels()
+bool RangeHeightChart::isHeightInRange(double height) const
+{
+    return height >= m_minHeight && height <= m_maxHeight;
+}
+
+void RangeHeightChart::refreshTrackLabels()
 {
     if (!m_trackLabelsEnabled) {
         clearTrackLabels();
@@ -948,7 +865,7 @@ void RangeAzimuthChart::refreshTrackLabels()
         if (shouldRefresh) {
             labelItem->setText(trackLabelText(trackItem->info));
             labelItem->setBrush(QBrush(trackColor(trackItem->info)));
-            labelItem->setPos(dataToScene(trackItem->info.azimuth, trackItem->info.range / 1000.0)
+            labelItem->setPos(dataToScene(trackItem->info.range / 1000.0, trackItem->info.altitute)
                               + QPointF(kTrackLabelOffsetX, kTrackLabelOffsetY));
             m_trackLabelRefreshMs.insert(key, nowMs);
         }
@@ -970,7 +887,7 @@ void RangeAzimuthChart::refreshTrackLabels()
     }
 }
 
-void RangeAzimuthChart::clearTrackLabels()
+void RangeHeightChart::clearTrackLabels()
 {
     for (auto it = m_trackLabels.begin(); it != m_trackLabels.end(); ++it) {
         if (it.value()) {
@@ -982,64 +899,43 @@ void RangeAzimuthChart::clearTrackLabels()
     m_trackLabelRefreshMs.clear();
 }
 
-//==============================================================================
-// RangeAzimuthChartWidget 实现
-//==============================================================================
-
-RangeAzimuthChartWidget::RangeAzimuthChartWidget(QWidget* parent)
+RangeHeightChartWidget::RangeHeightChartWidget(QWidget* parent)
     : QWidget(parent)
 {
-    setObjectName("RangeAzimuthChartWidget");
-    // 让 QSS background-color 对 QWidget 生效
+    setObjectName("RangeHeightChartWidget");
     setAttribute(Qt::WA_StyledBackground, true);
 
     QVBoxLayout* layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
-    // 创建工具栏
-    m_toolbar = new RangeAzimuthChartToolBar(this);
+    m_toolbar = new RangeHeightChartToolBar(this);
     layout->addWidget(m_toolbar);
 
-    // 创建图表
-    m_chart = new RangeAzimuthChart(this);
-    layout->addWidget(m_chart, 1);  // 拉伸因子为1
+    m_chart = new RangeHeightChart(this);
+    layout->addWidget(m_chart, 1);
 
-    // 连接信号
-    connect(m_toolbar, &RangeAzimuthChartToolBar::clearRequested,
-            this, &RangeAzimuthChartWidget::onClearRequested);
-    connect(m_toolbar, &RangeAzimuthChartToolBar::resetRequested,
-            this, &RangeAzimuthChartWidget::onResetRequested);
-    connect(m_toolbar, &RangeAzimuthChartToolBar::azimuthRangeChanged,
-            m_chart, &RangeAzimuthChart::setAzimuthRange);
-
-    // 连接点数统计更新到工具栏
-    connect(m_chart, &RangeAzimuthChart::pointCountChanged,
-            m_toolbar, &RangeAzimuthChartToolBar::updateStatus);
+    connect(m_toolbar, &RangeHeightChartToolBar::clearRequested,
+            this, &RangeHeightChartWidget::onClearRequested);
+    connect(m_toolbar, &RangeHeightChartToolBar::resetRequested,
+            this, &RangeHeightChartWidget::onResetRequested);
+    connect(m_toolbar, &RangeHeightChartToolBar::heightRangeChanged,
+            m_chart, &RangeHeightChart::setHeightRange);
+    connect(m_chart, &RangeHeightChart::pointCountChanged,
+            m_toolbar, &RangeHeightChartToolBar::updateStatus);
 }
 
-RangeAzimuthChartWidget::~RangeAzimuthChartWidget()
+RangeHeightChartWidget::~RangeHeightChartWidget()
 {
 }
 
-void RangeAzimuthChartWidget::onClearRequested()
+void RangeHeightChartWidget::onClearRequested()
 {
-    LOG_DEBUG("[RangeAzimuthChartWidget::onClearRequested] Clear button clicked");
     m_chart->clearRadarData();
 }
 
-void RangeAzimuthChartWidget::onResetRequested()
+void RangeHeightChartWidget::onResetRequested()
 {
-    LOG_DEBUG("[RangeAzimuthChartWidget::onResetRequested] Reset button clicked");
-
-    // 重置距离范围到默认状态（0-5km）
-    m_chart->setRangeFromMain(0, 5000);
-
-    // 重置方位角范围到默认状态（0-360°）
-    m_chart->setAzimuthRange(0, 360);
-
-    // 注意：重置不清除数据，只是恢复默认视图范围
-    // 数据会在 setRangeFromMain 和 setAzimuthRange 中被重新排布
-
-    LOG_DEBUG("[RangeAzimuthChartWidget::onResetRequested] Reset completed");
+    m_chart->setHeightRange(kDefaultMinHeight, kDefaultMaxHeight);
+    m_toolbar->setHeightRange(kDefaultMinHeight, kDefaultMaxHeight);
 }

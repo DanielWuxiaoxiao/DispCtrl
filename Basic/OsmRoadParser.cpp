@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-03-30 16:40:21
+ * @Date: 2026-03-30 22:07:37
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 22:07:37
+ * @LastEditTime: 2026-05-18 15:26:17
  * @Description: 
  */
 /**
@@ -12,6 +12,7 @@
  * @details 支持WGS84→GCJ-02坐标转换和道路插值加密
  */
 #include "OsmRoadParser.h"
+#include "Basic/log.h"
 #include <QFile>
 #include <QXmlStreamReader>
 #include <QHash>
@@ -116,7 +117,7 @@ bool OsmRoadParser::parse(const QString& filePath, double radarLat, double radar
 
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qWarning() << "[OsmRoadParser] Cannot open file:" << filePath;
+        LOG_WARNING(QString("[OsmRoadParser] Cannot open file: %1").arg(filePath));
         return false;
     }
 
@@ -145,13 +146,14 @@ bool OsmRoadParser::parse(const QString& filePath, double radarLat, double radar
     }
 
     if (xml.hasError()) {
-        qWarning() << "[OsmRoadParser] XML parse error (pass 1):" << xml.errorString();
+        LOG_WARNING(QString("[OsmRoadParser] XML parse error (pass 1): %1").arg(xml.errorString()));
         file.close();
         return false;
     }
 
-    qDebug() << "[OsmRoadParser] Loaded" << nodeMap.size() << "nodes"
-             << (m_gcj02Enabled ? "(WGS84->GCJ-02)" : "(WGS84 raw)");
+    LOG_DEBUG(QString("[OsmRoadParser] Loaded %1 nodes %2")
+                  .arg(nodeMap.size())
+                  .arg(m_gcj02Enabled ? "(WGS84->GCJ-02)" : "(WGS84 raw)"));
 
     // ===== 第二遍：遍历 way，筛选道路，按线段插值加密 =====
     file.seek(0);
@@ -234,9 +236,10 @@ bool OsmRoadParser::parse(const QString& filePath, double radarLat, double radar
 
     file.close();
 
-    qDebug() << "[OsmRoadParser] Parsed" << m_roadCount << "roads,"
-             << m_roadNodes.size() << "nodes (interpolation step:"
-             << m_interpolationStep << "m)";
+    LOG_DEBUG(QString("[OsmRoadParser] Parsed %1 roads, %2 nodes (interpolation step: %3m)")
+                  .arg(m_roadCount)
+                  .arg(m_roadNodes.size())
+                  .arg(m_interpolationStep));
     return true;
 }
 
@@ -257,6 +260,8 @@ void OsmRoadParser::recalculate(double radarLat, double radarLon)
         geodesicCalc(radarLat, radarLon, rn.lat, rn.lon,
                      rn.azimuthDeg, rn.distanceM);
     }
-    qDebug() << "[OsmRoadParser] Recalculated" << m_roadNodes.size()
-             << "nodes for radar position" << radarLat << radarLon;
+    LOG_DEBUG(QString("[OsmRoadParser] Recalculated %1 nodes for radar position %2 %3")
+                  .arg(m_roadNodes.size())
+                  .arg(radarLat)
+                  .arg(radarLon));
 }

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:32
+ * @LastEditTime: 2026-05-18 15:26:22
  * @Description: 
  */
 /**
@@ -36,6 +36,7 @@
 #include "PolarDisp/polaraxis.h"
 #include "Basic/ConfigManager.h"
 #include "Basic/DispBasci.h"
+#include "Basic/log.h"
 #include "Controller/controller.h"
 #include <QtMath>
 #include <QDebug>
@@ -102,7 +103,12 @@ SectorScene::SectorScene(QObject* parent)
 SectorScene::~SectorScene()
 {
     // Qt的父子关系会自动删除子对象，但为了清晰还是显式删除
+    delete m_track;
+    m_track = nullptr;
+    delete m_det;
+    m_det = nullptr;
     delete m_axis;
+    m_axis = nullptr;
 }
 
 /**
@@ -155,7 +161,7 @@ void SectorScene::setSectorRange(float minAngle, float maxAngle, float minRange,
 {
     // 参数验证
     if (minAngle >= maxAngle) {
-        qWarning() << "Invalid angle range: minAngle should be less than maxAngle";
+        LOG_WARNING("Invalid angle range: minAngle should be less than maxAngle");
         return;
     }
     if (minRange < 0) minRange = 0;

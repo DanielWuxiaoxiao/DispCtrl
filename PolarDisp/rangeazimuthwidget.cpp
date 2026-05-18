@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-01-30 11:45:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:32
+ * @LastEditTime: 2026-05-18 15:26:22
  * @Description: 
  */
 /*
@@ -18,6 +18,7 @@
 #include "rangeazimuthwidget.h"
 #include "sectorscene.h"
 #include "polaraxis.h"
+#include "../Basic/log.h"
 #include "PointManager/sectordetmanager.h"
 #include "PointManager/sectortrackmanager.h"
 #include "Basic/ConfigManager.h"
@@ -130,7 +131,9 @@ RangeAzimuthWidget::RangeAzimuthWidget(QWidget* parent)
     setupUI();
     connectSignals();
 
-    qDebug() << "[RangeAzimuthWidget] Initialized with range:" << m_currentMinRange << "~" << m_currentMaxRange << "km";
+    LOG_DEBUG(QString("[RangeAzimuthWidget] Initialized with range: %1~%2km")
+                  .arg(m_currentMinRange)
+                  .arg(m_currentMaxRange));
 }
 
 RangeAzimuthWidget::~RangeAzimuthWidget()
@@ -143,7 +146,7 @@ RangeAzimuthWidget::~RangeAzimuthWidget()
         RADAR_DATA_MGR.unregisterView("RangeAzimuthWidget_Track_" + QString::number((quintptr)this));
     }
 
-    qDebug() << "[RangeAzimuthWidget] Destroyed";
+    LOG_DEBUG("[RangeAzimuthWidget] Destroyed");
 }
 
 void RangeAzimuthWidget::setupUI()
@@ -187,7 +190,9 @@ void RangeAzimuthWidget::setupUI()
     // 因此这里不需要重复连接dataCleared、detectionReceived、trackReceived信号
     // 避免重复触发导致的问题
 
-    qDebug() << "[RangeAzimuthWidget] UI setup complete, azimuth range:" << minAzimuth << "~" << maxAzimuth;
+    LOG_DEBUG(QString("[RangeAzimuthWidget] UI setup complete, azimuth range: %1~%2")
+                  .arg(minAzimuth)
+                  .arg(maxAzimuth));
 }
 
 void RangeAzimuthWidget::connectSignals()
@@ -226,7 +231,9 @@ void RangeAzimuthWidget::onAzimuthRangeUpdateRequested(double minAzimuth, double
         CF_INS.setRangeAzimuthAngle("min", minAzimuth);
         CF_INS.setRangeAzimuthAngle("max", maxAzimuth);
 
-        qDebug() << "[RangeAzimuthWidget] Azimuth range updated:" << minAzimuth << "~" << maxAzimuth;
+        LOG_DEBUG(QString("[RangeAzimuthWidget] Azimuth range updated: %1~%2")
+                  .arg(minAzimuth)
+                  .arg(maxAzimuth));
     }
 }
 
@@ -256,14 +263,16 @@ void RangeAzimuthWidget::setRangeFromMain(double minRange, double maxRange)
         m_trackManager->refreshAll();
     }
 
-    qDebug() << "[RangeAzimuthWidget] Range synced from main view:" << minRange << "~" << maxRange << "km";
+    LOG_DEBUG(QString("[RangeAzimuthWidget] Range synced from main view: %1~%2km")
+                  .arg(minRange)
+                  .arg(maxRange));
 }
 
 void RangeAzimuthWidget::setDetectionVisible(bool visible)
 {
     if (m_detManager) {
         m_detManager->setAllVisible(visible);
-        qDebug() << "[RangeAzimuthWidget] Detection visibility:" << visible;
+        LOG_DEBUG(QString("[RangeAzimuthWidget] Detection visibility: %1").arg(visible));
     }
 }
 
@@ -271,7 +280,7 @@ void RangeAzimuthWidget::setTrackVisible(bool visible)
 {
     if (m_trackManager) {
         m_trackManager->setAllVisible(visible);
-        qDebug() << "[RangeAzimuthWidget] Track visibility:" << visible;
+        LOG_DEBUG(QString("[RangeAzimuthWidget] Track visibility: %1").arg(visible));
     }
 }
 
@@ -279,7 +288,7 @@ void RangeAzimuthWidget::setMaxDetectionPoints(int maxPoints)
 {
     // SectorDetManager 不支持 setMaxPoints 方法
     // 扇区管理器使用自己的内部机制管理点数
-    qDebug() << "[RangeAzimuthWidget] Max detection points setting not supported by SectorDetManager";
+    LOG_DEBUG("[RangeAzimuthWidget] Max detection points setting not supported by SectorDetManager");
     Q_UNUSED(maxPoints);
 }
 
@@ -287,7 +296,7 @@ void RangeAzimuthWidget::setMaxTrackPoints(int maxTracks)
 {
     // SectorTrackManager 不支持 setMaxPoints 方法
     // 扇区管理器使用自己的内部机制管理点数
-    qDebug() << "[RangeAzimuthWidget] Max track points setting not supported by SectorTrackManager";
+    LOG_DEBUG("[RangeAzimuthWidget] Max track points setting not supported by SectorTrackManager");
     Q_UNUSED(maxTracks);
 }
 
@@ -295,7 +304,7 @@ void RangeAzimuthWidget::setDetectionSizeRatio(float ratio)
 {
     if (m_detManager) {
         m_detManager->setPointSizeRatio(ratio);
-        qDebug() << "[RangeAzimuthWidget] Detection size ratio:" << ratio;
+        LOG_DEBUG(QString("[RangeAzimuthWidget] Detection size ratio: %1").arg(ratio));
     }
 }
 
@@ -303,6 +312,6 @@ void RangeAzimuthWidget::setTrackSizeRatio(float ratio)
 {
     if (m_trackManager) {
         m_trackManager->setPointSizeRatio(ratio);
-        qDebug() << "[RangeAzimuthWidget] Track size ratio:" << ratio;
+        LOG_DEBUG(QString("[RangeAzimuthWidget] Track size ratio: %1").arg(ratio));
     }
 }

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 17:16:07
+ * @LastEditTime: 2026-05-18 15:26:17
  * @Description: 
  */
 #ifndef CONFIGMANAGER_H
@@ -15,6 +15,7 @@
 #include <QMap>
 #include <QVariant>
 #include <QTextStream>
+#include "Basic/log.h"
 
 #define CF_INS ConfigManager::instance()
 
@@ -29,7 +30,7 @@ public:
         // 保存配置文件的完整路径，用于后续save操作
         QFileInfo fileInfo(path);
         configFilePath = fileInfo.absoluteFilePath();
-        qInfo() << "Config file path resolved to:" << configFilePath;
+        LOG_INFO(QString("Config file path resolved to: %1").arg(configFilePath));
         return loadToml(path);
     }
 
@@ -241,7 +242,7 @@ public:
             QFileInfo fileInfo("config.toml");
             savePath = fileInfo.absoluteFilePath();
         }
-        qInfo() << "Saving config to:" << savePath;
+        LOG_INFO(QString("Saving config to: %1").arg(savePath));
         return saveToml(savePath);
     }
 
@@ -590,7 +591,7 @@ private:
     bool loadToml(const QString& path) {
         QFile file(path);
         if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            qWarning() << "TOML config file not found:" << path << ", using defaults.";
+            LOG_WARNING(QString("TOML config file not found: %1, using defaults.").arg(path));
             return false;
         }
 
@@ -600,16 +601,18 @@ private:
 
         bool success = parseToml(content);
         if (success) {
-            qInfo() << "Successfully loaded TOML config:" << path << "with" << configData.size() << "entries";
+            LOG_INFO(QString("Successfully loaded TOML config: %1 with %2 entries")
+                         .arg(path)
+                         .arg(configData.size()));
 
             // 调试：打印params段的值
-            qInfo() << "=== Loaded params values ===";
-            qInfo() << "params.servo.cmd:" << configData.value("params.servo.cmd", "NOT FOUND");
-            qInfo() << "params.servo.speed:" << configData.value("params.servo.speed", "NOT FOUND");
-            qInfo() << "params.servo.az:" << configData.value("params.servo.az", "NOT FOUND");
-            qInfo() << "params.scanrange.workMode:" << configData.value("params.scanrange.workMode", "NOT FOUND");
-            qInfo() << "params.beamcontrol.freqID:" << configData.value("params.beamcontrol.freqID", "NOT FOUND");
-            qInfo() << "============================";
+            LOG_DEBUG("=== Loaded params values ===");
+            LOG_DEBUG(QString("params.servo.cmd: %1").arg(configData.value("params.servo.cmd", "NOT FOUND").toString()));
+            LOG_DEBUG(QString("params.servo.speed: %1").arg(configData.value("params.servo.speed", "NOT FOUND").toString()));
+            LOG_DEBUG(QString("params.servo.az: %1").arg(configData.value("params.servo.az", "NOT FOUND").toString()));
+            LOG_DEBUG(QString("params.scanrange.workMode: %1").arg(configData.value("params.scanrange.workMode", "NOT FOUND").toString()));
+            LOG_DEBUG(QString("params.beamcontrol.freqID: %1").arg(configData.value("params.beamcontrol.freqID", "NOT FOUND").toString()));
+            LOG_DEBUG("============================");
         }
         return success;
     }
@@ -619,7 +622,7 @@ private:
         QStringList lines = content.split('\n');
         QString currentSection = "";
 
-        qInfo() << "parseToml: Total lines:" << lines.size();
+        LOG_DEBUG(QString("parseToml: Total lines: %1").arg(lines.size()));
 
         for (const QString& line : lines) {
             QString trimmed = line.trimmed();
@@ -632,7 +635,7 @@ private:
             // 处理节（section）
             if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
                 currentSection = trimmed.mid(1, trimmed.length() - 2);
-                qInfo() << "parseToml: Found section:" << currentSection;
+                LOG_DEBUG(QString("parseToml: Found section: %1").arg(currentSection));
                 continue;
             }
 
@@ -680,7 +683,9 @@ private:
 
                 // 调试：打印params段的键值对
                 if (fullKey.startsWith("params.")) {
-                    qInfo() << "parseToml: Parsed" << fullKey << "=" << varValue;
+                    LOG_DEBUG(QString("parseToml: Parsed %1 = %2")
+                                  .arg(fullKey)
+                                  .arg(varValue.toString()));
                 }
             }
         }
@@ -697,7 +702,7 @@ private:
     bool saveToml(const QString& path) {
         QFile file(path);
         if (!file.open(QIODevice::ReadWrite | QIODevice::Text)) {
-            qWarning() << "Cannot open TOML config file for writing:" << path;
+            LOG_WARNING(QString("Cannot open TOML config file for writing: %1").arg(path));
             return false;
         }
 
@@ -802,7 +807,8 @@ private:
             content += "# =============================================================================\n\n";
             content += "[displayConfig]\n";
             content += "# 检测点显示配置 Detection Point Display Configuration\n";
-            content += "max_points = 1000\n\n";
+            content += "max_points = 1000\n";
+            content += "max_track_points = 200\n\n";
         }
 
         // 更新内存中的值到文本内容
@@ -851,7 +857,7 @@ private:
         out << lines.join('\n');
         file.close();
 
-        qInfo() << "Successfully saved config to:" << path;
+        LOG_INFO(QString("Successfully saved config to: %1").arg(path));
         return true;
     }
 

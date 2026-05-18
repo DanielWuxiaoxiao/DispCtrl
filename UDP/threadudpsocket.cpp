@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 17:16:08
+ * @LastEditTime: 2026-05-18 15:26:22
  * @Description: 
  */
 /**
@@ -114,7 +114,7 @@ void ThreadedUdpSocket::start() {
 
         m_reconnectAttempts = 0;
         emit connectionStatusChanged(true);
-        qInfo() << "UDP socket successfully bound to port" << m_Port;
+        LOG_INFO(QString("UDP socket successfully bound to port %1").arg(m_Port));
 
     } catch (const std::exception& e) {
         reportError("UDP_START_EXCEPTION", QString("Exception in UDP start: %1").arg(e.what()));
@@ -212,6 +212,12 @@ void ThreadedUdpSocket::handleDatagram(const QByteArray& data, int senderPort) {
                               .arg(m_Port)
                               .arg(data.size()));
                     emit traInfo(data);
+                } else {
+                    LOG_WARNING(QString("[ThreadedUdpSocket] Normal track port mismatch, sender=%1 expected=%2 recv=%3 expectedRecv=%4 dropping packet")
+                                    .arg(senderPort)
+                                    .arg(CF_INS.port("DATA_PRO_2_DISP", DATA_PRO_2_DISP))
+                                    .arg(m_Port)
+                                    .arg(CF_INS.port("DISP_GET_DATA_PORT", DISP_GET_DATA_PORT)));
                 }
                 break;
             }
@@ -239,10 +245,11 @@ void ThreadedUdpSocket::handleDatagram(const QByteArray& data, int senderPort) {
                               .arg(data.size()));
                     emit cooperativeTrackInfo(data);
                 } else {
-                    qWarning() << "[ThreadedUdpSocket] Cooperative track port mismatch, sender="
-                               << senderPort << "expected=" << CF_INS.port("DATA_PRO_2_DISP3", DATA_PRO_2_DISP3)
-                               << "recv=" << m_Port << "expectedRecv=" << CF_INS.port("DISP_GET_DATA_PORT3", DISP_GET_DATA_PORT3)
-                               << "forwarding for debug";
+                    LOG_WARNING(QString("[ThreadedUdpSocket] Cooperative track port mismatch, sender=%1 expected=%2 recv=%3 expectedRecv=%4 forwarding for debug")
+                                    .arg(senderPort)
+                                    .arg(CF_INS.port("DATA_PRO_2_DISP3", DATA_PRO_2_DISP3))
+                                    .arg(m_Port)
+                                    .arg(CF_INS.port("DISP_GET_DATA_PORT3", DISP_GET_DATA_PORT3)));
                     emit cooperativeTrackInfo(data);  // 容错：若端口配置不同仍转发
                 }
                 break;
@@ -316,7 +323,7 @@ void ThreadedUdpSocket::handleDatagram(const QByteArray& data, int senderPort) {
                 break;
             }
             default:
-                qDebug() << "Unknown message ID:" << QString::number(msgID, 16);
+                LOG_DEBUG(QString("Unknown message ID: %1").arg(QString::number(msgID, 16)));
                 break;
         }
     } catch (const std::exception& e) {
@@ -447,7 +454,7 @@ void ThreadedUdpSocket::onSocketStateChanged(QAbstractSocket::SocketState socket
     emit connectionStatusChanged(isConnected);
 
     if (!isConnected && socketState == QAbstractSocket::UnconnectedState) {
-        qWarning() << "UDP socket disconnected, attempting reconnect...";
+        LOG_WARNING("UDP socket disconnected, attempting reconnect...");
         attemptReconnect();
     }
 }
@@ -487,13 +494,15 @@ void ThreadedUdpSocket::attemptReconnect() {
         QTimer::singleShot(RECONNECT_COOLDOWN_MS, this, [this]() {
             m_reconnectAttempts = 0;
             m_reconnectGiveUp = false;
-            qInfo() << "UDP reconnect cooldown expired, will retry on next disconnect event";
+            LOG_INFO("UDP reconnect cooldown expired, will retry on next disconnect event");
         });
         return;
     }
 
     m_reconnectAttempts++;
-    qInfo() << "Attempting UDP reconnect" << m_reconnectAttempts << "of" << MAX_RECONNECT_ATTEMPTS;
+    LOG_INFO(QString("Attempting UDP reconnect %1 of %2")
+                 .arg(m_reconnectAttempts)
+                 .arg(MAX_RECONNECT_ATTEMPTS));
 
     // 延迟 RECONNECT_INTERVAL_MS 后执行实际重连
     m_reconnectTimer->start(RECONNECT_INTERVAL_MS);
@@ -563,7 +572,7 @@ void ThreadedUdpSocket::enableHeartBeat() {
     connect(heartbeatTimer, &QTimer::timeout, this, &ThreadedUdpSocket::sendHeartbeat);
     heartbeatTimer->start(HEARTBEAT_INTERVAL);
 
-    qInfo() << "Heartbeat mechanism enabled, interval:" << HEARTBEAT_INTERVAL << "ms";
+    LOG_INFO(QString("Heartbeat mechanism enabled, interval: %1 ms").arg(HEARTBEAT_INTERVAL));
     free(sendData);
 }
 
@@ -874,9 +883,12 @@ void ThreadedUdpSocket::reportPointInfo(PointInfo info) {
     safeWriteDatagram(sendData, sizeof(info) + sizeof(ProtocolFrame) + sizeof(ProtocolEnd),
                             QHostAddress(DATA_PRO_IP), DATA_GET_DISP);
 
-    qInfo() << "Reported point info - Type:" << info.type << "Range:" << info.range
-            << "Azimuth:" << info.azimuth << "Elevation:" << info.elevation
-            << "Batch:" << info.batch;
+    LOG_INFO(QString("Reported point info - Type:%1 Range:%2 Azimuth:%3 Elevation:%4 Batch:%5")
+                 .arg(info.type)
+                 .arg(info.range)
+                 .arg(info.azimuth)
+                 .arg(info.elevation)
+                 .arg(info.batch));
 
     free(sendData);
 }

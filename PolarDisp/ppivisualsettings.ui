@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>200</width>
-    <height>190</height>
+    <width>234</width>
+    <height>235</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -240,7 +240,7 @@
      <item>
       <widget class="QPushButton" name="measureBtn">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+        <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
          <horstretch>1</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
@@ -269,7 +269,7 @@
      <item>
       <widget class="QPushButton" name="clearDisplayBtn">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+        <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
          <horstretch>1</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>

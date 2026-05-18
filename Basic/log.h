@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:30
+ * @LastEditTime: 2026-05-18 15:26:17
  * @Description: 
  */
 #ifndef LOG_H
@@ -45,18 +45,24 @@ inline QString getLogFileName(int index = 0) {
     return LOG_FILE_BASENAME + "_" + QString::number(index) + LOG_FILE_SUFFIX;
 }
 // ================== 日志函数 ==================
+bool isLogTypeEnabled(QtMsgType type);
+void refreshRuntimeLogLevelFromConfig();
 void enhancedLog(QtMsgType type, const QMessageLogContext &context, const QString &msg);
 
 // 便捷的日志宏定义（可添加到头文件中）
-#define LOG_DEBUG(msg) qDebug() << msg
-#define LOG_INFO(msg) qInfo() << msg
-#define LOG_WARNING(msg) qWarning() << msg
-#define LOG_ERROR(msg) qCritical() << msg
-#define LOG_CRITICAL(msg) qCritical() << msg
+#ifdef QT_DEBUG
+#define LOG_DEBUG(msg) do { if (isLogTypeEnabled(QtDebugMsg)) qDebug() << msg; } while (0)
+#else
+#define LOG_DEBUG(msg) do { } while (0)
+#endif
+#define LOG_INFO(msg) do { if (isLogTypeEnabled(QtInfoMsg)) qInfo() << msg; } while (0)
+#define LOG_WARNING(msg) do { if (isLogTypeEnabled(QtWarningMsg)) qWarning() << msg; } while (0)
+#define LOG_ERROR(msg) do { if (isLogTypeEnabled(QtCriticalMsg)) qCritical() << msg; } while (0)
+#define LOG_CRITICAL(msg) do { if (isLogTypeEnabled(QtCriticalMsg)) qCritical() << msg; } while (0)
 #define LOG_FATAL(msg) qFatal(msg)
 
 // 带类别的日志宏
-#define LOG_CATEGORY(category, msg) qDebug() << "[" << category << "]" << msg
+#define LOG_CATEGORY(category, msg) do { if (isLogTypeEnabled(QtDebugMsg)) qDebug() << "[" << category << "]" << msg; } while (0)
 
 // 测试日志输出的示例函数
 void testLogging();

@@ -3,14 +3,25 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-25 17:09:15
+ * @LastEditTime: 2026-05-18 15:26:21
  * @Description: 
  */
 #include "pointinfow.h"
 #include "ui_pointinfow.h"
+#include "../Basic/log.h"
+#include <QLabel>
 #include <QStyleOption>
 #include <QPainter>
 #include <QDebug>
+
+namespace {
+
+QLabel* findLabel(QWidget* parent, const char* objectName)
+{
+    return parent ? parent->findChild<QLabel*>(QString::fromLatin1(objectName)) : nullptr;
+}
+
+}
 
 PointInfoW::PointInfoW(QWidget *parent) :
     QWidget(parent),
@@ -27,6 +38,12 @@ PointInfoW::PointInfoW(QWidget *parent) :
     ui->azi->setToolTip("方位角(度)");
     ui->label_5->setToolTip("俯仰");
     ui->ele->setToolTip("俯仰角(度)");
+    if (QLabel* altitudeLabel = findLabel(this, "label_4")) {
+        altitudeLabel->setToolTip("高度");
+    }
+    if (QLabel* altitudeValue = findLabel(this, "altitute")) {
+        altitudeValue->setToolTip("目标高度(m)");
+    }
     ui->label_6->setToolTip("速度");
     ui->speed->setToolTip("径向速度(m/s)");
     ui->label_7->setToolTip("信噪比");
@@ -41,7 +58,7 @@ PointInfoW::PointInfoW(QWidget *parent) :
 void PointInfoW::setSelectedBatch(int batchID)
 {
     m_selectedBatchID = batchID;
-    qDebug() << "[PointInfoW::setSelectedBatch] Selected batch:" << batchID;
+    LOG_DEBUG(QString("[PointInfoW::setSelectedBatch] Selected batch: %1").arg(batchID));
 
     if (batchID < 0) {
         clearPointInfo();
@@ -61,6 +78,9 @@ void PointInfoW::updatePointInfo(const PointInfo& info)
     ui->range->setText(QString::number(info.range, 'f', 1) + " m");
     ui->azi->setText(QString::number(info.azimuth, 'f', 1) + "°");
     ui->ele->setText(QString::number(info.elevation, 'f', 1) + "°");
+    if (QLabel* altitudeValue = findLabel(this, "altitute")) {
+        altitudeValue->setText(QString::number(info.altitute, 'f', 1) + " m");
+    }
     ui->speed->setText(QString::number(info.speed, 'f', 1) + " m/s");
     ui->SNR->setText(QString::number(info.SNR, 'f', 1) + " dB");
     QString recStr = (info.targetRecResult == 1) ? "无人机" : "其它";
@@ -73,6 +93,9 @@ void PointInfoW::clearPointInfo()
     ui->range->setText("--");
     ui->azi->setText("--");
     ui->ele->setText("--");
+    if (QLabel* altitudeValue = findLabel(this, "altitute")) {
+        altitudeValue->setText("--");
+    }
     ui->speed->setText("--");
     ui->SNR->setText("--");
     ui->targetRec->setText("--");

@@ -3,11 +3,12 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-25 17:09:16
+ * @LastEditTime: 2026-05-18 15:26:22
  * @Description: 
  */
 #include "scanlayer.h"
 #include "polaraxis.h"
+#include "../Basic/log.h"
 #include <QPainter>
 #include <QtMath>
 #include <QGraphicsScene>
@@ -239,8 +240,8 @@ void ScanLayer::setHeadingAngle(double deg) {
     m_useRealTimeAngle = false;
     m_angle = deg;
 
-    qDebug() << "[ScanLayer::setHeadingAngle] Set to" << deg
-             << "degrees, timer stopped, m_useRealTimeAngle=false";
+    LOG_DEBUG(QString("[ScanLayer::setHeadingAngle] Set to %1 degrees, timer stopped, m_useRealTimeAngle=false")
+                  .arg(deg));
 
     update();
 }
@@ -289,7 +290,7 @@ void ScanLayer::setSweepRange(double startDeg, double endDeg) {
     // m_fixedStart > m_fixedEnd 表示跨越0°（正北）的扫描范围
     // 特殊：m_fixedStart=0, m_fixedEnd=360 表示全圆
 
-    qDebug() << "[ScanLayer::setSweepRange] input(" << startDeg << "," << endDeg << ")";
+    LOG_DEBUG(QString("[ScanLayer::setSweepRange] input(%1,%2)").arg(startDeg).arg(endDeg));
 
     // 将角度转换为 [0, 360] 范围，保留 360 本身不归零
     auto normalize = [](double deg) -> double {
@@ -314,7 +315,7 @@ void ScanLayer::setSweepRange(double startDeg, double endDeg) {
     if (qAbs(span - 360.0) < 0.01) {
         m_fixedStart = 0;
         m_fixedEnd   = 360;
-        qDebug() << "[ScanLayer::setSweepRange] Full-circle -> stored(0, 360)";
+        LOG_DEBUG("[ScanLayer::setSweepRange] Full-circle -> stored(0, 360)");
         if (!isAngleInRange(m_angle)) m_angle = 0;
         update();
         return;
@@ -332,14 +333,16 @@ void ScanLayer::setSweepRange(double startDeg, double endDeg) {
     if (crossZero) {
         m_fixedStart = normStart;
         m_fixedEnd = normEnd;
-        qDebug() << "[ScanLayer::setSweepRange] Cross-zero -> stored("
-                 << m_fixedStart << "," << m_fixedEnd << ")";
+        LOG_DEBUG(QString("[ScanLayer::setSweepRange] Cross-zero -> stored(%1,%2)")
+                  .arg(m_fixedStart)
+                  .arg(m_fixedEnd));
     } else {
         // 正常情况：start < end，顺时针从start到end
         m_fixedStart = normStart;
         m_fixedEnd = normEnd;
-        qDebug() << "[ScanLayer::setSweepRange] Normal -> stored("
-                 << m_fixedStart << "," << m_fixedEnd << ")";
+        LOG_DEBUG(QString("[ScanLayer::setSweepRange] Normal -> stored(%1,%2)")
+                  .arg(m_fixedStart)
+                  .arg(m_fixedEnd));
     }
 
     // 确保当前角度在范围内

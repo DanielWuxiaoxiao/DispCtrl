@@ -3,10 +3,80 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:30
+ * @LastEditTime: 2026-05-18 15:26:17
  * @Description: 
  */
 #include "log.h"
+#include "ConfigManager.h"
+
+#include <atomic>
+
+namespace {
+
+enum class RuntimeLogLevel {
+    Debug = 0,
+    Info = 1,
+    Warning = 2,
+    Error = 3,
+    None = 4
+};
+
+std::atomic<int> g_runtimeLogLevel{static_cast<int>(RuntimeLogLevel::Info)};
+
+int logTypeRank(QtMsgType type)
+{
+    switch (type) {
+    case QtDebugMsg:
+        return 0;
+    case QtInfoMsg:
+        return 1;
+    case QtWarningMsg:
+        return 2;
+    case QtCriticalMsg:
+        return 3;
+    case QtFatalMsg:
+        return 4;
+    }
+    return 1;
+}
+
+RuntimeLogLevel parseRuntimeLogLevel(const QString& rawLevel)
+{
+    const QString level = rawLevel.trimmed().toUpper();
+    if (level == "DEBUG") {
+        return RuntimeLogLevel::Debug;
+    }
+    if (level == "INFO") {
+        return RuntimeLogLevel::Info;
+    }
+    if (level == "WARNING" || level == "WARN") {
+        return RuntimeLogLevel::Warning;
+    }
+    if (level == "ERROR" || level == "CRITICAL") {
+        return RuntimeLogLevel::Error;
+    }
+    if (level == "NONE" || level == "OFF" || level == "DISABLED") {
+        return RuntimeLogLevel::None;
+    }
+    return RuntimeLogLevel::Info;
+}
+
+} // namespace
+
+bool isLogTypeEnabled(QtMsgType type)
+{
+    if (type == QtFatalMsg) {
+        return true;
+    }
+    const int minRank = g_runtimeLogLevel.load(std::memory_order_relaxed);
+    return logTypeRank(type) >= minRank;
+}
+
+void refreshRuntimeLogLevelFromConfig()
+{
+    const QString rawLevel = CF_INS.systemString("log_level", "INFO");
+    g_runtimeLogLevel.store(static_cast<int>(parseRuntimeLogLevel(rawLevel)), std::memory_order_relaxed);
+}
 
 // ================== 日志函数 ==================
 void enhancedLog(QtMsgType type, const QMessageLogContext &context, const QString &msg)
@@ -35,6 +105,16 @@ void enhancedLog(QtMsgType type, const QMessageLogContext &context, const QStrin
     };
     for (auto *p : kSpam) {
         if (msg.contains(QString::fromLatin1(p))) return;
+    }
+
+#ifndef QT_DEBUG
+    if (type == QtDebugMsg) {
+        return;
+    }
+#endif
+
+    if (!isLogTypeEnabled(type)) {
+        return;
     }
 
 
@@ -166,11 +246,6 @@ void enhancedLog(QtMsgType type, const QMessageLogContext &context, const QStrin
     static QTextStream console(stdout);
     QString consoleMessage = QString("%1%2\033[0m").arg(colorCode).arg(logMessage);
     console << consoleMessage << Qt::endl;
-    console.flush();
-#else
-    // Release模式也输出到控制台（无颜色）
-    static QTextStream console(stdout);
-    console << logMessage << Qt::endl;
     console.flush();
 #endif
 }

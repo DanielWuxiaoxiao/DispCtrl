@@ -74,6 +74,7 @@ DispCtrl/
 │   ├── sectorscene.h/cpp           # 扇区场景
 │   ├── sectorpolargrid.h/cpp       # 扇区极坐标网格
 │   ├── rangeazimuthchart.h/cpp     # 距离-方位直角坐标图表（继承CustomLineChart）
+│   ├── rangeheightchart.h/cpp      # 距离-高度直角坐标图表（继承CustomLineChart）
 │   ├── rangeazimuthwidget.h/cpp    # 距离-方位显示组件（工具栏+图表）
 │   ├── tooltip.h/cpp               # 鼠标悬停提示气泡
 │   ├── pointinfow.h/cpp/ui         # 点信息窗口
@@ -382,19 +383,23 @@ if (m_scene->tra()) m_scene->tra()->clear();
 
 ---
 
-### 2. 航迹角度单位修复（弧度→度，2026-02-04）
+### 2. 航迹角度单位修复（统一按度，2026-05-15）
 
-**现象**: DBT/TBD航迹全部堆叠在PPI 0°附近，检测点正常。
-**根因**: 检测点协议单位为度，DBT/TBD航迹协议单位为**弧度**，被错误当作度使用。
+**现象**: 常规/TBD/协同航迹在联调时出现方位角被放大到数千度，触发 `DATA_INVALID_TRACK`。
+**根因**: 历史代码将航迹 `azi/ele` 误按弧度处理并执行 `×(180/π)`；当前联调协议确认三类航迹角度字段均为**度**。
 
 ```cpp
 // Controller/data2dispmanager.cpp（DBT）
-info.azimuth   = traPointInfo->azi * 180.0f / 3.14159265358979f;  // 弧度→度
-info.elevation = traPointInfo->ele * 180.0f / 3.14159265358979f;
+info.azimuth   = traPointInfo->azi;
+info.elevation = traPointInfo->ele;
 
 // Controller/tbd2dispmanager.cpp（TBD）
-info.azimuth   = pt->azi * 180.0f / 3.14159265358979f;
-info.elevation = pt->ele * 180.0f / 3.14159265358979f;
+info.azimuth   = pt->azi;
+info.elevation = pt->ele;
+
+// Controller/collabtrack2dispmanager.cpp（协同）
+info.azimuth   = pt->azi;
+info.elevation = pt->ele;
 ```
 
 ---
@@ -416,6 +421,12 @@ pen.setJoinStyle(Qt::RoundJoin);
 line->setPen(pen);
 line->setOpacity(0.8);        // 80%不透明度
 ```
+
+**关注态显示**（2026-05）:
+- 右键 `DraggableLabel` 菜单新增 `关注 / 取消关注`
+- 被关注批次在 `P显` 中显示为**较大的空心三角点**
+- 被关注批次的点、标签与连线层级提升到最高，便于在密集点迹中持续观察
+- `statMethod==2` 消批或手动 `取消关注` 后恢复普通显示样式
 
 ---
 
@@ -533,6 +544,11 @@ max = 360
 **QSS对象名（用于darkstyle.qss）**:
 - 工具栏: `#RangeAzimuthChartToolBar`
 - 图表主体: `#RangeAzimuthChart`
+
+**扩展显示**（2026-05）:
+- 新增 `RangeHeightChart/Widget`，作为 `B显` 后的 `高显` TAB
+- 坐标系：X=距离（km，与主PPI量程同步），Y=高度（m，默认0~500，可配置）
+- 复用 `CustomLineChart`、点迹Tooltip、显隐控制、大小控制、FIFO与无人机过滤逻辑
 
 ---
 
@@ -687,6 +703,7 @@ mode = "standard"                  # standard|satellite|none|noroad|3d
 
 [displayConfig]
 max_points = 1000                  # 检测点FIFO上限
+max_track_points = 200            # 单批航迹FIFO上限
 
 [params.servo]                     # 参数保存功能写入的段落
 # ... 运行时写入
@@ -964,6 +981,42 @@ dataToScene            # RangeAzimuth坐标转换
 - **协同航迹通道**：新增 `0xEE03`、`6020 -> 8020` 接收链路
 - **UI扩展**：动态新增 TBD / 协同航迹表页与可见性开关
 - **显示扩展**：P显、扇区、B显按航迹类型分别着色与显隐控制
+
+### v5.9 (2026-05-12)
+- **高显TAB**：新增 `RangeHeightChart/Widget`，位于 `B显` 之后
+- **坐标定义**：X轴为距离（km，主PPI量程同步），Y轴为高度（m，默认0~500，可设置）
+- **联动扩展**：检测点/航迹数据流、显清、点数上限、点大小、普通无人机过滤同步接入高显
+
+### v5.10 (2026-05-13)
+- **航迹关注功能**：`DraggableLabel` 右键菜单新增 `关注 / 取消关注`
+- **关注态样式**：被关注批次在 `P显` 中显示为更大的空心三角点，且层级提升到最高
+- **生命周期**：手动取消关注或批次消批后，自动恢复普通航迹样式
+
+### v5.11 (2026-05-14)
+- **单批航迹点数限制**：新增 `displayConfig.max_track_points`，默认 `200`
+- **配置入口**：`PPIVisualSettings` 新增“航迹点”输入框，修改后立即同步到 `P显`、扇区、`B显`、`高显`
+- **显示策略**：`TrackManager` / `SectorTrackManager` 对每个批次独立执行 FIFO 裁剪，避免普通航迹批次历史无限增长
+- **图表对齐**：`B显` / `高显` 的航迹点上限也改为按 `batch` 独立裁剪，保留每批最新 `N` 个点，不再按全局总数裁剪
+
+### v5.12 (2026-05-15)
+- **压测性能开关**：新增 `displayConfig.track_label_refresh_ms`、`chart_track_labels_enabled`、`chart_track_label_refresh_ms`、`send_road_points_to_datapro`
+- **主P显优化**：`TrackManager` 的批号标签改为限频刷新，仍保持可见性与锚线更新，减少每点 `setPlainText/setPos` 开销
+- **B显/高显优化**：图表批号标签支持直接关闭，并支持最小刷新间隔，降低全量 `refreshTrackLabels()` 的文本绘制成本
+- **B显/高显增量刷新**：新航迹点到来时只刷新当前批次的 FIFO 与显隐状态，避免每点触发全图航迹遍历；标签关闭时不再清空 latest-index 缓存，保证无人机过滤逻辑可用
+- **道路点下发优化**：`PPIView` 启动/地理位置变化时的道路点下发改为可配置关闭，便于纯航迹压测时剔除无关负载
+
+### v5.13 (2026-05-18)
+- **P显检测点批量绘制**：`DetManager` 不再为每个检测点创建 `DetPoint` 图元，改为单个 `DetBatchItem` 保存 FIFO 点列并用 `QPainter::drawPoints()` 批量绘制，减少 `QGraphicsScene` item 创建/删除压力
+- **P显航迹批量绘制**：`TrackManager` 每个 batch 使用一个 `TrackBatchItem` 绘制历史点和连线，只保留每批最新 `TrackPoint` 作为交互锚点/关注态图元，避免每点一个 `TrackPoint` 加一条 `QGraphicsLineItem`
+- **交互保持**：`PPIScene::mousePressEvent()` 在旧 `Point*` 命中失败时回退调用 `TrackManager::pointInfoAt()` / `DetManager::pointInfoAt()`，批量绘制后的历史航迹点和检测点仍可点击并发出 `trackPointClicked`
+- **UI刷新限速**：检测点与航迹批量 item 使用 16ms 单次定时器合并 repaint 请求；数据接收继续入队，GUI 正常负载下接近 60 FPS，积压时跳过中间重复 repaint
+- **Bounds增量优化**：检测点/航迹新点到来时只扩展批量 item 的 boundingRect，不再每点全量扫描历史点；量程变化、显隐切换、清空和上限调整时仍会完整重建 bounds
+- **航迹绘制降载**：普通航迹按颜色分桶后批量 `drawLines()` / `drawPoints()`，关闭普通态抗锯齿；关注态保留原空心三角样式
+- **B显/高显批量绘制**：`RangeAzimuthChart` / `RangeHeightChart` 改为单个 batch item 批量 `drawPoints()`，新增检测点/航迹点不再创建 `QGraphicsEllipseItem`，显隐判断延迟到 paint 阶段，避免每点扫描整张图表
+
+### v5.14 (2026-05-18)
+- **扇区数据流降载**：新增 `displayConfig.sector_display_enabled` 与 `sector_display_data_enabled`，默认不创建/不连接隐藏扇区显示，避免 `SectorDetManager` / `SectorTrackManager` 的 per-point item 路径进入压测热路径
+- **扇区隐藏图元优化**：扇区检测点、航迹点、连线、标签在不可见时从 `QGraphicsScene` 移除但保留对象和业务数据；重新可见时再加入 scene，减少 invisible item 对 scene 索引、命中测试和遍历的压力
 
 ---
 

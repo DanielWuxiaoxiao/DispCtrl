@@ -3,13 +3,14 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 17:16:07
+ * @LastEditTime: 2026-05-18 15:26:17
  * @Description: 
  */
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 #include <stdlib.h>
 #include <string.h>
+#include <QList>
 #include <QMetaType>
 #pragma pack(1)
 
@@ -1038,6 +1039,7 @@ typedef struct _BeamScheduleReport
 
 // Qt 元类型注册（必须在 #pragma pack() 之后）
 Q_DECLARE_METATYPE(PointInfo)
+Q_DECLARE_METATYPE(QList<PointInfo>)
 
 // 便于跨线程传递的 Q_DECLARE_METATYPE
 Q_DECLARE_METATYPE(BeamScheduleReport)

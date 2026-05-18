@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 11:28:43
+ * @LastEditTime: 2026-05-18 15:26:23
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -38,6 +38,7 @@
 #include <QLineEdit>
 #include <QScrollBar>
 #include <QTableWidget>
+#include <QTabWidget>
 #include <QTimer>
 #include <QVBoxLayout>
 
@@ -46,6 +47,7 @@
 #include "PolarDisp/sectorscene.h"
 #include "PolarDisp/sectorwidget.h"
 #include "PolarDisp/rangeazimuthchart.h"
+#include "PolarDisp/rangeheightchart.h"
 #include "PolarDisp/zoomview.h"
 #include "paramWidget/batterycontrol.h"
 #include "paramWidget/dataprocessui.h"
@@ -61,6 +63,17 @@
 #include "paramWidget/waveandsample.h"
 #include "screenrecorderwidget.h"
 #include "Basic/authmanager.h"
+
+namespace {
+constexpr int kTrackTableRefreshIntervalMs = 50;
+constexpr int kLogFlushIntervalMs = 50;
+constexpr bool kDefaultEnableSectorDisplay = false;
+
+quint64 makeTrackTableUpdateKey(unsigned type, unsigned int batch)
+{
+    return (static_cast<quint64>(type) << 32) | static_cast<quint64>(batch);
+}
+}
 
 MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::MainOverLayOut) {
     ui->setupUi(this);
@@ -162,15 +175,28 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     m_dataProParam.accuEleGate = CF_INS.dataProAccuEleGate(20);
     m_dataProParam.accuVelGate = CF_INS.dataProAccuVelGate(3);
 
-    qInfo() << "MainOverLayOut: Loaded params from ConfigManager";
-    qInfo() << "  servo: cmd=" << m_servoControlParam.cmd
-            << "speed=" << m_servoControlParam.speed
-            << "az=" << m_servoControlParam.az;
+    LOG_INFO("MainOverLayOut: Loaded params from ConfigManager");
+    LOG_INFO(QString("  servo: cmd=%1 speed=%2 az=%3")
+                 .arg(m_servoControlParam.cmd)
+                 .arg(m_servoControlParam.speed)
+                 .arg(m_servoControlParam.az));
 
     // 初始化一键全数配置相关成员
     m_commandTimer = new QTimer(this);
     m_commandIndex = 0;
     connect(m_commandTimer, &QTimer::timeout, this, &MainOverLayOut::cmdTimeOut);
+
+        m_trackTableRefreshTimer = new QTimer(this);
+        m_trackTableRefreshTimer->setSingleShot(true);
+        m_trackTableRefreshTimer->setInterval(kTrackTableRefreshIntervalMs);
+        connect(m_trackTableRefreshTimer, &QTimer::timeout,
+            this, &MainOverLayOut::flushPendingTrackTableUpdates);
+
+            m_logFlushTimer = new QTimer(this);
+            m_logFlushTimer->setSingleShot(true);
+            m_logFlushTimer->setInterval(kLogFlushIntervalMs);
+            connect(m_logFlushTimer, &QTimer::timeout,
+                this, &MainOverLayOut::flushPendingLogLines);
 
     // 初始化健康管理相关成员
     m_systemNormal = false;  // 默认异常状态
@@ -269,10 +295,12 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     // 从Controller接收TBD航迹数据并更新表格
     if (CF_INS.iftbd(false)) {
         connect(CON_INS, &Controller::tbdInfoProcess, this, &MainOverLayOut::updateTrackList);
+        LOG_INFO("[MainOverLayOut] Connected Controller::tbdInfoProcess -> updateTrackList");
     }
 
     if (CF_INS.ifxietong(false)) {
         connect(CON_INS, &Controller::cooperativeTrackProcess, this, &MainOverLayOut::updateTrackList);
+        LOG_INFO("[MainOverLayOut] Connected Controller::cooperativeTrackProcess -> updateTrackList");
     }
 
     // 从Controller接收航迹数据并更新无人机表格
@@ -281,9 +309,11 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     // 从Controller接收TBD航迹数据并更新无人机表格
     if (CF_INS.iftbd(false)) {
         connect(CON_INS, &Controller::tbdInfoProcess, this, &MainOverLayOut::updateDroneTrackList);
+        LOG_INFO("[MainOverLayOut] Connected Controller::tbdInfoProcess -> updateDroneTrackList");
     }
     if (CF_INS.ifxietong(false)) {
         connect(CON_INS, &Controller::cooperativeTrackProcess, this, &MainOverLayOut::updateDroneTrackList);
+        LOG_INFO("[MainOverLayOut] Connected Controller::cooperativeTrackProcess -> updateDroneTrackList");
     }
 
     // ========== 数据存储管理全局反馈连接 ==========
@@ -330,6 +360,9 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
             if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
                 m_rangeAzimuthWidget->chart()->setDetectionVisible(visible);
             }
+            if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
+                m_rangeHeightWidget->chart()->setDetectionVisible(visible);
+            }
         });
 
         // 连接航迹可见性控制
@@ -347,6 +380,9 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
             if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
                 m_rangeAzimuthWidget->chart()->setTrackVisible(visible);
             }
+            if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
+                m_rangeHeightWidget->chart()->setTrackVisible(visible);
+            }
         });
 
         if (CF_INS.iftbd(false)) {
@@ -360,6 +396,9 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
                 }
                 if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
                     m_rangeAzimuthWidget->chart()->setTbdTrackVisible(visible);
+                }
+                if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
+                    m_rangeHeightWidget->chart()->setTbdTrackVisible(visible);
                 }
             });
         }
@@ -375,6 +414,9 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
                 }
                 if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
                     m_rangeAzimuthWidget->chart()->setCooperativeTrackVisible(visible);
+                }
+                if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
+                    m_rangeHeightWidget->chart()->setCooperativeTrackVisible(visible);
                 }
             });
         }
@@ -395,6 +437,9 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
             if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
                 m_rangeAzimuthWidget->chart()->setDetectionSizeRatio(ratio);
             }
+            if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
+                m_rangeHeightWidget->chart()->setDetectionSizeRatio(ratio);
+            }
         });
 
         // 连接航迹大小控制
@@ -412,11 +457,14 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
             if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
                 m_rangeAzimuthWidget->chart()->setTrackSizeRatio(ratio);
             }
+            if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
+                m_rangeHeightWidget->chart()->setTrackSizeRatio(ratio);
+            }
         });
 
-        qInfo() << "MainOverLayOut: Connected point visibility and size control signals";
+        LOG_INFO("MainOverLayOut: Connected point visibility and size control signals");
     } else {
-        qWarning() << "MainOverLayOut: Failed to get MousePositionInfo from PPIView";
+        LOG_WARNING("MainOverLayOut: Failed to get MousePositionInfo from PPIView");
     }
 
     // 初始化按钮状态显示
@@ -489,15 +537,29 @@ void MainOverLayOut::mainPView() {
     });
 
     // 添加独立的扇区显示和距离-方位显示（使用Tab组织）
-    m_sectorWidget = new SectorWidget(this);  // 添加父对象
-    m_sectorWidget->setVisible(false);
+    const bool sectorDisplayEnabled = CF_INS.displayFlag("sector_display_enabled",
+                                                        kDefaultEnableSectorDisplay);
+    if (sectorDisplayEnabled) {
+        m_sectorWidget = new SectorWidget(this);  // 添加父对象
+        m_sectorWidget->setVisible(false);
+    } else {
+        m_sectorWidget = nullptr;
+    }
     m_rangeAzimuthWidget = new RangeAzimuthChartWidget(this);  // 新的直角坐标系图表显示
+    m_rangeHeightWidget = new RangeHeightChartWidget(this);    // 新的距离-高度图表显示
 
     // 从配置文件读取并应用初始最大检测点数量
     if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
         int initMaxPoints = CF_INS.displayConfig("max_points", 1000);
+        int initMaxTrackPoints = CF_INS.displayConfig("max_track_points", 200);
         m_rangeAzimuthWidget->chart()->setMaxDetectionPoints(initMaxPoints);
+        m_rangeAzimuthWidget->chart()->setMaxTrackPoints(initMaxTrackPoints);
         LOG_INFO(QString("[MainOverLayOut] B显初始最大检测点数量: %1").arg(initMaxPoints));
+        if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
+            m_rangeHeightWidget->chart()->setMaxDetectionPoints(initMaxPoints);
+            m_rangeHeightWidget->chart()->setMaxTrackPoints(initMaxTrackPoints);
+            LOG_INFO(QString("[MainOverLayOut] H显初始最大检测点数量: %1").arg(initMaxPoints));
+        }
     }
 
     // 创建Tab Widget来容纳扇区显示和距离-方位显示
@@ -518,34 +580,38 @@ void MainOverLayOut::mainPView() {
     // 将距离-方位显示包装为可分离的widget
     DetachableWidget* rangeAzDetachable = new DetachableWidget(
         "B显", m_rangeAzimuthWidget, QIcon(":/resources/icon/radararray.png"), this);
+    DetachableWidget* rangeHeightDetachable = new DetachableWidget(
+        "高显", m_rangeHeightWidget, QIcon(":/resources/icon/radararray.png"), this);
 
     // 添加到TabWidget
     //displayTabWidget->addTab(sectorDetachable, "扇区显示");
     displayTabWidget->addTab(rangeAzDetachable, "B显");
+    displayTabWidget->addTab(rangeHeightDetachable, "H显");
 
     // 将TabWidget添加到布局
     QVBoxLayout* layout2 = new QVBoxLayout(ui->pviewSectorW);
     layout2->setContentsMargins(0, 0, 0, 0);
     layout2->addWidget(displayTabWidget);
 
-    // ========== 关键修复：连接扇区显示数据流 ==========
-    // 从Controller接收检测点数据并添加到扇区DetManager
-    connect(CON_INS, &Controller::detInfoProcess, m_sectorWidget->scene()->detManager(),
+        // ========== 扇区显示数据流连接 ==========
+        // 当前UI未展示扇区页时，不创建/不驱动隐藏扇区场景，避免无意义的离屏刷新开销
+    const bool sectorDataEnabled = CF_INS.displayFlag("sector_display_data_enabled", false);
+    if (sectorDataEnabled && m_sectorWidget && m_sectorWidget->scene()) {
+        connect(CON_INS, &Controller::detInfoProcess, m_sectorWidget->scene()->detManager(),
             &SectorDetManager::addDetPoint);
 
-    // 从Controller接收航迹数据并添加到扇区TrackManager
-    connect(CON_INS, &Controller::traInfoProcess, m_sectorWidget->scene()->trackManager(),
+        connect(CON_INS, &Controller::traInfoProcess, m_sectorWidget->scene()->trackManager(),
             &SectorTrackManager::addTrackPoint);
 
-    // 从Controller接收TBD航迹数据并添加到扇区TrackManager
-    if (CF_INS.iftbd(false)) {
-        connect(CON_INS, &Controller::tbdInfoProcess, m_sectorWidget->scene()->trackManager(),
+        if (CF_INS.iftbd(false)) {
+            connect(CON_INS, &Controller::tbdInfoProcess, m_sectorWidget->scene()->trackManager(),
                 &SectorTrackManager::addTrackPoint);
-    }
+        }
 
-    if (CF_INS.ifxietong(false)) {
-        connect(CON_INS, &Controller::cooperativeTrackProcess, m_sectorWidget->scene()->trackManager(),
+        if (CF_INS.ifxietong(false)) {
+            connect(CON_INS, &Controller::cooperativeTrackProcess, m_sectorWidget->scene()->trackManager(),
                 &SectorTrackManager::addTrackPoint);
+        }
     }
 
     // ========== 距离-方位图表数据流连接 ==========
@@ -556,6 +622,9 @@ void MainOverLayOut::mainPView() {
             if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
                 m_rangeAzimuthWidget->chart()->addPointInfo(info);
             }
+            if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
+                m_rangeHeightWidget->chart()->addPointInfo(info);
+            }
         });
 
         // 连接航迹数据到距离-方位图表
@@ -563,6 +632,9 @@ void MainOverLayOut::mainPView() {
                 this, [this](PointInfo info) {
             if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
                 m_rangeAzimuthWidget->chart()->addPointInfo(info);
+            }
+            if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
+                m_rangeHeightWidget->chart()->addPointInfo(info);
             }
         });
 
@@ -573,6 +645,9 @@ void MainOverLayOut::mainPView() {
                 if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
                     m_rangeAzimuthWidget->chart()->addPointInfo(info);
                 }
+                if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
+                    m_rangeHeightWidget->chart()->addPointInfo(info);
+                }
             });
         }
 
@@ -581,6 +656,9 @@ void MainOverLayOut::mainPView() {
                     this, [this](PointInfo info) {
                 if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
                     m_rangeAzimuthWidget->chart()->addPointInfo(info);
+                }
+                if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
+                    m_rangeHeightWidget->chart()->addPointInfo(info);
                 }
             });
         }
@@ -591,11 +669,39 @@ void MainOverLayOut::mainPView() {
     if (mView && m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
         connect(mView, &PPIView::clearDisplayTriggered,
                 m_rangeAzimuthWidget->chart(), &RangeAzimuthChart::clearRadarData);
+        if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
+            connect(mView, &PPIView::clearDisplayTriggered,
+                    m_rangeHeightWidget->chart(), &RangeHeightChart::clearRadarData);
+        }
 
         // ========== 连接最大检测点数量变化到距离-方位图表 ==========
         // 当用户修改最大检测点数量时，同步更新 RangeAzimuthChart 的限制
         connect(mView, &PPIView::maxPointsSettingChanged,
                 m_rangeAzimuthWidget->chart(), &RangeAzimuthChart::setMaxDetectionPoints);
+        if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
+            connect(mView, &PPIView::maxPointsSettingChanged,
+                    m_rangeHeightWidget->chart(), &RangeHeightChart::setMaxDetectionPoints);
+        }
+
+        connect(mView, &PPIView::maxPointsSettingChanged,
+            this, [this](int maxPoints) {
+            if (m_sectorWidget && m_sectorWidget->scene() && m_sectorWidget->scene()->detManager()) {
+            m_sectorWidget->scene()->detManager()->setMaxPoints(maxPoints);
+            }
+        });
+
+        connect(mView, &PPIView::maxTrackPointsSettingChanged,
+                this, [this](int maxPoints) {
+            if (m_sectorWidget && m_sectorWidget->scene() && m_sectorWidget->scene()->trackManager()) {
+                m_sectorWidget->scene()->trackManager()->setMaxPointsPerBatch(maxPoints);
+            }
+            if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
+                m_rangeAzimuthWidget->chart()->setMaxTrackPoints(maxPoints);
+            }
+            if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
+                m_rangeHeightWidget->chart()->setMaxTrackPoints(maxPoints);
+            }
+        });
     }
 
     // ========== 同步主视图的距离范围到所有辅助视图 ==========
@@ -605,6 +711,9 @@ void MainOverLayOut::mainPView() {
                 this, [this](double min, double max) {
             if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
                 m_rangeAzimuthWidget->chart()->setRangeFromMain(min, max);
+            }
+            if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
+                m_rangeHeightWidget->chart()->setRangeFromMain(min, max);
             }
         });
 
@@ -627,6 +736,9 @@ void MainOverLayOut::mainPView() {
         double maxR = mScene->axis()->maxRange();
         if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
             m_rangeAzimuthWidget->chart()->setRangeFromMain(minR, maxR);
+        }
+        if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
+            m_rangeHeightWidget->chart()->setRangeFromMain(minR, maxR);
         }
         if (m_sectorWidget && m_sectorWidget->scene() && m_sectorWidget->scene()->axis()) {
             m_sectorWidget->scene()->axis()->setRange(minR, maxR);
@@ -754,6 +866,10 @@ MainOverLayOut::~MainOverLayOut() {
 }
 
 void MainOverLayOut::setupTrackManagement() {
+    LOG_INFO(QString("[MainOverLayOut::setupTrackManagement] iftbd=%1 ifxietong=%2")
+             .arg(CF_INS.iftbd(false))
+             .arg(CF_INS.ifxietong(false)));
+
     setupTrackTable(ui->tableWidget, m_trackTableFrozenHelper);
     setupTrackTable(ui->droneTableWidget, m_droneTableFrozenHelper);
 
@@ -767,6 +883,7 @@ void MainOverLayOut::setupTrackManagement() {
         layout->addWidget(m_tbdTrackTable);
         ui->trackTab->addTab(tbdTab, tr("TBD航迹"));
         setupTrackTable(m_tbdTrackTable, m_tbdTrackTableFrozenHelper);
+        LOG_INFO("[MainOverLayOut::setupTrackManagement] Created TBD track table tab");
     }
 
     if (CF_INS.ifxietong(false)) {
@@ -779,9 +896,11 @@ void MainOverLayOut::setupTrackManagement() {
         layout->addWidget(m_cooperativeTrackTable);
         ui->trackTab->addTab(cooperativeTab, tr("协同航迹"));
         setupTrackTable(m_cooperativeTrackTable, m_cooperativeTrackFrozenHelper);
+        LOG_INFO("[MainOverLayOut::setupTrackManagement] Created cooperative track table tab");
     }
 
     connect(&RADAR_DATA_MGR, &RadarDataManager::dataCleared, this, &MainOverLayOut::clearAllTracks);
+    connect(ui->trackTab, &QTabWidget::currentChanged, this, &MainOverLayOut::onTrackTabChanged);
 
     // 连接Controller的目标分类信号
     if (CON_INS) {
@@ -789,7 +908,52 @@ void MainOverLayOut::setupTrackManagement() {
                 [this](TargetClaRes res) { updateTargetClassification(res.batchID, res.claRes); });
     }
 
+    applyTrackTabDisplayMode();
+    updateTrackStatsWidgets();
+
     // (no test simulators scheduled)
+}
+
+void MainOverLayOut::updateTrackStatsWidgets()
+{
+    const int totalTrackCount = ui->tableWidget ? ui->tableWidget->rowCount() : 0;
+    const int droneTrackCount = ui->droneTableWidget ? ui->droneTableWidget->rowCount() : 0;
+    const int tbdTrackCount = m_tbdTrackTable ? m_tbdTrackTable->rowCount() : 0;
+    const int cooperativeTrackCount = m_cooperativeTrackTable ? m_cooperativeTrackTable->rowCount() : 0;
+
+    if (ui->trackTab) {
+        const int totalTabIndex = ui->trackTab->indexOf(ui->tab_5);
+        if (totalTabIndex >= 0) {
+            const QString totalTabText = tr("航迹管理(%1)").arg(totalTrackCount);
+            ui->trackTab->setTabText(totalTabIndex, totalTabText);
+            ui->trackTab->setTabToolTip(totalTabIndex, tr("总航迹批数: %1").arg(totalTrackCount));
+        }
+
+        const int droneTabIndex = ui->trackTab->indexOf(ui->droneTrackTab);
+        if (droneTabIndex >= 0) {
+            const QString droneTabText = tr("无人机航迹(%1)").arg(droneTrackCount);
+            ui->trackTab->setTabText(droneTabIndex, droneTabText);
+            ui->trackTab->setTabToolTip(droneTabIndex, tr("无人机航迹批数: %1").arg(droneTrackCount));
+        }
+
+        if (m_tbdTrackTable) {
+            const int tbdTabIndex = ui->trackTab->indexOf(m_tbdTrackTable->parentWidget());
+            if (tbdTabIndex >= 0) {
+                const QString tbdTabText = tr("TBD航迹(%1)").arg(tbdTrackCount);
+                ui->trackTab->setTabText(tbdTabIndex, tbdTabText);
+                ui->trackTab->setTabToolTip(tbdTabIndex, tr("TBD航迹批数: %1").arg(tbdTrackCount));
+            }
+        }
+
+        if (m_cooperativeTrackTable) {
+            const int cooperativeTabIndex = ui->trackTab->indexOf(m_cooperativeTrackTable->parentWidget());
+            if (cooperativeTabIndex >= 0) {
+                const QString cooperativeTabText = tr("协同航迹(%1)").arg(cooperativeTrackCount);
+                ui->trackTab->setTabText(cooperativeTabIndex, cooperativeTabText);
+                ui->trackTab->setTabToolTip(cooperativeTabIndex, tr("协同航迹批数: %1").arg(cooperativeTrackCount));
+            }
+        }
+    }
 }
 
 void MainOverLayOut::setupTrackTable(QTableWidget* tableWidget, FrozenColumnHelper*& frozenHelper)
@@ -812,8 +976,7 @@ void MainOverLayOut::setupTrackTable(QTableWidget* tableWidget, FrozenColumnHelp
         headerView->setSectionResizeMode(i, QHeaderView::Stretch);
     }
 
-    frozenHelper = new FrozenColumnHelper(tableWidget, 1, this);
-    frozenHelper->syncFrozenContent();
+    frozenHelper = nullptr;
 }
 
 void MainOverLayOut::syncFrozenTrackTables()
@@ -832,9 +995,57 @@ void MainOverLayOut::syncFrozenTrackTables()
     }
 }
 
-// simulateIncomingTracks removed
+void MainOverLayOut::scheduleTrackTableRefresh()
+{
+    if (m_trackTableRefreshTimer && !m_trackTableRefreshTimer->isActive()) {
+        m_trackTableRefreshTimer->start();
+    }
+}
 
-void MainOverLayOut::updateTrackList(const PointInfo& info) {
+void MainOverLayOut::flushPendingTrackTableUpdates()
+{
+    if (m_pendingTrackUpdates.isEmpty() && m_pendingDroneTrackUpdates.isEmpty()) {
+        return;
+    }
+
+    const QMap<quint64, PointInfo> pendingTrackUpdates = m_pendingTrackUpdates;
+    const QMap<unsigned int, PointInfo> pendingDroneTrackUpdates = m_pendingDroneTrackUpdates;
+    m_pendingTrackUpdates.clear();
+    m_pendingDroneTrackUpdates.clear();
+
+    bool sortMain = false;
+    bool sortTbd = false;
+    bool sortCooperative = false;
+    bool sortDrone = false;
+
+    for (auto it = pendingTrackUpdates.cbegin(); it != pendingTrackUpdates.cend(); ++it) {
+        applyTrackListUpdate(it.value(), sortMain, sortTbd, sortCooperative);
+    }
+
+    for (auto it = pendingDroneTrackUpdates.cbegin(); it != pendingDroneTrackUpdates.cend(); ++it) {
+        applyDroneTrackListUpdate(it.value(), sortDrone);
+    }
+
+    if (sortMain) {
+        sortTrackTable(ui->tableWidget);
+    }
+    if (sortTbd && m_tbdTrackTable) {
+        sortTrackTable(m_tbdTrackTable);
+    }
+    if (sortCooperative && m_cooperativeTrackTable) {
+        sortTrackTable(m_cooperativeTrackTable);
+    }
+    if (sortDrone) {
+        sortTrackTable(ui->droneTableWidget);
+    }
+
+    syncFrozenTrackTables();
+    updateTrackStatsWidgets();
+}
+
+void MainOverLayOut::applyTrackListUpdate(const PointInfo& info, bool& sortMain, bool& sortTbd,
+                                          bool& sortCooperative)
+{
     if (info.statMethod == 2) {
         removeTrackRow(ui->tableWidget, info.type, info.batch);
         if (m_tbdTrackTable && info.type == PointType::TBDPointType) {
@@ -843,7 +1054,6 @@ void MainOverLayOut::updateTrackList(const PointInfo& info) {
         if (m_cooperativeTrackTable && info.type == PointType::CooperativeTrackPointType) {
             removeTrackRow(m_cooperativeTrackTable, info.type, info.batch);
         }
-        syncFrozenTrackTables();
         return;
     }
 
@@ -852,40 +1062,60 @@ void MainOverLayOut::updateTrackList(const PointInfo& info) {
         targetType = getTargetTypeText(m_targetTypes.value(info.batch, 0));
     }
 
-    addOrUpdateTrackRow(ui->tableWidget, info, targetType);
+    bool insertedMain = false;
+    addOrUpdateTrackRow(ui->tableWidget, info, targetType, &insertedMain);
+    sortMain = sortMain || insertedMain;
 
     if (m_tbdTrackTable && info.type == PointType::TBDPointType) {
-        addOrUpdateTrackRow(m_tbdTrackTable, info, targetType);
+        bool inserted = false;
+        addOrUpdateTrackRow(m_tbdTrackTable, info, targetType, &inserted);
+        sortTbd = sortTbd || inserted;
     }
 
     if (m_cooperativeTrackTable && info.type == PointType::CooperativeTrackPointType) {
-        addOrUpdateTrackRow(m_cooperativeTrackTable, info, targetType);
+        bool inserted = false;
+        addOrUpdateTrackRow(m_cooperativeTrackTable, info, targetType, &inserted);
+        sortCooperative = sortCooperative || inserted;
     }
-
-    sortTrackTable(ui->tableWidget);
-    if (m_tbdTrackTable) {
-        sortTrackTable(m_tbdTrackTable);
-    }
-    if (m_cooperativeTrackTable) {
-        sortTrackTable(m_cooperativeTrackTable);
-    }
-    syncFrozenTrackTables();
 }
 
-void MainOverLayOut::updateDroneTrackList(const PointInfo& info) {
-    if (info.statMethod == 2) {
-        removeTrackRow(ui->droneTableWidget, info.type, info.batch);
-        syncFrozenTrackTables();
+void MainOverLayOut::applyDroneTrackListUpdate(const PointInfo& info, bool& sortDrone)
+{
+    if (info.type != PointType::Track) {
         return;
     }
 
-    // 只显示无人机类型的航迹
-    if (m_targetTypes.value(info.batch, 0) == 1) {  // 1 = 无人机
-        QString targetType = getTargetTypeText(1);
-        addOrUpdateTrackRow(ui->droneTableWidget, info, targetType);
-        sortTrackTable(ui->droneTableWidget);
-        syncFrozenTrackTables();
+    if (info.statMethod == 2) {
+        removeTrackRow(ui->droneTableWidget, info.type, info.batch);
+        return;
     }
+
+    const bool isDroneTrack = (info.targetRecResult == 1) || (m_targetTypes.value(info.batch, 0) == 1);
+    if (isDroneTrack) {
+        PointInfo droneInfo = info;
+        droneInfo.targetRecResult = 1;
+        bool inserted = false;
+        addOrUpdateTrackRow(ui->droneTableWidget, droneInfo, getTargetTypeText(1), &inserted);
+        sortDrone = sortDrone || inserted;
+    } else {
+        removeTrackRow(ui->droneTableWidget, info.type, info.batch);
+    }
+}
+
+// simulateIncomingTracks removed
+
+void MainOverLayOut::updateTrackList(const PointInfo& info) {
+    m_pendingTrackUpdates[makeTrackTableUpdateKey(info.type, info.batch)] = info;
+    scheduleTrackTableRefresh();
+}
+
+void MainOverLayOut::updateDroneTrackList(const PointInfo& info) {
+    if (info.type != PointType::Track) {
+        return;
+    }
+
+    m_pendingDroneTrackUpdates[info.batch] = info;
+    scheduleTrackTableRefresh();
 }
 
 void MainOverLayOut::updateTargetClassification(unsigned int batchID, int targetType) {
@@ -896,35 +1126,45 @@ void MainOverLayOut::updateTargetClassification(unsigned int batchID, int target
     // 不覆盖显示列 "类型"（该列用于显示识别结果），只更新内部映射 m_targetTypes
     QTableWidget* trackTable = ui->tableWidget;
 
-    // 如果是无人机类型，添加到无人机表格；否则从无人机表格中移除
-    if (targetType == 1) {  // 无人机
-        // 从总表格中找到该批次的数据，添加到无人机表格
-        for (int row = 0; row < trackTable->rowCount(); ++row) {
-            if (trackTable->item(row, 0) && trackTable->item(row, 0)->text().toUInt() == batchID) {
-                PointInfo info;
-                info.batch = batchID;
-                info.azimuth = trackTable->item(row, 1)->text().toFloat();
-                info.elevation = trackTable->item(row, 2)->text().toFloat();
-                info.altitute = trackTable->item(row, 3)->text().toFloat();
-                info.range = trackTable->item(row, 4)->text().toFloat();
-                info.speed = trackTable->item(row, 5)->text().toFloat();
-                info.SNR = trackTable->item(row, 6)->text().toFloat();
-                info.type = trackTable->item(row, 0)->data(Qt::UserRole).toUInt();
-                info.targetRecResult = 0;
+    int ordinaryTrackRow = -1;
+    for (int row = 0; row < trackTable->rowCount(); ++row) {
+        QTableWidgetItem* batchItem = trackTable->item(row, 0);
+        if (!batchItem) {
+            continue;
+        }
+        if (batchItem->text().toUInt() == batchID &&
+            batchItem->data(Qt::UserRole).toUInt() == PointType::Track) {
+            ordinaryTrackRow = row;
+            break;
+        }
+    }
 
-                addOrUpdateTrackRow(ui->droneTableWidget, info, getTargetTypeText(targetType));
-                break;
-            }
+    if (ordinaryTrackRow >= 0) {
+        QString recResultStr = (targetType == 1) ? tr("无人机") : tr("其它");
+        QTableWidgetItem* typeItem = trackTable->item(ordinaryTrackRow, 7);
+        if (!typeItem) {
+            typeItem = new QTableWidgetItem();
+            trackTable->setItem(ordinaryTrackRow, 7, typeItem);
         }
+        typeItem->setText(recResultStr);
+        typeItem->setFlags(typeItem->flags() & ~Qt::ItemIsEditable);
+    }
+
+    if (targetType == 1 && ordinaryTrackRow >= 0) {
+        PointInfo info;
+        info.batch = batchID;
+        info.azimuth = trackTable->item(ordinaryTrackRow, 1)->text().toFloat();
+        info.elevation = trackTable->item(ordinaryTrackRow, 2)->text().toFloat();
+        info.altitute = trackTable->item(ordinaryTrackRow, 3)->text().toFloat();
+        info.range = trackTable->item(ordinaryTrackRow, 4)->text().toFloat();
+        info.speed = trackTable->item(ordinaryTrackRow, 5)->text().toFloat();
+        info.SNR = trackTable->item(ordinaryTrackRow, 6)->text().toFloat();
+        info.type = PointType::Track;
+        info.targetRecResult = 1;
+
+        addOrUpdateTrackRow(ui->droneTableWidget, info, getTargetTypeText(targetType));
     } else {
-        // 从无人机表格中移除非无人机目标
-        QTableWidget* droneTable = ui->droneTableWidget;
-        for (int row = droneTable->rowCount() - 1; row >= 0; --row) {
-            if (droneTable->item(row, 0) && droneTable->item(row, 0)->text().toUInt() == batchID) {
-                droneTable->removeRow(row);
-                break;
-            }
-        }
+        removeTrackRow(ui->droneTableWidget, PointType::Track, batchID);
     }
 
     // 重新排序两个表格
@@ -932,6 +1172,53 @@ void MainOverLayOut::updateTargetClassification(unsigned int batchID, int target
     sortTrackTable(ui->droneTableWidget);
 
     syncFrozenTrackTables();
+    updateTrackStatsWidgets();
+}
+
+void MainOverLayOut::onTrackTabChanged(int index) {
+    Q_UNUSED(index);
+    applyTrackTabDisplayMode();
+}
+
+void MainOverLayOut::applyTrackTabDisplayMode() {
+    const bool droneTabActive = ui->trackTab->currentWidget() == ui->droneTrackTab;
+
+    if (mView) {
+        mView->setOnlyRecognizedDroneTracksVisible(droneTabActive);
+    }
+    if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
+        m_rangeAzimuthWidget->chart()->setOnlyRecognizedDroneTracksVisible(droneTabActive);
+    }
+    if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
+        m_rangeHeightWidget->chart()->setOnlyRecognizedDroneTracksVisible(droneTabActive);
+    }
+
+    MousePositionInfo* posInfo = mView ? mView->getMousePositionInfo() : nullptr;
+    const bool trackVisible = posInfo ? posInfo->isTrackVisible() : true;
+    const bool tbdVisible = posInfo ? posInfo->isTbdTrackVisible() : false;
+    const bool cooperativeVisible = posInfo ? posInfo->isCooperativeTrackVisible() : false;
+
+    const bool normalTrackDisplay = droneTabActive ? true : trackVisible;
+    const bool specialTrackDisplay = droneTabActive ? false : true;
+
+    if (mScene && mScene->track()) {
+        mScene->track()->setTypeVisible(PointType::Track, normalTrackDisplay);
+        mScene->track()->setTypeVisible(PointType::TBDPointType,
+                                        specialTrackDisplay && tbdVisible);
+        mScene->track()->setTypeVisible(PointType::CooperativeTrackPointType,
+                                        specialTrackDisplay && cooperativeVisible);
+    }
+
+    if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
+        m_rangeAzimuthWidget->chart()->setTrackVisible(normalTrackDisplay);
+        m_rangeAzimuthWidget->chart()->setTbdTrackVisible(specialTrackDisplay && tbdVisible);
+        m_rangeAzimuthWidget->chart()->setCooperativeTrackVisible(specialTrackDisplay && cooperativeVisible);
+    }
+    if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
+        m_rangeHeightWidget->chart()->setTrackVisible(normalTrackDisplay);
+        m_rangeHeightWidget->chart()->setTbdTrackVisible(specialTrackDisplay && tbdVisible);
+        m_rangeHeightWidget->chart()->setCooperativeTrackVisible(specialTrackDisplay && cooperativeVisible);
+    }
 }
 
 void MainOverLayOut::onTrackRemoved(int batchID) {
@@ -997,6 +1284,7 @@ void MainOverLayOut::onTrackRemoved(int batchID) {
              .arg(batchID).arg(ui->tableWidget->rowCount()).arg(ui->droneTableWidget->rowCount()));
 
     syncFrozenTrackTables();
+    updateTrackStatsWidgets();
 }
 
 void MainOverLayOut::clearAllTracks() {
@@ -1011,6 +1299,7 @@ void MainOverLayOut::clearAllTracks() {
     m_targetTypes.clear();
     m_trackStartTimes.clear();
     syncFrozenTrackTables();
+    updateTrackStatsWidgets();
 }
 
 /**
@@ -1024,8 +1313,9 @@ void MainOverLayOut::clearTrackTables() {
 }
 
 int MainOverLayOut::addOrUpdateTrackRow(QTableWidget* tableWidget, const PointInfo& info,
-                                        const QString& targetType) {
+                                        const QString& targetType, bool* inserted) {
     int row = -1;
+    bool rowInserted = false;
 
     // 查找是否已存在该批次
     for (int i = 0; i < tableWidget->rowCount(); ++i) {
@@ -1042,22 +1332,36 @@ int MainOverLayOut::addOrUpdateTrackRow(QTableWidget* tableWidget, const PointIn
         row = tableWidget->rowCount();
         tableWidget->insertRow(row);
         m_trackStartTimes[info.batch] = QDateTime::currentDateTime();  // 记录航迹开始时间
+        rowInserted = true;
     }
 
-    // 更新行数据
-    QTableWidgetItem* batchItem = new QTableWidgetItem(QString::number(info.batch));
+    auto ensureItem = [tableWidget, row](int column) -> QTableWidgetItem* {
+        QTableWidgetItem* item = tableWidget->item(row, column);
+        if (!item) {
+            item = new QTableWidgetItem();
+            item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+            tableWidget->setItem(row, column, item);
+        }
+        return item;
+    };
+
+    QTableWidgetItem* batchItem = ensureItem(0);
     batchItem->setData(Qt::UserRole, info.type);
-    tableWidget->setItem(row, 0, batchItem);
-    tableWidget->setItem(row, 1, new QTableWidgetItem(QString::number(info.azimuth, 'f', 1)));
-    tableWidget->setItem(row, 2, new QTableWidgetItem(QString::number(info.elevation, 'f', 1)));
-    tableWidget->setItem(row, 3, new QTableWidgetItem(QString::number(info.altitute, 'f', 1)));
-    tableWidget->setItem(row, 4, new QTableWidgetItem(QString::number(info.range, 'f', 1)));
-    tableWidget->setItem(row, 5, new QTableWidgetItem(QString::number(info.speed, 'f', 1)));
-    tableWidget->setItem(row, 6, new QTableWidgetItem(QString::number(info.SNR, 'f', 1)));
+    batchItem->setText(QString::number(info.batch));
+
+    ensureItem(1)->setText(QString::number(info.azimuth, 'f', 1));
+    ensureItem(2)->setText(QString::number(info.elevation, 'f', 1));
+    ensureItem(3)->setText(QString::number(info.altitute, 'f', 1));
+    ensureItem(4)->setText(QString::number(info.range, 'f', 1));
+    ensureItem(5)->setText(QString::number(info.speed, 'f', 1));
+    ensureItem(6)->setText(QString::number(info.SNR, 'f', 1));
     // 目标识别结果（来自数据处理上报）
-    QString recResultStr = (info.targetRecResult == 1) ? "无人机" : "其它";
+    QString recResultStr = targetType;
+    if (info.type == PointType::Track) {
+        recResultStr = (info.targetRecResult == 1) ? QStringLiteral("无人机") : QStringLiteral("其它");
+    }
     // 显示识别结果在"类型"列（列索引7），不使用额外列
-    tableWidget->setItem(row, 7, new QTableWidgetItem(recResultStr));
+    ensureItem(7)->setText(recResultStr);
 
     // 设置所有项为不可编辑
     for (int col = 0; col < tableWidget->columnCount(); ++col) {
@@ -1069,6 +1373,10 @@ int MainOverLayOut::addOrUpdateTrackRow(QTableWidget* tableWidget, const PointIn
         } else {
             item->setBackground(QBrush());
         }
+    }
+
+    if (inserted) {
+        *inserted = rowInserted;
     }
 
     return row;
@@ -1813,6 +2121,13 @@ void MainOverLayOut::setupLogInfo() {
     // 日志文本框的样式已在darkstyle.qss中配置
 }
 
+void MainOverLayOut::scheduleLogFlush()
+{
+    if (m_logFlushTimer && !m_logFlushTimer->isActive()) {
+        m_logFlushTimer->start();
+    }
+}
+
 void MainOverLayOut::appendExternalLog(const QString& text)
 {
     if (text.isEmpty()) return;
@@ -1823,12 +2138,38 @@ void MainOverLayOut::appendExternalLog(const QString& text)
 
 void MainOverLayOut::appendLogLine(const QString& line)
 {
-    const QString currentText = ui->logEdit->toPlainText();
-    QString updatedText = line + currentText;
+    if (line.isEmpty()) {
+        return;
+    }
 
-    QStringList lines = updatedText.split('\n', Qt::SkipEmptyParts);
+    m_pendingLogLines.prepend(line);
+    scheduleLogFlush();
+}
+
+void MainOverLayOut::flushPendingLogLines()
+{
+    if (m_pendingLogLines.isEmpty()) {
+        return;
+    }
+
+    QStringList lines;
+    for (const QString& pendingLine : m_pendingLogLines) {
+        const QStringList splitLines = pendingLine.split('\n', Qt::SkipEmptyParts);
+        for (const QString& splitLine : splitLines) {
+            lines.append(splitLine);
+        }
+    }
+    m_pendingLogLines.clear();
+
+    const QStringList existingLines = ui->logEdit->toPlainText().split('\n', Qt::SkipEmptyParts);
+    lines.append(existingLines);
+
     if (lines.count() > m_maxLogLines) {
         lines = lines.mid(0, m_maxLogLines);
+    }
+
+    QString updatedText;
+    if (!lines.isEmpty()) {
         updatedText = lines.join('\n') + '\n';
     }
 
@@ -2505,7 +2846,9 @@ void MainOverLayOut::applyScaledSizes() {
     // --- Logo ---
     ui->label_12->setMaximumSize(logo, logo);
 
-    qInfo() << "ScaleHelper applied: factor=" << ScaleHelper::factor()
-            << "leftPanel=" << leftW << "rightPanel=" << rightW
-            << "btnH=" << btnH;
+    LOG_INFO(QString("ScaleHelper applied: factor=%1 leftPanel=%2 rightPanel=%3 btnH=%4")
+                 .arg(ScaleHelper::factor())
+                 .arg(leftW)
+                 .arg(rightW)
+                 .arg(btnH));
 }

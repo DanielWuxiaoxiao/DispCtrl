@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-23 09:44:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:30
+ * @LastEditTime: 2026-05-18 15:26:18
  * @Description: 
  */
 /**
@@ -236,6 +236,11 @@ signals:
     void oldDataCleared();
 
 private:
+    static constexpr int kMaxCachedDetections = 2048;
+    static constexpr int kMaxCachedTrackPointsPerBatch = 128;
+    static constexpr int kMaxRetainedDetections = 1024;
+    static constexpr int kMaxRetainedTrackPointsPerBatch = 64;
+
     /**
      * @brief 私有构造函数
      * @param parent 父对象指针

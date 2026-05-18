@@ -3,10 +3,11 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-12-25 16:19:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:11
+ * @LastEditTime: 2026-05-18 15:26:17
  * @Description: 
  */
 #include "ExternalCtrlManager.h"
+#include "Basic/log.h"
 #include <QDebug>
 #include <QtGlobal>
 #include <cstring>
@@ -230,7 +231,9 @@ bool ExternalCtrlManager::tryParseAdFrame(const QByteArray& frame, int offset, E
 QByteArray ExternalCtrlManager::encodeAdFrame(const ExternalAdFrame& frame) const {
     const int sampleCount = frame.header.beamCount * frame.header.samplesPerPulse;
     if (frame.samples.size() != sampleCount) {
-        qWarning() << "AD samples size mismatch" << frame.samples.size() << "expected" << sampleCount;
+        LOG_WARNING(QString("AD samples size mismatch %1 expected %2")
+                        .arg(frame.samples.size())
+                        .arg(sampleCount));
         return {};
     }
 

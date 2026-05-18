@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-20 16:29:54
+ * @LastEditTime: 2026-05-18 15:26:23
  * @Description: 
  */
 /**
@@ -121,9 +121,9 @@ void setupStyle(QApplication& app) {
 void bindMainThread() {
 #ifdef Q_OS_LINUX
     if (bindThreadToCpu(0))
-        qDebug() << "Main thread bound to CPU 0.";
+        LOG_DEBUG("Main thread bound to CPU 0.");
     else
-        qWarning() << "Failed to bind main thread to CPU 0.";
+        LOG_WARNING("Failed to bind main thread to CPU 0.");
 #endif
 }
 
@@ -331,47 +331,22 @@ int main(int argc, char *argv[]) {
     // 第二.五步：初始化屏幕缩放因子（必须在 QApplication 之后、setupFont 之前）
     // =============================================================================
     ScaleHelper::init();
-    qInfo() << "ScaleHelper initialized: logical=" << ScaleHelper::logicalWidth() << "x"
-            << ScaleHelper::logicalHeight() << " factor=" << ScaleHelper::factor()
-            << " leftPanel=" << ScaleHelper::leftPanelWidth()
-            << " rightPanel=" << ScaleHelper::rightPanelWidth();
+    LOG_INFO(QString("ScaleHelper initialized: logical=%1x%2 factor=%3 leftPanel=%4 rightPanel=%5")
+                 .arg(ScaleHelper::logicalWidth())
+                 .arg(ScaleHelper::logicalHeight())
+                 .arg(ScaleHelper::factor())
+                 .arg(ScaleHelper::leftPanelWidth())
+                 .arg(ScaleHelper::rightPanelWidth()));
 
     // =============================================================================
     // 第三步：初始化错误处理框架
     // =============================================================================
     ErrorHandler& errorHandler = ErrorHandler::instance();
     Q_UNUSED(errorHandler); // 标记为已使用，避免编译器警告
-    qInfo() << "Error handler initialized";
+    LOG_INFO("Error handler initialized");
 
     // =============================================================================
-    // 第四步：控制器系统初始化
-    // =============================================================================
-    CON_INS->init();
-
-    // =============================================================================
-    // 第五步：用户界面配置
-    // =============================================================================
-    setupFont(app);      // 设置全局字体
-    setupOpenGL();       // 配置OpenGL渲染
-    setupStyle(app);     // 应用深色主题样式
-
-    // =============================================================================
-    // 第五.五步：管理者模式登录
-    // =============================================================================
-    showAdminLoginDialog();
-
-    // =============================================================================
-    // 第六步：日志系统配置
-    // =============================================================================
-    qInstallMessageHandler(enhancedLog);
-
-    // 输出日志文件位置信息（确保能看到日志文件路径）
-    QString logPath = QDir::currentPath() + "/disp_ctrl_log.txt";
-    qInfo() << "Log file path:" << logPath;
-    LOG_INFO(QString("Application starting, log file: %1").arg(logPath));
-
-    // =============================================================================
-    // 第七步：配置文件加载和验证
+    // 第四步：配置文件加载和验证
     // =============================================================================
     if (!ConfigManager::instance().load("config.toml")) {
         LOG_ERROR("Failed to load config.toml, using default configuration");
@@ -379,6 +354,37 @@ int main(int argc, char *argv[]) {
     } else {
         LOG_INFO("Configuration loaded successfully from config.toml");
     }
+
+    refreshRuntimeLogLevelFromConfig();
+
+    // =============================================================================
+    // 第五步：控制器系统初始化
+    // =============================================================================
+    CON_INS->init();
+
+    // =============================================================================
+    // 第六步：用户界面配置
+    // =============================================================================
+    setupFont(app);      // 设置全局字体
+    setupOpenGL();       // 配置OpenGL渲染
+    setupStyle(app);     // 应用深色主题样式
+
+    // =============================================================================
+    // 第六.五步：管理者模式登录
+    // =============================================================================
+    showAdminLoginDialog();
+
+    // =============================================================================
+    // 第七步：日志系统配置
+    // =============================================================================
+    qInstallMessageHandler(enhancedLog);
+
+    // 输出日志文件位置信息（确保能看到日志文件路径）
+    QString logPath = QDir::currentPath() + "/disp_ctrl_log.txt";
+    LOG_INFO(QString("Log file path: %1").arg(logPath));
+    LOG_INFO(QString("Application starting, log file: %1").arg(logPath));
+
+    // =============================================================================
     // =============================================================================
     // 第八步：主窗口创建和显示
     // =============================================================================

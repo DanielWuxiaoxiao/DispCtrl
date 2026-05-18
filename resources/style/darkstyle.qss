@@ -352,6 +352,7 @@ QLabel#batch,
 QLabel#range,
 QLabel#azi,
 QLabel#ele,
+QLabel#altitute,
 QLabel#speed,
 QLabel#SNR {
     background-color: transparent;

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 10:51:39
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:30
+ * @LastEditTime: 2026-05-18 15:26:18
  * @Description: 
  */
 /**
@@ -18,6 +18,8 @@
  * @author DispCtrl Team
  * @date 2024
  */
+
+#include "Basic/log.h"
 
 #include "RadarDataManager.h"
 #include "ErrorHandler.h"
@@ -80,10 +82,11 @@ void RadarDataManager::processDetection(const PointInfo& info)
         m_detections.append(info);
 
         // 第四步：内存管理 - 限制检测点数量，避免内存无限增长
-        const int MAX_DETECTIONS = 10000;
-        if (m_detections.size() > MAX_DETECTIONS) {
+        if (m_detections.size() > kMaxCachedDetections) {
             m_detections.removeFirst();  // 移除最旧的数据
         }
+
+        locker.unlock();
 
         // 第五步：通知所有注册的视图
         emit detectionReceived(info);
@@ -145,10 +148,11 @@ void RadarDataManager::processTrack(const PointInfo& info)
         m_tracks[info.batch].append(info);
 
         // 第五步：航迹历史管理 - 限制每个批次的航迹点数量
-        const int MAX_TRACK_POINTS = 1000;
-        if (m_tracks[info.batch].size() > MAX_TRACK_POINTS) {
+        if (m_tracks[info.batch].size() > kMaxCachedTrackPointsPerBatch) {
             m_tracks[info.batch].removeFirst();  // 移除最旧的航迹点
         }
+
+        locker.unlock();
 
         // 第六步：通知所有注册的视图
         emit trackReceived(info);
@@ -177,7 +181,7 @@ void RadarDataManager::registerView(const QString& viewId, QObject* view)
 
     if (view && !m_registeredViews.contains(viewId)) {
         m_registeredViews[viewId] = view;
-        qDebug() << "RadarDataManager: Registered view" << viewId;
+        LOG_DEBUG(QString("RadarDataManager: Registered view %1").arg(viewId));
     }
 }
 
@@ -194,7 +198,7 @@ void RadarDataManager::unregisterView(const QString& viewId)
     QMutexLocker locker(&m_dataMutex);
 
     if (m_registeredViews.remove(viewId) > 0) {
-        qDebug() << "RadarDataManager: Unregistered view" << viewId;
+        LOG_DEBUG(QString("RadarDataManager: Unregistered view %1").arg(viewId));
     }
 }
 
@@ -262,7 +266,7 @@ void RadarDataManager::clearAllData()
     m_tracks.clear();
 
     emit dataCleared();
-    qDebug() << "RadarDataManager: All data cleared";
+    LOG_DEBUG("RadarDataManager: All data cleared");
 }
 
 void RadarDataManager::clearOldData(int maxAgeSeconds)
@@ -272,20 +276,18 @@ void RadarDataManager::clearOldData(int maxAgeSeconds)
     // 简化版本：基于数据数量而不是时间戳来清理旧数据
     // 保留最新的一定数量的检测点和航迹点
 
-    const int MAX_KEEP_DETECTIONS = 5000;
-    if (m_detections.size() > MAX_KEEP_DETECTIONS) {
-        int removeCount = m_detections.size() - MAX_KEEP_DETECTIONS;
+    if (m_detections.size() > kMaxRetainedDetections) {
+        int removeCount = m_detections.size() - kMaxRetainedDetections;
         for (int i = 0; i < removeCount; ++i) {
             m_detections.removeFirst();
         }
     }
 
     // 对每个航迹批次也做类似处理
-    const int MAX_KEEP_TRACKS = 500;
     for (auto it = m_tracks.begin(); it != m_tracks.end();) {
         auto& trackList = it.value();
-        if (trackList.size() > MAX_KEEP_TRACKS) {
-            int removeCount = trackList.size() - MAX_KEEP_TRACKS;
+        if (trackList.size() > kMaxRetainedTrackPointsPerBatch) {
+            int removeCount = trackList.size() - kMaxRetainedTrackPointsPerBatch;
             for (int i = 0; i < removeCount; ++i) {
                 trackList.removeFirst();
             }

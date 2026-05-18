@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 11:28:42
+ * @LastEditTime: 2026-05-18 15:26:21
  * @Description: 
  */
 /**
@@ -49,6 +49,59 @@
 #include <QMainWindow>
 #include <QCoreApplication>
 #include <QFile>
+
+bool PPIView::sendTrackTargetAssignment(int batchID)
+{
+    if (!m_gcsMgr || !m_scene || !m_scene->track()) return false;
+
+    PointInfo info;
+    if (!m_scene->track()->latestPointInfo(batchID, info)) return false;
+
+    const double DEG2RAD = M_PI / 180.0;
+    const double R = 6378137.0;
+
+    double radarLat = m_radarLatitude;
+    double radarLon = m_radarLongitude;
+    double radarAlt = 0.0;
+
+    if (radarInfoW) {
+        radarAlt = radarInfoW->getAltitude();
+    }
+
+    const double rangeM = static_cast<double>(info.range);
+    const double azDeg = static_cast<double>(info.azimuth);
+    const double elDeg = static_cast<double>(info.elevation);
+
+    const double elRad = elDeg * DEG2RAD;
+    const double horizontalDistance = rangeM * qCos(elRad);
+    const double dz = rangeM * qSin(elRad);
+
+    const double trueAzRad = azDeg * DEG2RAD;
+    const double dx = horizontalDistance * qSin(trueAzRad);
+    const double dy = horizontalDistance * qCos(trueAzRad);
+
+    const double latRad = radarLat * DEG2RAD;
+    const double targetLat = radarLat + dy / (R * DEG2RAD);
+    const double targetLon = radarLon + dx / (R * qCos(latRad) * DEG2RAD);
+    const double targetAlt = radarAlt + dz;
+
+    GcsTargetParams params;
+    params.targetId = static_cast<quint32>(batchID);
+    params.longitude = targetLon;
+    params.latitude = targetLat;
+    params.altitude = static_cast<float>(targetAlt);
+    params.speed = static_cast<float>(info.speed);
+
+    double heading = std::fmod(azDeg, 360.0);
+    if (heading < 0) heading += 360.0;
+    params.heading = static_cast<float>(heading);
+    params.targetType = (info.targetRecResult == 1) ? 0x40 : 0x00;
+    params.utcTime = static_cast<quint32>(QDateTime::currentSecsSinceEpoch());
+    params.freqReserve = 0.0f;
+
+    m_gcsMgr->sendTargetAssignment(params);
+    return true;
+}
 
 /**
  * @brief 计算PPIView中心在主窗口centralWidget中的位置
@@ -221,6 +274,7 @@ PPIView::PPIView(QWidget* parent)
     // 从配置文件读取雷达中心经纬度（优先使用config.toml中的值）
     m_radarLongitude = CF_INS.longitude();
     m_radarLatitude  = CF_INS.latitude();
+    m_sendRoadPointsEnabled = CF_INS.displayFlag("send_road_points_to_datapro", false);
     setRenderHint(QPainter::Antialiasing, true);
     setDragMode(QGraphicsView::RubberBandDrag);
     // 其他模式：
@@ -318,6 +372,8 @@ void PPIView::setupOverlay() {
             this, &PPIView::onMeasureModeChanged);
     connect(visualSettings, &PPIVisualSettings::maxPointsChanged,
             this, &PPIView::onMaxPointsChanged);
+        connect(visualSettings, &PPIVisualSettings::maxTrackPointsChanged,
+            this, &PPIView::onMaxTrackPointsChanged);
     connect(visualSettings, &PPIVisualSettings::clearDisplayRequested,
             this, &PPIView::onClearDisplayRequested);
 
@@ -434,7 +490,6 @@ void PPIView::setPPIScene(PPIScene* scene) {
     if (m_scene && pointInfo) {
         // 点击航迹点时更新显示并设置选中批次
         connect(m_scene, &PPIScene::trackPointClicked, this, [this](const PointInfo& info) {
-            qDebug() << "[PPIView] trackPointClicked received, batch:" << info.batch;
             pointInfo->setSelectedBatch(info.batch);
             pointInfo->updatePointInfo(info);
         });
@@ -445,11 +500,18 @@ void PPIView::setPPIScene(PPIScene* scene) {
             connect(m_scene->track(), &TrackManager::trackPointAdded, this, [this](const PointInfo& info) {
                 // 只有当新添加的航迹点属于选中的批次时才更新显示
                 if (pointInfo->selectedBatch() == static_cast<int>(info.batch)) {
-                    qDebug() << "[PPIView] Updating selected batch" << info.batch << "with new data";
                     pointInfo->updatePointInfo(info);
+                }
+
+                if (m_autoSendTrackBatches.contains(static_cast<int>(info.batch))) {
+                    sendTrackTargetAssignment(static_cast<int>(info.batch));
                 }
             });
             LOG_INFO("Connected TrackManager::trackPointAdded for continuous update");
+
+            connect(m_scene->track(), &TrackManager::trackRemoved, this, [this](int batchID) {
+                m_autoSendTrackBatches.remove(batchID);
+            });
         }
     }
 
@@ -950,6 +1012,15 @@ void PPIView::onMaxPointsChanged(int maxPoints)
     emit maxPointsSettingChanged(maxPoints);
 }
 
+void PPIView::onMaxTrackPointsChanged(int maxPoints)
+{
+    if (m_scene && m_scene->track()) {
+        m_scene->track()->setMaxPointsPerBatch(maxPoints);
+        LOG_INFO(QString("[PPIView::onMaxTrackPointsChanged] P显 TrackManager max points per batch set to %1").arg(maxPoints));
+    }
+    emit maxTrackPointsSettingChanged(maxPoints);
+}
+
 /**
  * @brief 处理清除P显数据请求
  * @details 清除检测点和航迹点数据，同时清除航迹列表表格
@@ -974,6 +1045,8 @@ void PPIView::onClearDisplayRequested()
         LOG_WARNING("PPIView::onClearDisplayRequested - scene is null");
         return;
     }
+
+    m_autoSendTrackBatches.clear();
 
     // 通过 RadarDataManager 统一清除数据
     // 这会触发 dataCleared 信号，通知所有注册的视图（包括 RangeAzimuthWidget）
@@ -1153,6 +1226,10 @@ void PPIView::onGeoLocationChanged(double latitude, double longitude, double alt
  */
 void PPIView::sendRoadPointsToDataPro()
 {
+    if (!m_sendRoadPointsEnabled) {
+        return;
+    }
+
     if (!m_roadParser) return;
 
     double maxRangeM = m_currentRange * 1000.0;
@@ -1238,6 +1315,12 @@ void PPIView::setGCSManager(GCSManager* mgr)
     m_gcsMgr = mgr;
 }
 
+void PPIView::setOnlyRecognizedDroneTracksVisible(bool enabled)
+{
+    if (!m_scene || !m_scene->track()) return;
+    m_scene->track()->setOnlyRecognizedDroneTracksVisible(enabled);
+}
+
 /**
  * @brief 右键菜单事件 — 航迹点目标下发
  * @details 右键点击TrackPoint时弹出菜单，选择"目标下发"后通过GCSManager
@@ -1246,7 +1329,7 @@ void PPIView::setGCSManager(GCSManager* mgr)
  * 坐标转换流程：
  *  - 水平距离 d = range * cos(elevation)      [m]
  *  - 垂直偏移 dz = range * sin(elevation)     [m]
- *  - 真方位  true_az = azimuth + radar_yaw     [度]
+ *  - 真方位  true_az = azimuth                 [度，输入RAE已包含偏航修正]
  *  - 东向偏移 dx = d * sin(true_az)            [m]
  *  - 北向偏移 dy = d * cos(true_az)            [m]
  *  - 目标纬度 = radar_lat + dy/(R*π/180)       [度]
@@ -1255,63 +1338,28 @@ void PPIView::setGCSManager(GCSManager* mgr)
  */
 void PPIView::onTrackLabelRightClicked(int batchID)
 {
-    if (!m_gcsMgr || !m_scene || !m_scene->track()) return;
-
-    PointInfo info;
-    if (!m_scene->track()->latestPointInfo(batchID, info)) return;
+    if (!m_scene || !m_scene->track()) return;
 
     QMenu menu(this);
-    QAction* act = menu.addAction(
-        tr("目标下发 [批次: %1]").arg(batchID));
+    QAction* sendAction = nullptr;
+    if (m_gcsMgr) {
+        sendAction = menu.addAction(
+            tr("目标下发 [批次: %1]").arg(batchID));
+    }
+    const bool focused = m_scene->track()->isBatchFocused(batchID);
+    QAction* focusAction = menu.addAction(focused ? tr("取消关注") : tr("关注"));
     QAction* chosen = menu.exec(QCursor::pos());
 
-    if (chosen != act) return;
+    if (!chosen) return;
 
-    // ---- 坐标转换 ----
-    const double DEG2RAD = M_PI / 180.0;
-    const double R       = 6378137.0; // 地球半径(m)
-
-    double radarLat = m_radarLatitude;
-    double radarLon = m_radarLongitude;
-    double radarAlt = 0.0;
-    double radarYaw = 0.0;
-
-    if (radarInfoW) {
-        radarAlt = radarInfoW->getAltitude();
-        radarYaw = radarInfoW->getYaw();  //相对正北顺时针偏移角度
+    if (chosen == focusAction) {
+        m_scene->track()->setBatchFocused(batchID, !focused);
+        return;
     }
 
-    double rangeM  = static_cast<double>(info.range);       // m
-    double azDeg   = static_cast<double>(info.azimuth);     // 度（相对雷达北）
-    double elDeg   = static_cast<double>(info.elevation);   // 度
+    if (chosen != sendAction) return;
 
-    double elRad    = elDeg * DEG2RAD;
-    double d        = rangeM * qCos(elRad);                 // 水平距离(m)
-    double dz       = rangeM * qSin(elRad);                 // 垂直偏移(m)
-
-    double trueAzRad = (azDeg + radarYaw) * DEG2RAD;
-    double dx = d * qSin(trueAzRad);   // 东(m)
-    double dy = d * qCos(trueAzRad);   // 北(m)
-
-    double latRad    = radarLat * DEG2RAD;
-    double targetLat = radarLat + dy / (R * DEG2RAD);
-    double targetLon = radarLon + dx / (R * qCos(latRad) * DEG2RAD);
-    double targetAlt = radarAlt + dz;  // m
-
-    // ---- 填充参数 ----
-    GcsTargetParams params;
-    params.targetId   = static_cast<quint32>(batchID);
-    params.longitude  = targetLon;
-    params.latitude   = targetLat;
-    params.altitude   = static_cast<float>(targetAlt);
-    params.speed      = static_cast<float>(info.speed);
-    // 航向：用真方位角（0-360°）
-    double heading    = std::fmod(azDeg + radarYaw, 360.0);
-    if (heading < 0) heading += 360.0;
-    params.heading    = static_cast<float>(heading);
-    params.targetType = (info.targetRecResult == 1) ? 0x40 : 0x00;
-    params.utcTime    = static_cast<quint32>(QDateTime::currentSecsSinceEpoch());
-    params.freqReserve = 0.0f;
-
-    m_gcsMgr->sendTargetAssignment(params);
+    if (sendTrackTargetAssignment(batchID)) {
+        m_autoSendTrackBatches.insert(batchID);
+    }
 }

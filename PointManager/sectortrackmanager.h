@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 10:04:10
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 11:28:42
+ * @LastEditTime: 2026-05-18 15:26:20
  * @Description: 
  */
 /**
@@ -22,6 +22,7 @@
 #define SECTORTRACKMANAGER_H
 
 #include <QObject>
+#include <QGraphicsItem>
 #include <QGraphicsScene>
 #include <QGraphicsLineItem>
 #include <QGraphicsTextItem>
@@ -196,6 +197,12 @@ public:
     void setTypeVisible(PointType type, bool visible);
 
     /**
+     * @brief 设置单批航迹最大点数
+     * @param maxPoints 单批航迹最大点数
+     */
+    void setMaxPointsPerBatch(int maxPoints);
+
+    /**
      * @brief 设置扇形航迹点尺寸比例
      * @param ratio 缩放比例，1.0为默认大小
      * @details 批量调整扇形区域内所有航迹点的显示尺寸
@@ -278,6 +285,8 @@ private:
      */
     void updateBatchVisibility(int batchID);
 
+    void limitBatchPoints(SectorTrackSeries& series);
+
     /**
      * @brief 更新连线几何形状
      * @param line 连线对象指针
@@ -286,6 +295,8 @@ private:
      * @details 更新扇形区域内连线的几何形状和层级设置
      */
     void updateLineGeometry(QGraphicsLineItem* line, const QPointF& a, const QPointF& b);
+
+    void setItemSceneVisible(QGraphicsItem* item, bool visible);
 
     /**
      * @brief 极坐标转屏幕坐标
@@ -330,6 +341,7 @@ private:
 
     // 显示控制参数
     float m_pointSizeRatio = 1.0f;             ///< 点尺寸缩放比例
+    int m_maxPointsPerBatch = 200;             ///< 单批航迹最大点数
 
     // 扇形角度范围参数
     float m_minAngle = -30.0f;                 ///< 扇形最小角度(度)

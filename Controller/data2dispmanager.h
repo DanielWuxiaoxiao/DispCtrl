@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:30
+ * @LastEditTime: 2026-05-18 15:26:19
  * @Description: 
  */
 #ifndef DATA2DISPMANAGER_H
@@ -24,8 +24,8 @@ public:
     explicit Data2DispManager(QObject *parent = nullptr);
     ~Data2DispManager();
 
-public slots:
-    void traInfoDecode(QByteArray data);
+private slots:
+    void dispatchTrackBatch(const QList<PointInfo>& tracks, int packetSize);
 
 signals:
     void traInfoProcess(PointInfo info);

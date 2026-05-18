@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-01-30 11:45:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-09 11:28:42
+ * @LastEditTime: 2026-05-18 15:26:22
  * @Description: 
  */
 /*
@@ -43,6 +43,9 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMap>
+
+class QGraphicsSimpleTextItem;
+class RangeAzimuthBatchItem;
 
 /**
  * @class RangeAzimuthChartToolBar
@@ -197,6 +200,12 @@ public:
     void setCooperativeTrackVisible(bool visible);
 
     /**
+     * @brief 设置是否仅显示识别为无人机的普通航迹
+     * @param enabled true时仅显示普通航迹中的无人机
+     */
+    void setOnlyRecognizedDroneTracksVisible(bool enabled);
+
+    /**
      * @brief 设置检测点大小比例
      * @param ratio 大小比例（0.5-3.0）
      */
@@ -245,7 +254,6 @@ private:
      * @brief 检测点图形项结构
      */
     struct DetectionItem {
-        QGraphicsEllipseItem* graphicsItem;  ///< 图形项
         PointInfo info;                      ///< 点信息
         qint64 timestamp;                    ///< 添加时间戳
     };
@@ -254,24 +262,31 @@ private:
      * @brief 航迹图形项结构
      */
     struct TrackItem {
-        QGraphicsEllipseItem* graphicsItem;  ///< 图形项
         PointInfo info;                      ///< 航迹信息
         qint64 timestamp;                    ///< 添加时间戳
     };
 
     QList<DetectionItem> m_detections;        ///< 检测点列表
     QVector<TrackItem> m_tracks;              ///< 航迹列表
+    QMap<quint64, QGraphicsSimpleTextItem*> m_trackLabels; ///< 各批次最新点标签
+    QMap<quint64, int> m_latestTrackIndices;  ///< 各批次最新点索引缓存
+    QMap<quint64, qint64> m_trackLabelRefreshMs; ///< 各批次标签最近刷新时间
+    QMap<quint64, int> m_trackCountsByKey;    ///< 各批次航迹点数量缓存
+    RangeAzimuthBatchItem* m_batchItem = nullptr; ///< 批量绘制检测点/航迹点
 
     bool m_detectionVisible = true;           ///< 检测点可见性
     bool m_trackVisible = true;               ///< 航迹可见性
     bool m_tbdTrackVisible = true;            ///< TBD航迹可见性
     bool m_cooperativeTrackVisible = true;    ///< 协同航迹可见性
+    bool m_onlyRecognizedDroneTracksVisible = false; ///< 是否仅显示普通航迹中的无人机
 
     double m_detectionSizeRatio = 1.0;        ///< 检测点大小比例
     double m_trackSizeRatio = 1.0;            ///< 航迹大小比例
 
     int m_maxDetectionPoints = 10000;         ///< 最大检测点数
-    int m_maxTrackPoints = 1000;              ///< 最大航迹数
+    int m_maxTrackPoints = 200;               ///< 单批最大航迹点数
+    bool m_trackLabelsEnabled = true;         ///< 是否显示航迹标签
+    int m_trackLabelRefreshIntervalMs = 200;  ///< 航迹标签最小刷新间隔
 
     // 方位角过滤范围
     double m_minAzimuth = 0.0;                ///< 最小方位角
@@ -307,13 +322,37 @@ private:
      */
     void refreshAllPoints();
 
-    QColor trackColor(unsigned type) const;
+    void refreshTrackLabels();
+
+    void clearTrackLabels();
+
+    void rebuildLatestTrackIndices();
+
+    const TrackItem* latestTrackItem(unsigned type, int batch) const;
+
+    void limitTrackPointsForBatch(unsigned type, int batch);
+
+    void removeTrackAt(int index);
+
+    bool shouldShowDetection(const PointInfo& info) const;
+
+    bool shouldShowTrack(const PointInfo& info) const;
+
+    QColor trackColor(const PointInfo& info) const;
 
     QString trackTooltipLabel(unsigned type) const;
 
+    QString trackLabelText(const PointInfo& info) const;
+
     bool isTrackTypeVisible(unsigned type) const;
 
+    bool isTrackBatchRecognitionVisible(unsigned type, int batch) const;
+
+    bool isTrackRecognitionVisible(const PointInfo& info) const;
+
     void updateTrackVisibility();
+
+    void updateTrackVisibilityForBatch(unsigned type, int batch);
 
     /**
      * @brief 判断方位角是否在过滤范围内
@@ -321,6 +360,8 @@ private:
      * @return true在范围内，false不在范围内
      */
     bool isAzimuthInRange(double azimuth) const;
+
+    friend class RangeAzimuthBatchItem;
 };
 
 /**

@@ -3,13 +3,14 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:33
+ * @LastEditTime: 2026-05-18 15:26:24
  * @Description: 
  */
 #include "dataprocessui.h"
 #include "ui_dataprocessui.h"
 #include "Basic/ConfigManager.h"
 #include "Basic/DispBasci.h"
+#include "Basic/log.h"
 #include "cusWidgets/custommessagebox.h"
 #include <QPushButton>
 #include <QDebug>
@@ -42,7 +43,7 @@ DataProcessUI::DataProcessUI(QWidget *parent) :
 
 void DataProcessUI::onAccept()
 {
-    qDebug() << "[DataProcessUI] onAccept() called";
+    LOG_DEBUG("[DataProcessUI] onAccept() called");
     DataProParam param;
     param.startWinLen = ui->batchwinlen->text().toFloat();
     param.startPoint = ui->batchnum->text().toFloat();
@@ -60,7 +61,7 @@ void DataProcessUI::onAccept()
     param.accuEleGate = ui->elegate->text().toFloat()*10;
     param.accuVelGate = ui->dopgate->text().toFloat()*10;
 
-    qDebug() << "[DataProcessUI] emitting setParam signal";
+    LOG_DEBUG("[DataProcessUI] emitting setParam signal");
     emit setParam(param);
     // 保持窗口与布局，不关闭父窗口
 }
