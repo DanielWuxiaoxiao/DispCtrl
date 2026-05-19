@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 15:27:10
+ * @LastEditTime: 2026-05-19 10:10:46
  * @Description: 
  */
 /**
@@ -154,8 +154,8 @@ private:
     // 核心显示组件
     PolarAxis* m_axis;       ///< 极坐标轴 - 绘制方位角和距离刻度
     PolarGrid* m_grid;       ///< 极坐标网格 - 绘制距离圆和方位线
-    TrackManager* m_track;   ///< 航迹管理器 - 管理目标航迹显示
-    DetManager* m_det;       ///< 检测点管理器 - 管理雷达检测点显示
+    TrackManager* m_track = nullptr;   ///< ship-radar 当前不创建旧航迹管理器
+    DetManager* m_det = nullptr;       ///< ship-radar 当前不创建旧检测点管理器
     Tooltip* m_tooltip;      ///< 工具提示 - 鼠标悬停信息显示
     EchoRenderer* m_echo = nullptr; ///< 回波渲染引擎
 

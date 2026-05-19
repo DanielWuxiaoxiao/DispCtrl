@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-03-30 11:45:04
+ * @Date: 2026-03-30 15:27:09
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 15:27:10
+ * @LastEditTime: 2026-05-19 10:10:44
  * @Description: 
  */
 /**
@@ -44,6 +44,8 @@ public:
 
     /// 发送控制帧
     void sendControl(const MarineControlFrame& frame);
+    /// 仅更新当前控制帧缓存，不立即发送；用于启动时加载配置。
+    void setCurrentControl(const MarineControlFrame& frame);
 
     // ---- 便捷发送 ----
     void setRange(uint8_t rangeVal);
@@ -99,6 +101,10 @@ private:
 
     QTimer* m_autoSendTimer = nullptr;
     uint32_t m_txCount = 0;             ///< 发送计数
+    uint32_t m_rxDatagramCount = 0;     ///< 接收UDP包计数
+    uint32_t m_rxEchoCount = 0;         ///< 有效回波帧计数
+    uint32_t m_rxInvalidCount = 0;      ///< 无效/不完整帧计数
+    bool m_rxDrainScheduled = false;    ///< 接收积压分片处理标记
 };
 
 #endif // MARINERADARMANAGER_H

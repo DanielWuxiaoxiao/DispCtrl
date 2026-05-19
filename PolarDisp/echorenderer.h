@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-03-30 11:47:54
+ * @Date: 2026-03-30 15:27:09
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 15:27:10
+ * @LastEditTime: 2026-05-19 10:10:46
  * @Description: 
  */
 /**
@@ -23,7 +23,6 @@
 #include <QGraphicsPixmapItem>
 #include <QGraphicsScene>
 #include <QTimer>
-#include <QElapsedTimer>
 #include <QVector>
 #include <QRgb>
 #include <array>
@@ -99,7 +98,8 @@ private:
     void buildColorTableSimrad();
     void buildColorTableRainbow();
     void buildColorTableGreen();
-    void renderSweepToImage();
+    void drawEchoLineToImage(int aziIdx, const uint8_t* amplitudes, int count, bool clearLine);
+    void updatePixmapItem();
 
     // ---- 扫描缓冲 ----
     static constexpr int AZI_STEPS = 4096;      ///< 方位分辨率
@@ -109,7 +109,6 @@ private:
     struct SweepLine {
         std::array<uint8_t, MAX_CELLS> amp{};    ///< 幅值 0~255
         int cellCount = 0;                        ///< 有效单元数
-        qint64 timestamp = 0;                     ///< 更新时间(ms since epoch)
     };
 
     std::array<SweepLine, AZI_STEPS> m_sweepBuf; ///< 4096方位环形缓冲
@@ -119,10 +118,9 @@ private:
     QImage m_ppiImage;                            ///< PPI渲染画布
     QGraphicsPixmapItem* m_pixmapItem = nullptr;  ///< 场景中的显示项
     QGraphicsScene* m_scene = nullptr;
+    bool m_imageDirty = false;
 
     QTimer* m_renderTimer = nullptr;
-    QElapsedTimer m_elapsed;
-
     // ---- 颜色映射 ----
     ColorMap m_colorMap = SIMRAD;
     std::array<QRgb, 256> m_colorLUT{};           ///< amplitude → QRgb

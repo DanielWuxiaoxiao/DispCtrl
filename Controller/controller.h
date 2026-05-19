@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 15:27:10
+ * @LastEditTime: 2026-05-19 10:10:44
  * @Description: 
  */
 /**
@@ -47,19 +47,6 @@
 #include "Basic/ConfigManager.h"
 
 // 前向声明 - 各子系统管理器
-class Disp2ResManager;    ///< 显示到资源管理器
-class Res2DispManager;    ///< 资源到显示管理器
-class Disp2SigManager;    ///< 显示到信号管理器
-class sig2dispmanager;    ///< 信号到显示管理器
-class sig2dispmanager2;   ///< 信号到显示管理器2
-class Data2DispManager;   ///< 数据到显示管理器
-class Tbd2DispManager;    ///< TBD数据到显示管理器
-class Disp2DataManager;   ///< 显示到数据管理器
-class Disp2PhotoManager;  ///< 显示到光电管理器
-class targetDispManager;  ///< 目标显示管理器
-class Disp2MonManager;    ///< 显示到监控管理器
-class Mon2DispManager;    ///< 监控到显示管理器
-class ExternalCtrlManager; ///< 外部雷控/调度链路管理器
 class MarineRadarManager;  ///< 船用雷达协议管理器
 
 // 便捷宏定义
@@ -342,19 +329,6 @@ public slots:
 
 private:
     // === 子系统管理器实例 ===
-    Disp2ResManager* resMgr;       ///< 显示到资源管理器
-    Res2DispManager* resRecvMgr;   ///< 资源到显示管理器
-    Disp2SigManager* sigMgr;       ///< 显示到信号管理器
-    Disp2PhotoManager* photoMgr;   ///< 显示到光电管理器
-    sig2dispmanager* sigRecvMgr;   ///< 信号到显示管理器
-    sig2dispmanager2* sigRecvMgr2; ///< 信号到显示管理器2
-    Data2DispManager* dataRecvMgr; ///< 数据到显示管理器
-    Tbd2DispManager* tbdRecvMgr;   ///< TBD数据到显示管理器
-    Disp2DataManager* dataMgr;     ///< 显示到数据管理器
-    targetDispManager* tarMgr;     ///< 目标显示管理器
-    Disp2MonManager* monMgr;       ///< 显示到监控管理器
-    Mon2DispManager* monRecvMgr;   ///< 监控到显示管理器
-    ExternalCtrlManager* extCtrlMgr; ///< 外部雷控/调度链路管理器
     MarineRadarManager* m_marineMgr = nullptr; ///< 船用雷达协议管理器
 
 public:

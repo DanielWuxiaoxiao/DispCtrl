@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-03-30 11:48:38
+ * @Date: 2026-03-30 15:27:09
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 15:27:10
+ * @LastEditTime: 2026-05-19 10:10:45
  * @Description: 
  */
 /**
@@ -14,8 +14,8 @@
 #include <QtMath>
 #include <QPainter>
 #include <QDebug>
-#include <QDateTime>
 #include <QTransform>
+#include <cstring>
 
 EchoRenderer::EchoRenderer(QGraphicsScene* scene, int imageSize, QObject* parent)
     : QObject(parent)
@@ -27,7 +27,7 @@ EchoRenderer::EchoRenderer(QGraphicsScene* scene, int imageSize, QObject* parent
 
     // 创建 PixmapItem 并添加到场景
     m_pixmapItem = new QGraphicsPixmapItem();
-    m_pixmapItem->setTransformationMode(Qt::SmoothTransformation);
+    m_pixmapItem->setTransformationMode(Qt::FastTransformation);
     m_pixmapItem->setZValue(1);  // 在网格之上, 标注之下
     if (m_scene) {
         m_scene->addItem(m_pixmapItem);
@@ -41,8 +41,6 @@ EchoRenderer::EchoRenderer(QGraphicsScene* scene, int imageSize, QObject* parent
     m_renderTimer = new QTimer(this);
     connect(m_renderTimer, &QTimer::timeout, this, &EchoRenderer::renderFrame);
     m_renderTimer->start(33);
-
-    m_elapsed.start();
 }
 
 EchoRenderer::~EchoRenderer()
@@ -197,8 +195,13 @@ void EchoRenderer::setDecayTime(int ms)
 
 void EchoRenderer::setRange(double rangeMeters)
 {
-    if (rangeMeters > 0)
+    if (rangeMeters <= 0)
+        return;
+
+    if (!qFuzzyCompare(m_rangeMeter, rangeMeters)) {
         m_rangeMeter = rangeMeters;
+        clear();
+    }
 }
 
 void EchoRenderer::setRenderInterval(int ms)
@@ -211,12 +214,10 @@ void EchoRenderer::clear()
     for (auto& line : m_sweepBuf) {
         line.amp.fill(0);
         line.cellCount = 0;
-        line.timestamp = 0;
     }
     m_ppiImage.fill(Qt::transparent);
-    if (m_pixmapItem) {
-        m_pixmapItem->setPixmap(QPixmap::fromImage(m_ppiImage));
-    }
+    m_imageDirty = true;
+    updatePixmapItem();
 }
 
 // ============================================================================
@@ -229,17 +230,17 @@ void EchoRenderer::updateEchoLine(const MarineEchoLine& line)
     auto& sl = m_sweepBuf[aziIdx];
 
     int count = qMin(line.cellCount(), MAX_CELLS);
-    sl.cellCount = count;
-    sl.timestamp = QDateTime::currentMSecsSinceEpoch();
+    if (sl.cellCount > 0) {
+        drawEchoLineToImage(aziIdx, sl.amp.data(), sl.cellCount, true);
+    }
 
-    // 拷贝幅值
+    sl.cellCount = count;
+
     if (count > 0) {
         memcpy(sl.amp.data(), line.amplitudes.constData(), count);
+        drawEchoLineToImage(aziIdx, sl.amp.data(), count, false);
     }
-    // 剩余部分清零
-    if (count < MAX_CELLS) {
-        memset(sl.amp.data() + count, 0, MAX_CELLS - count);
-    }
+    m_imageDirty = true;
 }
 
 // ============================================================================
@@ -248,105 +249,82 @@ void EchoRenderer::updateEchoLine(const MarineEchoLine& line)
 
 void EchoRenderer::renderFrame()
 {
-    renderSweepToImage();
+    updatePixmapItem();
+}
 
-    if (m_pixmapItem) {
+void EchoRenderer::updatePixmapItem()
+{
+    if (!m_pixmapItem)
+        return;
+
+    if (m_imageDirty) {
         m_pixmapItem->setPixmap(QPixmap::fromImage(m_ppiImage));
+        m_imageDirty = false;
+    }
 
-        // 将 m_imageSize×m_imageSize 的图像映射到场景坐标
-        // 图像中心 = halfSize 像素 ↔ 场景中心 (0,0)
-        // 图像边缘 = halfSize 像素 ↔ 场景中距离=range的位置
-        // 场景中 range 距离 = sceneRect.width()/2 像素(近似)
-        double halfSize = m_imageSize / 2.0;
-        double sceneHalf = 0;
-        if (m_scene && !m_scene->sceneRect().isEmpty()) {
-            sceneHalf = qMin(m_scene->sceneRect().width(), m_scene->sceneRect().height()) / 2.0;
-        }
+    const double halfSize = m_imageSize / 2.0;
+    double sceneHalf = 0;
+    if (m_scene && !m_scene->sceneRect().isEmpty()) {
+        sceneHalf = qMin(m_scene->sceneRect().width(), m_scene->sceneRect().height()) / 2.0;
+    }
 
-        if (sceneHalf > 0 && halfSize > 0) {
-            double scale = sceneHalf / halfSize;
-            m_pixmapItem->setTransform(QTransform::fromScale(scale, scale));
-            m_pixmapItem->setOffset(-halfSize, -halfSize);
-        } else {
-            m_pixmapItem->setOffset(-halfSize, -halfSize);
-        }
+    if (sceneHalf > 0 && halfSize > 0) {
+        const double scale = sceneHalf / halfSize;
+        m_pixmapItem->setTransform(QTransform::fromScale(scale, scale));
+        m_pixmapItem->setOffset(-halfSize, -halfSize);
+    } else {
+        m_pixmapItem->setOffset(-halfSize, -halfSize);
     }
 }
 
-void EchoRenderer::renderSweepToImage()
+void EchoRenderer::drawEchoLineToImage(int aziIdx, const uint8_t* amplitudes, int count, bool clearLine)
 {
-    m_ppiImage.fill(Qt::transparent);
+    if (!amplitudes || count <= 0 || m_rangeMeter <= 0)
+        return;
 
-    qint64 now = QDateTime::currentMSecsSinceEpoch();
-    double halfImg = m_imageSize / 2.0;
-    double pixelsPerMeter = halfImg / m_rangeMeter;
+    const double halfImg = m_imageSize / 2.0;
+    const double pixelsPerMeter = halfImg / m_rangeMeter;
+    const double cellSpacing = m_rangeMeter / count;
+    const bool expandPoint = pixelsPerMeter * cellSpacing > 1.5;
 
     auto* bits = reinterpret_cast<QRgb*>(m_ppiImage.bits());
-    int stride = m_ppiImage.width();
+    const int stride = m_ppiImage.width();
+    const double sinA = m_sinTable[aziIdx];
+    const double cosA = m_cosTable[aziIdx];
 
-    // 遍历每条扫描线
-    for (int azi = 0; azi < AZI_STEPS; ++azi) {
-        const auto& sl = m_sweepBuf[azi];
-        if (sl.cellCount <= 0 || sl.timestamp == 0)
+    for (int r = 0; r < count; ++r) {
+        const uint8_t amp = amplitudes[r];
+        if (amp < 16)
             continue;
 
-        // 余辉衰减
-        qint64 age = now - sl.timestamp;
-        if (age > m_decayMs)
-            continue;  // 已过期
+        const double dist = (r + 0.5) * cellSpacing;
+        const int ix = static_cast<int>(halfImg + dist * pixelsPerMeter * sinA);
+        const int iy = static_cast<int>(halfImg + dist * pixelsPerMeter * cosA);
 
-        double decayFactor = 1.0 - static_cast<double>(age) / m_decayMs;
-        if (decayFactor <= 0.0)
+        if (ix < 0 || ix >= m_imageSize || iy < 0 || iy >= m_imageSize)
             continue;
 
-        double sinA = m_sinTable[azi];
-        double cosA = m_cosTable[azi];
+        const QRgb color = clearLine ? qRgba(0, 0, 0, 0) : m_colorLUT[amp];
+        const int alpha = qAlpha(color);
+        const int idx = iy * stride + ix;
+        if (clearLine || qAlpha(bits[idx]) < alpha) {
+            bits[idx] = color;
+        }
 
-        // 距离单元间距(米)
-        double cellSpacing = m_rangeMeter / sl.cellCount;
+        if (expandPoint) {
+            for (int dy = -1; dy <= 1; ++dy) {
+                const int ny = iy + dy;
+                if (ny < 0 || ny >= m_imageSize)
+                    continue;
 
-        for (int r = 0; r < sl.cellCount; ++r) {
-            uint8_t amp = sl.amp[r];
-            if (amp < 16) continue;  // 噪底跳过
+                for (int dx = -1; dx <= 1; ++dx) {
+                    const int nx = ix + dx;
+                    if (nx < 0 || nx >= m_imageSize)
+                        continue;
 
-            // 距离(米)
-            double dist = (r + 0.5) * cellSpacing;
-
-            // 像素坐标
-            double px = halfImg + dist * pixelsPerMeter * sinA;
-            double py = halfImg + dist * pixelsPerMeter * cosA;
-
-            int ix = static_cast<int>(px);
-            int iy = static_cast<int>(py);
-
-            if (ix < 0 || ix >= m_imageSize || iy < 0 || iy >= m_imageSize)
-                continue;
-
-            QRgb color = m_colorLUT[amp];
-
-            // 应用余辉衰减到alpha
-            int alpha = static_cast<int>(qAlpha(color) * decayFactor);
-            color = qRgba(qRed(color), qGreen(color), qBlue(color), alpha);
-
-            // 写入像素 (简单覆盖, 亮者优先)
-            int idx = iy * stride + ix;
-            if (qAlpha(bits[idx]) < alpha) {
-                bits[idx] = color;
-            }
-
-            // 为了视觉效果, 近距离单元画2×2像素
-            if (pixelsPerMeter * cellSpacing > 1.5) {
-                // 扩展到相邻像素
-                for (int dy = -1; dy <= 1; ++dy) {
-                    for (int dx = -1; dx <= 1; ++dx) {
-                        int nx = ix + dx;
-                        int ny = iy + dy;
-                        if (nx >= 0 && nx < m_imageSize && ny >= 0 && ny < m_imageSize) {
-                            int ni = ny * stride + nx;
-                            if (qAlpha(bits[ni]) < alpha) {
-                                bits[ni] = color;
-                            }
-                        }
+                    const int ni = ny * stride + nx;
+                    if (clearLine || qAlpha(bits[ni]) < alpha) {
+                        bits[ni] = color;
                     }
                 }
             }

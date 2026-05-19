@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-07 11:18:03
+ * @LastEditTime: 2026-05-19 10:10:46
  * @Description: 
  */
 /**
@@ -13,20 +13,15 @@
  *
  * 功能特性：
  * - 集成PPI雷达显示界面管理
- * - 缩放视图控制器集成
- * - 扇区显示控件管理
  * - 主要视图组件协调
  * - 界面布局自适应调整
  *
  * 组件架构：
  * - PPIView: 主要雷达显示视图
  * - PPIScene: 雷达场景管理器
- * - ZoomViewWidget: 缩放控制面板
- * - SectorWidget: 扇区控制面板
  *
  * 使用场景：
  * - 雷达显示主界面布局
- * - 多视图协调管理
  * - 用户界面集成控制
  *
  * @author DispCtrl Team
@@ -52,10 +47,6 @@
 // 前向声明 - 雷达显示相关组件
 class PPIView;        ///< PPI雷达显示视图
 class PPIScene;       ///< PPI雷达场景管理器
-class ZoomViewWidget; ///< 缩放视图控制器
-class SectorWidget;   ///< 扇区控制面板
-class RangeAzimuthChartWidget; ///< 距离-方位图表显示面板
-class AzElRangeWidget; ///< 方位角和俯仰角范围控制部件
 class CustomComboBox;  ///< 自定义组合框
 class CusWindow;       ///< 自定义窗口
 class QPushButton;     ///< Qt按钮
@@ -66,7 +57,6 @@ class ColorBarWidget;  ///< 色阶图例
 class DataSaveUI;      ///< 数据存储管理对话框
 class FrozenColumnHelper; ///< 表格冻结列辅助类
 class ScreenRecorderWidget; ///< 屏幕录制与回放组件
-class RadarSimulator;       ///< 船用雷达回波模拟器
 class EchoLineChart;        ///< 回波A显折线图
 
 
@@ -364,16 +354,12 @@ private:
     Ui::MainOverLayOut *ui;           ///< UI界面对象指针
     PPIView* mView;                   ///< PPI雷达显示视图
     PPIScene* mScene;                 ///< PPI雷达场景管理器
-    ZoomViewWidget* m_zoomView;       ///< 缩放视图控制器
-    SectorWidget* m_sectorWidget;     ///< 扇区显示控制器
-    RangeAzimuthChartWidget* m_rangeAzimuthWidget; ///< 距离-方位图表显示控制器
-    AzElRangeWidget* m_azElRangeWidget; ///< 方位角和俯仰角范围控制器
 
     // 航迹管理相关成员
     QMap<unsigned int, int> m_targetTypes;  ///< 批次号到目标类型编号的映射
     QMap<unsigned int, QDateTime> m_trackStartTimes; ///< 批次号到航迹开始时间的映射
-    FrozenColumnHelper* m_trackTableFrozenHelper;    ///< 总航迹表格冻结列辅助类
-    FrozenColumnHelper* m_droneTableFrozenHelper;    ///< 无人机表格冻结列辅助类
+    FrozenColumnHelper* m_trackTableFrozenHelper = nullptr;    ///< 总航迹表格冻结列辅助类
+    FrozenColumnHelper* m_droneTableFrozenHelper = nullptr;    ///< 无人机表格冻结列辅助类
 
     /**
      * @brief 初始化航迹管理功能
@@ -531,7 +517,6 @@ private:
     int m_brightness = 100;                    ///< 当前亮度值(0-100)
 
     // 雷达回波模拟器
-    RadarSimulator* m_radarSimulator = nullptr; ///< 模拟回波数据生成器
 
     // 船用雷达控制相关
     ColorBarWidget* m_colorBar = nullptr;       ///< PPI色阶图例

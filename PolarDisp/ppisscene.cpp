@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 15:27:10
+ * @LastEditTime: 2026-05-19 10:10:46
  * @Description: 
  */
 /**
@@ -21,8 +21,6 @@
 #include <QGraphicsTextItem>
 #include <QGraphicsSceneMouseEvent>
 #include "polargrid.h"
-#include "PointManager/trackmanager.h"
-#include "PointManager/detmanager.h"
 #include "PointManager/point.h"
 #include "tooltip.h"
 #include "Basic/DispBasci.h"
@@ -73,23 +71,6 @@ PPIScene::PPIScene(QObject *parent)
     // ensure axis->rangeChanged is forwarded
     connect(m_axis, &PolarAxis::rangeChanged, this, &PPIScene::rangeChanged);
 
-    // ========== 关键修复：连接检测点和航迹数据流 ==========
-    // 从Controller接收检测点数据并添加到DetManager
-    connect(CON_INS, &Controller::detInfoProcess,
-            m_det, &DetManager::addDetPoint);
-
-    // 从Controller接收航迹数据并添加到TrackManager
-    connect(CON_INS, &Controller::traInfoProcess,
-            m_track, &TrackManager::addTrackPoint);
-
-    // 从Controller接收TBD航迹数据并添加到TrackManager
-    connect(CON_INS, &Controller::tbdInfoProcess,
-        m_track, &TrackManager::addTrackPoint);
-
-    // 连接 TrackManager 的 trackRemoved 信号到 Controller
-    connect(m_track, &TrackManager::trackRemoved,
-        CON_INS, &Controller::trackRemoved);
-
     // === 船用雷达回波渲染连接 ===
     connect(CON_INS, &Controller::marineEchoLine,
             m_echo, &EchoRenderer::updateEchoLine);
@@ -109,7 +90,7 @@ PPIScene::~PPIScene() {
         removeItem(m_tooltip);
         m_tooltip = nullptr;  // 清空指针，避免悬空引用
     }
-    // 其他组件（m_grid, m_det, m_track, m_axis）
+    // 其他组件（m_grid, m_axis）
     // 都是 QGraphicsItem 或 QObject 的子类，Qt 会自动管理它们的生命周期
 }
 
@@ -189,9 +170,6 @@ void PPIScene::initLayerObjects()
     // 船用回波渲染引擎 (在网格之上)
     m_echo = new EchoRenderer(this, 2048, this);
 
-    m_det = new DetManager(this, m_axis);
-    m_track = new TrackManager(this, m_axis);
-
     // 使用单例 Tooltip，不要创建新实例
     // Tooltip 是 Q_GLOBAL_STATIC 管理的全局单例
     m_tooltip = TOOL_TIP;
@@ -200,10 +178,8 @@ void PPIScene::initLayerObjects()
     // 注意：析构时必须先 removeItem，否则 QGraphicsScene 会尝试删除它导致崩溃
     addItem(m_tooltip);
 
-    // 联动：有 range 改变时，网格重绘，点迹重定位/隐藏
+    // 联动：有 range 改变时，网格重绘
     connect(this, &PPIScene::rangeChanged, m_grid, &PolarGrid::updateGrid);
-    connect(this, &PPIScene::rangeChanged, m_det, &DetManager::refreshAll);
-    connect(this, &PPIScene::rangeChanged, m_track, &TrackManager::refreshAll);
 }
 
 /**

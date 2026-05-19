@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-04-07 10:41:08
+ * @Date: 2026-04-07 11:18:01
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-07 11:18:02
+ * @LastEditTime: 2026-05-19 10:10:45
  * @Description: 
  */
 /**
@@ -19,6 +19,7 @@
 #include <QVector>
 #include <QColor>
 #include <QTimer>
+#include <QElapsedTimer>
 #include "Basic/MarineProtocol.h"
 
 /**
@@ -51,6 +52,8 @@ private:
     double  m_azimuthDeg = 0.0;        ///< 当前方位角(度)
     uint16_t m_packetNum = 0;          ///< 包序号
     double  m_rangeMeters = 3704.0;    ///< 当前量程(米)
+    QElapsedTimer m_updateTimer;
+    int m_minUpdateIntervalMs = 33;
 
     // SIMRAD 主题色
     static constexpr QRgb CLR_BG       = 0xFF0a0a0a; ///< 背景色

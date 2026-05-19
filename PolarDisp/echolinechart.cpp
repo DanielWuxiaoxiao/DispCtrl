@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-04-07 10:41:36
+ * @Date: 2026-04-07 11:18:01
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-07 11:18:02
+ * @LastEditTime: 2026-05-19 10:10:44
  * @Description: 
  */
 /**
@@ -20,6 +20,7 @@ EchoLineChart::EchoLineChart(QWidget* parent)
 {
     setMinimumSize(200, 120);
     setAttribute(Qt::WA_OpaquePaintEvent);
+    m_updateTimer.start();
 }
 
 void EchoLineChart::setRangeMeters(double meters)
@@ -30,6 +31,13 @@ void EchoLineChart::setRangeMeters(double meters)
 
 void EchoLineChart::updateEchoLine(const MarineEchoLine& line)
 {
+    if (!isVisible())
+        return;
+
+    if (m_updateTimer.isValid() && m_updateTimer.elapsed() < m_minUpdateIntervalMs)
+        return;
+    m_updateTimer.restart();
+
     m_amplitudes  = line.amplitudes;
     m_azimuthDeg  = line.azimuthDeg;
     m_packetNum   = line.packetNum;

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-07 11:18:02
+ * @LastEditTime: 2026-05-19 10:10:46
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -13,11 +13,9 @@
 #include "Basic/log.h"
 #include "Controller/RadarDataManager.h"
 #include "Controller/controller.h"
-#include "PointManager/detmanager.h"
-#include "PointManager/trackmanager.h"
+#include "PolarDisp/polaraxis.h"
 #include "PolarDisp/ppisscene.h"
 #include "PolarDisp/ppiview.h"
-#include "azelrangewidget.h"
 #include "cusWidgets/customcombobox.h"
 #include "cusWidgets/custommessagebox.h"
 #include "cusWidgets/cuswindow.h"
@@ -37,18 +35,13 @@
 #include <QLineEdit>
 #include <QScrollBar>
 #include <QSlider>
+#include <QSignalBlocker>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QTableWidget>
 #include <QTimer>
 #include <QVBoxLayout>
 
-#include "PointManager/sectordetmanager.h"
-#include "PointManager/sectortrackmanager.h"
-#include "PolarDisp/sectorscene.h"
-#include "PolarDisp/sectorwidget.h"
-#include "PolarDisp/rangeazimuthchart.h"
-#include "PolarDisp/zoomview.h"
 #include "paramWidget/batterycontrol.h"
 #include "paramWidget/dataprocessui.h"
 #include "paramWidget/datasaveui.h"
@@ -63,7 +56,6 @@
 #include "paramWidget/waveandsample.h"
 #include "screenrecorderwidget.h"
 #include "Basic/authmanager.h"
-#include "Controller/RadarSimulator.h"
 #include "PolarDisp/echorenderer.h"
 #include "PolarDisp/colorbarwidget.h"
 #include "PolarDisp/echolinechart.h"
@@ -90,7 +82,6 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     setupColorBar();
     setupRangeSettings();
     setupWorkModeSettings();
-    setupTrackManagement();
     setupLogInfo();
 
     // 初始化最大日志行数
@@ -272,93 +263,34 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     // 连接记录回放按钮
     connect(ui->toolButton_3, &QToolButton::clicked, this, &MainOverLayOut::onRecordPlayClicked);
 
-    // ========== 关键修复：连接航迹数据到表格显示 ==========
-    // 从Controller接收航迹数据并更新表格
-    connect(CON_INS, &Controller::traInfoProcess, this, &MainOverLayOut::updateTrackList);
-
-    // 从Controller接收TBD航迹数据并更新表格
-    connect(CON_INS, &Controller::tbdInfoProcess, this, &MainOverLayOut::updateTrackList);
-
-    // 从Controller接收航迹数据并更新无人机表格
-    connect(CON_INS, &Controller::traInfoProcess, this, &MainOverLayOut::updateDroneTrackList);
-
-    // 从Controller接收TBD航迹数据并更新无人机表格
-    connect(CON_INS, &Controller::tbdInfoProcess, this, &MainOverLayOut::updateDroneTrackList);
-
-    // 从Controller接收航迹删除信号（statMethod==2时）
-    connect(CON_INS, &Controller::trackRemoved, this, &MainOverLayOut::onTrackRemoved);
-
-    // ========== 数据存储管理全局反馈连接 ==========
-    // 数据保存成功反馈（全局连接，不依赖窗口）
-    connect(CON_INS, &Controller::dataSaveOK, this, [this](DataSaveOK info) {
-        logCommand("数据存储成功", QString("ID:%1, 大小:%2GB").arg(info.dataID).arg(info.dataSize));
-    });
-
-    // 数据删除成功反馈（全局连接，不依赖窗口）
-    connect(CON_INS, &Controller::dataDelOK, this, [this](DataDelOK info) {
-        logCommand("数据删除成功", QString("ID:%1").arg(info.dataID));
-    });
-
-    // 离线处理状态反馈（全局连接，不依赖窗口）
-    connect(CON_INS, &Controller::offLineStat, this, [this](OfflineStat info) {
-        QString status = (info.delStat == 0) ? "正常处理" : "离线处理";
-        logCommand("离线处理状态", QString("ID:%1, 状态:%2").arg(info.dataID).arg(status));
-
-        // 更新静态变量
-        if (info.delStat == 1) {
-            DataSaveUI::ifCurrentoffline = true;
-            DataSaveUI::offlineDataID = info.dataID;
-        } else {
-            DataSaveUI::ifCurrentoffline = false;
-        }
-    });
-
-    // 船用雷达模式：点迹可见性/大小控制已随 MousePositionInfo 移除
-
-    // ========== 雷达回波模拟器（无协议数据时的演示） ==========
-    m_radarSimulator = new RadarSimulator(this);
-    // 连接模拟检测点到PPI场景的DetManager
-    if (mScene && mScene->det()) {
-        connect(m_radarSimulator, &RadarSimulator::simulatedDetection,
-                mScene->det(), &DetManager::addDetPoint);
-    }
-    // 连接模拟检测点到扇区显示
-    if (m_sectorWidget && m_sectorWidget->scene() && m_sectorWidget->scene()->detManager()) {
-        connect(m_radarSimulator, &RadarSimulator::simulatedDetection,
-                m_sectorWidget->scene()->detManager(), &SectorDetManager::addDetPoint);
-    }
-    // 连接模拟检测点到距离-方位图表
-    if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
-        connect(m_radarSimulator, &RadarSimulator::simulatedDetection,
-                this, [this](PointInfo info) {
-            if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
-                m_rangeAzimuthWidget->chart()->addPointInfo(info);
-            }
-        });
-    }
-    // 连接模拟回波线到EchoRenderer（船用雷达扫描回波）
-    if (mScene && mScene->echoRenderer()) {
-        connect(m_radarSimulator, &RadarSimulator::echoLineGenerated,
-                mScene->echoRenderer(), &EchoRenderer::updateEchoLine);
-    }
-    m_radarSimulator->start();
-
     // 连接船用雷达状态更新 → UI同步（波束锐化/海浪/雨雪/干扰/发射等）
     connect(CON_INS, &Controller::marineStatusUpdated,
             this, [this](const MarineRadarStatus& st) {
-        if (m_gainCombo && m_gainCombo->currentIndex() != st.gain)
+        if (m_gainCombo && m_gainCombo->currentIndex() != st.gain) {
+            QSignalBlocker blocker(m_gainCombo);
             m_gainCombo->setCurrentIndex(qBound(0, static_cast<int>(st.gain), 3));
-        if (m_seaSlider && m_seaSlider->value() != st.seaVal)
+        }
+        if (m_seaSlider && m_seaSlider->value() != st.seaVal) {
+            QSignalBlocker blocker(m_seaSlider);
             m_seaSlider->setValue(st.seaVal);
-        if (m_rainSlider && m_rainSlider->value() != st.rainVal)
+        }
+        if (m_rainSlider && m_rainSlider->value() != st.rainVal) {
+            QSignalBlocker blocker(m_rainSlider);
             m_rainSlider->setValue(st.rainVal);
-        if (m_interferenceCombo && m_interferenceCombo->currentIndex() != st.ganRao)
+        }
+        if (m_interferenceCombo && m_interferenceCombo->currentIndex() != st.ganRao) {
+            QSignalBlocker blocker(m_interferenceCombo);
             m_interferenceCombo->setCurrentIndex(qBound(0, static_cast<int>(st.ganRao), 3));
-        if (m_levelSlider && m_levelSlider->value() != st.level)
+        }
+        if (m_levelSlider && m_levelSlider->value() != st.level) {
+            QSignalBlocker blocker(m_levelSlider);
             m_levelSlider->setValue(st.level);
+        }
         // 同步发射按钮
-        if (m_btnTxToggle && m_btnTxToggle->isChecked() != st.txOn)
+        if (m_btnTxToggle && m_btnTxToggle->isChecked() != st.txOn) {
+            QSignalBlocker blocker(m_btnTxToggle);
             m_btnTxToggle->setChecked(st.txOn);
+        }
         // 发射指示灯
         bool tx = st.txOn;
         if (m_lblTransmitIndicator) {
@@ -626,206 +558,9 @@ void MainOverLayOut::mainPView() {
     layout->addWidget(mView);
     connect(mView, &PPIView::viewResized, mScene, &PPIScene::updateSceneSize);
 
-    QVBoxLayout* layout1 = new QVBoxLayout(ui->pviewFitW);
-    layout1->setContentsMargins(0, 0, 0, 0);
-    m_zoomView = new ZoomViewWidget(this);  // 添加父对象
-    // 设置窗口属性
-    layout1->addWidget(
-        new DetachableWidget("P显", m_zoomView, QIcon(":/resources/icon/scan.png"), this));
-
-    // 如果场景已设置，同步场景
-    m_zoomView->setPPIScene(mScene);
-    // 连接信号
-    connect(mView, &PPIView::areaSelected, [this](const QRectF& rect) {
-        if (m_zoomView) {
-            m_zoomView->showArea(rect);
-            if (!m_zoomView->isVisible()) {
-                m_zoomView->show();
-            }
-        }
-    });
-
-    // 添加独立的扇区显示和距离-方位显示（使用Tab组织）
-    m_sectorWidget = new SectorWidget(this);  // 添加父对象
-    m_sectorWidget->setVisible(false);
-    m_rangeAzimuthWidget = new RangeAzimuthChartWidget(this);  // 新的直角坐标系图表显示
-
-    // 从配置文件读取并应用初始最大检测点数量
-    if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
-        int initMaxPoints = CF_INS.displayConfig("max_points", 1000);
-        m_rangeAzimuthWidget->chart()->setMaxDetectionPoints(initMaxPoints);
-        LOG_INFO(QString("[MainOverLayOut] B显初始最大检测点数量: %1").arg(initMaxPoints));
-    }
-
-    // 创建Tab Widget来容纳扇区显示和距离-方位显示
-    QTabWidget* displayTabWidget = new QTabWidget(this);
-    displayTabWidget->setObjectName("DisplayTabWidget");
-
-    // 设置Tab标签页稍微加宽，与darkstyle.qss样式保持一致
-    displayTabWidget->setStyleSheet(
-        "QTabWidget#DisplayTabWidget QTabBar::tab { "
-        "    padding: 6px 18px; "  // 原始是 6px 14px，稍微加宽左右padding
-        "}"
-    );
-
-    // 将扇区显示包装为可分离的widget
-    // DetachableWidget* sectorDetachable = new DetachableWidget(
-    //     "扇区显示", m_sectorWidget, QIcon(":/resources/icon/scan.png"), this);
-
-    // 将距离-方位显示包装为可分离的widget
-    DetachableWidget* rangeAzDetachable = new DetachableWidget(
-        "B显", m_rangeAzimuthWidget, QIcon(":/resources/icon/radararray.png"), this);
-
-    // 添加到TabWidget
-    //displayTabWidget->addTab(sectorDetachable, "扇区显示");
-    displayTabWidget->addTab(rangeAzDetachable, "B显");
-
-    // 将TabWidget添加到布局
-    QVBoxLayout* layout2 = new QVBoxLayout(ui->pviewSectorW);
-    layout2->setContentsMargins(0, 0, 0, 0);
-    layout2->addWidget(displayTabWidget);
-
-    // ========== 关键修复：连接扇区显示数据流 ==========
-    // 从Controller接收检测点数据并添加到扇区DetManager
-    connect(CON_INS, &Controller::detInfoProcess, m_sectorWidget->scene()->detManager(),
-            &SectorDetManager::addDetPoint);
-
-    // 从Controller接收航迹数据并添加到扇区TrackManager
-    connect(CON_INS, &Controller::traInfoProcess, m_sectorWidget->scene()->trackManager(),
-            &SectorTrackManager::addTrackPoint);
-
-    // 从Controller接收TBD航迹数据并添加到扇区TrackManager
-    connect(CON_INS, &Controller::tbdInfoProcess, m_sectorWidget->scene()->trackManager(),
-            &SectorTrackManager::addTrackPoint);
-
-    // ========== 距离-方位图表数据流连接 ==========
-    // 连接检测点数据到距离-方位图表
-    if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
-        connect(CON_INS, &Controller::detInfoProcess,
-                this, [this](PointInfo info) {
-            if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
-                m_rangeAzimuthWidget->chart()->addPointInfo(info);
-            }
-        });
-
-        // 连接航迹数据到距离-方位图表
-        connect(CON_INS, &Controller::traInfoProcess,
-                this, [this](PointInfo info) {
-            if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
-                m_rangeAzimuthWidget->chart()->addPointInfo(info);
-            }
-        });
-
-        // 连接TBD航迹数据到距离-方位图表
-        connect(CON_INS, &Controller::tbdInfoProcess,
-                this, [this](PointInfo info) {
-            if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
-                m_rangeAzimuthWidget->chart()->addPointInfo(info);
-            }
-        });
-    }
-
-    // ========== 连接PPIView的清除信号到距离-方位图表 ==========
-    // 当PPIVisualSettings的"显清"按钮被点击时，同时清除RangeAzimuthChart的数据
-    if (mView && m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
-        connect(mView, &PPIView::clearDisplayTriggered,
-                m_rangeAzimuthWidget->chart(), &RangeAzimuthChart::clearRadarData);
-
-        // ========== 连接最大检测点数量变化到距离-方位图表 ==========
-        // 当用户修改最大检测点数量时，同步更新 RangeAzimuthChart 的限制
-        connect(mView, &PPIView::maxPointsSettingChanged,
-                m_rangeAzimuthWidget->chart(), &RangeAzimuthChart::setMaxDetectionPoints);
-    }
-
-    // ========== 连接航迹删除信号到距离-方位图表 ==========
-    // 当收到 statMethod==2 时，删除距离-方位图表中对应批号的航迹
-    if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
-        connect(&RADAR_DATA_MGR, &RadarDataManager::trackBatchRemoved,
-                m_rangeAzimuthWidget->chart(), &RangeAzimuthChart::removeBatch);
-    }
-
-    // ========== 同步主视图的距离范围到所有辅助视图 ==========
-    if (mScene && mScene->axis()) {
-        // 同步到距离-方位图表显示
-        connect(mScene->axis(), &PolarAxis::rangeChanged,
-                this, [this](double min, double max) {
-            if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
-                m_rangeAzimuthWidget->chart()->setRangeFromMain(min, max);
-            }
-        });
-
-        // 同步到扇区显示
-        connect(mScene->axis(), &PolarAxis::rangeChanged,
-                this, [this](double min, double max) {
-            if (m_sectorWidget && m_sectorWidget->scene() && m_sectorWidget->scene()->axis()) {
-                m_sectorWidget->scene()->axis()->setRange(min, max);
-                if (m_sectorWidget->scene()->detManager()) {
-                    m_sectorWidget->scene()->detManager()->refreshAll();
-                }
-                if (m_sectorWidget->scene()->trackManager()) {
-                    m_sectorWidget->scene()->trackManager()->refreshAll();
-                }
-            }
-        });
-
-        // 初始化时同步一次距离范围
-        double minR = mScene->axis()->minRange();
-        double maxR = mScene->axis()->maxRange();
-        if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
-            m_rangeAzimuthWidget->chart()->setRangeFromMain(minR, maxR);
-        }
-        if (m_sectorWidget && m_sectorWidget->scene() && m_sectorWidget->scene()->axis()) {
-            m_sectorWidget->scene()->axis()->setRange(minR, maxR);
-        }
-    }
 }
 
 void MainOverLayOut::setupRangeSettings() {
-#if 0
-    // 创建方位角和俯仰角范围控制组件
-    m_azElRangeWidget = new AzElRangeWidget(this);
-
-    // 获取范围设置tab（tab_3）并为其设置布局
-    QWidget* rangeTab = ui->tab_3;  // "范围设置"标签页
-
-    // 创建垂直布局来容纳AzElRangeWidget
-    QVBoxLayout* rangeLayout = new QVBoxLayout(rangeTab);
-    rangeLayout->setContentsMargins(3, 3, 3, 3);  // 减少边距给更多空间
-    rangeLayout->setSpacing(0);
-
-    // 设置AzElRangeWidget的尺寸策略，让它占据更多空间
-    m_azElRangeWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    //m_azElRangeWidget->setMinimumSize(300, 250);  // 设置最小尺寸
-
-    rangeLayout->addWidget(m_azElRangeWidget, 1);  // 给widget更多空间权重
-
-    // 不添加弹性空间，让widget充分利用可用空间
-    // rangeLayout->addStretch();
-
-    // 设置tab的样式，与其他tab保持一致的背景
-    rangeTab->setStyleSheet(R"(
-        QWidget {
-            background: rgba(16, 24, 24, 0.8);
-            border-radius: 8px;
-        }
-    )");
-
-    // 连接"设置"按钮点击信号，打开详细设置对话框
-    connect(m_azElRangeWidget, &AzElRangeWidget::settingsButtonClicked,
-            this, &MainOverLayOut::onScanRangeClicked);
-
-    // 设置默认的扫描范围（从配置文件读取）
-    int defaultAzMin = CF_INS.azimuthRange("min", 30);    // 从配置读取，默认30°
-    int defaultAzMax = CF_INS.azimuthRange("max", 120);   // 从配置读取，默认120°
-    int defaultElMin = CF_INS.elevationRange("min", -10); // 从配置读取，默认-10°
-    int defaultElMax = CF_INS.elevationRange("max", 45);  // 从配置读取，默认45°
-
-    // 初始化时静默更新，避免自动下发
-    m_azElRangeWidget->setSignalMuted(true);
-    m_azElRangeWidget->setAzRange(defaultAzMin, defaultAzMax);
-    m_azElRangeWidget->setElRange(defaultElMin, defaultElMax);
-    m_azElRangeWidget->setSignalMuted(false);
-#endif
 }
 
 void MainOverLayOut::setupWorkModeSettings() {
@@ -837,21 +572,11 @@ void MainOverLayOut::sendScanRangeParams() {
 }
 
 MainOverLayOut::~MainOverLayOut() {
-    if (m_radarSimulator) {
-        m_radarSimulator->stop();
-    }
     if (m_commandTimer) {
         m_commandTimer->stop();
     }
     if (CON_INS) {
         disconnect(CON_INS, nullptr, this, nullptr);
-        // 断开连接到扇区显示子对象的信号，避免析构时回调已释放对象
-        if (m_sectorWidget && m_sectorWidget->scene()) {
-            disconnect(CON_INS, nullptr, m_sectorWidget->scene()->detManager(), nullptr);
-            disconnect(CON_INS, nullptr, m_sectorWidget->scene()->trackManager(), nullptr);
-        }
-        // 距离-方位图表：信号连接在 lambda 中，会随着 this 的销毁自动断开
-        // 不需要手动断开连接
     }
     // 断开 RadarDataManager 的信号，避免销毁后仍然回调到已释放对象
     disconnect(&RADAR_DATA_MGR, nullptr, this, nullptr);
@@ -2865,11 +2590,6 @@ void MainOverLayOut::syncMarineRange(int rangeIndex)
     // 同步到 MarineRadarManager
     if (CON_INS && CON_INS->marineMgr()) {
         CON_INS->marineMgr()->setRange(static_cast<uint8_t>(rangeIndex));
-    }
-
-    // 同步到模拟器
-    if (m_radarSimulator) {
-        m_radarSimulator->setRangeMeter(rangeM);
     }
 
     qInfo() << "[Marine] Range changed to index:" << rangeIndex

@@ -769,6 +769,11 @@ MarineControlFrame 的 checksum 为 head 到 reserved 所有字节的 XOR。Mari
 ### 11. 仿真器与真实数据
 RadarSimulator 的信号同时推送到 DetManager（检测点）和 EchoRenderer（回波），接入真实硬件时应停止仿真器以避免数据混叠。
 
+### 12. ship-radar 当前运行链路
+当前 `ship-radar` 默认只启用船用协议链路：`MarineRadarManager -> Controller::marineEchoLine -> EchoRenderer`。
+旧 x576 runtime manager、PPI det/track/TBD 信号、扇区/B显/缩放辅助面板、RadarSimulator 测试点迹的运行接线已从主流程删除。后续需要恢复仿真或 x576 辅助显示时，必须显式确认测试目标，避免真实协议调试时混入测试点迹或隐藏数据流。
+PPIScene 当前不创建旧 `DetManager` / `TrackManager` 图元管理器。船用回波显示采用增量写入 `EchoRenderer` 图像并按定时器刷新 pixmap，避免每帧全量重绘 4096 条方位线。
+
 ---
 
 ## 快速定位代码
