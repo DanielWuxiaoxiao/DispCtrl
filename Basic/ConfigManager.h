@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-18 15:26:17
+ * @LastEditTime: 2026-05-20 09:53:36
  * @Description: 
  */
 #ifndef CONFIGMANAGER_H
@@ -645,16 +645,16 @@ private:
                 QString key = trimmed.left(equalPos).trimmed();
                 QString value = trimmed.mid(equalPos + 1).trimmed();
 
-                // 移除引号
-                if ((value.startsWith('"') && value.endsWith('"')) ||
-                    (value.startsWith('\'') && value.endsWith('\''))) {
-                    value = value.mid(1, value.length() - 2);
-                }
-
                 // 移除行内注释
                 int commentPos = value.indexOf('#');
                 if (commentPos >= 0) {
                     value = value.left(commentPos).trimmed();
+                }
+
+                // 移除引号。必须在行内注释之后处理，否则 "192.168.64.3" # 注释 会保留引号。
+                if ((value.startsWith('"') && value.endsWith('"')) ||
+                    (value.startsWith('\'') && value.endsWith('\''))) {
+                    value = value.mid(1, value.length() - 2);
                 }
 
                 // 构建完整的键路径

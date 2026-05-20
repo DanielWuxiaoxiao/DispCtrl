@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-18 15:26:22
+ * @LastEditTime: 2026-05-20 09:53:36
  * @Description: 
  */
 /**
@@ -21,7 +21,9 @@
 
 #include <QDateTime>
 #include <QDebug>
+#include <QMetaObject>
 #include <QNetworkDatagram>
+#include <QThread>
 #include <QTimer>
 #include <cstdlib>
 #include <cstring>
@@ -377,9 +379,25 @@ bool ThreadedUdpSocket::validateFrame(const QByteArray& data) {
  */
 void ThreadedUdpSocket::writeData(const QByteArray& datagram, const QHostAddress& host,
                                   quint16 port) {
+    if (QThread::currentThread() != thread()) {
+        const QByteArray datagramCopy(datagram.constData(), datagram.size());
+        QMetaObject::invokeMethod(this, [this, datagramCopy, host, port]() {
+            writeData(datagramCopy, host, port);
+        }, Qt::QueuedConnection);
+        return;
+    }
+
     try {
         if (!m_socket) {
             reportError("UDP_WRITE_NO_SOCKET", "Attempted to write data but socket is null");
+            return;
+        }
+
+        if (host.isNull()) {
+            reportError("UDP_WRITE_INVALID_TARGET",
+                        QString("Attempted to write UDP datagram with empty target host, target port %1, local port %2")
+                            .arg(port)
+                            .arg(m_Port));
             return;
         }
 
@@ -395,7 +413,11 @@ void ThreadedUdpSocket::writeData(const QByteArray& datagram, const QHostAddress
         qint64 bytesWritten = m_socket->writeDatagram(datagram, host, port);
         if (bytesWritten == -1) {
             reportError("UDP_WRITE_FAILED",
-                        QString("Failed to write UDP datagram: %1").arg(m_socket->errorString()));
+                        QString("Failed to write UDP datagram to %1:%2 from local port %3: %4")
+                            .arg(host.toString())
+                            .arg(port)
+                            .arg(m_Port)
+                            .arg(m_socket->errorString()));
         }
     } catch (const std::exception& e) {
         reportError("UDP_WRITE_EXCEPTION", QString("Exception writing UDP data: %1").arg(e.what()));
@@ -586,8 +608,24 @@ void ThreadedUdpSocket::enableHeartBeat() {
  * @details 在发送前检查socket状态，确保socket已绑定
  */
 bool ThreadedUdpSocket::safeWriteDatagram(const char* data, qint64 size, const QHostAddress& host, quint16 port) {
+    if (QThread::currentThread() != thread()) {
+        const QByteArray datagramCopy(data, static_cast<int>(size));
+        QMetaObject::invokeMethod(this, [this, datagramCopy, host, port]() {
+            safeWriteDatagram(datagramCopy.constData(), datagramCopy.size(), host, port);
+        }, Qt::QueuedConnection);
+        return true;
+    }
+
     if (!m_socket) {
         reportError("UDP_WRITE_NO_SOCKET", "Attempted to write data but socket is null");
+        return false;
+    }
+
+    if (host.isNull()) {
+        reportError("UDP_WRITE_INVALID_TARGET",
+                    QString("Attempted to write UDP datagram with empty target host, target port %1, local port %2")
+                        .arg(port)
+                        .arg(m_Port));
         return false;
     }
 
@@ -602,7 +640,11 @@ bool ThreadedUdpSocket::safeWriteDatagram(const char* data, qint64 size, const Q
     qint64 bytesWritten = m_socket->writeDatagram(data, size, host, port);
     if (bytesWritten == -1) {
         reportError("UDP_WRITE_FAILED",
-                    QString("Failed to write UDP datagram: %1").arg(m_socket->errorString()));
+                    QString("Failed to write UDP datagram to %1:%2 from local port %3: %4")
+                        .arg(host.toString())
+                        .arg(port)
+                        .arg(m_Port)
+                        .arg(m_socket->errorString()));
         return false;
     }
 
