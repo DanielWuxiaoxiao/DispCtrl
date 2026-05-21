@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-03-30 15:27:09
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-19 10:10:44
+ * @LastEditTime: 2026-05-21 17:53:15
  * @Description: 
  */
 /**
@@ -39,12 +39,15 @@ QString controlSummary(const MarineControlFrame& f)
 
 QString echoSummary(const MarineEchoHeader& h)
 {
-    return QString("aziRaw=%1 aziDeg=%2 style=0x%3 packet=%4 fftLen=%5 range=%6 tx=%7 gain=%8 level=%9 sea=%10 rain=%11 interference=%12 freq=%13")
+    return QString("aziRaw=%1 aziDeg=%2 aziIdx=%3 style=0x%4 packet=%5 fftWords=%6 echoBytes=%7 cells=%8 range=%9 tx=%10 gain=%11 level=%12 sea=%13 rain=%14 interference=%15 freq=%16")
         .arg(h.azimuthRaw())
         .arg(h.azimuthDeg(), 0, 'f', 2)
+        .arg(h.azimuthRenderIndex())
         .arg(static_cast<int>(h.style), 2, 16, QLatin1Char('0'))
-        .arg(h.packetNum)
-        .arg(h.fftDataLen)
+        .arg(h.packetNumber())
+        .arg(h.fftWordCount())
+        .arg(h.echoByteCount())
+        .arg(h.rangeCellCount())
         .arg(static_cast<int>(h.rangeCode))
         .arg(static_cast<int>(h.txState))
         .arg(static_cast<int>(h.gain))
@@ -333,8 +336,8 @@ void MarineRadarManager::parseEchoDatagram(const QByteArray& data)
     }
 
     // 提取回波数据
-    uint16_t fftLen = hdr->fftDataLen;
-    int expectedSize = HEADER_SIZE + fftLen;
+    const int echoBytes = hdr->echoByteCount();
+    int expectedSize = HEADER_SIZE + echoBytes;
     if (data.size() < expectedSize) {
         ++m_rxInvalidCount;
         if (shouldLogSample(m_rxInvalidCount, 5, 100)) {
@@ -348,15 +351,22 @@ void MarineRadarManager::parseEchoDatagram(const QByteArray& data)
     }
 
     MarineEchoLine line;
-    line.azimuthRaw = hdr->azimuthRaw();
+    line.azimuthRaw = hdr->azimuthRenderIndex();
     line.azimuthDeg = hdr->azimuthDeg();
     line.style      = hdr->style;
-    line.packetNum  = hdr->packetNum;
+    line.packetNum  = hdr->packetNumber();
 
     // 拷贝幅值数据
-    line.amplitudes.resize(fftLen);
+    // Echo payload is temporarily defined as one big-endian uint16 per range cell.
+    // The current renderer consumes 8-bit amplitudes, so clamp each magnitude.
+    const int cellCount = echoBytes / 2;
+    line.amplitudes.resize(cellCount);
     const uint8_t* echoData = reinterpret_cast<const uint8_t*>(data.constData()) + HEADER_SIZE;
-    memcpy(line.amplitudes.data(), echoData, fftLen);
+    for (int i = 0; i < cellCount; ++i) {
+        const uint16_t magnitude = (static_cast<uint16_t>(echoData[i * 2]) << 8) |
+                                   static_cast<uint16_t>(echoData[i * 2 + 1]);
+        line.amplitudes[i] = static_cast<uint8_t>(qMin<uint16_t>(magnitude, 255));
+    }
 
     ++m_rxEchoCount;
     if (shouldLogSample(m_rxEchoCount, 5, 512)) {

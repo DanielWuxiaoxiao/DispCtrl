@@ -410,10 +410,10 @@ connect(m_marineMgr, &MarineRadarManager::radarStatusUpdated,
 | 参数 | 键名 | 默认值 | 说明 |
 |------|------|--------|------|
 | 本机IP | local_ip | 192.168.1.100 | 显控接收回波地址 |
-| 回波端口 | echo_port | 5000 | 接收回波UDP端口 |
-| 伺服IP | servo_ip | 192.168.1.200 | 伺服设备地址 |
-| 伺服端口 | servo_port | 5001 | 伺服控制UDP端口 |
-| 自动发送周期 | auto_send_ms | 200 | 控制帧发送间隔(ms) |
+| 回波端口 | echo_port | 9000 | 接收回波UDP端口 |
+| 伺服IP | servo_ip | 192.168.1.30 | 伺服设备地址 |
+| 伺服端口 | servo_port | 9000 | 伺服控制UDP端口 |
+| 自动发送周期 | auto_send_ms | 0 | 控制帧发送间隔(ms) |
 
 ### 内部网络（保留自x576基础设施）
 ```
@@ -559,7 +559,7 @@ QWidget#rightPanelWidget { background: #0a0a0a; }
 
 // 船用配置
 CF_INS.marineNetworkStr("local_ip", "192.168.1.100");
-CF_INS.marineNetworkInt("echo_port", 5000);
+CF_INS.marineNetworkInt("echo_port", 9000);
 CF_INS.marineControl("gain", 0);
 CF_INS.marineControlBool("tx_on", false);
 CF_INS.marineDisplay("colormap", "simrad");
@@ -597,10 +597,10 @@ max_points = 1000
 
 [marine.network]
 local_ip     = "192.168.1.100"
-echo_port    = 5000
-servo_ip     = "192.168.1.200"
-servo_port   = 5001
-auto_send_ms = 200
+echo_port    = 9000
+servo_ip     = "192.168.1.30"
+servo_port   = 9000
+auto_send_ms = 0
 
 [marine.control]
 range        = 8        # 量程代号（2nm）

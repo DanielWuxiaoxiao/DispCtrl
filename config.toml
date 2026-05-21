@@ -219,10 +219,10 @@ max_points = 1000                    # 最大检测点数量
 
 [marine.network]
 local_ip = "192.168.1.100"           # 显控本机IP
-echo_port = 5000                     # 接收回波数据端口(接口4)
-servo_ip = "192.168.1.200"           # 伺服IP地址
-servo_port = 5001                    # 伺服控制端口(接口1)
-auto_send_ms = 200                   # 控制帧自动发送周期(ms), 0=不自动
+echo_port = 9000                     # 接收回波数据端口(接口4)
+servo_ip = "192.168.1.30"           # 伺服IP地址
+servo_port = 9000                    # 伺服控制端口(接口1)
+auto_send_ms = 0                     # 控制帧自动发送周期(ms), 0=不自动
 
 [marine.control]
 # 默认控制参数
@@ -239,4 +239,3 @@ servo_speed = 8                      # 伺服转速 (0=停, 8=正常)
 # 扫描回波显示参数
 echo_decay_ms = 10000                # 回波衰减时间(ms) — 余辉持续时长
 colormap = "simrad"                  # 色彩映射方案: simrad / rainbow / green
-

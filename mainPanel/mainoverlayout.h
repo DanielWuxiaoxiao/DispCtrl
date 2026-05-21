@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-19 10:10:46
+ * @LastEditTime: 2026-05-21 17:53:15
  * @Description: 
  */
 /**
@@ -528,6 +528,7 @@ private:
     QSlider*     m_rainSlider = nullptr;        ///< 雨雪抑制滑块
     QPushButton* m_btnTxToggle = nullptr;       ///< 发射开/关切换按钮
     QComboBox*   m_servoCombo = nullptr;        ///< 天线转速选择 (0/8)
+    QPushButton* m_btnSendMarineControl = nullptr;
     QLabel*      m_levelValLabel = nullptr;
     QLabel*      m_seaValLabel = nullptr;
     QLabel*      m_rainValLabel = nullptr;
@@ -535,6 +536,8 @@ private:
     void setupMarineControls();                 ///< 替换雷达控制页为船用控件
     void setupColorBar();                       ///< 创建PPI色阶图例
     void syncMarineRange(int rangeIndex);       ///< 同步量程到各组件
+    MarineControlFrame buildMarineControlFrameFromUi() const;
+    void sendMarineControlFromUi();
     void setupSimradNavPanel();                 ///< 创建SIMRAD风格导航数据面板
     void setupSimradTheme();                    ///< 应用SIMRAD橙色主题
 

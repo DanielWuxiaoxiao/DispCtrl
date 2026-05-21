@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-03-30 15:27:09
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-07 11:18:02
+ * @LastEditTime: 2026-05-21 17:53:15
  * @Description: 
  */
 /**
@@ -13,7 +13,7 @@
  *   - 接口1: 显控→伺服 控制帧 (16字节)
  *   - 接口4: 伺服→显控 回波数据帧 (变长)
  *
- * 字节序：小端，1字节对齐
+ * 字节序：控制帧按结构体布局；回波方位为小端0.01度量化，回波长度/包序号为大端。
  */
 #ifndef MARINEPROTOCOL_H
 #define MARINEPROTOCOL_H
@@ -37,6 +37,7 @@ constexpr uint8_t MARINE_TAIL_FLAG = 0x5A;
 constexpr uint8_t MARINE_ECHO_LEAD = 0x00;
 
 /// 方位角分辨率: 4096 steps = 360°
+/// Internal renderer azimuth bins. Protocol azimuth is 0.01-degree quantized.
 constexpr uint16_t MARINE_AZI_STEPS = 4096;
 
 /// 量程编码表 (RangeVal → 最大量程, 单位: 米)
@@ -161,7 +162,7 @@ static_assert(sizeof(MarineControlFrame) == 16, "MarineControlFrame must be 16 b
  *  Byte 0:    0x00 (前导)
  *  Byte 1:    0xA5 (帧头)
  *  Byte 2:    方位角低字节
- *  Byte 3:    方位角高字节 (0~4095 → 0°~360°)
+ *  Byte 3:    方位角高字节 (小端，0.01度量化；19834表示198.34°)
  *  Byte 4:    style (0x01=普通 0x02=高分辨率)
  *  Byte 5:    header checksum (byte[0]~byte[4] XOR)
  *  Byte 6:    0x5A (头部尾标志)
@@ -176,10 +177,10 @@ static_assert(sizeof(MarineControlFrame) == 16, "MarineControlFrame must be 16 b
  *  Byte 14:   freqStatus 频率状态
  *  Byte 15:   statusChecksum (byte[7]~byte[14] XOR)
  *  // Data info (byte 16~21)
- *  Byte 16-17: fftDataLen  FFT数据长度 (小端)
- *  Byte 18-19: packetNum   包序号 (小端)
+ *  Byte 16-17: fftDataLen  FFT模值数据长度，单位为4字节word (大端)
+ *  Byte 18-19: packetNum   包序号 (大端)
  *  Byte 20-21: reserved    保留
- *  // Byte 22~(22+fftDataLen-1): 回波幅值数据, 1B/range cell, 值 0~255
+ *  // Byte 22~(22+fftDataLen*4-1): 回波幅值数据, 暂按2B/range cell解析
  */
 struct MarineEchoHeader {
     uint8_t  leadByte;      ///< 0x00
@@ -200,18 +201,46 @@ struct MarineEchoHeader {
     uint8_t  freqStatus;    ///< 频率状态
     uint8_t  statusChecksum;///< XOR(byte[7]~byte[14])
     // Data info
-    uint16_t fftDataLen;    ///< 回波数据字节数 (小端)
-    uint16_t packetNum;     ///< 包序号
-    uint16_t reserved;      ///< 保留
+    uint8_t  fftDataLenHigh;///< FFT data length high byte, unit: 4-byte word
+    uint8_t  fftDataLenLow; ///< FFT data length low byte, unit: 4-byte word
+    uint8_t  packetNumHigh; ///< Packet number high byte
+    uint8_t  packetNumLow;  ///< Packet number low byte
+    uint8_t  reservedHigh;  ///< Reserved high byte
+    uint8_t  reservedLow;   ///< Reserved low byte
 
-    /// 获取方位角 (0~4095)
+    // Azimuth is little-endian and quantized by 0.01 degree.
     uint16_t azimuthRaw() const {
         return static_cast<uint16_t>(aziLow) | (static_cast<uint16_t>(aziHigh) << 8);
     }
 
-    /// 获取方位角 (度, 0~360)
     double azimuthDeg() const {
-        return azimuthRaw() * 360.0 / MARINE_AZI_STEPS;
+        return azimuthRaw() * 0.01;
+    }
+
+    uint16_t azimuthRenderIndex() const {
+        const uint32_t centiDeg = static_cast<uint32_t>(azimuthRaw()) % 36000U;
+        return static_cast<uint16_t>(((centiDeg * MARINE_AZI_STEPS) + 18000U) / 36000U % MARINE_AZI_STEPS);
+    }
+
+    // FFT data length is big-endian/network order, unit: 4-byte word.
+    uint16_t fftWordCount() const {
+        return (static_cast<uint16_t>(fftDataLenHigh) << 8) | static_cast<uint16_t>(fftDataLenLow);
+    }
+
+    int echoByteCount() const {
+        return static_cast<int>(fftWordCount()) * 4;
+    }
+
+    int rangeCellCount() const {
+        return echoByteCount() / 2;
+    }
+
+    uint16_t packetNumber() const {
+        return (static_cast<uint16_t>(packetNumHigh) << 8) | static_cast<uint16_t>(packetNumLow);
+    }
+
+    uint16_t reservedValue() const {
+        return (static_cast<uint16_t>(reservedHigh) << 8) | static_cast<uint16_t>(reservedLow);
     }
 
     /// 校验帧头
@@ -264,7 +293,7 @@ struct MarineRadarStatus {
  * @brief 一条扫描线的回波数据（解析后）
  */
 struct MarineEchoLine {
-    uint16_t azimuthRaw = 0;   ///< 原始方位码 (0~4095)
+    uint16_t azimuthRaw = 0;   ///< Internal render azimuth index (0~4095)
     double   azimuthDeg = 0.0; ///< 方位角(度)
     uint8_t  style = 0x01;     ///< 模式
     uint16_t packetNum = 0;    ///< 包序号

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-19 10:10:44
+ * @LastEditTime: 2026-05-21 17:53:15
  * @Description: 
  */
 /**
@@ -74,10 +74,10 @@ void Controller::init()
     m_marineMgr = new MarineRadarManager(this);
     {
         QString localIp  = CF_INS.marineNetworkStr("local_ip", "192.168.1.100");
-        int echoPort     = CF_INS.marineNetworkInt("echo_port", 5000);
-        QString servoIp  = CF_INS.marineNetworkStr("servo_ip", "192.168.1.200");
-        int servoPort    = CF_INS.marineNetworkInt("servo_port", 5001);
-        int autoSendMs   = CF_INS.marineNetworkInt("auto_send_ms", 200);
+        int echoPort     = CF_INS.marineNetworkInt("echo_port", 9000);
+        QString servoIp  = CF_INS.marineNetworkStr("servo_ip", "192.168.1.30");
+        int servoPort    = CF_INS.marineNetworkInt("servo_port", 9000);
+        int autoSendMs   = CF_INS.marineNetworkInt("auto_send_ms", 0);
 
         LOG_INFO(QString("[Controller::init] marine network local=%1:%2 servo=%3:%4 autoSendMs=%5")
                  .arg(localIp).arg(echoPort).arg(servoIp).arg(servoPort).arg(autoSendMs));

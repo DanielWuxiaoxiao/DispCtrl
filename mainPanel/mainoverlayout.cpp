@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-19 10:10:46
+ * @LastEditTime: 2026-05-21 17:53:15
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -2053,10 +2053,6 @@ void MainOverLayOut::onTransmitControlClicked()
     CON_INS->sendTRParam(param);
 
     // 同步到船用雷达管理器
-    if (CON_INS && CON_INS->marineMgr()) {
-        CON_INS->marineMgr()->setTxOn(m_isTransmitting);
-    }
-
     // 更新保存的参数
     m_tranRecControlM = param;
 
@@ -2420,6 +2416,17 @@ void MainOverLayOut::setupMarineControls()
 
     ctrlLayout->addWidget(makeCtrlLabel(QString::fromUtf8("天线转速")), row, 0);      // Byte12
     ctrlLayout->addWidget(m_servoCombo, row, 1, 1, 2);
+    ++row;
+
+    m_btnSendMarineControl = new QPushButton(QString::fromUtf8("\u4e0b\u53d1\u63a7\u5236"), this);
+    m_btnSendMarineControl->setObjectName("sendMarineControlButton");
+    m_btnSendMarineControl->setStyleSheet(
+        "QPushButton { background: #1a1a1a; color: #ff8800; border: 2px solid #ff8800; "
+        "border-radius: 4px; padding: 7px 12px; font-size: 15px; font-weight: bold; "
+        "font-family: 'Microsoft YaHei'; }"
+        "QPushButton:hover { background: #2a1a0a; }"
+        "QPushButton:pressed { background: #3a260d; }");
+    ctrlLayout->addWidget(m_btnSendMarineControl, row, 0, 1, 3);
 
     // 折叠按钮
     auto* toggleBtn = new QPushButton(QString::fromUtf8("\u25BC 雷达控制"), this);
@@ -2447,8 +2454,6 @@ void MainOverLayOut::setupMarineControls()
     connect(m_btnTxToggle, &QPushButton::toggled, this, [this](bool checked) {
         m_btnTxToggle->setText(checked ? QString::fromUtf8("发射 开")
                                        : QString::fromUtf8("发射 关"));
-        if (CON_INS && CON_INS->marineMgr())
-            CON_INS->marineMgr()->setTxOn(checked);
         // 更新PPI覆盖层发射指示
         if (m_lblTransmitIndicator) {
             m_lblTransmitIndicator->setText(checked ? QString::fromUtf8("\u25CF 发射开")
@@ -2462,45 +2467,38 @@ void MainOverLayOut::setupMarineControls()
     // 波束锐化
     connect(m_gainCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [this](int idx) {
-        if (CON_INS && CON_INS->marineMgr())
-            CON_INS->marineMgr()->setGain(static_cast<uint8_t>(idx));
+        Q_UNUSED(idx);
     });
 
     // 截位选择
     connect(m_levelSlider, &QSlider::valueChanged, this, [this](int v) {
         m_levelValLabel->setText(QString::number(v));
-        if (CON_INS && CON_INS->marineMgr())
-            CON_INS->marineMgr()->setLevel(static_cast<uint8_t>(v));
     });
 
     // 海浪抑制
     connect(m_seaSlider, &QSlider::valueChanged, this, [this](int v) {
         m_seaValLabel->setText(v == 0 ? QString::fromUtf8("自动") : QString::number(v));
-        if (CON_INS && CON_INS->marineMgr())
-            CON_INS->marineMgr()->setSeaClutter(static_cast<uint8_t>(v));
     });
 
     // 雨雪抑制
     connect(m_rainSlider, &QSlider::valueChanged, this, [this](int v) {
         m_rainValLabel->setText(v == 0 ? QString::fromUtf8("自动") : QString::number(v));
-        if (CON_INS && CON_INS->marineMgr())
-            CON_INS->marineMgr()->setRainClutter(static_cast<uint8_t>(v));
     });
 
     // 同频干扰
     connect(m_interferenceCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [this](int idx) {
-        if (CON_INS && CON_INS->marineMgr())
-            CON_INS->marineMgr()->setInterference(static_cast<uint8_t>(idx));
+        Q_UNUSED(idx);
     });
 
     // 天线转速
     connect(m_servoCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, [this](int /*idx*/) {
-        int speed = m_servoCombo->currentData().toInt();
-        if (CON_INS && CON_INS->marineMgr())
-            CON_INS->marineMgr()->setServoSpeed(static_cast<uint16_t>(speed));
+            this, [](int idx) {
+        Q_UNUSED(idx);
     });
+
+    connect(m_btnSendMarineControl, &QPushButton::clicked,
+            this, &MainOverLayOut::sendMarineControlFromUi);
 
     // 量程同步
     connect(m_rangeCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
@@ -2588,12 +2586,58 @@ void MainOverLayOut::syncMarineRange(int rangeIndex)
     }
 
     // 同步到 MarineRadarManager
-    if (CON_INS && CON_INS->marineMgr()) {
-        CON_INS->marineMgr()->setRange(static_cast<uint8_t>(rangeIndex));
-    }
-
     qInfo() << "[Marine] Range changed to index:" << rangeIndex
             << "=" << marineRangeLabel(rangeIndex) << "(" << rangeM << "m)";
+}
+
+
+MarineControlFrame MainOverLayOut::buildMarineControlFrameFromUi() const
+{
+    MarineControlFrame frame;
+    if (m_rangeCombo) {
+        frame.rangeVal = static_cast<uint8_t>(qBound(0, m_rangeCombo->currentIndex(), MARINE_RANGE_TABLE_SIZE - 1));
+    }
+    if (m_gainCombo) {
+        frame.gain = static_cast<uint8_t>(qBound(0, m_gainCombo->currentIndex(), 3));
+    }
+    if (m_interferenceCombo) {
+        frame.ganRao = static_cast<uint8_t>(qBound(0, m_interferenceCombo->currentIndex(), 3));
+    }
+    if (m_levelSlider) {
+        frame.level = static_cast<uint8_t>(qBound(0, m_levelSlider->value(), 255));
+    }
+    if (m_seaSlider) {
+        frame.seaVal = static_cast<uint8_t>(qBound(0, m_seaSlider->value(), 255));
+    }
+    if (m_rainSlider) {
+        frame.rainVal = static_cast<uint8_t>(qBound(0, m_rainSlider->value(), 255));
+    }
+    frame.txCtrl = (m_btnTxToggle && m_btnTxToggle->isChecked()) ? 1 : 0;
+    frame.servo = m_servoCombo ? static_cast<uint8_t>(qBound(0, m_servoCombo->currentData().toInt(), 255)) : 0;
+    frame.updateChecksum();
+    return frame;
+}
+
+void MainOverLayOut::sendMarineControlFromUi()
+{
+    if (!CON_INS || !CON_INS->marineMgr()) {
+        qWarning() << "[Marine] send control ignored: manager not ready";
+        return;
+    }
+
+    const MarineControlFrame frame = buildMarineControlFrameFromUi();
+    CON_INS->marineMgr()->setCurrentControl(frame);
+    CON_INS->marineMgr()->sendControl(frame);
+
+    qInfo() << "[Marine] Manual control sent"
+            << "range" << static_cast<int>(frame.rangeVal)
+            << "gain" << static_cast<int>(frame.gain)
+            << "interference" << static_cast<int>(frame.ganRao)
+            << "level" << static_cast<int>(frame.level)
+            << "sea" << static_cast<int>(frame.seaVal)
+            << "rain" << static_cast<int>(frame.rainVal)
+            << "tx" << static_cast<int>(frame.txCtrl)
+            << "servo" << static_cast<int>(frame.servo);
 }
 
 void MainOverLayOut::setupSimradNavPanel()
