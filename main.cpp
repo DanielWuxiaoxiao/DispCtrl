@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-18 15:26:23
+ * @LastEditTime: 2026-05-21 11:46:03
  * @Description: 
  */
 /**
@@ -105,6 +105,112 @@ void setupStyle(QApplication& app) {
 }
 
 )";
+
+        style += R"(
+
+/* --- Main layout text fit overrides --- */
+#MainOverLayOut QPushButton#minButton,
+#MainOverLayOut QPushButton#CloseButton {
+    min-width: 78px;
+    padding: 4px 8px;
+}
+
+#MainOverLayOut QToolButton[buttonGroup="A"] {
+    font-size: 13px;
+    padding: 6px 8px;
+    min-width: 76px;
+}
+
+QSplitter#MainContentSplitter::handle {
+    background-color: rgba(0, 255, 136, 0.012);
+    border: none;
+}
+
+QSplitter#MainContentSplitter::handle:hover {
+    background-color: rgba(0, 255, 136, 0.06);
+    border-left: 1px solid rgba(0, 255, 136, 0.14);
+}
+
+)";
+
+        if (ScaleHelper::compactLayout()) {
+            style += R"(
+
+/* --- 1920x1080/100% compact layout overrides --- */
+#MainOverLayOut QTabBar::tab {
+    font-size: 11px;
+    padding: 3px 7px;
+}
+
+#MainOverLayOut QPushButton {
+    font-size: 11px;
+}
+
+#MainOverLayOut QTableWidget,
+#MainOverLayOut QHeaderView::section {
+    font-size: 11px;
+}
+
+#MainOverLayOut #TitleLabel {
+    font-size: 18px;
+}
+
+#MainOverLayOut #SubtitleLabel {
+    font-size: 12px;
+}
+
+#mainviewTopLeft QLabel,
+#PointInfoW QLabel {
+    font-size: 12px;
+}
+
+#mainviewTopLeft QLineEdit,
+#PointInfoW QLabel#batch,
+#PointInfoW QLabel#range,
+#PointInfoW QLabel#azi,
+#PointInfoW QLabel#ele,
+#PointInfoW QLabel#altitute,
+#PointInfoW QLabel#speed,
+#PointInfoW QLabel#SNR,
+#PointInfoW QLabel#targetRec {
+    font-size: 12px;
+    padding: 1px 4px;
+}
+
+#mainviewTopLeft QLineEdit {
+    min-height: 16px;
+    max-height: 20px;
+}
+
+#MousePositionInfo QLabel,
+#MousePositionInfo QCheckBox,
+#MousePositionInfo QDoubleSpinBox,
+#PPIVisualSettings QLabel,
+#PPIVisualSettings QLineEdit,
+#PPIVisualSettings QComboBox,
+#PPIVisualSettings QPushButton {
+    font-size: 10px;
+}
+
+#MainOverLayOut #FuncWidget {
+    border-width: 6px;
+    padding: 4px 8px;
+}
+
+#MainOverLayOut QToolButton[buttonGroup="A"] {
+    font-size: 11px;
+    padding: 4px 5px;
+    min-width: 64px;
+}
+
+#MainOverLayOut QPushButton#minButton,
+#MainOverLayOut QPushButton#CloseButton {
+    min-width: 74px;
+    padding: 3px 6px;
+}
+
+)";
+        }
 
         app.setStyleSheet(style);
         file.close();

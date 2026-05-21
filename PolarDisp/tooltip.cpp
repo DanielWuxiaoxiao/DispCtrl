@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-20 16:29:54
+ * @LastEditTime: 2026-05-21 11:46:03
  * @Description: 
  */
 #include "tooltip.h"
@@ -29,7 +29,7 @@ Tooltip::Tooltip(QGraphicsItem* parent)
 
     // 设置字体
     QFont font = m_text->font();
-    font.setPointSize(10);
+    font.setPointSize(8);
     font.setWeight(QFont::Bold);
     m_text->setFont(font);
 
@@ -49,7 +49,7 @@ void Tooltip::showTooltip(const QPointF& scenePos,const QString& text)
 
     // 更新背景矩形大小以适应文字
     QRectF textRect = m_text->boundingRect();
-    m_background->setRect(textRect.adjusted(-8, -4, 8, 4)); // 添加内边距
+    m_background->setRect(textRect.adjusted(-6, -3, 6, 3)); // 添加内边距
 
     setPos(scenePos);
     setVisible(true);

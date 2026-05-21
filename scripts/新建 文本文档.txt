@@ -1,0 +1,3 @@
+.\scripts\windows_udp_stress_sender.exe --fps 10 --det-per-frame 100 --track-batches 50
+
+

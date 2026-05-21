@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-18 15:26:17
+ * @LastEditTime: 2026-05-21 11:46:03
  * @Description: 
  */
 #ifndef DISPBASCI_H
@@ -57,14 +57,25 @@ public:
     /// 逻辑屏幕高度
     static int logicalHeight() { return s_logicalH; }
 
-    /// 左侧信息面板宽度 (逻辑屏幕宽度的 22%)
-    static int leftPanelWidth() {
-        return static_cast<int>(s_logicalW * 0.22);
+    // Compact mode for 1920x1080/100% logical screens.
+    static bool compactLayout() {
+        return s_logicalW <= 1920 && s_logicalH <= 1080;
     }
 
-    /// 右侧P显/B显面板宽度 (逻辑屏幕宽度的 28%)
+    // Left panel width.
+    static int leftPanelWidth() {
+        if (compactLayout()) {
+            return std::clamp(static_cast<int>(std::round(s_logicalW * 0.195)), 350, 380);
+        }
+        return std::clamp(static_cast<int>(std::round(s_logicalW * 0.22)), 380, 520);
+    }
+
+    // Right P/B/H panel width.
     static int rightPanelWidth() {
-        return static_cast<int>(s_logicalW * 0.28);
+        if (compactLayout()) {
+            return std::clamp(static_cast<int>(std::round(s_logicalW * 0.18)), 320, 350);
+        }
+        return std::clamp(static_cast<int>(std::round(s_logicalW * 0.21)), 400, 440);
     }
 
     /// 按钮最小高度 (基准40px按布局因子缩放)

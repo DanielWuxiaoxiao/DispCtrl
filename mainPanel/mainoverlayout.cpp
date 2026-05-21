@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-18 15:26:23
+ * @LastEditTime: 2026-05-21 11:46:03
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -35,11 +35,15 @@
 #include <QHeaderView>
 #include <QIntValidator>
 #include <QLabel>
+#include <QLayout>
 #include <QLineEdit>
 #include <QScrollBar>
+#include <QSizePolicy>
+#include <QSplitter>
 #include <QTableWidget>
 #include <QTabWidget>
 #include <QTimer>
+#include <QToolButton>
 #include <QVBoxLayout>
 
 #include "PointManager/sectordetmanager.h"
@@ -77,6 +81,7 @@ quint64 makeTrackTableUpdateKey(unsigned type, unsigned int batch)
 
 MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::MainOverLayOut) {
     ui->setupUi(this);
+    setupResizableMainLayout();
 
     // ========== 屏幕自适应：动态覆盖 UI 中的固定尺寸 ==========
     applyScaledSizes();
@@ -472,6 +477,58 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     updateStandbyButton();
 }
 
+void MainOverLayOut::setupResizableMainLayout()
+{
+    if (m_mainSplitter || !ui->horizontalLayout || !ui->verticalLayout || !ui->verticalLayout_5) {
+        return;
+    }
+
+    m_leftSidebar = new QWidget(this);
+    m_leftSidebar->setObjectName("LeftSidebar");
+    m_leftSidebar->setContentsMargins(0, 0, 0, 0);
+    m_rightSidebar = new QWidget(this);
+    m_rightSidebar->setObjectName("RightSidebar");
+    m_rightSidebar->setContentsMargins(0, 0, 0, 0);
+    ui->viewWidget->setContentsMargins(0, 0, 0, 0);
+
+    const auto rootMargins = ui->verticalLayout_2->contentsMargins();
+    ui->verticalLayout_2->setContentsMargins(0, rootMargins.top(), 0, rootMargins.bottom());
+    const auto leftMargins = ui->verticalLayout->contentsMargins();
+    ui->verticalLayout->setContentsMargins(0, leftMargins.top(), 0, leftMargins.bottom());
+    const auto rightMargins = ui->verticalLayout_5->contentsMargins();
+    ui->verticalLayout_5->setContentsMargins(0, rightMargins.top(), 0, rightMargins.bottom());
+
+    ui->horizontalLayout->removeItem(ui->verticalLayout);
+    ui->verticalLayout->setParent(nullptr);
+    m_leftSidebar->setLayout(ui->verticalLayout);
+
+    ui->horizontalLayout->removeWidget(ui->viewWidget);
+    ui->viewWidget->setParent(nullptr);
+
+    ui->horizontalLayout->removeItem(ui->verticalLayout_5);
+    ui->verticalLayout_5->setParent(nullptr);
+    m_rightSidebar->setLayout(ui->verticalLayout_5);
+
+    ui->verticalLayout_2->removeItem(ui->horizontalLayout);
+    ui->horizontalLayout->setParent(nullptr);
+    delete ui->horizontalLayout;
+    ui->horizontalLayout = nullptr;
+
+    m_mainSplitter = new QSplitter(Qt::Horizontal, this);
+    m_mainSplitter->setObjectName("MainContentSplitter");
+    m_mainSplitter->setContentsMargins(0, 0, 0, 0);
+    m_mainSplitter->setChildrenCollapsible(false);
+    m_mainSplitter->setHandleWidth(2);
+    m_mainSplitter->addWidget(m_leftSidebar);
+    m_mainSplitter->addWidget(ui->viewWidget);
+    m_mainSplitter->addWidget(m_rightSidebar);
+    m_mainSplitter->setStretchFactor(0, 0);
+    m_mainSplitter->setStretchFactor(1, 1);
+    m_mainSplitter->setStretchFactor(2, 0);
+
+    ui->verticalLayout_2->addWidget(m_mainSplitter);
+}
+
 void MainOverLayOut::topRightSet() {
     // 设置控件提示信息
     ui->minButton->setToolTip("最小化窗口");
@@ -513,7 +570,7 @@ void MainOverLayOut::mainPView() {
     mScene = new PPIScene(this);
     mView->setPPIScene(mScene);
     QVBoxLayout* layout = new QVBoxLayout(ui->viewWidget);
-    layout->setContentsMargins(20, 0, 20, 0);
+    layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(mView);
     connect(mView, &PPIView::viewResized, mScene, &PPIScene::updateSceneSize);
 
@@ -569,7 +626,7 @@ void MainOverLayOut::mainPView() {
     // 设置Tab标签页稍微加宽，与darkstyle.qss样式保持一致
     displayTabWidget->setStyleSheet(
         "QTabWidget#DisplayTabWidget QTabBar::tab { "
-        "    padding: 6px 18px; "  // 原始是 6px 14px，稍微加宽左右padding
+        "    padding: 4px 12px; "
         "}"
     );
 
@@ -970,10 +1027,17 @@ void MainOverLayOut::setupTrackTable(QTableWidget* tableWidget, FrozenColumnHelp
     tableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
     tableWidget->setAlternatingRowColors(true);
     tableWidget->setShowGrid(true);
+    tableWidget->setWordWrap(false);
+    tableWidget->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    tableWidget->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
 
     QHeaderView* headerView = tableWidget->horizontalHeader();
+    headerView->setStretchLastSection(false);
+    headerView->setMinimumSectionSize(48);
+    const QList<int> columnWidths = {64, 58, 58, 58, 58, 58, 54, 70};
     for (int i = 0; i < headers.size(); ++i) {
-        headerView->setSectionResizeMode(i, QHeaderView::Stretch);
+        headerView->setSectionResizeMode(i, QHeaderView::Interactive);
+        tableWidget->setColumnWidth(i, columnWidths.value(i, 58));
     }
 
     frozenHelper = nullptr;
@@ -2805,22 +2869,73 @@ void MainOverLayOut::onRecordPlayClicked() {
  * @details 覆盖 .ui 文件中的固定像素值，使界面在 1366×768 ~ 3840×2160 范围内自适应
  */
 void MainOverLayOut::applyScaledSizes() {
-    int leftW   = ScaleHelper::leftPanelWidth();   // ~22% 屏幕宽度
-    int rightW  = ScaleHelper::rightPanelWidth();   // ~28% 屏幕宽度
+    int leftW   = ScaleHelper::leftPanelWidth();
+    int rightW  = ScaleHelper::rightPanelWidth();
+    const bool compact = ScaleHelper::compactLayout();
     int btnH    = ScaleHelper::buttonHeight();      // 基准40px缩放
     int setTabH = ScaleHelper::setTabMaxHeight();   // 基准600px缩放
     int logo    = ScaleHelper::logoSize();          // 基准50px缩放
 
     // --- 左侧面板 ---
-    ui->infoTab->setMaximumWidth(leftW);
+    const int leftMinW = compact ? 300 : 340;
+    const int leftMaxW = compact ? 430 : 560;
+    if (m_leftSidebar) {
+        m_leftSidebar->setMinimumWidth(leftMinW);
+        m_leftSidebar->setMaximumWidth(leftMaxW);
+    }
+    ui->infoTab->setMinimumWidth(leftMinW);
+    ui->infoTab->setMaximumWidth(QWIDGETSIZE_MAX);
 
     // --- 左侧设置面板 ---
-    ui->setTab->setMinimumWidth(leftW);
+    ui->setTab->setMinimumWidth(leftMinW);
+    ui->setTab->setMaximumWidth(QWIDGETSIZE_MAX);
     ui->setTab->setMaximumHeight(setTabH);
+    ui->trackTab->setMinimumWidth(leftMinW);
+    ui->trackTab->setMaximumWidth(QWIDGETSIZE_MAX);
 
     // --- 右侧 P显/扇区显示面板 ---
-    ui->pviewFitW->setMaximumWidth(rightW);
-    ui->pviewSectorW->setMaximumWidth(rightW);
+    const int rightMinW = compact ? 300 : 340;
+    const int rightMaxW = compact ? 470 : 560;
+    const int topButtonW = compact ? 82 : 92;
+    const int funcButtonW = compact ? 70 : 78;
+    const int funcButtonH = compact ? 56 : 62;
+    const int funcIcon = compact ? 30 : 34;
+    if (m_rightSidebar) {
+        m_rightSidebar->setMinimumWidth(rightMinW);
+        m_rightSidebar->setMaximumWidth(rightMaxW);
+    }
+    ui->horizontalSpacer_2->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
+    ui->horizontalSpacer_3->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
+    ui->horizontalSpacer->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
+    ui->LogoWidget->setMaximumWidth(qBound(230, rightW - 120, 300));
+    ui->CloseButton->setMinimumWidth(topButtonW);
+    ui->CloseButton->setMaximumWidth(topButtonW);
+    ui->minButton->setMinimumWidth(topButtonW);
+    ui->minButton->setMaximumWidth(topButtonW);
+    ui->timeLabel->setMaximumWidth(rightW);
+    ui->FuncWidget->setMaximumWidth(rightW);
+    const QList<QToolButton*> functionButtons = {
+        ui->toolButton_3, ui->radarsystem, ui->FuncToolButton_2, ui->FuncToolButton
+    };
+    for (auto* btn : functionButtons) {
+        btn->setMinimumWidth(funcButtonW);
+        btn->setMinimumHeight(funcButtonH);
+        btn->setIconSize(QSize(funcIcon, funcIcon));
+    }
+    ui->pviewFitW->setMinimumWidth(rightMinW);
+    ui->pviewFitW->setMaximumWidth(QWIDGETSIZE_MAX);
+    ui->pviewSectorW->setMinimumWidth(rightMinW);
+    ui->pviewSectorW->setMaximumWidth(QWIDGETSIZE_MAX);
+    ui->horizontalLayout_3->invalidate();
+    ui->horizontalLayout_4->invalidate();
+    ui->horizontalLayout_6->invalidate();
+    ui->verticalLayout_5->invalidate();
+    if (m_mainSplitter) {
+        const int ppiDefaultW = qMax(700, ScaleHelper::logicalWidth() - leftW - rightW);
+        QList<int> splitterSizes;
+        splitterSizes << leftW << ppiDefaultW << rightW;
+        m_mainSplitter->setSizes(splitterSizes);
+    }
 
     // --- 雷达控制按钮 (4×2 grid) ---
     QList<QPushButton*> radarBtns = {

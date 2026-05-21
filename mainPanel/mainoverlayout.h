@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-18 15:26:23
+ * @LastEditTime: 2026-05-21 11:46:03
  * @Description: 
  */
 /**
@@ -64,6 +64,7 @@ class DataSaveUI;      ///< 数据存储管理对话框
 class FrozenColumnHelper; ///< 表格冻结列辅助类
 class ScreenRecorderWidget; ///< 屏幕录制与回放组件
 class QTabWidget;      ///< Qt标签页控件
+class QSplitter;
 
 
 namespace Ui {
@@ -364,6 +365,8 @@ private slots:
     void applyScaledSizes();
 
 private:
+    void setupResizableMainLayout();
+
     Ui::MainOverLayOut *ui;           ///< UI界面对象指针
     PPIView* mView;                   ///< PPI雷达显示视图
     PPIScene* mScene;                 ///< PPI雷达场景管理器
@@ -373,6 +376,9 @@ private:
     RangeHeightChartWidget* m_rangeHeightWidget; ///< 距离-高度图表显示控制器
     AzElRangeWidget* m_azElRangeWidget; ///< 方位角和俯仰角范围控制器
     mainviewTopLeft* m_topLeftWidget;   ///< PPI视图左上角控制面板，用于联动偏航和倾角
+    QSplitter* m_mainSplitter = nullptr;
+    QWidget* m_leftSidebar = nullptr;
+    QWidget* m_rightSidebar = nullptr;
 
     // 航迹管理相关成员
     QMap<unsigned int, int> m_targetTypes;  ///< 批次号到目标类型编号的映射
