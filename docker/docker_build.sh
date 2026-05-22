@@ -1,119 +1,165 @@
-#!/bin/bash
+#!/usr/bin/env bash
 ##############################################################################
-# DispCtrl Docker 一键编译+打包脚本
+# DispCtrl Docker build/package helper
 #
-# 用法:
-#   ./docker/docker_build.sh          # 默认: Ubuntu 22.04 目标 (glibc ≥2.35)
-#   ./docker/docker_build.sh 1804     # Ubuntu 18.04+ 目标 (glibc ≥2.27)
-#   ./docker/docker_build.sh 2204     # 显式: Ubuntu 22.04+ 目标
+# Usage:
+#   ./docker/docker_build.sh              # default: Ubuntu 22.04 target
+#   ./docker/docker_build.sh auto         # use the current WSL/host Ubuntu version
+#   ./docker/docker_build.sh current      # same as auto
+#   ./docker/docker_build.sh 1804         # Ubuntu 18.04+ compatible target
+#   ./docker/docker_build.sh 2204         # Ubuntu 22.04+ target
+#   ./docker/docker_build.sh 2404         # Ubuntu 24.04+ target
 #
-# 前提: WSL 中已安装 Docker
-#   sudo apt install docker.io
-#   sudo usermod -aG docker $USER
-#   (重启 WSL 后生效)
-#
-# 说明:
-#   1. 根据目标选择对应 Dockerfile
-#   2. 构建 Docker 镜像 (含完整 Qt 5.15 + WebEngine)
-#   3. 在容器中执行 cmake 编译 + package_linux.sh 打包
-#   4. 将 DispCtrl-linux-x64.tar.gz 输出到 deploy/ 目录
-#
-# 目标对比:
-#   1804 — Ubuntu 18.04+, aqtinstall Qt 5.15.2, GCC 9, 捆绑 libstdc++
-#   2204 — Ubuntu 22.04+, 系统 Qt 5.15.x, GCC 11, 更小体积
+# Notes:
+#   The Docker base image version controls the target runtime compatibility. It
+#   does not need to match the WSL host version. Use 1804 when you need binaries
+#   that can run on Ubuntu 18.04 and newer systems.
 ##############################################################################
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
-# ---- 选择目标平台 ----
 TARGET="${1:-2204}"
+DOCKER_BUILD_ARGS=()
+
+show_usage() {
+    cat <<EOF
+Usage:
+  ./docker/docker_build.sh              Build Ubuntu 22.04+ target
+  ./docker/docker_build.sh auto         Build target matching current WSL/host Ubuntu
+  ./docker/docker_build.sh current      Same as auto
+  ./docker/docker_build.sh 1804         Build Ubuntu 18.04+ compatible target
+  ./docker/docker_build.sh 2204         Build Ubuntu 22.04+ target
+  ./docker/docker_build.sh 2404         Build Ubuntu 24.04+ target
+
+The Docker base image version controls target runtime compatibility; it does
+not need to match the WSL host version.
+EOF
+}
+
+case "$TARGET" in
+    -h|--help|help)
+        show_usage
+        exit 0
+        ;;
+esac
+
+detect_host_ubuntu_version() {
+    if [ -r /etc/os-release ]; then
+        . /etc/os-release
+        printf '%s' "${VERSION_ID:-}"
+    fi
+}
+
+case "$TARGET" in
+    auto|current|host)
+        HOST_VERSION="$(detect_host_ubuntu_version)"
+        case "$HOST_VERSION" in
+            18.04) TARGET="1804" ;;
+            20.04)
+                echo "Ubuntu 20.04 host target is not configured separately."
+                echo "Using Ubuntu 18.04+ compatible target instead."
+                TARGET="1804"
+                ;;
+            22.04) TARGET="2204" ;;
+            24.04) TARGET="2404" ;;
+            *)
+                echo "Unsupported or unknown host Ubuntu version: ${HOST_VERSION:-unknown}"
+                echo "Falling back to Ubuntu 22.04 target. Pass 1804/2204/2404 explicitly if needed."
+                TARGET="2204"
+                ;;
+        esac
+        ;;
+esac
 
 case "$TARGET" in
     1804|18.04)
         DOCKERFILE="${PROJECT_DIR}/docker/Dockerfile.ubuntu1804"
         IMAGE_TAG="dispctrl-builder-1804"
-        COMPAT_DESC="Ubuntu 18.04+ (glibc ≥ 2.27)"
+        COMPAT_DESC="Ubuntu 18.04+ (glibc >= 2.27)"
         ;;
-    2204|22.04|*)
+    2204|22.04)
         DOCKERFILE="${PROJECT_DIR}/docker/Dockerfile"
-        IMAGE_TAG="dispctrl-builder"
-        COMPAT_DESC="Ubuntu 22.04+ (glibc ≥ 2.35)"
+        IMAGE_TAG="dispctrl-builder-2204"
+        COMPAT_DESC="Ubuntu 22.04+ (glibc >= 2.35)"
+        DOCKER_BUILD_ARGS+=(--build-arg UBUNTU_VERSION=22.04)
+        ;;
+    2404|24.04)
+        DOCKERFILE="${PROJECT_DIR}/docker/Dockerfile"
+        IMAGE_TAG="dispctrl-builder-2404"
+        COMPAT_DESC="Ubuntu 24.04+ (glibc >= 2.39)"
+        DOCKER_BUILD_ARGS+=(--build-arg UBUNTU_VERSION=24.04)
+        ;;
+    *)
+        echo "Unknown target: $TARGET"
+        echo "Supported targets: auto/current, 1804, 2204, 2404"
+        exit 1
         ;;
 esac
 
 echo "============================================"
 echo "  DispCtrl Docker Build"
 echo "============================================"
-echo "  项目目录: ${PROJECT_DIR}"
-echo "  目标平台: ${COMPAT_DESC}"
-echo "  Dockerfile: $(basename ${DOCKERFILE})"
+echo "  Project:    ${PROJECT_DIR}"
+echo "  Target:     ${COMPAT_DESC}"
+echo "  Dockerfile: $(basename "$DOCKERFILE")"
+echo "  Image:      ${IMAGE_TAG}"
 echo ""
 
-# ---- 检查 Docker ----
-if ! command -v docker &>/dev/null; then
-    echo "错误: Docker 未安装"
+if ! command -v docker >/dev/null 2>&1; then
+    echo "Error: Docker is not installed."
     echo ""
-    echo "安装步骤:"
+    echo "Install in WSL:"
     echo "  sudo apt update"
     echo "  sudo apt install -y docker.io"
     echo "  sudo usermod -aG docker \$USER"
-    echo "  # 重启 WSL (PowerShell: wsl --shutdown)"
+    echo "  # Restart WSL from PowerShell: wsl --shutdown"
     exit 1
 fi
 
-# 检查 Docker daemon 是否运行
-if ! docker info &>/dev/null 2>&1; then
-    echo "Docker daemon 未运行，尝试启动..."
+if ! docker info >/dev/null 2>&1; then
+    echo "Docker daemon is not running; trying to start it..."
     sudo service docker start
     sleep 2
-    if ! docker info &>/dev/null 2>&1; then
-        echo "错误: 无法启动 Docker daemon"
-        echo "请手动执行: sudo service docker start"
+    if ! docker info >/dev/null 2>&1; then
+        echo "Error: failed to start Docker daemon."
+        echo "Run manually: sudo service docker start"
         exit 1
     fi
 fi
 
-# ---- 创建输出目录 ----
 mkdir -p "${PROJECT_DIR}/deploy"
 
-# ---- 构建 Docker 镜像 ----
-echo "[1/3] 构建 Docker 编译环境 (首次需要下载，约5-10分钟)..."
+echo "[1/3] Building Docker compile environment..."
 docker build \
     -f "${DOCKERFILE}" \
+    "${DOCKER_BUILD_ARGS[@]}" \
     -t "${IMAGE_TAG}" \
     "${PROJECT_DIR}"
 
-# ---- 在容器中编译+打包 ----
 echo ""
-echo "[2/3] 在 Docker 容器中编译+打包..."
+echo "[2/3] Building and packaging DispCtrl inside Docker..."
 docker run --rm \
     -v "${PROJECT_DIR}:/src:rw" \
     -v "${PROJECT_DIR}/deploy:/output:rw" \
     "${IMAGE_TAG}"
 
-# ---- 检查产物 ----
 echo ""
-echo "[3/3] 检查产物..."
+echo "[3/3] Checking artifact..."
 TARBALL="${PROJECT_DIR}/deploy/DispCtrl-linux-x64.tar.gz"
 if [ -f "$TARBALL" ]; then
-    TARBALL_SIZE=$(du -h "$TARBALL" | cut -f1)
+    TARBALL_SIZE="$(du -h "$TARBALL" | cut -f1)"
     echo ""
     echo "============================================"
-    echo "  Docker 编译打包成功!"
+    echo "  Docker build/package succeeded"
     echo "============================================"
-    echo "  发布包: deploy/DispCtrl-linux-x64.tar.gz"
-    echo "  大小:   ${TARBALL_SIZE}"
-    echo "  兼容:   ${COMPAT_DESC}"
-    echo ""
-    echo "  部署到目标机:"
-    echo "    scp deploy/DispCtrl-linux-x64.tar.gz user@target:~/"
-    echo "    ssh user@target 'tar xzf DispCtrl-linux-x64.tar.gz'"
-    echo "    ssh user@target 'cd DispCtrl-linux-x64 && ./run.sh'"
+    echo "  Artifact: deploy/DispCtrl-linux-x64.tar.gz"
+    echo "  Size:     ${TARBALL_SIZE}"
+    echo "  Target:   ${COMPAT_DESC}"
     echo "============================================"
 else
-    echo "错误: 未找到产物 ${TARBALL}"
-    echo "请检查 Docker 编译日志"
+    echo "Error: artifact not found: ${TARBALL}"
+    echo "Please check Docker build logs."
     exit 1
 fi

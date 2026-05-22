@@ -30,6 +30,11 @@
 | 样式 | 自定义暗色主题 QSS（resources/style/darkstyle.qss） |
 | 配置 | TOML 格式（config.toml） |
 
+### Docker 构建目标
+- `docker/docker_build.sh` 支持 `1804`、`2204`、`2404` 和 `auto/current` 目标；`auto/current` 会按当前 WSL/宿主 Ubuntu 版本选择对应容器基础镜像，Ubuntu 20.04 宿主会回退到 18.04+ 兼容目标。
+- `1804` 使用 `Dockerfile.ubuntu1804`，用于生成 Ubuntu 18.04+ 兼容产物；`2204`/`2404` 使用 `docker/Dockerfile` 的 `UBUNTU_VERSION` build arg。
+- Dockerfile 中的 Ubuntu 版本是容器编译环境和目标运行兼容性，不要求与 WSL 宿主版本一致。Docker Hub 拉取 `ubuntu:*` 超时属于 Docker registry 网络/镜像加速器问题，不是 apt 源或 WSL 版本不匹配问题。
+
 ---
 
 ## 项目结构（完整目录，已对照实际文件核实）

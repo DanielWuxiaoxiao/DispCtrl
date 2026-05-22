@@ -11,7 +11,8 @@
 #     add-apt-repository ppa:okirby/qt515
 ##############################################################################
 
-FROM ubuntu:22.04
+ARG UBUNTU_VERSION=22.04
+FROM ubuntu:${UBUNTU_VERSION}
 
 # 避免 apt 交互式提示
 ENV DEBIAN_FRONTEND=noninteractive
