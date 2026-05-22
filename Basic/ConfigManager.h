@@ -537,6 +537,9 @@ public:
     int marineControl(const QString& key, int def = 0) const {
         return getValue("marine.control." + key, def).toInt();
     }
+    double marineControlDouble(const QString& key, double def = 0.0) const {
+        return getValue("marine.control." + key, def).toDouble();
+    }
     bool marineControlBool(const QString& key, bool def = false) const {
         return getValue("marine.control." + key, def).toBool();
     }

@@ -56,6 +56,9 @@ public:
     void setLevel(uint8_t val);
     void setTxOn(bool on);
     void setServoSpeed(uint16_t speed);
+    void setCommand(uint8_t cmdNum);
+    void setAzimuthDegrees(double degrees);
+    void setServoGear(uint8_t gear);
 
     /// 获取当前控制帧(用于UI同步)
     const MarineControlFrame& currentControl() const { return m_ctrl; }

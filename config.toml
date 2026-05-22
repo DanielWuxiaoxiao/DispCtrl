@@ -226,6 +226,8 @@ auto_send_ms = 0                     # 控制帧自动发送周期(ms), 0=不自
 
 [marine.control]
 # 默认控制参数
+cmd_num = 0                           # 控制命令: 0=仅参数, 1=位置, 2=速度, 3=停止, 4=启动
+azimuth_deg = 0.0                     # 位置模式方位角(度), 协议下发为角度*100小端
 range = 7                            # 量程编码 (0~14, 7=4km)
 gain = 0                             # 增益 (0=自动)
 interference = 0                     # 干扰抑制 (0=关)
@@ -233,7 +235,8 @@ level = 0                            # 灵敏度 (0=自动)
 sea_clutter = 0                      # 海杂波 (0=自动)
 rain_clutter = 0                     # 雨杂波 (0=自动)
 tx_on = false                        # 发射开关 (默认关闭)
-servo_speed = 8                      # 伺服转速 (0=停, 8=正常)
+servo_gear = 0                       # 速度档位 0~8, 转速=档位*6.00 rpm
+servo_speed = 8                      # 兼容旧配置键；新界面优先读取 servo_gear
 
 [marine.display]
 # 扫描回波显示参数

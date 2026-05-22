@@ -22,6 +22,8 @@
 #include <cstring>
 #include <QVector>
 #include <QMetaType>
+#include <QtGlobal>
+#include <QString>
 
 #pragma pack(1)
 
@@ -32,6 +34,43 @@
 /// 控制帧/回波帧头尾标志
 constexpr uint8_t MARINE_HEAD_FLAG = 0xA5;
 constexpr uint8_t MARINE_TAIL_FLAG = 0x5A;
+
+enum MarineControlCmd : uint8_t {
+    MarineCmdParamsOnly = 0x00, ///< Only update radar parameters
+    MarineCmdPosition   = 0x01, ///< Radar parameters + turntable position mode
+    MarineCmdSpeed      = 0x02, ///< Radar parameters + turntable speed mode
+    MarineCmdStop       = 0x03, ///< Radar parameters + stop turntable
+    MarineCmdStart      = 0x04  ///< Radar parameters + start turntable
+};
+
+constexpr double MARINE_SERVO_RPM_PER_GEAR = 6.0;
+constexpr uint8_t MARINE_SERVO_MAX_GEAR = 8;
+
+inline uint16_t marineEncodeAzimuth(double degrees) {
+    double normalized = degrees;
+    while (normalized < 0.0) normalized += 360.0;
+    while (normalized >= 360.0) normalized -= 360.0;
+    return static_cast<uint16_t>(normalized * 100.0 + 0.5);
+}
+
+inline double marineDecodeAzimuth(uint16_t raw) {
+    return raw * 0.01;
+}
+
+inline double marineServoGearRpm(uint8_t gear) {
+    return qMin<uint8_t>(gear, MARINE_SERVO_MAX_GEAR) * MARINE_SERVO_RPM_PER_GEAR;
+}
+
+inline QString marineControlCmdLabel(uint8_t cmdNum) {
+    switch (cmdNum) {
+    case MarineCmdParamsOnly: return QStringLiteral("0x00 Params");
+    case MarineCmdPosition:   return QStringLiteral("0x01 Position");
+    case MarineCmdSpeed:      return QStringLiteral("0x02 Speed");
+    case MarineCmdStop:       return QStringLiteral("0x03 Stop");
+    case MarineCmdStart:      return QStringLiteral("0x04 Start");
+    default:                  return QStringLiteral("Unknown");
+    }
+}
 
 /// 回波帧前导字节
 constexpr uint8_t MARINE_ECHO_LEAD = 0x00;
@@ -129,6 +168,14 @@ struct MarineControlFrame {
     }
 
     /// 计算并填入校验码
+    double azimuthDegrees() const {
+        return marineDecodeAzimuth(azimuth);
+    }
+
+    double servoRpm() const {
+        return marineServoGearRpm(servo);
+    }
+
     void updateChecksum() {
         uint8_t xorVal = 0;
         const auto* p = reinterpret_cast<const uint8_t*>(this);

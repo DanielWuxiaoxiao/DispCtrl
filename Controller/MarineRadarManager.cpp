@@ -25,7 +25,9 @@ bool shouldLogSample(uint32_t count, uint32_t firstCount, uint32_t interval)
 
 QString controlSummary(const MarineControlFrame& f)
 {
-    return QString("range=%1 tx=%2 gain=%3 level=%4 sea=%5 rain=%6 interference=%7 servo=%8 checksum=0x%9")
+    return QString("cmd=%1 az=%2 range=%3 tx=%4 gain=%5 level=%6 sea=%7 rain=%8 interference=%9 servoGear=%10 rpm=%11 checksum=0x%12")
+        .arg(marineControlCmdLabel(f.cmdNum))
+        .arg(f.azimuthDegrees(), 0, 'f', 2)
         .arg(static_cast<int>(f.rangeVal))
         .arg(static_cast<int>(f.txCtrl))
         .arg(static_cast<int>(f.gain))
@@ -34,6 +36,7 @@ QString controlSummary(const MarineControlFrame& f)
         .arg(static_cast<int>(f.rainVal))
         .arg(static_cast<int>(f.ganRao))
         .arg(static_cast<int>(f.servo))
+        .arg(f.servoRpm(), 0, 'f', 2)
         .arg(static_cast<int>(f.checkSum), 2, 16, QLatin1Char('0'));
 }
 
@@ -208,7 +211,32 @@ void MarineRadarManager::setTxOn(bool on)
 void MarineRadarManager::setServoSpeed(uint16_t speed)
 {
     LOG_INFO(QString("[MarineRadar][CTRL] setServoSpeed=%1").arg(speed));
-    m_ctrl.servo = static_cast<uint8_t>(speed);
+    m_ctrl.servo = static_cast<uint8_t>(qMin<uint16_t>(speed, MARINE_SERVO_MAX_GEAR));
+    sendControl(m_ctrl);
+}
+
+void MarineRadarManager::setCommand(uint8_t cmdNum)
+{
+    const uint8_t boundedCmd = qMin<uint8_t>(cmdNum, static_cast<uint8_t>(MarineCmdStart));
+    LOG_INFO(QString("[MarineRadar][CTRL] setCommand=%1").arg(marineControlCmdLabel(boundedCmd)));
+    m_ctrl.cmdNum = boundedCmd;
+    sendControl(m_ctrl);
+}
+
+void MarineRadarManager::setAzimuthDegrees(double degrees)
+{
+    LOG_INFO(QString("[MarineRadar][CTRL] setAzimuth=%1").arg(degrees, 0, 'f', 2));
+    m_ctrl.azimuth = marineEncodeAzimuth(degrees);
+    sendControl(m_ctrl);
+}
+
+void MarineRadarManager::setServoGear(uint8_t gear)
+{
+    const uint8_t boundedGear = qMin<uint8_t>(gear, MARINE_SERVO_MAX_GEAR);
+    LOG_INFO(QString("[MarineRadar][CTRL] setServoGear=%1 rpm=%2")
+             .arg(static_cast<int>(boundedGear))
+             .arg(marineServoGearRpm(boundedGear), 0, 'f', 2));
+    m_ctrl.servo = boundedGear;
     sendControl(m_ctrl);
 }
 

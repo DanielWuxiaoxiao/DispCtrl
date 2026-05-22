@@ -28,6 +28,7 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QDoubleValidator>
+#include <QDoubleSpinBox>
 #include <QGridLayout>
 #include <QHeaderView>
 #include <QIntValidator>
@@ -2303,6 +2304,25 @@ void MainOverLayOut::setupMarineControls()
     ui->rightPanelLayout->addWidget(m_navPanel);
 
     // ====== 量程 ComboBox (15档) ======
+    // ====== CMDNum + Azimuth ======
+    auto* cmdCombo = new QComboBox(this);
+    cmdCombo->setObjectName("marineCmdCombo");
+    cmdCombo->addItem(QString::fromUtf8("0x00 \u4ec5\u53c2\u6570"), MarineCmdParamsOnly);
+    cmdCombo->addItem(QString::fromUtf8("0x01 \u4f4d\u7f6e"), MarineCmdPosition);
+    cmdCombo->addItem(QString::fromUtf8("0x02 \u901f\u5ea6"), MarineCmdSpeed);
+    cmdCombo->addItem(QString::fromUtf8("0x03 \u505c\u6b62"), MarineCmdStop);
+    cmdCombo->addItem(QString::fromUtf8("0x04 \u542f\u52a8"), MarineCmdStart);
+    const int defaultCmd = qBound(0, CF_INS.marineControl("cmd_num", MarineCmdParamsOnly), 4);
+    cmdCombo->setCurrentIndex(defaultCmd);
+
+    auto* azimuthSpin = new QDoubleSpinBox(this);
+    azimuthSpin->setObjectName("marineAzimuthSpin");
+    azimuthSpin->setRange(0.0, 359.99);
+    azimuthSpin->setDecimals(2);
+    azimuthSpin->setSingleStep(1.0);
+    azimuthSpin->setSuffix(QString::fromUtf8("\u00b0"));
+    azimuthSpin->setValue(qBound(0.0, CF_INS.marineControlDouble("azimuth_deg", 0.0), 359.99));
+
     m_rangeCombo = new QComboBox(this);
     m_rangeCombo->setObjectName("marineRangeCombo");
     for (int i = 0; i < MARINE_RANGE_TABLE_SIZE; ++i) {
@@ -2361,10 +2381,15 @@ void MainOverLayOut::setupMarineControls()
 
     // ====== 天线转速 ComboBox (0=停/8=转) — Byte12 ======
     m_servoCombo = new QComboBox(this);
-    m_servoCombo->addItem(QString::fromUtf8("\u505c\u6b62 (0)"), 0);
-    m_servoCombo->addItem(QString::fromUtf8("\u8f6c\u52a8 (8)"), 8);
-    int defaultServo = CF_INS.marineControl("servo_speed", 0);
-    m_servoCombo->setCurrentIndex(defaultServo == 8 ? 1 : 0);
+    for (int gear = 0; gear <= MARINE_SERVO_MAX_GEAR; ++gear) {
+        m_servoCombo->addItem(QString::fromUtf8("%1 \u6863 (%2 rpm)")
+                                  .arg(gear)
+                                  .arg(marineServoGearRpm(static_cast<uint8_t>(gear)), 0, 'f', 2),
+                              gear);
+    }
+    int defaultServo = CF_INS.marineControl("servo_gear", CF_INS.marineControl("servo_speed", 0));
+    m_servoCombo->setCurrentIndex(qBound(0, defaultServo, static_cast<int>(MARINE_SERVO_MAX_GEAR)));
+    auto* servoRpmLabel = new QLabel(QString::number(marineServoGearRpm(static_cast<uint8_t>(m_servoCombo->currentData().toInt())), 'f', 2), this);
 
     // ====== 折叠式雷达控制面板 ======
     m_marineCtrlPanel = new QWidget(this);
@@ -2380,6 +2405,13 @@ void MainOverLayOut::setupMarineControls()
     };
 
     int row = 0;
+    ctrlLayout->addWidget(makeCtrlLabel(QString::fromUtf8("\u63a7\u5236\u547d\u4ee4")), row, 0); // Byte1
+    ctrlLayout->addWidget(cmdCombo, row, 1, 1, 2);
+    ++row;
+
+    ctrlLayout->addWidget(makeCtrlLabel(QString::fromUtf8("\u65b9\u4f4d\u89d2")), row, 0); // Byte2-3
+    ctrlLayout->addWidget(azimuthSpin, row, 1, 1, 2);
+    ++row;
     // 按协议字节顺序排布: Byte4~Byte12
     ctrlLayout->addWidget(makeCtrlLabel(QString::fromUtf8("量程")), row, 0);          // Byte4
     ctrlLayout->addWidget(m_rangeCombo, row, 1, 1, 2);
@@ -2415,7 +2447,8 @@ void MainOverLayOut::setupMarineControls()
     ++row;
 
     ctrlLayout->addWidget(makeCtrlLabel(QString::fromUtf8("天线转速")), row, 0);      // Byte12
-    ctrlLayout->addWidget(m_servoCombo, row, 1, 1, 2);
+    ctrlLayout->addWidget(m_servoCombo, row, 1);
+    ctrlLayout->addWidget(servoRpmLabel, row, 2);
     ++row;
 
     m_btnSendMarineControl = new QPushButton(QString::fromUtf8("\u4e0b\u53d1\u63a7\u5236"), this);
@@ -2493,9 +2526,22 @@ void MainOverLayOut::setupMarineControls()
 
     // 天线转速
     connect(m_servoCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, [](int idx) {
+            this, [this, servoRpmLabel](int idx) {
         Q_UNUSED(idx);
+        const auto gear = static_cast<uint8_t>(qBound(0, m_servoCombo->currentData().toInt(),
+                                                      static_cast<int>(MARINE_SERVO_MAX_GEAR)));
+        servoRpmLabel->setText(QString::number(marineServoGearRpm(gear), 'f', 2));
     });
+
+    auto updateServoControlState = [cmdCombo, azimuthSpin, servoRpmLabel, this]() {
+        const int cmd = cmdCombo->currentData().toInt();
+        azimuthSpin->setEnabled(cmd == MarineCmdPosition);
+        m_servoCombo->setEnabled(cmd == MarineCmdSpeed);
+        servoRpmLabel->setEnabled(m_servoCombo->isEnabled());
+    };
+    connect(cmdCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [updateServoControlState](int) { updateServoControlState(); });
+    updateServoControlState();
 
     connect(m_btnSendMarineControl, &QPushButton::clicked,
             this, &MainOverLayOut::sendMarineControlFromUi);
@@ -2594,6 +2640,12 @@ void MainOverLayOut::syncMarineRange(int rangeIndex)
 MarineControlFrame MainOverLayOut::buildMarineControlFrameFromUi() const
 {
     MarineControlFrame frame;
+    if (auto* cmdCombo = findChild<QComboBox*>("marineCmdCombo")) {
+        frame.cmdNum = static_cast<uint8_t>(qBound(0, cmdCombo->currentData().toInt(), 4));
+    }
+    if (auto* azimuthSpin = findChild<QDoubleSpinBox*>("marineAzimuthSpin")) {
+        frame.azimuth = marineEncodeAzimuth(azimuthSpin->value());
+    }
     if (m_rangeCombo) {
         frame.rangeVal = static_cast<uint8_t>(qBound(0, m_rangeCombo->currentIndex(), MARINE_RANGE_TABLE_SIZE - 1));
     }
@@ -2613,7 +2665,9 @@ MarineControlFrame MainOverLayOut::buildMarineControlFrameFromUi() const
         frame.rainVal = static_cast<uint8_t>(qBound(0, m_rainSlider->value(), 255));
     }
     frame.txCtrl = (m_btnTxToggle && m_btnTxToggle->isChecked()) ? 1 : 0;
-    frame.servo = m_servoCombo ? static_cast<uint8_t>(qBound(0, m_servoCombo->currentData().toInt(), 255)) : 0;
+    frame.servo = m_servoCombo
+        ? static_cast<uint8_t>(qBound(0, m_servoCombo->currentData().toInt(), static_cast<int>(MARINE_SERVO_MAX_GEAR)))
+        : 0;
     frame.updateChecksum();
     return frame;
 }
@@ -2630,6 +2684,8 @@ void MainOverLayOut::sendMarineControlFromUi()
     CON_INS->marineMgr()->sendControl(frame);
 
     qInfo() << "[Marine] Manual control sent"
+            << "cmd" << static_cast<int>(frame.cmdNum)
+            << "azimuth" << frame.azimuthDegrees()
             << "range" << static_cast<int>(frame.rangeVal)
             << "gain" << static_cast<int>(frame.gain)
             << "interference" << static_cast<int>(frame.ganRao)
@@ -2637,7 +2693,8 @@ void MainOverLayOut::sendMarineControlFromUi()
             << "sea" << static_cast<int>(frame.seaVal)
             << "rain" << static_cast<int>(frame.rainVal)
             << "tx" << static_cast<int>(frame.txCtrl)
-            << "servo" << static_cast<int>(frame.servo);
+            << "servoGear" << static_cast<int>(frame.servo)
+            << "servoRpm" << frame.servoRpm();
 }
 
 void MainOverLayOut::setupSimradNavPanel()

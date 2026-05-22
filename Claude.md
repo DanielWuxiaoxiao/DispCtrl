@@ -870,6 +870,7 @@ m_marineMgr             # MarineRadarManager实例
 - **config.toml**: 新增 `[marine.network]`/`[marine.control]`/`[marine.display]` 段落
 - **X576 按钮隐藏**: setupMarineControls() 隐藏所有不适用的 X576 功能按钮
 - **CMakeLists.txt**: 新增 echorenderer/colorbarwidget/RadarSimulator/MarineRadarManager
+- **2026-05-22 船用控制命令**: `MarineControlFrame::cmdNum` 已启用，`0x00` 仅参数、`0x01` 位置、`0x02` 速度、`0x03` 停止、`0x04` 启动。`azimuth` 按角度 * 100 小端编码；`servo` 作为 0~8 速度档位，PS 侧按 `档位 * 6.00 rpm` 转为 `$cmd,spd`。
 
 ---
 

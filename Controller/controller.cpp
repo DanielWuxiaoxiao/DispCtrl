@@ -87,6 +87,9 @@ void Controller::init()
 
         // 加载默认控制参数
         MarineControlFrame ctrl;
+        ctrl.cmdNum   = static_cast<uint8_t>(qBound(0, CF_INS.marineControl("cmd_num", MarineCmdParamsOnly),
+                                                    static_cast<int>(MarineCmdStart)));
+        ctrl.azimuth  = marineEncodeAzimuth(CF_INS.marineControlDouble("azimuth_deg", 0.0));
         ctrl.rangeVal = static_cast<uint8_t>(CF_INS.marineControl("range", 7));
         ctrl.gain     = static_cast<uint8_t>(CF_INS.marineControl("gain", 0));
         ctrl.ganRao   = static_cast<uint8_t>(CF_INS.marineControl("interference", 0));
@@ -94,7 +97,10 @@ void Controller::init()
         ctrl.seaVal   = static_cast<uint8_t>(CF_INS.marineControl("sea_clutter", 0));
         ctrl.rainVal  = static_cast<uint8_t>(CF_INS.marineControl("rain_clutter", 0));
         ctrl.txCtrl   = CF_INS.marineControlBool("tx_on", false) ? 1 : 0;
-        ctrl.servo    = static_cast<uint8_t>(CF_INS.marineControl("servo_speed", 0));
+        ctrl.servo    = static_cast<uint8_t>(qBound(0,
+                                                    CF_INS.marineControl("servo_gear",
+                                                                         CF_INS.marineControl("servo_speed", 0)),
+                                                    static_cast<int>(MARINE_SERVO_MAX_GEAR)));
         m_marineMgr->setCurrentControl(ctrl);
         m_marineMgr->setAutoSendInterval(autoSendMs);
         // Initial frame is cached; auto-send uses it when the timer fires.
