@@ -504,13 +504,11 @@ connect(m_marineMgr, &MarineRadarManager::radarStatusUpdated,
 4. `MarineRadarManager::setRange(code)` — 控制帧量程代号
 5. `RadarSimulator::setRangeMeter(rangeM)` — 仿真器量程
 
-### X576 控件隐藏
-`setupMarineControls()` 启动时隐藏以下 X576 按钮:
-- btnStartSoftware, btnStopSoftware, btnServoControl
-- btnDataStorage, btnTWSMode, btnTASMode
-- btnScanRange, btnDataProcess, btnSignalProcess
-- btnFreqControl, btnBatteryControl
-- rightTabWidget（功能Tab面板）
+### X576 Legacy UI Removed
+`ship-radar` no longer hides the old X576 main-panel widgets at runtime. The old right-side tab panel, control-category buttons, track tables, text log panel, and health/BIT panel wiring have been removed from `mainPanel/mainoverlayout.ui`, `mainPanel/mainoverlayout.cpp`, and `mainPanel/mainoverlayout.h`.
+
+Keep `MainOverLayOut::clearTrackTables()` as a no-op compatibility slot because PPI clear callers still invoke it. New ship-radar controls should be added through `mainoverlayout.ui` first, then wired in `setupMarineControls()`.
+
 
 ---
 
@@ -868,7 +866,7 @@ m_marineMgr             # MarineRadarManager实例
 - **颜色方案**: DET_COLOR 改为暖橙 QColor(255,180,50)
 - **darkstyle.qss**: 重写为 SIMRAD 主题（橙色边框/深黑背景）
 - **config.toml**: 新增 `[marine.network]`/`[marine.control]`/`[marine.display]` 段落
-- **X576 按钮隐藏**: setupMarineControls() 隐藏所有不适用的 X576 功能按钮
+- **X576 legacy UI removal**: removed obsolete X576 main-panel widgets/buttons and kept only ship-radar UI-controlled panels.
 - **CMakeLists.txt**: 新增 echorenderer/colorbarwidget/RadarSimulator/MarineRadarManager
 
 ---

@@ -49,12 +49,6 @@
       </item>
 
       <item>
-       <widget class="QLabel" name="lblCPA">
-        <property name="text"><string>CPA --- Km  TCPA ---</string></property>
-       </widget>
-      </item>
-
-      <item>
        <widget class="QPushButton" name="minButton">
         <property name="maximumSize"><size><width>32</width><height>32</height></size></property>
         <property name="text"><string></string></property>
@@ -106,532 +100,300 @@
         <property name="bottomMargin"><number>0</number></property>
 
         <item>
-         <widget class="QTabWidget" name="rightTabWidget">
-          <property name="currentIndex"><number>0</number></property>
-
-          <!-- Tab 1: 操控 -->
-          <widget class="QWidget" name="controlTab">
-           <attribute name="title"><string>操控</string></attribute>
-           <layout class="QVBoxLayout" name="controlTabLayout">
-            <property name="spacing"><number>4</number></property>
-            <property name="leftMargin"><number>6</number></property>
-            <property name="topMargin"><number>6</number></property>
-            <property name="rightMargin"><number>6</number></property>
-            <property name="bottomMargin"><number>4</number></property>
-
-            <!-- 3 big category buttons in a row -->
-            <item>
-             <layout class="QHBoxLayout" name="categoryBtnLayout">
-              <property name="spacing"><number>4</number></property>
-              <item>
-               <widget class="QPushButton" name="btnCatRadarCtrl">
-                <property name="text"><string>雷达控制</string></property>
-                <property name="checkable"><bool>true</bool></property>
-                <property name="checked"><bool>true</bool></property>
-                <property name="minimumSize"><size><width>0</width><height>36</height></size></property>
-                <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QPushButton" name="btnCatDisplayCtrl">
-                <property name="text"><string>显示控制</string></property>
-                <property name="checkable"><bool>true</bool></property>
-                <property name="minimumSize"><size><width>0</width><height>36</height></size></property>
-                <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-               </widget>
-              </item>
-              <item>
-               <widget class="QPushButton" name="btnCatAdvanced">
-                <property name="text"><string>高级设置</string></property>
-                <property name="checkable"><bool>true</bool></property>
-                <property name="minimumSize"><size><width>0</width><height>36</height></size></property>
-                <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-               </widget>
-              </item>
-             </layout>
-            </item>
-
-            <!-- Stacked widget for category content -->
-            <item>
-             <widget class="QStackedWidget" name="categoryStack">
-              <property name="currentIndex"><number>0</number></property>
-
-              <!-- Page 0: 雷达控制 -->
-              <widget class="QWidget" name="radarCtrlPage">
-               <layout class="QGridLayout" name="radarCtrlGrid">
-                <property name="spacing"><number>4</number></property>
-                <property name="leftMargin"><number>2</number></property>
-                <property name="topMargin"><number>4</number></property>
-                <property name="rightMargin"><number>2</number></property>
-                <property name="bottomMargin"><number>4</number></property>
-                <item row="0" column="0">
-                 <widget class="QPushButton" name="btnStartSoftware">
-                  <property name="text"><string>软件启动</string></property>
-                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
-                 </widget>
-                </item>
-                <item row="0" column="1">
-                 <widget class="QPushButton" name="btnStopSoftware">
-                  <property name="text"><string>软件关闭</string></property>
-                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
-                 </widget>
-                </item>
-                <item row="1" column="0">
-                 <widget class="QPushButton" name="btnTransmitControl">
-                  <property name="text"><string>发射开关</string></property>
-                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
-                 </widget>
-                </item>
-                <item row="1" column="1">
-                 <widget class="QPushButton" name="btnRadarStandby">
-                  <property name="text"><string>雷达待机</string></property>
-                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
-                 </widget>
-                </item>
-                <item row="2" column="0">
-                 <widget class="QPushButton" name="btnServoControl">
-                  <property name="text"><string>伺服控制</string></property>
-                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
-                 </widget>
-                </item>
-                <item row="2" column="1">
-                 <widget class="QPushButton" name="btnDataStorage">
-                  <property name="text"><string>数据存储</string></property>
-                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
-                 </widget>
-                </item>
-               </layout>
-              </widget>
-
-              <!-- Page 1: 显示控制 -->
-              <widget class="QWidget" name="displayCtrlPage">
-               <layout class="QGridLayout" name="displayCtrlGrid">
-                <property name="spacing"><number>4</number></property>
-                <property name="leftMargin"><number>2</number></property>
-                <property name="topMargin"><number>4</number></property>
-                <property name="rightMargin"><number>2</number></property>
-                <property name="bottomMargin"><number>4</number></property>
-                <item row="0" column="0">
-                 <widget class="QPushButton" name="btnTWSMode">
-                  <property name="text"><string>TWS模式</string></property>
-                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
-                 </widget>
-                </item>
-                <item row="0" column="1">
-                 <widget class="QPushButton" name="btnTASMode">
-                  <property name="text"><string>TAS模式</string></property>
-                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
-                 </widget>
-                </item>
-                <item row="1" column="0">
-                 <widget class="QPushButton" name="btnScanRange">
-                  <property name="text"><string>工作模式</string></property>
-                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
-                 </widget>
-                </item>
-               </layout>
-              </widget>
-
-              <!-- Page 2: 高级设置 -->
-              <widget class="QWidget" name="advancedPage">
-               <layout class="QGridLayout" name="advancedGrid">
-                <property name="spacing"><number>4</number></property>
-                <property name="leftMargin"><number>2</number></property>
-                <property name="topMargin"><number>4</number></property>
-                <property name="rightMargin"><number>2</number></property>
-                <property name="bottomMargin"><number>4</number></property>
-                <item row="0" column="0">
-                 <widget class="QPushButton" name="btnDataProcess">
-                  <property name="text"><string>数据处理</string></property>
-                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
-                 </widget>
-                </item>
-                <item row="0" column="1">
-                 <widget class="QPushButton" name="btnSignalProcess">
-                  <property name="text"><string>信号处理</string></property>
-                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
-                 </widget>
-                </item>
-                <item row="1" column="0">
-                 <widget class="QPushButton" name="btnFreqControl">
-                  <property name="text"><string>波形采样</string></property>
-                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
-                 </widget>
-                </item>
-                <item row="1" column="1">
-                 <widget class="QPushButton" name="btnBatteryControl">
-                  <property name="text"><string>阵面控制</string></property>
-                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
-                 </widget>
-                </item>
-               </layout>
-              </widget>
-             </widget>
-            </item>
-
-            <!-- Sub-tabs: 常规/检测/安装 -->
-            <item>
-             <widget class="QTabWidget" name="controlSubTab">
-              <property name="currentIndex"><number>0</number></property>
-
-              <!-- 常规 tab -->
-              <widget class="QWidget" name="generalTab">
-               <attribute name="title"><string>常规</string></attribute>
-               <layout class="QGridLayout" name="generalGrid">
-                <property name="spacing"><number>4</number></property>
-                <property name="leftMargin"><number>6</number></property>
-                <property name="topMargin"><number>6</number></property>
-                <property name="rightMargin"><number>6</number></property>
-                <property name="bottomMargin"><number>6</number></property>
-
-                <!-- Row 0: 手动航向 -->
-                <item row="0" column="0">
-                 <widget class="QLabel" name="lblManualHeading"><property name="text"><string>手动航向</string></property></widget>
-                </item>
-                <item row="0" column="1" colspan="2">
-                 <widget class="QLineEdit" name="editManualHeading">
-                  <property name="text"><string>0.00</string></property>
-                 </widget>
-                </item>
-                <item row="0" column="3">
-                 <widget class="QPushButton" name="btnSetManualHeading">
-                  <property name="text"><string>设置</string></property>
-                  <property name="minimumSize"><size><width>0</width><height>26</height></size></property>
-                 </widget>
-                </item>
-
-                <!-- Row 1: 手动航速 -->
-                <item row="1" column="0">
-                 <widget class="QLabel" name="lblManualSpeed"><property name="text"><string>手动航速</string></property></widget>
-                </item>
-                <item row="1" column="1" colspan="2">
-                 <widget class="QLineEdit" name="editManualSpeed">
-                  <property name="text"><string>0.00</string></property>
-                 </widget>
-                </item>
-                <item row="1" column="3">
-                 <widget class="QLabel" name="lblManualSpeedUnit"><property name="text"><string>Km/h</string></property></widget>
-                </item>
-
-                <!-- Row 2: 航向选择 -->
-                <item row="2" column="0">
-                 <widget class="QLabel" name="lblHeadingSrc"><property name="text"><string>航向选择</string></property></widget>
-                </item>
-                <item row="2" column="1">
-                 <widget class="QPushButton" name="btnHeadingCompass">
-                  <property name="text"><string>罗经</string></property>
-                  <property name="checkable"><bool>true</bool></property>
-                  <property name="checked"><bool>true</bool></property>
-                  <property name="minimumSize"><size><width>0</width><height>26</height></size></property>
-                 </widget>
-                </item>
-                <item row="2" column="2">
-                 <widget class="QPushButton" name="btnHeadingGPS">
-                  <property name="text"><string>GPS</string></property>
-                  <property name="checkable"><bool>true</bool></property>
-                  <property name="minimumSize"><size><width>0</width><height>26</height></size></property>
-                 </widget>
-                </item>
-                <item row="2" column="3">
-                 <widget class="QPushButton" name="btnHeadingManual">
-                  <property name="text"><string>手动</string></property>
-                  <property name="checkable"><bool>true</bool></property>
-                  <property name="minimumSize"><size><width>0</width><height>26</height></size></property>
-                 </widget>
-                </item>
-
-                <!-- Row 3: 航速选择 -->
-                <item row="3" column="0">
-                 <widget class="QLabel" name="lblSpeedSrc"><property name="text"><string>航速选择</string></property></widget>
-                </item>
-                <item row="3" column="1">
-                 <widget class="QPushButton" name="btnSpeedLog">
-                  <property name="text"><string>计程仪</string></property>
-                  <property name="checkable"><bool>true</bool></property>
-                  <property name="checked"><bool>true</bool></property>
-                  <property name="minimumSize"><size><width>0</width><height>26</height></size></property>
-                 </widget>
-                </item>
-                <item row="3" column="2">
-                 <widget class="QPushButton" name="btnSpeedGPS">
-                  <property name="text"><string>GPS</string></property>
-                  <property name="checkable"><bool>true</bool></property>
-                  <property name="minimumSize"><size><width>0</width><height>26</height></size></property>
-                 </widget>
-                </item>
-                <item row="3" column="3">
-                 <widget class="QPushButton" name="btnSpeedManual">
-                  <property name="text"><string>手动</string></property>
-                  <property name="checkable"><bool>true</bool></property>
-                  <property name="minimumSize"><size><width>0</width><height>26</height></size></property>
-                 </widget>
-                </item>
-
-                <!-- Row 4: 活标亮度 -->
-                <item row="4" column="0">
-                 <widget class="QLabel" name="lblActiveBright"><property name="text"><string>活标亮度</string></property></widget>
-                </item>
-                <item row="4" column="1">
-                 <widget class="QLabel" name="lblActiveBrightVal"><property name="text"><string>100%</string></property></widget>
-                </item>
-                <item row="4" column="2" colspan="2">
-                 <widget class="QSlider" name="sliderActiveBright">
-                  <property name="orientation"><enum>Qt::Horizontal</enum></property>
-                  <property name="minimum"><number>0</number></property>
-                  <property name="maximum"><number>100</number></property>
-                  <property name="value"><number>100</number></property>
-                 </widget>
-                </item>
-
-                <!-- Row 5: 固标亮度 -->
-                <item row="5" column="0">
-                 <widget class="QLabel" name="lblFixedBright"><property name="text"><string>固标亮度</string></property></widget>
-                </item>
-                <item row="5" column="1">
-                 <widget class="QLabel" name="lblFixedBrightVal"><property name="text"><string>100%</string></property></widget>
-                </item>
-                <item row="5" column="2" colspan="2">
-                 <widget class="QSlider" name="sliderFixedBright">
-                  <property name="orientation"><enum>Qt::Horizontal</enum></property>
-                  <property name="minimum"><number>0</number></property>
-                  <property name="maximum"><number>100</number></property>
-                  <property name="value"><number>100</number></property>
-                 </widget>
-                </item>
-
-                <!-- Row 6: 旁瓣手动 -->
-                <item row="6" column="0">
-                 <widget class="QLabel" name="lblSidelobe"><property name="text"><string>旁瓣手动</string></property></widget>
-                </item>
-                <item row="6" column="1">
-                 <widget class="QSpinBox" name="spinSidelobe">
-                  <property name="minimum"><number>1</number></property>
-                  <property name="maximum"><number>10</number></property>
-                  <property name="value"><number>1</number></property>
-                 </widget>
-                </item>
-                <item row="6" column="2">
-                 <widget class="QPushButton" name="btnSidelobeInc">
-                  <property name="text"><string>+</string></property>
-                  <property name="minimumSize"><size><width>30</width><height>26</height></size></property>
-                  <property name="maximumSize"><size><width>36</width><height>30</height></size></property>
-                 </widget>
-                </item>
-                <item row="6" column="3">
-                 <widget class="QPushButton" name="btnSidelobeDec">
-                  <property name="text"><string>-</string></property>
-                  <property name="minimumSize"><size><width>30</width><height>26</height></size></property>
-                  <property name="maximumSize"><size><width>36</width><height>30</height></size></property>
-                 </widget>
-                </item>
-
-                <!-- Row 7: 平滑设置 -->
-                <item row="7" column="0" colspan="4">
-                 <widget class="QPushButton" name="btnSmoothSettings">
-                  <property name="text"><string>平滑设置</string></property>
-                  <property name="minimumSize"><size><width>0</width><height>30</height></size></property>
-                  <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
-                 </widget>
-                </item>
-
-                <!-- Spacer -->
-                <item row="8" column="0">
-                 <spacer name="generalSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>5</height></size></property></spacer>
-                </item>
-               </layout>
-              </widget>
-
-              <!-- 检测 tab -->
-              <widget class="QWidget" name="detectionTab">
-               <attribute name="title"><string>检测</string></attribute>
-               <layout class="QVBoxLayout" name="detectionLayout">
-                <item><spacer name="detectionSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property></spacer></item>
-               </layout>
-              </widget>
-
-              <!-- 安装 tab -->
-              <widget class="QWidget" name="installTab">
-               <attribute name="title"><string>安装</string></attribute>
-               <layout class="QVBoxLayout" name="installLayout">
-                <item><spacer name="installSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property></spacer></item>
-               </layout>
-              </widget>
-             </widget>
-            </item>
-
-            <!-- Log area at bottom -->
-            <item>
-             <widget class="QTextEdit" name="logEdit">
-              <property name="maximumSize"><size><width>16777215</width><height>150</height></size></property>
-              <property name="textInteractionFlags"><set>Qt::NoTextInteraction</set></property>
-             </widget>
-            </item>
-           </layout>
-          </widget>
-
-          <!-- Tab 2: 航迹 -->
-          <widget class="QWidget" name="trackTab">
-           <attribute name="title"><string>航迹</string></attribute>
-           <layout class="QVBoxLayout" name="trackTabOuterLayout">
-            <property name="spacing"><number>0</number></property>
-            <property name="leftMargin"><number>0</number></property>
-            <property name="topMargin"><number>0</number></property>
-            <property name="rightMargin"><number>0</number></property>
-            <property name="bottomMargin"><number>0</number></property>
-            <item>
-             <widget class="QTabWidget" name="trackSubTab">
-              <property name="currentIndex"><number>0</number></property>
-              <widget class="QWidget" name="tab_allTracks">
-               <attribute name="title"><string>航迹管理</string></attribute>
-               <layout class="QVBoxLayout" name="allTrackLayout">
-                <property name="spacing"><number>0</number></property>
-                <property name="leftMargin"><number>2</number></property>
-                <property name="topMargin"><number>2</number></property>
-                <property name="rightMargin"><number>2</number></property>
-                <property name="bottomMargin"><number>2</number></property>
-                <item>
-                 <widget class="QTableWidget" name="tableWidget">
-                  <property name="gridStyle"><enum>Qt::DashLine</enum></property>
-                  <attribute name="horizontalHeaderVisible"><bool>true</bool></attribute>
-                  <attribute name="verticalHeaderVisible"><bool>false</bool></attribute>
-                 </widget>
-                </item>
-               </layout>
-              </widget>
-              <widget class="QWidget" name="tab_droneTracks">
-               <attribute name="title"><string>无人机航迹</string></attribute>
-               <layout class="QVBoxLayout" name="droneTrackLayout">
-                <property name="spacing"><number>0</number></property>
-                <property name="leftMargin"><number>2</number></property>
-                <property name="topMargin"><number>2</number></property>
-                <property name="rightMargin"><number>2</number></property>
-                <property name="bottomMargin"><number>2</number></property>
-                <item>
-                 <widget class="QTableWidget" name="droneTableWidget">
-                  <property name="gridStyle"><enum>Qt::DashLine</enum></property>
-                  <attribute name="horizontalHeaderVisible"><bool>false</bool></attribute>
-                  <attribute name="verticalHeaderVisible"><bool>false</bool></attribute>
-                 </widget>
-                </item>
-               </layout>
-              </widget>
-             </widget>
-            </item>
-           </layout>
-          </widget>
-
-          <!-- Tab 3: AIS -->
-          <widget class="QWidget" name="aisTab">
-           <attribute name="title"><string>AIS</string></attribute>
-           <layout class="QVBoxLayout" name="aisTabLayout">
-            <property name="spacing"><number>0</number></property>
-            <property name="leftMargin"><number>2</number></property>
-            <property name="topMargin"><number>2</number></property>
-            <property name="rightMargin"><number>2</number></property>
-            <property name="bottomMargin"><number>2</number></property>
-            <item>
-             <widget class="QTableWidget" name="aisTableWidget">
-              <property name="gridStyle"><enum>Qt::DashLine</enum></property>
-              <attribute name="horizontalHeaderVisible"><bool>true</bool></attribute>
-              <attribute name="verticalHeaderVisible"><bool>false</bool></attribute>
-             </widget>
-            </item>
-           </layout>
-          </widget>
-
-          <!-- Tab 4: 辅显 -->
-          <widget class="QWidget" name="auxDisplayTab">
-           <attribute name="title"><string>辅显</string></attribute>
-           <layout class="QVBoxLayout" name="auxDisplayLayout">
-            <property name="spacing"><number>4</number></property>
-            <property name="leftMargin"><number>4</number></property>
-            <property name="topMargin"><number>4</number></property>
-            <property name="rightMargin"><number>4</number></property>
-            <property name="bottomMargin"><number>4</number></property>
-            <item>
-             <widget class="QWidget" name="pviewFitW" native="true">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
-                <horstretch>0</horstretch><verstretch>1</verstretch>
-               </sizepolicy>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QWidget" name="pviewSectorW" native="true">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
-                <horstretch>0</horstretch><verstretch>1</verstretch>
-               </sizepolicy>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </widget>
-
-          <!-- Tab 5: 监控 -->
-          <widget class="QWidget" name="monitorTab">
-           <attribute name="title"><string>监控</string></attribute>
-           <layout class="QVBoxLayout" name="monitorTabLayout">
-            <property name="spacing"><number>6</number></property>
-            <property name="leftMargin"><number>8</number></property>
-            <property name="topMargin"><number>8</number></property>
-            <property name="rightMargin"><number>8</number></property>
-            <property name="bottomMargin"><number>8</number></property>
-            <item>
-             <layout class="QGridLayout" name="monitorBtnGrid">
-              <property name="spacing"><number>6</number></property>
-              <item row="0" column="0">
-               <widget class="QToolButton" name="radarsystem">
-                <property name="text"><string>雷达系统</string></property>
-                <property name="icon"><iconset resource="../resource.qrc"><normaloff>:/resources/icon/radararray.png</normaloff>:/resources/icon/radararray.png</iconset></property>
-                <property name="iconSize"><size><width>32</width><height>32</height></size></property>
-                <property name="toolButtonStyle"><enum>Qt::ToolButtonTextUnderIcon</enum></property>
-               </widget>
-              </item>
-              <item row="0" column="1">
-               <widget class="QToolButton" name="toolButton_3">
-                <property name="text"><string>记录回放</string></property>
-                <property name="icon"><iconset resource="../resource.qrc"><normaloff>:/resources/icon/record.png</normaloff>:/resources/icon/record.png</iconset></property>
-                <property name="iconSize"><size><width>32</width><height>32</height></size></property>
-                <property name="toolButtonStyle"><enum>Qt::ToolButtonTextUnderIcon</enum></property>
-               </widget>
-              </item>
-              <item row="0" column="2">
-               <widget class="QToolButton" name="FuncToolButton_2">
-                <property name="text"><string>态势感知</string></property>
-                <property name="icon"><iconset resource="../resource.qrc"><normaloff>:/resources/icon/data.png</normaloff>:/resources/icon/data.png</iconset></property>
-                <property name="iconSize"><size><width>32</width><height>32</height></size></property>
-                <property name="toolButtonStyle"><enum>Qt::ToolButtonTextUnderIcon</enum></property>
-               </widget>
-              </item>
-              <item row="0" column="3">
-               <widget class="QToolButton" name="FuncToolButton">
-                <property name="text"><string>态势操作</string></property>
-                <property name="icon"><iconset resource="../resource.qrc"><normaloff>:/resources/icon/control.png</normaloff>:/resources/icon/control.png</iconset></property>
-                <property name="iconSize"><size><width>32</width><height>32</height></size></property>
-                <property name="toolButtonStyle"><enum>Qt::ToolButtonTextUnderIcon</enum></property>
-               </widget>
-              </item>
-             </layout>
-            </item>
-            <item><spacer name="monitorSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer></item>
-           </layout>
-          </widget>
-
+         <widget class="QWidget" name="simradNavPanel" native="true">
+          <layout class="QGridLayout" name="simradNavGrid">
+           <property name="leftMargin"><number>10</number></property>
+           <property name="topMargin"><number>8</number></property>
+           <property name="rightMargin"><number>10</number></property>
+           <property name="bottomMargin"><number>8</number></property>
+           <property name="horizontalSpacing"><number>4</number></property>
+           <property name="verticalSpacing"><number>2</number></property>
+           <item row="0" column="0">
+            <widget class="QLabel" name="lblSOGTitle"><property name="text"><string>航速</string></property></widget>
+           </item>
+           <item row="0" column="2">
+            <widget class="QLabel" name="lblSOGUnit"><property name="text"><string>kn</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+           <item row="1" column="0" colspan="3">
+            <widget class="QLabel" name="lblSOGVal"><property name="text"><string>0.0</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="lblHDGTitle"><property name="text"><string>航向</string></property></widget>
+           </item>
+           <item row="2" column="2">
+            <widget class="QLabel" name="lblHDGUnit"><property name="text"><string>°T</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+           <item row="3" column="0" colspan="3">
+            <widget class="QLabel" name="lblHDGVal"><property name="text"><string>---</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+           <item row="4" column="0">
+            <widget class="QLabel" name="lblCOGTitle"><property name="text"><string>对地航向</string></property></widget>
+           </item>
+           <item row="4" column="2">
+            <widget class="QLabel" name="lblCOGUnit"><property name="text"><string>°T</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+           <item row="5" column="0" colspan="3">
+            <widget class="QLabel" name="lblCOGVal"><property name="text"><string>---</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+           <item row="6" column="0">
+            <widget class="QLabel" name="lblTURNTitle"><property name="text"><string>转头率</string></property></widget>
+           </item>
+           <item row="6" column="2">
+            <widget class="QLabel" name="lblTURNUnit"><property name="text"><string>°/s</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+           <item row="7" column="0" colspan="3">
+            <widget class="QLabel" name="lblTURNVal"><property name="text"><string>0.0</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+           <item row="8" column="0" colspan="3">
+            <widget class="QLabel" name="lblPOSTitle"><property name="text"><string>位置</string></property></widget>
+           </item>
+           <item row="9" column="0" colspan="3">
+            <widget class="QLabel" name="lblPOSLat"><property name="text"><string>N 00°00.000'</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+           <item row="10" column="0" colspan="3">
+            <widget class="QLabel" name="lblPOSLon"><property name="text"><string>E 000°00.000'</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+           <item row="11" column="0">
+            <widget class="QLabel" name="lblDepthTitle"><property name="text"><string>水深</string></property></widget>
+           </item>
+           <item row="11" column="2">
+            <widget class="QLabel" name="lblDepthUnit"><property name="text"><string>m</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+           <item row="12" column="0" colspan="3">
+            <widget class="QLabel" name="lblDepthVal"><property name="text"><string>---</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+           <item row="13" column="0" colspan="3">
+            <widget class="QLabel" name="lblNavDateTimeTitle"><property name="text"><string>日期/时间</string></property></widget>
+           </item>
+           <item row="14" column="0" colspan="3">
+            <widget class="QLabel" name="lblNavTime"><property name="text"><string>--:--:--</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+           <item row="15" column="0" colspan="3">
+            <widget class="QLabel" name="lblNavDate"><property name="text"><string>--/--/----</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="marineToggleBtn">
+          <property name="text"><string>▼ 雷达控制</string></property>
+          <property name="checkable"><bool>true</bool></property>
+          <property name="checked"><bool>false</bool></property>
+          <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QWidget" name="marineCtrlPanel" native="true">
+          <layout class="QGridLayout" name="marineCtrlLayout">
+           <property name="leftMargin"><number>8</number></property>
+           <property name="topMargin"><number>4</number></property>
+           <property name="rightMargin"><number>8</number></property>
+           <property name="bottomMargin"><number>4</number></property>
+           <property name="spacing"><number>4</number></property>
+           <item row="0" column="0">
+            <widget class="QLabel" name="lblMarineCmd">
+             <property name="text"><string>控制命令</string></property>
+            </widget>
+           </item>
+           <item row="0" column="1" colspan="2">
+            <widget class="QComboBox" name="marineCmdCombo"/>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="lblMarineAzimuth">
+             <property name="text"><string>方位角</string></property>
+            </widget>
+           </item>
+           <item row="1" column="1" colspan="2">
+            <widget class="QDoubleSpinBox" name="marineAzimuthSpin">
+             <property name="decimals"><number>2</number></property>
+             <property name="minimum"><double>0.000000000000000</double></property>
+             <property name="maximum"><double>359.990000000000009</double></property>
+             <property name="singleStep"><double>1.000000000000000</double></property>
+             <property name="suffix"><string>°</string></property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="lblMarineRange">
+             <property name="text"><string>量程</string></property>
+            </widget>
+           </item>
+           <item row="2" column="1" colspan="2">
+            <widget class="QComboBox" name="marineRangeCombo"/>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="lblMarineGain">
+             <property name="text"><string>波束锐化</string></property>
+            </widget>
+           </item>
+           <item row="3" column="1" colspan="2">
+            <widget class="QComboBox" name="marineGainCombo"/>
+           </item>
+           <item row="4" column="0">
+            <widget class="QLabel" name="lblMarineInterference">
+             <property name="text"><string>同频干扰</string></property>
+            </widget>
+           </item>
+           <item row="4" column="1" colspan="2">
+            <widget class="QComboBox" name="marineInterferenceCombo"/>
+           </item>
+           <item row="5" column="0">
+            <widget class="QLabel" name="lblMarineLevel">
+             <property name="text"><string>截位选择</string></property>
+            </widget>
+           </item>
+           <item row="5" column="1">
+            <widget class="QSlider" name="marineLevelSlider">
+             <property name="orientation"><enum>Qt::Horizontal</enum></property>
+             <property name="minimum"><number>0</number></property>
+             <property name="maximum"><number>255</number></property>
+            </widget>
+           </item>
+           <item row="5" column="2">
+            <widget class="QLabel" name="marineLevelValLabel">
+             <property name="text"><string>0</string></property>
+            </widget>
+           </item>
+           <item row="6" column="0">
+            <widget class="QLabel" name="lblMarineSea">
+             <property name="text"><string>海浪抑制</string></property>
+            </widget>
+           </item>
+           <item row="6" column="1">
+            <widget class="QSlider" name="marineSeaSlider">
+             <property name="orientation"><enum>Qt::Horizontal</enum></property>
+             <property name="minimum"><number>0</number></property>
+             <property name="maximum"><number>255</number></property>
+            </widget>
+           </item>
+           <item row="6" column="2">
+            <widget class="QLabel" name="marineSeaValLabel">
+             <property name="text"><string>自动</string></property>
+            </widget>
+           </item>
+           <item row="7" column="0">
+            <widget class="QLabel" name="lblMarineRain">
+             <property name="text"><string>雨雪抑制</string></property>
+            </widget>
+           </item>
+           <item row="7" column="1">
+            <widget class="QSlider" name="marineRainSlider">
+             <property name="orientation"><enum>Qt::Horizontal</enum></property>
+             <property name="minimum"><number>0</number></property>
+             <property name="maximum"><number>255</number></property>
+            </widget>
+           </item>
+           <item row="7" column="2">
+            <widget class="QLabel" name="marineRainValLabel">
+             <property name="text"><string>自动</string></property>
+            </widget>
+           </item>
+           <item row="8" column="0">
+            <widget class="QLabel" name="lblMarineTx">
+             <property name="text"><string>发射</string></property>
+            </widget>
+           </item>
+           <item row="8" column="1" colspan="2">
+            <widget class="QPushButton" name="marineTxToggle">
+             <property name="text"><string>发射 关</string></property>
+             <property name="checkable"><bool>true</bool></property>
+            </widget>
+           </item>
+           <item row="9" column="0">
+            <widget class="QLabel" name="lblMarineServo">
+             <property name="text"><string>天线转速</string></property>
+            </widget>
+           </item>
+           <item row="9" column="1">
+            <widget class="QComboBox" name="marineServoCombo"/>
+           </item>
+           <item row="9" column="2">
+            <widget class="QLabel" name="marineServoRpmLabel">
+             <property name="text"><string>0.00</string></property>
+            </widget>
+           </item>
+           <item row="10" column="0">
+            <widget class="QPushButton" name="sendMarineControlButton">
+             <property name="text"><string>下发参数</string></property>
+             <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+            </widget>
+           </item>
+           <item row="10" column="1">
+            <widget class="QPushButton" name="marineStartButton">
+             <property name="text"><string>启动</string></property>
+             <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+            </widget>
+           </item>
+           <item row="10" column="2">
+            <widget class="QPushButton" name="marineStopButton">
+             <property name="text"><string>停止</string></property>
+             <property name="cursor"><cursorShape>PointingHandCursor</cursorShape></property>
+            </widget>
+           </item>
+         </layout>
+        </widget>
+       </item>
+        <item>
+         <widget class="QWidget" name="servoStatusPanel" native="true">
+          <layout class="QGridLayout" name="servoStatusGrid">
+           <property name="leftMargin"><number>8</number></property>
+           <property name="topMargin"><number>6</number></property>
+           <property name="rightMargin"><number>8</number></property>
+           <property name="bottomMargin"><number>6</number></property>
+           <property name="spacing"><number>3</number></property>
+           <item row="0" column="0" colspan="2">
+            <widget class="QLabel" name="lblServoStatusTitle">
+             <property name="text"><string>伺服状态</string></property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="lblStRangeTitle"><property name="text"><string>量程</string></property></widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QLabel" name="lblStRangeVal"><property name="text"><string>--</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="lblStTxTitle"><property name="text"><string>发射</string></property></widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QLabel" name="lblStTxState"><property name="text"><string>关</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="lblStGainTitle"><property name="text"><string>波束锐化</string></property></widget>
+           </item>
+           <item row="3" column="1">
+            <widget class="QLabel" name="lblStGain"><property name="text"><string>0</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+           <item row="4" column="0">
+            <widget class="QLabel" name="lblStLevelTitle"><property name="text"><string>截位选择</string></property></widget>
+           </item>
+           <item row="4" column="1">
+            <widget class="QLabel" name="lblStLevel"><property name="text"><string>0</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+           <item row="5" column="0">
+            <widget class="QLabel" name="lblStSeaTitle"><property name="text"><string>海浪抑制</string></property></widget>
+           </item>
+           <item row="5" column="1">
+            <widget class="QLabel" name="lblStSea"><property name="text"><string>0</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+           <item row="6" column="0">
+            <widget class="QLabel" name="lblStRainTitle"><property name="text"><string>雨雪抑制</string></property></widget>
+           </item>
+           <item row="6" column="1">
+            <widget class="QLabel" name="lblStRain"><property name="text"><string>0</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+           <item row="7" column="0">
+            <widget class="QLabel" name="lblStGanRaoTitle"><property name="text"><string>同频干扰</string></property></widget>
+           </item>
+           <item row="7" column="1">
+            <widget class="QLabel" name="lblStGanRao"><property name="text"><string>0</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+           <item row="8" column="0">
+            <widget class="QLabel" name="lblStFreqTitle"><property name="text"><string>频综状态</string></property></widget>
+           </item>
+           <item row="8" column="1">
+            <widget class="QLabel" name="lblStFreq"><property name="text"><string>正常</string></property><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property></widget>
+           </item>
+          </layout>
          </widget>
         </item>
        </layout>
@@ -690,28 +452,6 @@
       </item>
 
       <item><spacer name="bottomSpacer2"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>10</width><height>20</height></size></property></spacer></item>
-
-      <item>
-       <widget class="QLabel" name="lblTargetCount"><property name="text"><string>目标数 0</string></property></widget>
-      </item>
-
-      <item><spacer name="bottomSpacer3"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>10</width><height>20</height></size></property></spacer></item>
-
-      <item>
-       <widget class="QLabel" name="lblHeading"><property name="text"><string>航向  0.0°</string></property></widget>
-      </item>
-      <item>
-       <widget class="QLabel" name="lblHeadingSrc2"><property name="text"><string>罗经</string></property></widget>
-      </item>
-
-      <item><spacer name="bottomSpacer4"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>10</width><height>20</height></size></property></spacer></item>
-
-      <item>
-       <widget class="QLabel" name="lblSpeed"><property name="text"><string>航速  0.0 Km/h</string></property></widget>
-      </item>
-      <item>
-       <widget class="QLabel" name="lblSpeedSrc2"><property name="text"><string>计程仪</string></property></widget>
-      </item>
      </layout>
     </widget>
    </item>
