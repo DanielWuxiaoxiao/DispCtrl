@@ -1023,6 +1023,11 @@ dataToScene            # RangeAzimuth坐标转换
 - **扇区数据流降载**：新增 `displayConfig.sector_display_enabled` 与 `sector_display_data_enabled`，默认不创建/不连接隐藏扇区显示，避免 `SectorDetManager` / `SectorTrackManager` 的 per-point item 路径进入压测热路径
 - **扇区隐藏图元优化**：扇区检测点、航迹点、连线、标签在不可见时从 `QGraphicsScene` 移除但保留对象和业务数据；重新可见时再加入 scene，减少 invisible item 对 scene 索引、命中测试和遍历的压力
 
+### v5.15 (2026-05-22)
+- **显控入口调整**：`伺服控制` 按钮从“雷达控制”tab 移至“参数设置”tab，并新增 `伺服归北` 快捷按钮。
+- **伺服归北序列**：点击 `伺服归北` 后立即下发 `方位归北 0°`，4 秒后自动下发 `方位寻位 0°`，两条命令均写入显控命令日志。
+- **模式下发联动**：TWS/TAS 模式对话框完成参数下发后，如果雷达仍处于待机状态，自动触发现有“进入工作”按钮逻辑；已在工作态时不反向切回待机。
+
 ---
 
 ## 联系与贡献

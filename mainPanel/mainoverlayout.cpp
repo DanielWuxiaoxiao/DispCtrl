@@ -261,6 +261,8 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     connect(ui->btnTASMode, &QPushButton::clicked, this, &MainOverLayOut::onTASModeClicked);
     connect(ui->btnServoControl, &QPushButton::clicked, this,
             &MainOverLayOut::onServoControlClicked);
+    connect(ui->btnServoNorth, &QPushButton::clicked, this,
+            &MainOverLayOut::onServoNorthClicked);
     connect(ui->btnTransmitControl, &QPushButton::clicked, this,
             &MainOverLayOut::onTransmitControlClicked);
     connect(ui->btnRadarStandby, &QPushButton::clicked, this,
@@ -271,15 +273,7 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     connect(ui->btnSignalProcess, &QPushButton::clicked, this,
             &MainOverLayOut::onSignalProcessClicked);
     connect(ui->btnFreqControl, &QPushButton::clicked, this, &MainOverLayOut::onFreqControlClicked);
-    // 非管理者模式：隐藏"波形及采样控制"按钮，并紧凑布局
-    if (!AuthManager::instance().isAdminMode()) {
-        hideFromGrid(ui->paramSettingsGrid, ui->btnFreqControl);
-        // 将"阵面开启控制"和"工作模式设置"上移填补空行
-        ui->paramSettingsGrid->removeWidget(ui->btnBatteryControl);
-        ui->paramSettingsGrid->removeWidget(ui->btnScanRange);
-        ui->paramSettingsGrid->addWidget(ui->btnBatteryControl, 1, 0);
-        ui->paramSettingsGrid->addWidget(ui->btnScanRange, 1, 1);
-    }
+    arrangeParamSettingsButtons();
     // 隐藏方向图扫描控制按钮，功能已集成到"范围设置"tab中
     // ui->btnScanRange->setVisible(false);
     connect(ui->btnScanRange, &QPushButton::clicked, this, &MainOverLayOut::onScanRangeClicked);
@@ -1856,6 +1850,7 @@ void MainOverLayOut::onTWSModeClicked() {
             .arg(param.az * 0.01));
         // 发送伺服控制配置
         emit sig_SetServoControlParam(param);
+        enterWorkingModeIfStandby();
     });
 
     // 设置对话框作为内容
@@ -1926,6 +1921,7 @@ void MainOverLayOut::onTASModeClicked() {
             .arg(param.az * 0.01));
         // 发送伺服控制配置
         emit sig_SetServoControlParam(param);
+        enterWorkingModeIfStandby();
     });
 
     // 设置对话框作为内容
@@ -2126,6 +2122,29 @@ void MainOverLayOut::onServoControlClicked() {
     connect(dialog, &ServoControl::setParam, this, [this]() { logCommand("伺服控制", ""); });
 
     window->show();
+}
+
+void MainOverLayOut::onServoNorthClicked()
+{
+    ServoControlParam northParam;
+    northParam.cmd = 3;
+    northParam.speed = m_servoControlParam.speed;
+    northParam.az = 0;
+
+    m_servoControlParam = northParam;
+    CON_INS->sendServoControl(northParam);
+    logCommand("伺服归北", "指令: 方位归北, 速度: "
+                              + QString::number(northParam.speed) + "秒/转, 角度: 0°");
+
+    ServoControlParam seekParam = northParam;
+    seekParam.cmd = 2;
+
+    QTimer::singleShot(4000, this, [this, seekParam]() {
+        m_servoControlParam = seekParam;
+        CON_INS->sendServoControl(seekParam);
+        logCommand("伺服归北", "指令: 方位寻位, 速度: "
+                                  + QString::number(seekParam.speed) + "秒/转, 角度: 0°");
+    });
 }
 /**
  * @brief 打开方向图扫描控制对话框
@@ -2741,6 +2760,49 @@ void MainOverLayOut::onRadarStandbyClicked()
                .arg(m_isStandby ? "待机" : "TWS工作"));
 }
 
+void MainOverLayOut::enterWorkingModeIfStandby()
+{
+    if (!m_isStandby) {
+        return;
+    }
+
+    ui->btnRadarStandby->click();
+}
+
+void MainOverLayOut::arrangeParamSettingsButtons()
+{
+    const QList<QPushButton*> managedButtons = {
+        ui->btnDataProcess,
+        ui->btnSignalProcess,
+        ui->btnServoControl,
+        ui->btnScanRange,
+        ui->btnFreqControl,
+        ui->btnBatteryControl
+    };
+
+    for (auto* btn : managedButtons) {
+        ui->paramSettingsGrid->removeWidget(btn);
+        btn->hide();
+    }
+
+    QList<QPushButton*> visibleButtons = {
+        ui->btnDataProcess,
+        ui->btnSignalProcess,
+        ui->btnServoControl,
+        ui->btnScanRange
+    };
+
+    if (AuthManager::instance().isAdminMode()) {
+        visibleButtons.append(ui->btnFreqControl);
+    }
+
+    for (int i = 0; i < visibleButtons.size(); ++i) {
+        auto* btn = visibleButtons.at(i);
+        btn->show();
+        ui->paramSettingsGrid->addWidget(btn, i / 2, i % 2);
+    }
+}
+
 /**
  * @brief 更新发射按钮的显示状态
  * @details 根据当前发射状态更新按钮的颜色和文本
@@ -2941,18 +3003,18 @@ void MainOverLayOut::applyScaledSizes() {
     QList<QPushButton*> radarBtns = {
         ui->btnStartSoftware, ui->btnStopSoftware,
         ui->btnTWSMode,       ui->btnTASMode,
-        ui->btnServoControl,  ui->btnDataStorage,
-        ui->btnTransmitControl, ui->btnRadarStandby
+        ui->btnDataStorage,   ui->btnTransmitControl,
+        ui->btnRadarStandby
     };
     for (auto* btn : radarBtns) {
         btn->setMinimumHeight(btnH);
     }
 
-    // --- 参数设置按钮 (3×2 grid) ---
+    // --- 参数设置按钮 ---
     QList<QPushButton*> paramBtns = {
         ui->btnDataProcess,   ui->btnSignalProcess,
-        ui->btnFreqControl,   ui->btnBatteryControl,
-        ui->btnScanRange
+        ui->btnServoControl,  ui->btnScanRange,
+        ui->btnFreqControl
     };
     for (auto* btn : paramBtns) {
         btn->setMinimumHeight(btnH);

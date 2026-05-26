@@ -273,6 +273,12 @@ private slots:
     void onServoControlClicked();
 
     /**
+     * @brief 执行伺服归北序列
+     * @details 先下发方位归北0°，4秒后下发方位寻位0°
+     */
+    void onServoNorthClicked();
+
+    /**
      * @brief 打开数据存储管理对话框
      * @details 配置数据保存和删除参数
      */
@@ -560,6 +566,16 @@ private:
      * @details 根据当前待机状态更新按钮的颜色和文本
      */
     void updateStandbyButton();
+
+    /**
+     * @brief 如果当前处于待机状态，则触发进入工作
+     */
+    void enterWorkingModeIfStandby();
+
+    /**
+     * @brief 按登录权限紧凑排列参数设置按钮
+     */
+    void arrangeParamSettingsButtons();
 };
 
 #endif // MAINOVERLAYOUT_H
