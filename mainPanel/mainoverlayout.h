@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-21 11:46:03
+ * @LastEditTime: 2026-05-28 13:44:06
  * @Description: 
  */
 /**
@@ -470,6 +470,8 @@ private:
      *          日志从顶部添加，自动限制最大行数
      */
     void logCommand(const QString &commandName, const QString &parameters);
+    QString servoCommandText(unsigned char cmd) const;
+    QString formatServoControlDetails(const ServoControlParam& param, const QString& source) const;
 
     /**
      * @brief 设置命令序列

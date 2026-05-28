@@ -472,6 +472,11 @@ QToolButton[buttonGroup="A"] {
     /* 较暗的绿色边框 */
     border-radius: 8px;
     background-color: transparent;
+    outline: none;
+}
+
+QToolButton:focus {
+    outline: none;
 }
 
 /* 鼠标悬浮 */
@@ -874,6 +879,11 @@ QPushButton {
     /* 较暗的绿色边框 */
     border-radius: 8px;
     background-color: transparent;
+    outline: none;
+}
+
+QPushButton:focus {
+    outline: none;
 }
 
 /* 鼠标悬浮 */

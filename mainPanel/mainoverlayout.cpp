@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-21 11:46:03
+ * @LastEditTime: 2026-05-28 13:44:05
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -2114,12 +2114,13 @@ void MainOverLayOut::onServoControlClicked() {
 
     dialog->restoreParam(m_servoControlParam);
 
-    connect(dialog, &ServoControl::setParam, this,
-            [this](const ServoControlParam param) { m_servoControlParam = param; });
+    connect(dialog, &ServoControl::setParam, this, [this](const ServoControlParam param) {
+        m_servoControlParam = param;
+        logCommand(QString::fromUtf8(u8"\u624b\u52a8\u4f3a\u670d\u63a7\u5236"),
+                   formatServoControlDetails(param, QString::fromUtf8(u8"\u624b\u52a8\u4e0b\u53d1")));
+    });
 
     connect(dialog, &ServoControl::setParam, CON_INS, &Controller::sendServoControl);
-
-    connect(dialog, &ServoControl::setParam, this, [this]() { logCommand("伺服控制", ""); });
 
     window->show();
 }
@@ -2133,17 +2134,17 @@ void MainOverLayOut::onServoNorthClicked()
 
     m_servoControlParam = northParam;
     CON_INS->sendServoControl(northParam);
-    logCommand("伺服归北", "指令: 方位归北, 速度: "
-                              + QString::number(northParam.speed) + "秒/转, 角度: 0°");
+    logCommand(QString::fromUtf8(u8"\u4e00\u952e\u4f3a\u670d\u5f52\u5317"),
+               formatServoControlDetails(northParam, QString::fromUtf8(u8"\u7b2c1\u6b65/2: \u5f52\u53170\u00b0")));
 
     ServoControlParam seekParam = northParam;
     seekParam.cmd = 2;
 
-    QTimer::singleShot(4000, this, [this, seekParam]() {
+    QTimer::singleShot(2000, this, [this, seekParam]() {
         m_servoControlParam = seekParam;
         CON_INS->sendServoControl(seekParam);
-        logCommand("伺服归北", "指令: 方位寻位, 速度: "
-                                  + QString::number(seekParam.speed) + "秒/转, 角度: 0°");
+        logCommand(QString::fromUtf8(u8"\u4e00\u952e\u4f3a\u670d\u5f52\u5317"),
+                   formatServoControlDetails(seekParam, QString::fromUtf8(u8"\u7b2c2\u6b65/2: 2s\u540e\u5bfb\u4f4d0\u00b0")));
     });
 }
 /**
@@ -2280,6 +2281,39 @@ void MainOverLayOut::logCommand(const QString& commandName, const QString& param
     }
 
     appendLogLine(newLogEntry);
+}
+
+// Servo control logging helpers. Keep protocol send paths unchanged; these only format UI log text.
+QString MainOverLayOut::servoCommandText(unsigned char cmd) const
+{
+    switch (cmd) {
+    case 0:
+        return QString::fromUtf8(u8"\u65b9\u4f4d\u505c\u8f6c");
+    case 1:
+        return QString::fromUtf8(u8"\u65b9\u4f4d\u8f6c\u52a8");
+    case 2:
+        return QString::fromUtf8(u8"\u65b9\u4f4d\u5bfb\u4f4d");
+    case 3:
+        return QString::fromUtf8(u8"\u65b9\u4f4d\u5f52\u5317");
+    default:
+        return QString::fromUtf8(u8"\u672a\u77e5\u6307\u4ee4");
+    }
+}
+
+QString MainOverLayOut::formatServoControlDetails(const ServoControlParam& param, const QString& source) const
+{
+    const QString mesId = QStringLiteral("0x")
+        + QString("%1").arg(param.mesID, 4, 16, QLatin1Char('0')).toUpper();
+    const double azDeg = static_cast<double>(param.az) / 100.0;
+
+    return QString::fromUtf8(u8"%1, mesID=%2, cmd=%3(%4), speed=%5\u79d2/\u8f6c, azRaw=%6, az=%7\u00b0")
+        .arg(source)
+        .arg(mesId)
+        .arg(static_cast<unsigned int>(param.cmd))
+        .arg(servoCommandText(param.cmd))
+        .arg(static_cast<unsigned int>(param.speed))
+        .arg(param.az)
+        .arg(azDeg, 0, 'f', 2);
 }
 
 /**
@@ -2974,6 +3008,8 @@ void MainOverLayOut::applyScaledSizes() {
     ui->CloseButton->setMaximumWidth(topButtonW);
     ui->minButton->setMinimumWidth(topButtonW);
     ui->minButton->setMaximumWidth(topButtonW);
+    ui->CloseButton->setFocusPolicy(Qt::NoFocus);
+    ui->minButton->setFocusPolicy(Qt::NoFocus);
     ui->timeLabel->setMaximumWidth(rightW);
     ui->FuncWidget->setMaximumWidth(rightW);
     const QList<QToolButton*> functionButtons = {
@@ -2983,6 +3019,7 @@ void MainOverLayOut::applyScaledSizes() {
         btn->setMinimumWidth(funcButtonW);
         btn->setMinimumHeight(funcButtonH);
         btn->setIconSize(QSize(funcIcon, funcIcon));
+        btn->setFocusPolicy(Qt::NoFocus);
     }
     ui->pviewFitW->setMinimumWidth(rightMinW);
     ui->pviewFitW->setMaximumWidth(QWIDGETSIZE_MAX);
@@ -3003,11 +3040,12 @@ void MainOverLayOut::applyScaledSizes() {
     QList<QPushButton*> radarBtns = {
         ui->btnStartSoftware, ui->btnStopSoftware,
         ui->btnTWSMode,       ui->btnTASMode,
-        ui->btnDataStorage,   ui->btnTransmitControl,
-        ui->btnRadarStandby
+        ui->btnDataStorage,   ui->btnServoNorth,
+        ui->btnRadarStandby,  ui->btnTransmitControl
     };
     for (auto* btn : radarBtns) {
         btn->setMinimumHeight(btnH);
+        btn->setFocusPolicy(Qt::NoFocus);
     }
 
     // --- 参数设置按钮 ---
@@ -3018,6 +3056,7 @@ void MainOverLayOut::applyScaledSizes() {
     };
     for (auto* btn : paramBtns) {
         btn->setMinimumHeight(btnH);
+        btn->setFocusPolicy(Qt::NoFocus);
     }
 
     // --- Logo ---
