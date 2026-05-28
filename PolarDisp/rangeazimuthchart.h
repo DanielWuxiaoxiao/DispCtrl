@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2026-01-30 11:45:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-18 15:26:22
+ * @LastEditTime: 2026-05-28 17:21:47
  * @Description: 
  */
 /*
@@ -294,7 +294,8 @@ private:
 
     // 样式配置
     QColor m_detectionColor = QColor(0, 255, 0);    ///< 检测点颜色（绿色）
-    QColor m_trackColor = Qt::red;                  ///< 航迹颜色（红色，与P显保持一致）
+    QColor m_trackColor = TRA_COLOR;                ///< 普通航迹-无人机颜色（红色，与P显保持一致）
+    QColor m_otherTrackColor = DRONE_COLOR;         ///< 普通航迹-其它目标颜色（黄色，与P显保持一致）
     QColor m_tbdTrackColor = QColor(TBD_COLOR);     ///< TBD航迹颜色
     QColor m_cooperativeTrackColor = QColor(CO_TRACK_COLOR); ///< 协同航迹颜色
 

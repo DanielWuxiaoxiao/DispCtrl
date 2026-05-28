@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-05-12 16:10:26
+ * @Date: 2026-05-18 15:26:15
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-18 15:26:22
+ * @LastEditTime: 2026-05-28 17:21:47
  * @Description: 
  */
 #include "rangeheightchart.h"
@@ -109,7 +109,7 @@ public:
         drawPoints(painter, m_chart->m_trackColor,
                    qMax<qreal>(1.0, m_chart->m_baseTrackSize * m_chart->m_trackSizeRatio),
                    normalTracks);
-        drawPoints(painter, m_chart->m_tbdTrackColor,
+        drawPoints(painter, m_chart->m_otherTrackColor,
                    qMax<qreal>(1.0, m_chart->m_baseTrackSize * m_chart->m_trackSizeRatio),
                    otherTracks);
         drawPoints(painter, m_chart->m_tbdTrackColor,
@@ -751,7 +751,7 @@ void RangeHeightChart::refreshAllPoints()
 QColor RangeHeightChart::trackColor(const PointInfo& info) const
 {
     if (info.type == PointType::Track) {
-        return (info.targetRecResult == 1) ? m_trackColor : m_tbdTrackColor;
+        return (info.targetRecResult == 1) ? m_trackColor : m_otherTrackColor;
     }
 
     switch (static_cast<PointType>(info.type)) {

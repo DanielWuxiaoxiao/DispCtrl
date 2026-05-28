@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-05-12 16:06:20
+ * @Date: 2026-05-18 15:26:15
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-18 15:26:22
+ * @LastEditTime: 2026-05-28 17:21:48
  * @Description: 
  */
 #ifndef RANGEHEIGHTCHART_H
@@ -119,7 +119,8 @@ private:
     double m_maxHeight = 500.0;
 
     QColor m_detectionColor = QColor(0, 255, 0);
-    QColor m_trackColor = Qt::red;
+    QColor m_trackColor = TRA_COLOR;
+    QColor m_otherTrackColor = DRONE_COLOR;
     QColor m_tbdTrackColor = QColor(TBD_COLOR);
     QColor m_cooperativeTrackColor = QColor(CO_TRACK_COLOR);
 
