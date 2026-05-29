@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-18 15:26:24
+ * @LastEditTime: 2026-05-29 09:49:43
  * @Description: 
  */
 /**
@@ -46,6 +46,7 @@
 #include "Controller/controller.h"
 #include "PolarDisp/ppiview.h"
 #include "Controller/gcsmanager.h"
+#include "Controller/edgeradarreporter.h"
 
 /**
  * @brief FramelessMainWindow构造函数实现
@@ -218,13 +219,18 @@ void FramelessMainWindow::setupOverlayUI()
         // 初始化GCS管理器并注入到PPIView
         GCSManager* gcsMgr = new GCSManager(this);
         if (gcsMgr->init()) {
-            connect(gcsMgr, &GCSManager::logMessage, this,
-                    [](const QString& msg) {
-                        LOG_INFO(msg);
-                    });
-            connect(gcsMgr, &GCSManager::logMessage, m_overlayWidget,
-                    &MainOverLayOut::appendExternalLog);
             ppiView->setGCSManager(gcsMgr);
+        }
+
+        EdgeRadarReporter* edgeReporter = new EdgeRadarReporter(this);
+        connect(edgeReporter, &EdgeRadarReporter::logMessage, this,
+                [](const QString& msg) {
+                    LOG_INFO(msg);
+                });
+        connect(edgeReporter, &EdgeRadarReporter::logMessage, m_overlayWidget,
+                &MainOverLayOut::appendExternalLog);
+        if (edgeReporter->init()) {
+            ppiView->setEdgeRadarReporter(edgeReporter);
         }
     }
 }

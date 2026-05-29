@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-18 15:26:21
+ * @LastEditTime: 2026-05-29 09:49:42
  * @Description: 
  */
 /**
@@ -33,6 +33,7 @@
 #include "../Controller/RadarDataManager.h"
 #include "../mainPanel/mainoverlayout.h"
 #include "../Controller/gcsmanager.h"
+#include "../Controller/edgeradarreporter.h"
 
 #include <QMouseEvent>
 #include <QMenu>
@@ -52,6 +53,7 @@
 
 bool PPIView::sendTrackTargetAssignment(int batchID)
 {
+    if (!m_gcsTargetReportEnabled) return false;
     if (!m_gcsMgr || !m_scene || !m_scene->track()) return false;
 
     PointInfo info;
@@ -503,7 +505,12 @@ void PPIView::setPPIScene(PPIScene* scene) {
                     pointInfo->updatePointInfo(info);
                 }
 
-                if (m_autoSendTrackBatches.contains(static_cast<int>(info.batch))) {
+                if (m_edgeRadarReporter) {
+                    m_edgeRadarReporter->reportTrackPoint(info);
+                }
+
+                if (m_gcsTargetReportEnabled
+                    && m_autoSendTrackBatches.contains(static_cast<int>(info.batch))) {
                     sendTrackTargetAssignment(static_cast<int>(info.batch));
                 }
             });
@@ -1313,6 +1320,15 @@ void PPIView::setRadarCenter(double longitude, double latitude)
 void PPIView::setGCSManager(GCSManager* mgr)
 {
     m_gcsMgr = mgr;
+    m_gcsTargetReportEnabled = CF_INS.gcsTargetReportEnabled(false);
+    if (!m_gcsTargetReportEnabled) {
+        m_autoSendTrackBatches.clear();
+    }
+}
+
+void PPIView::setEdgeRadarReporter(EdgeRadarReporter* reporter)
+{
+    m_edgeRadarReporter = reporter;
 }
 
 void PPIView::setOnlyRecognizedDroneTracksVisible(bool enabled)
@@ -1342,7 +1358,7 @@ void PPIView::onTrackLabelRightClicked(int batchID)
 
     QMenu menu(this);
     QAction* sendAction = nullptr;
-    if (m_gcsMgr) {
+    if (m_gcsTargetReportEnabled && m_gcsMgr) {
         sendAction = menu.addAction(
             tr("目标下发 [批次: %1]").arg(batchID));
     }

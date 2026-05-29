@@ -1028,6 +1028,13 @@ dataToScene            # RangeAzimuth坐标转换
 - **伺服归北序列**：点击 `伺服归北` 后立即下发 `方位归北 0°`，4 秒后自动下发 `方位寻位 0°`，两条命令均写入显控命令日志。
 - **模式下发联动**：TWS/TAS 模式对话框完成参数下发后，如果雷达仍处于待机状态，自动触发现有“进入工作”按钮逻辑；已在工作态时不反向切回待机。
 
+### v5.16 (2026-05-29)
+- **旧GCS上报开关**：旧二进制 GCS `0x52` 航迹目标上报由 `network.gcs.target_report_enabled` 控制，默认 `false`；关闭时右键目标下发入口和后续自动上报都不启用。
+- **边缘终端JSON上报**：新增 `EdgeRadarReporter`，由 `network.edge_radar_report.enabled` 控制，默认 `false`；开启后每收到新的普通航迹点即按 UDP JSON `type=target` 单目标单包上报。
+- **JSON心跳**：`EdgeRadarReporter` 按 `network.edge_radar_report.heartbeat_interval_ms` 发送 `type=heartbeat`，GPS 来源为 `[radar] latitude/longitude/altitude`。
+- **上报调试日志**：`EdgeRadarReporter` 输出初始化配置、绑定结果、目标/心跳发送结果与完整 JSON payload，便于和 Wireshark 抓包逐字段对照；旧 `GCSManager` 日志不再接入显控主日志。
+- **默认通信参数**：`network.edge_radar_report.target_ip=192.168.1.100`、`target_port=9001`、`local_ip=0.0.0.0`、`local_port=0`；TBD/协同航迹暂不进入该鸟/无人机 JSON 目标协议。
+
 ---
 
 ## 联系与贡献

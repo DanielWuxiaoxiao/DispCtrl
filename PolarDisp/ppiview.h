@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-18 15:26:21
+ * @LastEditTime: 2026-05-29 09:49:42
  * @Description: 
  */
 /**
@@ -22,6 +22,8 @@
 #include <QGraphicsView>
 #include <QRubberBand>
 #include <QSet>
+
+class EdgeRadarReporter;
 
 // 前向声明 - 避免头文件循环依赖
 class PPIScene;           ///< PPI场景管理器
@@ -145,6 +147,7 @@ public:
      * @param mgr GCSManager指针
      */
     void setGCSManager(GCSManager* mgr);
+    void setEdgeRadarReporter(EdgeRadarReporter* reporter);
 
     /**
      * @brief 设置是否仅显示识别为无人机的普通航迹
@@ -400,7 +403,9 @@ private:
 
     // GCS通信
     GCSManager* m_gcsMgr = nullptr;          ///< GCS管理器（由外部注入，不拥有所有权）
+    EdgeRadarReporter* m_edgeRadarReporter = nullptr; ///< JSON雷达数据上报器（由外部注入，不拥有所有权）
     QSet<int> m_autoSendTrackBatches;        ///< 已订阅自动下发的航迹批次
+    bool m_gcsTargetReportEnabled = false;   ///< 是否启用旧GCS 0x52航迹点上报
 
     // 道路点下发状态跟踪（用于浮点容差判断）
     double m_lastSentLat = 0.0;              ///< 上次下发时的雷达纬度

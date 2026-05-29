@@ -56,6 +56,19 @@ DISP_CTRL_ID = 47876                 # 显示控制系统ID
 TAR_CLA_ID = 47877                   # 目标分类系统ID
 MONITOR_ID = 47878                   # 监控系统ID
 
+[network.gcs]
+# Legacy GCS binary 0x52 track target report. Disabled by default.
+target_report_enabled = false
+
+[network.edge_radar_report]
+# UDP JSON radar target/heartbeat report for edge-computing terminal.
+enabled = false
+target_ip = "192.168.1.100"
+target_port = 9001
+local_ip = "0.0.0.0"
+local_port = 0
+heartbeat_interval_ms = 5000
+
 # =============================================================================
 # 雷达系统参数配置 Radar System Parameters Configuration
 # =============================================================================

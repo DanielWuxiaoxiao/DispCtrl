@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-20 09:53:36
+ * @LastEditTime: 2026-05-29 09:49:42
  * @Description: 
  */
 #ifndef CONFIGMANAGER_H
@@ -65,6 +65,34 @@ public:
 
     quint16 gcsSrcPort() const {
         return static_cast<quint16>(getValue("network.ports.GCS_SRC_PORT", 19800).toUInt());
+    }
+
+    bool gcsTargetReportEnabled(bool def = false) const {
+        return getValue("network.gcs.target_report_enabled", def).toBool();
+    }
+
+    bool edgeRadarReportEnabled(bool def = false) const {
+        return getValue("network.edge_radar_report.enabled", def).toBool();
+    }
+
+    QString edgeRadarReportIp(const QString& def = "192.168.1.100") const {
+        return getValue("network.edge_radar_report.target_ip", def).toString();
+    }
+
+    quint16 edgeRadarReportPort(quint16 def = 9001) const {
+        return static_cast<quint16>(getValue("network.edge_radar_report.target_port", def).toUInt());
+    }
+
+    QString edgeRadarReportLocalIp(const QString& def = "0.0.0.0") const {
+        return getValue("network.edge_radar_report.local_ip", def).toString();
+    }
+
+    quint16 edgeRadarReportLocalPort(quint16 def = 0) const {
+        return static_cast<quint16>(getValue("network.edge_radar_report.local_port", def).toUInt());
+    }
+
+    int edgeRadarHeartbeatIntervalMs(int def = 5000) const {
+        return getValue("network.edge_radar_report.heartbeat_interval_ms", def).toInt();
     }
 
     int range(const QString& key, int def = 0) const {
