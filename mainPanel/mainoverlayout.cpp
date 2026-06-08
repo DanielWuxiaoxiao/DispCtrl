@@ -1028,13 +1028,48 @@ void MainOverLayOut::setupTrackTable(QTableWidget* tableWidget, FrozenColumnHelp
     QHeaderView* headerView = tableWidget->horizontalHeader();
     headerView->setStretchLastSection(false);
     headerView->setMinimumSectionSize(48);
-    const QList<int> columnWidths = {64, 58, 58, 58, 58, 58, 54, 70};
     for (int i = 0; i < headers.size(); ++i) {
         headerView->setSectionResizeMode(i, QHeaderView::Interactive);
-        tableWidget->setColumnWidth(i, columnWidths.value(i, 58));
     }
+    fitTrackTableColumnsToViewport(tableWidget);
+    QTimer::singleShot(0, tableWidget, [this, tableWidget]() {
+        fitTrackTableColumnsToViewport(tableWidget);
+    });
 
     frozenHelper = nullptr;
+}
+
+void MainOverLayOut::fitTrackTableColumnsToViewport(QTableWidget* tableWidget)
+{
+    if (!tableWidget || tableWidget->columnCount() <= 0) {
+        return;
+    }
+
+    const QList<int> baseWidths = {64, 58, 58, 58, 58, 58, 54, 70};
+    const int minColumnWidth = tableWidget->horizontalHeader()->minimumSectionSize();
+    int baseTotal = 0;
+    int minTotal = 0;
+    for (int i = 0; i < tableWidget->columnCount(); ++i) {
+        baseTotal += baseWidths.value(i, minColumnWidth);
+        minTotal += minColumnWidth;
+    }
+
+    const int viewportWidth = tableWidget->viewport()->width();
+    const int targetWidth = qMax(viewportWidth, minTotal);
+    if (baseTotal <= 0 || targetWidth <= 0) {
+        return;
+    }
+
+    int assignedWidth = 0;
+    for (int i = 0; i < tableWidget->columnCount(); ++i) {
+        const int baseWidth = baseWidths.value(i, minColumnWidth);
+        int width = qMax(minColumnWidth, (targetWidth * baseWidth) / baseTotal);
+        if (i == tableWidget->columnCount() - 1) {
+            width = qMax(minColumnWidth, targetWidth - assignedWidth);
+        }
+        tableWidget->setColumnWidth(i, width);
+        assignedWidth += width;
+    }
 }
 
 void MainOverLayOut::syncFrozenTrackTables()
