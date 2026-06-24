@@ -33,6 +33,7 @@
 #include "../Controller/RadarDataManager.h"
 #include "../mainPanel/mainoverlayout.h"
 #include "../Controller/gcsmanager.h"
+#include "../Controller/totalcontrolmqttclient.h"
 #include "../Controller/edgeradarreporter.h"
 
 #include <QMouseEvent>
@@ -508,6 +509,9 @@ void PPIView::setPPIScene(PPIScene* scene) {
                 if (m_edgeRadarReporter) {
                     m_edgeRadarReporter->reportTrackPoint(info);
                 }
+                if (m_totalControlMqttClient) {
+                    m_totalControlMqttClient->updateOwnTrack(info);
+                }
 
                 if (m_gcsTargetReportEnabled
                     && m_autoSendTrackBatches.contains(static_cast<int>(info.batch))) {
@@ -517,6 +521,12 @@ void PPIView::setPPIScene(PPIScene* scene) {
             LOG_INFO("Connected TrackManager::trackPointAdded for continuous update");
 
             connect(m_scene->track(), &TrackManager::trackRemoved, this, [this](int batchID) {
+                if (m_edgeRadarReporter) {
+                    m_edgeRadarReporter->removeTrackPoint(static_cast<unsigned int>(batchID));
+                }
+                if (m_totalControlMqttClient) {
+                    m_totalControlMqttClient->removeTrack(static_cast<unsigned int>(batchID));
+                }
                 m_autoSendTrackBatches.remove(batchID);
             });
         }
@@ -1329,6 +1339,11 @@ void PPIView::setGCSManager(GCSManager* mgr)
 void PPIView::setEdgeRadarReporter(EdgeRadarReporter* reporter)
 {
     m_edgeRadarReporter = reporter;
+}
+
+void PPIView::setTotalControlMqttClient(TotalControlMqttClient* client)
+{
+    m_totalControlMqttClient = client;
 }
 
 void PPIView::setOnlyRecognizedDroneTracksVisible(bool enabled)

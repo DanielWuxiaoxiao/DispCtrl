@@ -68,6 +68,24 @@ target_port = 9001
 local_ip = "0.0.0.0"
 local_port = 0
 heartbeat_interval_ms = 5000
+target_report_interval_ms = 4000
+max_target_distance_m = 2000.0
+
+[network.edge_radar_result]
+# UDP JSON optical recognition result returned by edge-computing terminal.
+enabled = true
+local_ip = "0.0.0.0"
+local_port = 9002
+
+[network.total_control_mqtt]
+# MQTT QoS0 report for local radar recognition + edge optical recognition.
+enabled = false
+host = "192.168.1.30"
+port = 1883
+client_id = "DispCtrl-X576"
+topic = "x576/target/result"
+keep_alive_sec = 30
+publish_interval_ms = 4000
 
 # =============================================================================
 # 雷达系统参数配置 Radar System Parameters Configuration

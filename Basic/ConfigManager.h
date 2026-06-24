@@ -95,6 +95,54 @@ public:
         return getValue("network.edge_radar_report.heartbeat_interval_ms", def).toInt();
     }
 
+    int edgeRadarTargetReportIntervalMs(int def = 4000) const {
+        return getValue("network.edge_radar_report.target_report_interval_ms", def).toInt();
+    }
+
+    double edgeRadarMaxTargetDistanceM(double def = 2000.0) const {
+        return getValue("network.edge_radar_report.max_target_distance_m", def).toDouble();
+    }
+
+    bool edgeRadarResultReceiveEnabled(bool def = true) const {
+        return getValue("network.edge_radar_result.enabled", def).toBool();
+    }
+
+    QString edgeRadarResultLocalIp(const QString& def = "0.0.0.0") const {
+        return getValue("network.edge_radar_result.local_ip", def).toString();
+    }
+
+    quint16 edgeRadarResultLocalPort(quint16 def = 9002) const {
+        return static_cast<quint16>(getValue("network.edge_radar_result.local_port", def).toUInt());
+    }
+
+    bool totalControlMqttEnabled(bool def = false) const {
+        return getValue("network.total_control_mqtt.enabled", def).toBool();
+    }
+
+    QString totalControlMqttHost(const QString& def = "192.168.1.30") const {
+        return getValue("network.total_control_mqtt.host", def).toString();
+    }
+
+    quint16 totalControlMqttPort(quint16 def = 1883) const {
+        return static_cast<quint16>(getValue("network.total_control_mqtt.port", def).toUInt());
+    }
+
+    QString totalControlMqttClientId(const QString& def = "DispCtrl-X576") const {
+        return getValue("network.total_control_mqtt.client_id", def).toString();
+    }
+
+    QString totalControlMqttTopic(const QString& def = "x576/target/result") const {
+        return getValue("network.total_control_mqtt.topic", def).toString();
+    }
+
+    int totalControlMqttKeepAliveSec(int def = 30) const {
+        return getValue("network.total_control_mqtt.keep_alive_sec", def).toInt();
+    }
+
+    int totalControlMqttPublishIntervalMs(int def = 4000) const {
+        return getValue("network.total_control_mqtt.publish_interval_ms", def).toInt();
+    }
+
     int range(const QString& key, int def = 0) const {
         return getValue("polarDisp.range." + key, def).toInt();
     }

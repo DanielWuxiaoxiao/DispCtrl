@@ -1030,10 +1030,20 @@ dataToScene            # RangeAzimuth坐标转换
 
 ### v5.16 (2026-05-29)
 - **旧GCS上报开关**：旧二进制 GCS `0x52` 航迹目标上报由 `network.gcs.target_report_enabled` 控制，默认 `false`；关闭时右键目标下发入口和后续自动上报都不启用。
-- **边缘终端JSON上报**：新增 `EdgeRadarReporter`，由 `network.edge_radar_report.enabled` 控制，默认 `false`；开启后每收到新的普通航迹点即按 UDP JSON `type=target` 单目标单包上报。
+- **边缘终端JSON上报**：新增 `EdgeRadarReporter`，由 `network.edge_radar_report.enabled` 控制，默认 `false`；开启后按 UDP JSON `type=target` 单目标单包上报普通航迹。
 - **JSON心跳**：`EdgeRadarReporter` 按 `network.edge_radar_report.heartbeat_interval_ms` 发送 `type=heartbeat`，GPS 来源为 `[radar] latitude/longitude/altitude`。
 - **上报调试日志**：`EdgeRadarReporter` 输出初始化配置、绑定结果、目标/心跳发送结果与完整 JSON payload，便于和 Wireshark 抓包逐字段对照；旧 `GCSManager` 日志不再接入显控主日志。
 - **默认通信参数**：`network.edge_radar_report.target_ip=192.168.1.100`、`target_port=9001`、`local_ip=0.0.0.0`、`local_port=0`；TBD/协同航迹暂不进入该鸟/无人机 JSON 目标协议。
+
+### v5.17 (2026-06-15)
+- **边缘终端目标上报节拍**：`EdgeRadarReporter` 按协议维护普通航迹最新点缓存，定时遍历当前普通航迹并逐目标发送单包 `type=target` JSON；无目标时不发送目标包，仅保留心跳。
+- **联调IP约定**：边缘终端默认对端为 `192.168.1.100:9001`；显控本机网卡需在同一 `192.168.1.x` 网段，通常使用外部链路本机地址 `192.168.1.5/24`。多网卡环境建议将 `local_ip` 显式设为该网卡地址。
+
+### v5.18 (2026-06-17)
+- **边缘目标上报配置化**：`network.edge_radar_report.target_report_interval_ms` 控制目标上报周期，默认 `4000ms`；`max_target_distance_m` 控制上报距离上限，默认 `2000m`。
+- **边缘识别结果回传**：新增 `EdgeRadarResultReceiver`，默认监听 `network.edge_radar_result.local_ip/local_port`（`0.0.0.0:9002`），接收边缘终端回传的 `type=recognition_result` JSON 光电识别结果，解析 `track_id/is_drone/count/detections/timestamp` 并保留完整调试日志。
+- **总控MQTT上报**：新增 `TotalControlMqttClient`，使用 QtNetwork 实现 MQTT 3.1.1 QoS0 发布；默认 topic `x576/target/result`，按 `track_id` 将雷达侧结果放入 `radar` 对象、光电侧结果放入 `optical` 对象，不做本地融合，由总控端自行融合。
+- **总控协议文档**：新增 `docs/total_control_mqtt_protocol.md`，说明 MQTT Broker、topic、JSON 字段、`radar/optical` 对象和总控端处理建议。
 
 ---
 

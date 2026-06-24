@@ -46,6 +46,9 @@ EdgeRadarReporter::~EdgeRadarReporter()
     if (m_heartbeatTimer) {
         m_heartbeatTimer->stop();
     }
+    if (m_targetTimer) {
+        m_targetTimer->stop();
+    }
     if (m_socket) {
         m_socket->close();
     }
@@ -64,12 +67,16 @@ bool EdgeRadarReporter::init()
     m_localHost = QHostAddress(CF_INS.edgeRadarReportLocalIp("0.0.0.0"));
     m_localPort = CF_INS.edgeRadarReportLocalPort(0);
     m_heartbeatIntervalMs = qMax(1000, CF_INS.edgeRadarHeartbeatIntervalMs(5000));
+    m_targetReportIntervalMs = qMax(500, CF_INS.edgeRadarTargetReportIntervalMs(4000));
+    m_maxTargetDistanceM = qMax(0.0, CF_INS.edgeRadarMaxTargetDistanceM(2000.0));
 
-    emit logMessage(QString("[EDGE_REPORT][INIT] config enabled=%1 target=%2:%3 local=%4:%5 heartbeat=%6ms maxPayload=%7")
+    emit logMessage(QString("[EDGE_REPORT][INIT] config enabled=%1 target=%2:%3 local=%4:%5 heartbeat=%6ms targetInterval=%7ms maxDistance=%8m maxPayload=%9")
                         .arg(m_enabled)
                         .arg(m_targetHost.toString()).arg(m_targetPort)
                         .arg(m_localHost.toString()).arg(m_localPort)
                         .arg(m_heartbeatIntervalMs)
+                        .arg(m_targetReportIntervalMs)
+                        .arg(m_maxTargetDistanceM, 0, 'f', 1)
                         .arg(kMaxUdpPayloadBytes));
 
     if (m_targetHost.isNull() || m_targetPort == 0) {
@@ -99,6 +106,11 @@ bool EdgeRadarReporter::init()
     m_heartbeatTimer->start(m_heartbeatIntervalMs);
     sendHeartbeat();
 
+    m_targetTimer = new QTimer(this);
+    m_targetTimer->setTimerType(Qt::PreciseTimer);
+    connect(m_targetTimer, &QTimer::timeout, this, &EdgeRadarReporter::sendTargetSnapshot);
+    m_targetTimer->start(m_targetReportIntervalMs);
+
     emit logMessage(QString("[EDGE_REPORT][INIT] ready target=%1:%2 local=%3:%4 heartbeat=%5ms")
                         .arg(m_targetHost.toString()).arg(m_targetPort)
                         .arg(m_localHost.toString()).arg(m_localPort)
@@ -108,11 +120,25 @@ bool EdgeRadarReporter::init()
 
 void EdgeRadarReporter::reportTrackPoint(const PointInfo& info)
 {
-    if (!m_enabled || !m_socket) {
+    if (!m_enabled) {
         return;
     }
 
     if (info.type != PointType::Track) {
+        return;
+    }
+
+    m_latestTracks.insert(info.batch, info);
+}
+
+void EdgeRadarReporter::removeTrackPoint(unsigned int batch)
+{
+    m_latestTracks.remove(batch);
+}
+
+void EdgeRadarReporter::sendTargetDatagram(const PointInfo& info)
+{
+    if (!m_enabled || !m_socket) {
         return;
     }
 
@@ -131,6 +157,36 @@ void EdgeRadarReporter::reportTrackPoint(const PointInfo& info)
 
     ++m_targetSentCount;
     logTargetSent(info, payload, written);
+}
+
+void EdgeRadarReporter::sendTargetSnapshot()
+{
+    if (!m_enabled || !m_socket) {
+        return;
+    }
+
+    if (m_latestTracks.isEmpty()) {
+        emit logMessage(QStringLiteral("[EDGE_REPORT][TARGET_SNAPSHOT] no current tracks, target packet skipped"));
+        return;
+    }
+
+    int sentCount = 0;
+    int skippedByDistance = 0;
+    const auto tracks = m_latestTracks;
+    for (auto it = tracks.cbegin(); it != tracks.cend(); ++it) {
+        if (m_maxTargetDistanceM <= 0.0 || it.value().range <= m_maxTargetDistanceM) {
+            sendTargetDatagram(it.value());
+            ++sentCount;
+        } else {
+            ++skippedByDistance;
+        }
+    }
+    emit logMessage(QString("[EDGE_REPORT][TARGET_SNAPSHOT] cached=%1 sent=%2 skippedByDistance=%3 maxDistance=%4m interval=%5ms")
+                        .arg(tracks.size())
+                        .arg(sentCount)
+                        .arg(skippedByDistance)
+                        .arg(m_maxTargetDistanceM, 0, 'f', 1)
+                        .arg(m_targetReportIntervalMs));
 }
 
 void EdgeRadarReporter::sendHeartbeat()

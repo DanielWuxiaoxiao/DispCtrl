@@ -47,6 +47,8 @@
 #include "PolarDisp/ppiview.h"
 #include "Controller/gcsmanager.h"
 #include "Controller/edgeradarreporter.h"
+#include "Controller/edgeradarresultreceiver.h"
+#include "Controller/totalcontrolmqttclient.h"
 
 /**
  * @brief FramelessMainWindow构造函数实现
@@ -232,6 +234,28 @@ void FramelessMainWindow::setupOverlayUI()
         if (edgeReporter->init()) {
             ppiView->setEdgeRadarReporter(edgeReporter);
         }
+
+        TotalControlMqttClient* totalMqtt = new TotalControlMqttClient(this);
+        connect(totalMqtt, &TotalControlMqttClient::logMessage, this,
+                [](const QString& msg) {
+                    LOG_INFO(msg);
+                });
+        connect(totalMqtt, &TotalControlMqttClient::logMessage, m_overlayWidget,
+                &MainOverLayOut::appendExternalLog);
+        if (totalMqtt->init()) {
+            ppiView->setTotalControlMqttClient(totalMqtt);
+        }
+
+        EdgeRadarResultReceiver* edgeResultReceiver = new EdgeRadarResultReceiver(this);
+        connect(edgeResultReceiver, &EdgeRadarResultReceiver::logMessage, this,
+                [](const QString& msg) {
+                    LOG_INFO(msg);
+                });
+        connect(edgeResultReceiver, &EdgeRadarResultReceiver::logMessage, m_overlayWidget,
+                &MainOverLayOut::appendExternalLog);
+        connect(edgeResultReceiver, &EdgeRadarResultReceiver::edgeResultReceived,
+                totalMqtt, &TotalControlMqttClient::updateEdgeResult);
+        edgeResultReceiver->init();
     }
 }
 

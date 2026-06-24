@@ -694,6 +694,9 @@
                 <property name="text">
                  <string>雷达控制平台</string>
                 </property>
+                <property name="wordWrap">
+                 <bool>true</bool>
+                </property>
                </widget>
               </item>
               <item>

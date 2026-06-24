@@ -94,6 +94,10 @@ SOURCES += \
     Controller/collabtrack2dispmanager.cpp \
     Controller/targetdispmanager.cpp \
     Controller/ExternalCtrlManager.cpp \
+    Controller/gcsmanager.cpp \
+    Controller/edgeradarreporter.cpp \
+    Controller/edgeradarresultreceiver.cpp \
+    Controller/totalcontrolmqttclient.cpp \
     Controller/RadarDataManager.cpp \
     Controller/ErrorHandler.cpp \
     \
@@ -187,6 +191,11 @@ HEADERS += \
     Controller/collabtrack2dispmanager.h \
     Controller/targetdispmanager.h \
     Controller/ExternalCtrlManager.h \
+    Controller/gcsmanager.h \
+    Controller/edgeradarreporter.h \
+    Controller/edgerecognitionresult.h \
+    Controller/edgeradarresultreceiver.h \
+    Controller/totalcontrolmqttclient.h \
     Controller/RadarDataManager.h \
     Controller/ErrorHandler.h \
     \

@@ -163,6 +163,8 @@ set(SRC_FILES
         Controller/ExternalCtrlManager.cpp        # 外部雷控/调度链路
     Controller/gcsmanager.cpp                  # GCS地面站通信链路
     Controller/edgeradarreporter.cpp           # JSON雷达数据上报链路
+    Controller/edgeradarresultreceiver.cpp      # 边缘终端识别结果回传接收
+    Controller/totalcontrolmqttclient.cpp       # 总控MQTT识别结果上报
     Controller/RadarDataManager.cpp            # 雷达数据统一管理器
     Controller/ErrorHandler.cpp                # 错误处理框架
     Controller/disp2sigmanager.cpp             # 显示到信号管理
@@ -244,6 +246,9 @@ set(HDR_FILES
     Controller/ExternalCtrlManager.h           # 外部雷控/调度链路
     Controller/gcsmanager.h                    # GCS地面站通信链路
     Controller/edgeradarreporter.h             # JSON雷达数据上报链路
+    Controller/edgerecognitionresult.h         # 边缘终端光电识别结果结构
+    Controller/edgeradarresultreceiver.h        # 边缘终端识别结果回传接收
+    Controller/totalcontrolmqttclient.h         # 总控MQTT识别结果上报
     Controller/ascanmanager.h                  # A显数据UDP接收管理器
     Controller/beamschedulemanager.h           # 波束调度报告UDP接收管理器
     Controller/geofencemanager.h               # 电子围栏检测管理器
