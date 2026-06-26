@@ -1,156 +1,272 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="initial-scale=1.0, user-scalable=no, width=device-width"
-    />
-    <!-- <link
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width" />
+  <!-- <link
       rel="stylesheet"
       href="https://cache.amap.com/lbs/static/main1119.css"
     /> -->
-    <!-- <script
+  <!-- <script
       type="text/javascript"
       src="https://webapi.amap.com/maps?v=2.0&key=7eaa30d7af3c6819066212a8a0fdffda"
     ></script> -->
-    <script src="./amap/AMap3.js"></script>
-    <style>
-      /* 设置地图容器的大小 否则地图容器大小为0*/
-      #container {
-        width: 100%;
-        height: 100vh; /* 使容器占满整个视口 */
-        margin: 0;
-        padding: 0;
-        /* 卫星影像优化滤镜 - 保持清晰度的绿色科技感 */
-        filter: brightness(80%) contrast(120%) sepia(30%)
-          hue-rotate(90deg) saturate(150%);
-        opacity: 0.95;
-        /* brightness(80%) → 轻微压暗，不会太暗影响清晰度
+  <script src="./amap/AMap3.js"></script>
+  <style>
+    /* 设置地图容器的大小 否则地图容器大小为0*/
+    #container {
+      width: 100%;
+      height: 100vh;
+      /* 使容器占满整个视口 */
+      margin: 0;
+      padding: 0;
+      /* 卫星影像优化滤镜 - 保持清晰度的绿色科技感 */
+      filter: brightness(80%) contrast(120%) sepia(30%) hue-rotate(90deg) saturate(150%);
+      opacity: 0.95;
+      /* brightness(80%) → 轻微压暗，不会太暗影响清晰度
         contrast(120%) → 适度增强对比，保持细节清晰
         sepia(30%) → 轻微黄化，不会完全改变原色彩
         hue-rotate(90deg) → 色相向绿色偏移
         saturate(150%) → 适度提升饱和度，增强绿色效果
         opacity(0.95) → 几乎完全不透明，保持影像清晰 */
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      /* 背景透明 */
+    }
+  </style>
+</head>
+
+<body>
+  <div id="container"></div>
+  <script src="qwebchannel.js"></script>
+  <script type="text/javascript">
+    // var map = new AMap.Map("container", {
+    //   resizeEnable: true,
+    //   zoom: 15, //初始化地图层级
+    //   center: [108.9138, 34.2311], //初始化地图中心点
+    //   mapStyle: "amap://styles/normal", //地图风格
+    //   //viewMode: "3D", //三维视图,需要拖动才能变成3d
+    // });
+
+    //离线地图 - 优先从URL参数读取初始中心（Qt切换地图时传入），无参数则用默认值
+    var _qp = new URLSearchParams(window.location.search);
+    var initLng = parseFloat(_qp.get('lng')) || 108.9138;
+    var initLat = parseFloat(_qp.get('lat')) || 34.2311;
+    var initRange = parseFloat(_qp.get('range')) || 3.0; //km
+    var map = new AMap.Map("container", {
+      resizeEnable: true,
+      //rotateEnable: true,  //旋转后汉字也会旋转
+      center: [initLng, initLat], // 中心点，西电99号楼
+      zoom: 15.3, //
+      layers: [
+        new AMap.TileLayer({
+          tileUrl: "./map16S/[z]/[x]/[y]/tile.png", // 本地瓦片路径，使用[]而不是{},amap3.js是处理的[]的瓦片替代
+          zooms: [1, 16], //注意范围必须大于等于 zoom，瓦片范围为1-16
+          //mapStyle: "amap://styles/dark", //地图风格在离线地图情况下无法使用
+        }),
+      ],
+    });
+
+    const earthRadius = 6378.137; // 地球半径，单位为公里
+
+    var mchannel; //注册qt通信通道
+    window.onload = function () {
+      if (typeof qt != "undefined") {
+        //注册qtchannel
+        new QWebChannel(qt.webChannelTransport, function (channel) {
+          channel.objects.qtChannel.centerOn.connect(setCenterOn);
+          channel.objects.qtChannel.changeGrayScale.connect(setGrayscale);
+          mchannel = channel;
+        });
+      } else {
+        alert("qt对象获取失败！");
       }
-      html,
-      body {
-        height: 100%;
-        margin: 0;
-        padding: 0;
-        background: transparent; /* 背景透明 */
+    };
+
+    const PI = 3.14159265358979324;
+    const A = 6378245.0;
+    const EE = 0.00669342162296594323;
+
+    function outOfChina(lng, lat) {
+      return (
+        lng < 72.004 ||
+        lng > 137.8347 ||
+        lat < 0.8293 ||
+        lat > 55.8271
+      );
+    }
+
+    function transformLat(x, y) {
+      let ret =
+        -100.0 +
+        2.0 * x +
+        3.0 * y +
+        0.2 * y * y +
+        0.1 * x * y +
+        0.2 * Math.sqrt(Math.abs(x));
+
+      ret +=
+        (20.0 * Math.sin(6.0 * x * PI) +
+          20.0 * Math.sin(2.0 * x * PI)) *
+        2.0 /
+        3.0;
+
+      ret +=
+        (20.0 * Math.sin(y * PI) +
+          40.0 * Math.sin(y / 3.0 * PI)) *
+        2.0 /
+        3.0;
+
+      ret +=
+        (160.0 * Math.sin(y / 12.0 * PI) +
+          320 * Math.sin(y * PI / 30.0)) *
+        2.0 /
+        3.0;
+
+      return ret;
+    }
+
+    function transformLon(x, y) {
+      let ret =
+        300.0 +
+        x +
+        2.0 * y +
+        0.1 * x * x +
+        0.1 * x * y +
+        0.1 * Math.sqrt(Math.abs(x));
+
+      ret +=
+        (20.0 * Math.sin(6.0 * x * PI) +
+          20.0 * Math.sin(2.0 * x * PI)) *
+        2.0 /
+        3.0;
+
+      ret +=
+        (20.0 * Math.sin(x * PI) +
+          40.0 * Math.sin(x / 3.0 * PI)) *
+        2.0 /
+        3.0;
+
+      ret +=
+        (150.0 * Math.sin(x / 12.0 * PI) +
+          300.0 * Math.sin(x / 30.0 * PI)) *
+        2.0 /
+        3.0;
+
+      return ret;
+    }
+
+    function wgs84ToGcj02(lng, lat) {
+      if (outOfChina(lng, lat)) {
+        return [lng, lat];
       }
-    </style>
-  </head>
-  <body>
-    <div id="container"></div>
-    <script src="qwebchannel.js"></script>
-    <script type="text/javascript">
-      // var map = new AMap.Map("container", {
-      //   resizeEnable: true,
-      //   zoom: 15, //初始化地图层级
-      //   center: [108.9138, 34.2311], //初始化地图中心点
-      //   mapStyle: "amap://styles/normal", //地图风格
-      //   //viewMode: "3D", //三维视图,需要拖动才能变成3d
-      // });
 
-      //离线地图 - 优先从URL参数读取初始中心（Qt切换地图时传入），无参数则用默认值
-      var _qp = new URLSearchParams(window.location.search);
-      var initLng = parseFloat(_qp.get('lng')) || 108.9138;
-      var initLat = parseFloat(_qp.get('lat')) || 34.2311;
-      var initRange = parseFloat(_qp.get('range')) || 3.0; //km
-      var map = new AMap.Map("container", {
-        resizeEnable: true,
-        //rotateEnable: true,  //旋转后汉字也会旋转
-        center: [initLng, initLat], // 中心点，西电99号楼
-        zoom: 15.3, //
-        layers: [
-          new AMap.TileLayer({
-            tileUrl: "./map16S/[z]/[x]/[y]/tile.png", // 本地瓦片路径，使用[]而不是{},amap3.js是处理的[]的瓦片替代
-            zooms: [1, 16], //注意范围必须大于等于 zoom，瓦片范围为1-16
-            //mapStyle: "amap://styles/dark", //地图风格在离线地图情况下无法使用
-          }),
-        ],
-      });
+      let dLat = transformLat(lng - 105.0, lat - 35.0);
+      let dLng = transformLon(lng - 105.0, lat - 35.0);
 
-      const earthRadius = 6378.137; // 地球半径，单位为公里
+      const radLat = lat / 180.0 * PI;
 
-      var mchannel; //注册qt通信通道
-      window.onload = function () {
-        if (typeof qt != "undefined") {
-          //注册qtchannel
-          new QWebChannel(qt.webChannelTransport, function (channel) {
-            channel.objects.qtChannel.centerOn.connect(setCenterOn);
-            channel.objects.qtChannel.changeGrayScale.connect(setGrayscale);
-            mchannel = channel;
-          });
-        } else {
-          alert("qt对象获取失败！");
-        }
-      };
-      //直接设置地图的中心和距离
-      function setCenterOn(centerLng, centerLat, range) {
-        // range 是以公里为单位的显示范围（整个水平宽度）
-        // 我们需要将这个范围转换为地图四个角的经纬度
+      let magic = Math.sin(radLat);
+      magic = 1 - EE * magic * magic;
 
-        // 使用高精度地球常数
-        const EARTH_RADIUS_M = 6378137.0; // WGS84椭球体长半轴，米
-        const DEG_TO_RAD = Math.PI / 180.0;
-        const RAD_TO_DEG = 180.0 / Math.PI;
+      const sqrtMagic = Math.sqrt(magic);
 
-        // 动态获取地图容器的实际宽高比
-        const container = document.getElementById("container");
-        const containerWidth = container.clientWidth;
-        const containerHeight = container.clientHeight;
-        const actualAspectRatio = containerWidth / containerHeight; // 实际宽高比
+      dLat =
+        (dLat * 180.0) /
+        ((A * (1 - EE)) /
+          (magic * sqrtMagic) *
+          PI);
 
-        console.log(`Container dimensions: ${containerWidth}x${containerHeight}, aspect ratio: ${actualAspectRatio.toFixed(3)}`);
+      dLng =
+        (dLng * 180.0) /
+        (A / sqrtMagic *
+          Math.cos(radLat) *
+          PI);
 
-        // 计算水平和垂直的范围，使用实际容器比例
-        const horizontalRange = range; // 水平方向的总宽度（公里）
-        const verticalRange = range / actualAspectRatio; // 垂直方向的总高度，使用实际宽高比
+      return [
+        lng + dLng,
+        lat + dLat
+      ];
+    }
 
-        // 转换为米
-        const horizontalRangeM = horizontalRange * 1000.0;
-        const verticalRangeM = verticalRange * 1000.0;
+    //直接设置地图的中心和距离
+    function setCenterOn(centerLng, centerLat, range) {
+      // range 是以公里为单位的显示范围（整个水平宽度）
+      // 我们需要将这个范围转换为地图四个角的经纬度
+      const gcj = wgs84ToGcj02(
+        centerLng,
+        centerLat
+      );
 
-        // 使用高精度公式计算经纬度差异
-        const centerLatRad = centerLat * DEG_TO_RAD;
+      centerLng = gcj[0];
+      centerLat = gcj[1];
 
-        // 纬度差异：使用精确的子午圈半径计算
-        const latDiffRad = (verticalRangeM / 2.0) / EARTH_RADIUS_M;
-        const latDiff = latDiffRad * RAD_TO_DEG;
+      // 使用高精度地球常数
+      const EARTH_RADIUS_M = 6378137.0; // WGS84椭球体长半轴，米
+      const DEG_TO_RAD = Math.PI / 180.0;
+      const RAD_TO_DEG = 180.0 / Math.PI;
 
-        // 经度差异：考虑椭球体在当前纬度的曲率半径
-        const cosLat = Math.cos(centerLatRad);
-        const lngDiffRad = (horizontalRangeM / 2.0) / (EARTH_RADIUS_M * cosLat);
-        const lngDiff = lngDiffRad * RAD_TO_DEG;
+      // 动态获取地图容器的实际宽高比
+      const container = document.getElementById("container");
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
+      const actualAspectRatio = containerWidth / containerHeight; // 实际宽高比
 
-        // 计算矩形边界的西南角和东北角的经纬度
-        const southWestLng = centerLng - lngDiff;
-        const southWestLat = centerLat - latDiff;
-        const northEastLng = centerLng + lngDiff;
-        const northEastLat = centerLat + latDiff;
+      console.log(`Container dimensions: ${containerWidth}x${containerHeight}, aspect ratio: ${actualAspectRatio.toFixed(3)}`);
 
-        console.log(`setCenterOn: center(${centerLng}, ${centerLat}), range=${range}km (horizontal)`);
-        console.log(`Calculated ranges: horizontal=${horizontalRange}km, vertical=${verticalRange.toFixed(3)}km`);
-        console.log(`Calculated bounds: SW(${southWestLng.toFixed(8)}, ${southWestLat.toFixed(8)}), NE(${northEastLng.toFixed(8)}, ${northEastLat.toFixed(8)})`);
-        console.log(`High-precision diffs: lat=${latDiff.toFixed(8)}°, lng=${lngDiff.toFixed(8)}°`);
+      // 计算水平和垂直的范围，使用实际容器比例
+      const horizontalRange = range; // 水平方向的总宽度（公里）
+      const verticalRange = range / actualAspectRatio; // 垂直方向的总高度，使用实际宽高比
 
-        var bounds = new AMap.Bounds(
-          [southWestLng, southWestLat], // 西南角坐标
-          [northEastLng, northEastLat] // 东北角坐标
-        );
-        // 设置地图显示的边界范围
-        map.setBounds(bounds);
-      }
-      //如果再setcenter后立即执行getcenter函数会导致setcenter实际没有完全更新地图，这个时候获得的center并不是最终center
-      setCenterOn(initLng,initLat,initRange);
+      // 转换为米
+      const horizontalRangeM = horizontalRange * 1000.0;
+      const verticalRangeM = verticalRange * 1000.0;
 
-      function setGrayscale(value) {
-        var container = document.getElementById("container");
-        container.style.filter = `grayscale(${value}%)`;
-      }
-    </script>
-  </body>
+      // 使用高精度公式计算经纬度差异
+      const centerLatRad = centerLat * DEG_TO_RAD;
+
+      // 纬度差异：使用精确的子午圈半径计算
+      const latDiffRad = (verticalRangeM / 2.0) / EARTH_RADIUS_M;
+      const latDiff = latDiffRad * RAD_TO_DEG;
+
+      // 经度差异：考虑椭球体在当前纬度的曲率半径
+      const cosLat = Math.cos(centerLatRad);
+      const lngDiffRad = (horizontalRangeM / 2.0) / (EARTH_RADIUS_M * cosLat);
+      const lngDiff = lngDiffRad * RAD_TO_DEG;
+
+      // 计算矩形边界的西南角和东北角的经纬度
+      const southWestLng = centerLng - lngDiff;
+      const southWestLat = centerLat - latDiff;
+      const northEastLng = centerLng + lngDiff;
+      const northEastLat = centerLat + latDiff;
+
+      console.log(`setCenterOn: center(${centerLng}, ${centerLat}), range=${range}km (horizontal)`);
+      console.log(`Calculated ranges: horizontal=${horizontalRange}km, vertical=${verticalRange.toFixed(3)}km`);
+      console.log(`Calculated bounds: SW(${southWestLng.toFixed(8)}, ${southWestLat.toFixed(8)}), NE(${northEastLng.toFixed(8)}, ${northEastLat.toFixed(8)})`);
+      console.log(`High-precision diffs: lat=${latDiff.toFixed(8)}°, lng=${lngDiff.toFixed(8)}°`);
+
+      var bounds = new AMap.Bounds(
+        [southWestLng, southWestLat], // 西南角坐标
+        [northEastLng, northEastLat] // 东北角坐标
+      );
+      // 设置地图显示的边界范围
+      map.setBounds(bounds);
+    }
+    //如果再setcenter后立即执行getcenter函数会导致setcenter实际没有完全更新地图，这个时候获得的center并不是最终center
+    setCenterOn(initLng, initLat, initRange);
+
+    function setGrayscale(value) {
+      var container = document.getElementById("container");
+      container.style.filter = `grayscale(${value}%)`;
+    }
+  </script>
+</body>
+
 </html>
