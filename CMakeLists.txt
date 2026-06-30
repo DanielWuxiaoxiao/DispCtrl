@@ -165,6 +165,7 @@ set(SRC_FILES
     Controller/edgeradarreporter.cpp           # JSON雷达数据上报链路
     Controller/edgeradarresultreceiver.cpp      # 边缘终端识别结果回传接收
     Controller/totalcontrolmqttclient.cpp       # 总控MQTT识别结果上报
+    Controller/laserreportmanager.cpp           # 激光侦察上报（独立模块）
     Controller/RadarDataManager.cpp            # 雷达数据统一管理器
     Controller/ErrorHandler.cpp                # 错误处理框架
     Controller/disp2sigmanager.cpp             # 显示到信号管理

@@ -759,6 +759,21 @@ dataToScene            # RangeAzimuth坐标转换
   - **部署注意**：使用 `angle` 需随程序部署 ANGLE 运行库（`libEGL.dll`/`libGLESv2.dll`/`d3dcompiler_47.dll`，windeployqt 默认会带）。
   - 现场无需重新编译也可临时缓解：NVIDIA 控制面板 → 将本程序 exe 指定为"高性能 NVIDIA 处理器"。
 
+### v5.23 (2026-06-29)
+- **渲染诊断日志（外场黑屏/闪烁排查）**：`main.cpp` 启动时打印实际 GL 后端、Chromium flags、以及真正在用的 GPU/驱动（`GL_VENDOR/RENDERER/VERSION`，经临时 `QOpenGLContext` 查询）——可判断 ANGLE 是否走 D3D11、独显是否生效（NVIDIA vs Intel）、是否落到软件渲染。
+- **WebEngine 渲染进程崩溃监控**：`mapprox.cpp` 连接 `QWebEnginePage::renderProcessTerminated`，记录终止状态/退出码（黑屏的直接信号）。
+
+### v5.24 (2026-06-29)
+- **激光侦察上报（独立模块，仅"激光终端"功能）**：按 `docs/光电跟踪与激光上报协议.md` 第4节实现，**不含**光电转台引导(模式2)与手动跟踪。
+  - **触发**：右键航迹 →「激光上报[批次]」对该单一目标按周期（默认1s）持续发送侦察帧给激光控制终端；再次右键「关闭激光上报」或目标消批则停止（消批补发一帧 `cancelFlag=1`）。单目标，切到新目标会自动停旧目标。
+  - **本地存档**：每次"下发一个新目标"时把当时信息（时间/批次/类型/距离/方位/俯仰/速度）追加保存到 txt（UTF-8，按天文件，`[laser].save_dir`），格式同 `GuideTrack_CN` 样例。
+  - **状态帧心跳(0x0200)**：模块启用后 1s 周期常驻发送状态帧（`LaserStatusData(13)`，隐含心跳，workState/faultState=0x0F、workMode=0、scanAreaCount=0），与是否有活动目标无关；有活动目标的那一拍再附带侦察帧(0x0300)。与 RadarAPP `sendLaserReport` 行为一致。
+  - **协议结构**：`Basic/Protocol.h` 新增 `LaserDataTime/LaserFrameHeader/LaserFrameTail/LaserReconData/LaserTargetInfo/LaserStatusData/LaserScanRangeInfo`（`#pragma pack(1)`）；侦察帧=Header(18)+ReconData(12)+N×TargetInfo(64)+Tail(4)，`contentLen`=N×64、`dataLen`=12+N×64；校验=frameType起按字节累加低16位；类型映射 targetRecResult(0/1)→激光类型(0普通/1无人机)，trackQuality 由 statMethod(0→7,1→3,else0)。**已对照 RadarAPP `util/Protocol.h` 校准字节级一致（Header 实为18字节，文档“20”系笔误）。**
+  - **网络**：本地绑定 `192.168.101.9:9009`，发往激光终端 `192.168.101.10:9009`（单端口双向）；sender=2100/receiver=5100。
+  - **开关与独立性**：`config.toml [laser].enabled`（默认 false）。**关闭时不创建模块、右键菜单不出现该项、不占网络资源**；与 GCS/边缘/MQTT 等其它上报下发互不关联。
+  - **模块**：新增 `Controller/laserreportmanager.h/.cpp`（镜像 `EdgeRadarReporter`：`reportTrackPoint` 缓存最新点、`removeTrackPoint` 消批、`start/stopReport` 由右键驱动、1s 定时发送）；`PPIView` 注入 `setLaserReportManager` 并在 `trackPointAdded/trackRemoved` 喂数据、`onTrackLabelRightClicked` 加菜单项；`mainwindow.cpp` 创建并接日志；已同步 `CMakeLists.txt` / `DispCtrl.pro`。
+  - **暂未实现**：模式1 自动10目标上报、激光端控制指令(授时/搜索范围/工作状态)的接收响应——当前为右键单目标持续侦察 + 周期状态帧心跳，如需可再加。
+
 ---
 
 ## 联系与贡献

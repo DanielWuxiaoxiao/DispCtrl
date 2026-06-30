@@ -1104,4 +1104,99 @@ struct GcsHeartbeatAck {
 };
 #pragma pack()
 
+// =============================================================================
+// 激光侦察上报协议（显控 → 激光控制终端）—— 详见 docs/光电跟踪与激光上报协议.md 第4节
+// 仅实现“激光终端”相关功能（不含光电转台/手动跟踪）。全部小端、1字节对齐。
+// 完整侦察帧 = LaserFrameHeader + LaserReconData(12) + N×LaserTargetInfo(64) + LaserFrameTail(4)
+// 注意：LaserFrameHeader 字段逐项相加为 18 字节（文档/RadarAPP 注释里的“20”为笔误，以本结构体为准，已与设备端字节兼容）
+// =============================================================================
+#pragma pack(push, 1)
+
+// 激光协议常量
+constexpr unsigned char LASER_FRAME_HEAD0 = 0xEB;
+constexpr unsigned char LASER_FRAME_HEAD1 = 0x90;
+constexpr unsigned char LASER_FRAME_TAIL0 = 0x4C;
+constexpr unsigned char LASER_FRAME_TAIL1 = 0x5A;
+constexpr unsigned short LASER_FT_RECON   = 0x0300;  // 侦察帧类型
+constexpr unsigned short LASER_FT_STATUS  = 0x0200;  // 状态帧类型（隐含心跳）
+constexpr unsigned short LASER_SENDER_ID  = 2100;    // 雷达端设备ID(210X)
+constexpr unsigned short LASER_RECEIVER_ID = 5100;   // 激光端设备ID(510X)
+constexpr unsigned short LASER_RECON_TYPE_ID = 1;    // 1=雷达侦察结果
+constexpr int LASER_MAX_TARGETS = 10;                // 单帧最多10目标
+
+// 8字节时标
+typedef struct _LaserDataTime {
+    unsigned char  year;     // 年份后两位 [0,99]
+    unsigned char  month;    // [1,12]
+    unsigned char  day;      // [1,31]
+    unsigned char  hour;     // [0,24)
+    unsigned char  minute;   // [0,59]
+    unsigned char  second;   // [0,59]
+    unsigned short msecond;  // [0,999]
+} LaserDataTime;
+
+// 帧头(20字节)
+typedef struct _LaserFrameHeader {
+    unsigned char  frameHead[2]; // 0xEB 0x90
+    unsigned short frameType;    // 0x0300 侦察帧
+    unsigned short senderID;     // 2100
+    unsigned short receiverID;   // 5100
+    LaserDataTime  timeStamp;    // 发送时刻
+    unsigned short dataLen;      // 数据内容域字节数 n
+} LaserFrameHeader;
+
+// 帧尾(4字节)
+typedef struct _LaserFrameTail {
+    unsigned short checkSum;     // 从frameType起到数据内容止，按字节累加取低16位
+    unsigned char  frameTail[2]; // 0x4C 0x5A
+} LaserFrameTail;
+
+// 侦察数据固定部分(12字节)
+typedef struct _LaserReconData {
+    unsigned short typeID;       // 1=雷达侦察结果
+    unsigned int   contentLen;   // 侦察数据域字节数
+    unsigned int   dataSeq;      // 侦察序号，递增
+    unsigned short targetCount;  // 目标数N，最大10
+} LaserReconData;
+
+// 状态数据-扫描范围信息(18字节)
+typedef struct _LaserScanRangeInfo {
+    unsigned short rangeID;
+    float startAzimuth;
+    float endAzimuth;
+    float startElevation;
+    float endElevation;
+} LaserScanRangeInfo;
+
+// 状态数据固定部分(13字节)，1s周期上报，隐含心跳
+// 完整状态帧数据内容 = LaserStatusData(13) + scanAreaCount × LaserScanRangeInfo(18)
+typedef struct _LaserStatusData {
+    unsigned short typeID;        // 1=雷达设备状态
+    unsigned short contentLen;    // 状态数据域字节数（= 本结构+扫描区 − typeID − contentLen）
+    unsigned int   statusSeq;     // 状态序号，递增
+    unsigned char  workState;     // 工作状态 按位 Bit0~3 对应阵面1~4
+    unsigned char  faultState;    // 故障状态 按位 0故障/1正常
+    unsigned char  workMode;      // 工作模式 0搜索/1跟踪
+    unsigned short scanAreaCount; // 扫描区域总数
+} LaserStatusData;
+
+// 单目标信息(64字节)
+typedef struct _LaserTargetInfo {
+    unsigned int   batchID;        // 目标批号
+    LaserDataTime  targetTime;     // 该航迹点时间
+    float          distance;       // 距离 m
+    float          azimuth;        // 方位角 [0,360)
+    float          elevation;      // 俯仰角 [-90,90]
+    float          speed;          // 速度 m/s
+    float          azimuthSpeed;   // 方位角速度 °/s（填0）
+    float          elevationSpeed; // 俯仰角速度 °/s（填0）
+    float          radialSpeed;    // 径向速度 m/s（=speed）
+    unsigned char  cancelFlag;     // 0正常 / 1消批
+    unsigned short targetType;     // 0普通/1无人机/2假目标/3鸟/4其他
+    unsigned short trackQuality;   // 0~7
+    unsigned char  reserved[19];   // 保留
+} LaserTargetInfo;
+
+#pragma pack(pop)
+
 #endif // PROTOCOL_H

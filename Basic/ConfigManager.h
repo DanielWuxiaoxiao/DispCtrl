@@ -298,6 +298,29 @@ public:
         return getValue("webengine.extra_chromium_flags", def).toString();
     }
 
+    // ===== 激光侦察上报配置（独立模块，默认关闭；关闭时右键菜单无此项）=====
+    bool laserReportEnabled(bool def = false) const {
+        return getValue("laser.enabled", def).toBool();
+    }
+    QString laserRadarIp(const QString& def = "192.168.101.9") const {
+        return getValue("laser.radar_ip", def).toString();
+    }
+    QString laserCtrlIp(const QString& def = "192.168.101.10") const {
+        return getValue("laser.laser_ctrl_ip", def).toString();
+    }
+    quint16 laserUdpPort(quint16 def = 9009) const {
+        return static_cast<quint16>(getValue("laser.udp_port", def).toUInt());
+    }
+    int laserReportIntervalMs(int def = 1000) const {
+        return getValue("laser.report_interval_ms", def).toInt();
+    }
+    bool laserSaveTxt(bool def = true) const {
+        return getValue("laser.save_txt", def).toBool();
+    }
+    QString laserSaveDir(const QString& def = "LaserReportLog") const {
+        return getValue("laser.save_dir", def).toString();
+    }
+
     // 显示配置相关
     int displayConfig(const QString& key, int def = 1000) const {
         return getValue("displayConfig." + key, def).toInt();

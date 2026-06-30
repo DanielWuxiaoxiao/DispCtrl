@@ -48,6 +48,7 @@
 #include "Controller/gcsmanager.h"
 #include "Controller/edgeradarreporter.h"
 #include "Controller/edgeradarresultreceiver.h"
+#include "Controller/laserreportmanager.h"
 #include "Controller/totalcontrolmqttclient.h"
 
 /**
@@ -233,6 +234,18 @@ void FramelessMainWindow::setupOverlayUI()
                 &MainOverLayOut::appendExternalLog);
         if (edgeReporter->init()) {
             ppiView->setEdgeRadarReporter(edgeReporter);
+        }
+
+        // 激光侦察上报（独立模块，默认关闭；关闭时右键无此项、不创建网络资源）
+        LaserReportManager* laserReporter = new LaserReportManager(this);
+        connect(laserReporter, &LaserReportManager::logMessage, this,
+                [](const QString& msg) {
+                    LOG_INFO(msg);
+                });
+        connect(laserReporter, &LaserReportManager::logMessage, m_overlayWidget,
+                &MainOverLayOut::appendExternalLog);
+        if (laserReporter->init()) {
+            ppiView->setLaserReportManager(laserReporter);
         }
 
         TotalControlMqttClient* totalMqtt = new TotalControlMqttClient(this);

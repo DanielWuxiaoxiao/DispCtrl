@@ -98,6 +98,7 @@ SOURCES += \
     Controller/edgeradarreporter.cpp \
     Controller/edgeradarresultreceiver.cpp \
     Controller/totalcontrolmqttclient.cpp \
+    Controller/laserreportmanager.cpp \
     Controller/RadarDataManager.cpp \
     Controller/ErrorHandler.cpp \
     \
@@ -195,6 +196,7 @@ HEADERS += \
     Controller/edgeradarreporter.h \
     Controller/edgerecognitionresult.h \
     Controller/edgeradarresultreceiver.h \
+    Controller/laserreportmanager.h \
     Controller/totalcontrolmqttclient.h \
     Controller/RadarDataManager.h \
     Controller/ErrorHandler.h \

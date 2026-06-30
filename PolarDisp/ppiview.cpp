@@ -35,6 +35,7 @@
 #include "../Controller/gcsmanager.h"
 #include "../Controller/totalcontrolmqttclient.h"
 #include "../Controller/edgeradarreporter.h"
+#include "../Controller/laserreportmanager.h"
 
 #include <QMouseEvent>
 #include <QMenu>
@@ -506,6 +507,9 @@ void PPIView::setPPIScene(PPIScene* scene) {
                 if (m_edgeRadarReporter) {
                     m_edgeRadarReporter->reportTrackPoint(info);
                 }
+                if (m_laserReportManager) {
+                    m_laserReportManager->reportTrackPoint(info);
+                }
                 if (m_totalControlMqttClient) {
                     m_totalControlMqttClient->updateOwnTrack(info);
                 }
@@ -520,6 +524,9 @@ void PPIView::setPPIScene(PPIScene* scene) {
             connect(m_scene->track(), &TrackManager::trackRemoved, this, [this](int batchID) {
                 if (m_edgeRadarReporter) {
                     m_edgeRadarReporter->removeTrackPoint(static_cast<unsigned int>(batchID));
+                }
+                if (m_laserReportManager) {
+                    m_laserReportManager->removeTrackPoint(batchID);
                 }
                 if (m_totalControlMqttClient) {
                     m_totalControlMqttClient->removeTrack(static_cast<unsigned int>(batchID));
@@ -1343,6 +1350,12 @@ void PPIView::setTotalControlMqttClient(TotalControlMqttClient* client)
     m_totalControlMqttClient = client;
 }
 
+void PPIView::setLaserReportManager(LaserReportManager* mgr)
+{
+    m_laserReportManager = mgr;
+    m_laserReportEnabled = CF_INS.laserReportEnabled(false);
+}
+
 void PPIView::setOnlyRecognizedDroneTracksVisible(bool enabled)
 {
     if (!m_scene || !m_scene->track()) return;
@@ -1374,6 +1387,16 @@ void PPIView::onTrackLabelRightClicked(int batchID)
         sendAction = menu.addAction(
             tr("目标下发 [批次: %1]").arg(batchID));
     }
+
+    // 激光上报菜单项：仅在 [laser].enabled 时出现；显示“开启/关闭”取决于当前是否在上报该目标
+    QAction* laserAction = nullptr;
+    if (m_laserReportEnabled && m_laserReportManager) {
+        const bool reporting = m_laserReportManager->isReporting(batchID);
+        laserAction = menu.addAction(reporting
+            ? tr("关闭激光上报 [批次: %1]").arg(batchID)
+            : tr("激光上报 [批次: %1]").arg(batchID));
+    }
+
     const bool focused = m_scene->track()->isBatchFocused(batchID);
     QAction* focusAction = menu.addAction(focused ? tr("取消关注") : tr("关注"));
     QAction* chosen = menu.exec(QCursor::pos());
@@ -1382,6 +1405,15 @@ void PPIView::onTrackLabelRightClicked(int batchID)
 
     if (chosen == focusAction) {
         m_scene->track()->setBatchFocused(batchID, !focused);
+        return;
+    }
+
+    if (laserAction && chosen == laserAction) {
+        if (m_laserReportManager->isReporting(batchID)) {
+            m_laserReportManager->stopReport();
+        } else {
+            m_laserReportManager->startReport(batchID);
+        }
         return;
     }
 

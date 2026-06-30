@@ -25,6 +25,7 @@
 
 class EdgeRadarReporter;
 class TotalControlMqttClient;
+class LaserReportManager;   ///< 激光侦察上报管理器（独立模块）
 
 // 前向声明 - 避免头文件循环依赖
 class PPIScene;           ///< PPI场景管理器
@@ -154,6 +155,7 @@ public:
     void setGCSManager(GCSManager* mgr);
     void setEdgeRadarReporter(EdgeRadarReporter* reporter);
     void setTotalControlMqttClient(TotalControlMqttClient* client);
+    void setLaserReportManager(LaserReportManager* mgr);
 
     /**
      * @brief 设置是否仅显示识别为无人机的普通航迹
@@ -414,6 +416,8 @@ private:
     GCSManager* m_gcsMgr = nullptr;          ///< GCS管理器（由外部注入，不拥有所有权）
     EdgeRadarReporter* m_edgeRadarReporter = nullptr; ///< JSON雷达数据上报器（由外部注入，不拥有所有权）
     TotalControlMqttClient* m_totalControlMqttClient = nullptr; ///< 总控MQTT上报器（由外部注入，不拥有所有权）
+    LaserReportManager* m_laserReportManager = nullptr; ///< 激光侦察上报器（由外部注入，不拥有所有权）
+    bool m_laserReportEnabled = false;       ///< 是否启用激光上报（关闭则右键菜单无此项）
     QSet<int> m_autoSendTrackBatches;        ///< 已订阅自动下发的航迹批次
     bool m_gcsTargetReportEnabled = false;   ///< 是否启用旧GCS 0x52航迹点上报
 
