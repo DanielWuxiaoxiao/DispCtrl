@@ -10,6 +10,7 @@
 #include "../Basic/log.h"
 #include <QWebEngineSettings>
 #include <QWebEngineProfile>
+#include <QWebEnginePage>
 #include <QTimer>
 #include <QDir>
 #include <QUrlQuery>
@@ -80,6 +81,16 @@ MapProxyWidget::MapProxyWidget()
     webChannel->registerObject(QString("qtChannel"), this);
     mView->page()->setWebChannel(webChannel);
 
+    // 渲染进程崩溃监控（外场黑屏排查用）：WebEngine 渲染/ GPU 进程一旦终止，地图区域立即变黑。
+    // 记录终止状态与退出码，便于判断是否需要切换 gl_backend(angle→desktop→software)。
+    connect(mView->page(), &QWebEnginePage::renderProcessTerminated, this,
+            [](QWebEnginePage::RenderProcessTerminationStatus status, int exitCode) {
+                LOG_ERROR(QString("[WebEngine] 渲染进程终止! status=%1 exitCode=%2 —— 这通常是地图黑屏的直接原因"
+                                  "(多为GPU/驱动崩溃)，请尝试切换 config.toml 的 webengine.gl_backend：angle→desktop→software")
+                              .arg(static_cast<int>(status))
+                              .arg(exitCode));
+            });
+
     /* 加载网页，注意加载网页必须在通道注册之后，其有有一个注册完成的信号，
            可根据需要调用  "http://localhost:8080/index.html"*/
 
@@ -137,15 +148,18 @@ void MapProxyWidget::chooseMap(int index)
     query.addQueryItem("lng", QString::number(m_currentLongitude, 'f', 9));
     query.addQueryItem("lat", QString::number(m_currentLatitude, 'f', 9));
     query.addQueryItem("range", QString::number(m_currentRange, 'f', 3));
+    // 把当前PPI偏移比例一并透传，保证地图首次加载即应用偏移补偿（避免切图瞬间无偏移）
+    query.addQueryItem("offx", QString::number(m_offsetRatioX, 'f', 6));
+    query.addQueryItem("offy", QString::number(m_offsetRatioY, 'f', 6));
     baseUrl.setQuery(query);
     mView->setUrl(baseUrl);
 
     LOG_DEBUG(QString("Map switched: AMap, typeIndex=%1").arg(index));
 }
 
-void MapProxyWidget::setCenterOn(float lng, float lat,float range)
+void MapProxyWidget::setCenterOn(float lng, float lat, float range, float offsetRatioX, float offsetRatioY)
 {
-    emit centerOn(lng,lat,range);
+    emit centerOn(lng, lat, range, offsetRatioX, offsetRatioY);
 }
 
 void MapProxyWidget::syncRadarToMap(double longitude, double latitude, double range)
@@ -164,23 +178,52 @@ void MapProxyWidget::syncRadarToMap(double longitude, double latitude, double ra
     m_currentLatitude = latitude;
     m_currentRange = range;
 
-    // 调用现有的setCenterOn方法来同步地图显示
-    setCenterOn(static_cast<float>(longitude), static_cast<float>(latitude), static_cast<float>(range));
+    // 仅更新位置/范围的场景（如经纬高实时上报），偏移比例复用上一次PPI计算结果
+    setCenterOn(static_cast<float>(longitude), static_cast<float>(latitude), static_cast<float>(range),
+                static_cast<float>(m_offsetRatioX), static_cast<float>(m_offsetRatioY));
 
-    LOG_DEBUG(QString("Map sync radar position: %1, %2, range: %3km")
+    LOG_DEBUG(QString("Map sync radar position: %1, %2, range: %3km, offsetRatio(%4,%5)")
                   .arg(longitude)
                   .arg(latitude)
-                  .arg(range));
+                  .arg(range)
+                  .arg(m_offsetRatioX)
+                  .arg(m_offsetRatioY));
+}
+
+void MapProxyWidget::syncRadarToMapWithOffset(double longitude, double latitude, double range,
+                                              double offsetRatioX, double offsetRatioY)
+{
+    // 来自PPIView::radarCenterChanged：存储最新偏移比例并强制刷新（偏移可能变化但经纬度未变，
+    // 故不走syncRadarToMap的容差跳过逻辑）
+    m_currentLongitude = longitude;
+    m_currentLatitude  = latitude;
+    m_currentRange     = range;
+    m_offsetRatioX     = offsetRatioX;
+    m_offsetRatioY     = offsetRatioY;
+
+    setCenterOn(static_cast<float>(longitude), static_cast<float>(latitude), static_cast<float>(range),
+                static_cast<float>(offsetRatioX), static_cast<float>(offsetRatioY));
+
+    LOG_DEBUG(QString("Map sync radar with offset: %1, %2, range: %3km, offsetRatio(%4,%5)")
+                  .arg(longitude)
+                  .arg(latitude)
+                  .arg(range)
+                  .arg(offsetRatioX)
+                  .arg(offsetRatioY));
 }
 
 void MapProxyWidget::syncCurrentRadarState()
 {
-    // 使用当前存储的雷达状态同步地图
-    setCenterOn(static_cast<float>(m_currentLongitude), static_cast<float>(m_currentLatitude), static_cast<float>(m_currentRange));
-    LOG_DEBUG(QString("Synced current radar state to new map: %1, %2, range: %3km")
+    // 使用当前存储的雷达状态与偏移比例同步地图
+    setCenterOn(static_cast<float>(m_currentLongitude), static_cast<float>(m_currentLatitude),
+                static_cast<float>(m_currentRange),
+                static_cast<float>(m_offsetRatioX), static_cast<float>(m_offsetRatioY));
+    LOG_DEBUG(QString("Synced current radar state to new map: %1, %2, range: %3km, offsetRatio(%4,%5)")
                   .arg(m_currentLongitude)
                   .arg(m_currentLatitude)
-                  .arg(m_currentRange));
+                  .arg(m_currentRange)
+                  .arg(m_offsetRatioX)
+                  .arg(m_offsetRatioY));
 }
 
 void MapProxyWidget::setGray(int value)

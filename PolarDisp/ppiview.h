@@ -139,9 +139,13 @@ public:
      * @param mapCenterLng 输出：地图中心经度
      * @param mapCenterLat 输出：地图中心纬度
      * @param mapRange 输出：地图显示范围（公里）
-     * @details 根据PPIView在centralWidget中的位置偏移，计算地图应该显示的中心和范围
+     * @param offsetRatioX 输出：PPI中心相对地图中心的水平像素偏移占容器宽度的比例（无量纲，免疫DPI/分辨率）
+     * @param offsetRatioY 输出：PPI中心相对地图中心的垂直像素偏移占容器高度的比例（无量纲，免疫DPI/分辨率）
+     * @details 中心输出为雷达原始WGS84位置；像素偏移以"占容器尺寸的比例"形式输出，
+     *          交由HTML端在地图自身投影/比例下还原并与GCJ02转换串联，避免跨Qt/WebEngine坐标空间的DPI误差
      */
-    void calculateMapDisplayParameters(double& mapCenterLng, double& mapCenterLat, double& mapRange) const;
+    void calculateMapDisplayParameters(double& mapCenterLng, double& mapCenterLat, double& mapRange,
+                                       double& offsetRatioX, double& offsetRatioY) const;
 
     /**
      * @brief 注入GCS管理器（由外部调用方设置，不拥有所有权）
@@ -232,9 +236,12 @@ signals:
      * @param longitude 新的经度
      * @param latitude 新的纬度
      * @param range 当前雷达范围（公里）
+     * @param offsetRatioX PPI中心相对地图中心的水平偏移占容器宽度的比例
+     * @param offsetRatioY PPI中心相对地图中心的垂直偏移占容器高度的比例
      * @details 当雷达中心位置或范围发生变化时发出，用于同步地图显示
      */
-    void radarCenterChanged(double longitude, double latitude, double range);
+    void radarCenterChanged(double longitude, double latitude, double range,
+                            double offsetRatioX, double offsetRatioY);
 
 public slots:
     /**

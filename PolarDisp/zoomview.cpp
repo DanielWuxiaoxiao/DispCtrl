@@ -198,6 +198,7 @@ ZoomView::ZoomView(QWidget* parent)
     , m_scene(nullptr)
     , m_mode(DragMode)
     , m_zoomFactor(1.0)
+    , m_autoFit(true)
     , m_measuring(false)
     , m_measurePath(nullptr)
     , m_startMarker(nullptr)
@@ -232,6 +233,9 @@ void ZoomView::setPPIScene(PPIScene* scene) {
 void ZoomView::showArea(const QRectF& sceneRect) {
     if (!m_scene) return;
 
+    // 用户从主视图选区放大：这是一次显式定位，关闭自动填满，避免 resize 打断
+    m_autoFit = false;
+
     // 显示指定的场景区域
     fitInView(sceneRect, Qt::KeepAspectRatio);
     updateZoomLevel();
@@ -256,11 +260,13 @@ double ZoomView::zoomLevel() const {
 }
 
 void ZoomView::zoomIn() {
+    m_autoFit = false;  // 用户手动缩放后，不再随 resize 自动填满
     scale(1.2, 1.2);
     updateZoomLevel();
 }
 
 void ZoomView::zoomOut() {
+    m_autoFit = false;  // 用户手动缩放后，不再随 resize 自动填满
     scale(0.8, 0.8);
     updateZoomLevel();
 }
@@ -293,8 +299,19 @@ void ZoomView::setPointerMode(bool pointer) {
 
 void ZoomView::resetView() {
     if (!m_scene) return;
+    m_autoFit = true;  // 恢复“自动填满方框”状态，并随后续 resize 保持填满
     fitInView(m_scene->sceneRect(), Qt::KeepAspectRatio);
     emit zoomLevelChanged(1.0f);
+}
+
+void ZoomView::resizeEvent(QResizeEvent* event) {
+    QGraphicsView::resizeEvent(event);
+    // 处于自动适配状态时，按控件真实尺寸重新填满方框。
+    // 这解决了 setPPIScene 阶段控件尺寸尚未确定、初次 fitInView 偏小导致小PPI默认不填满的问题。
+    if (m_autoFit && m_scene) {
+        fitInView(m_scene->sceneRect(), Qt::KeepAspectRatio);
+        updateZoomLevel();
+    }
 }
 
 void ZoomView::mousePressEvent(QMouseEvent* event) {
@@ -445,6 +462,7 @@ void ZoomView::mouseReleaseEvent(QMouseEvent* event) {
 }
 
 void ZoomView::wheelEvent(QWheelEvent* event) {
+    m_autoFit = false;  // 滚轮缩放后，不再随 resize 自动填满
     // 使用鼠标滚轮缩放
     const double scaleFactor = 1.15;
     if (event->angleDelta().y() > 0) {

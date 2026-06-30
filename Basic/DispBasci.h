@@ -9,6 +9,13 @@
 #ifndef DISPBASCI_H
 #define DISPBASCI_H
 
+/**
+ * @brief 软件版本号
+ * @details 显示在主界面标题区（原英文名 SubtitleLabel 处）。
+ *          发布新版本时只需修改此处一处。
+ */
+#define APP_VERSION_STR "V5.23"
+
 #include <QColor>
 #include <QString>
 #include <qnamespace.h>
@@ -101,7 +108,7 @@ const QColor TBD_COLOR = QColor(160, 64, 255);    // TBD航迹：紫色
 const QColor CO_TRACK_COLOR = QColor(0, 170, 255); // 协同航迹：青蓝色
 
 //STRING
-constexpr char APP_NAME[] = "强杂波背景下多阶段智能杂波抑制软件";
+constexpr char APP_NAME[] = "雷达控制平台";
 constexpr char APP_NAME_E[] = "Radar Control Platform";
 //LABELS - 可通过CF_INS.targetLabel()获取配置值
 constexpr char DET_LABEL[] = "检测点";

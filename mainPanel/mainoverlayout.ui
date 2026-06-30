@@ -702,7 +702,7 @@
               <item>
                <widget class="QLabel" name="SubtitleLabel">
                 <property name="text">
-                 <string>Radar Control Platform</string>
+                 <string>V5.23</string>
                 </property>
                </widget>
               </item>

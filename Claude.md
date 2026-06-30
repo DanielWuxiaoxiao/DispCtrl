@@ -362,298 +362,54 @@ ExternalCtrlManager::externalCtrlLog(QString)     // 日志
 
 ## 关键功能特性与实现记录
 
+> 仅记录"做了什么 + 在哪改"，具体代码以源码为准（避免文档代码漂移）。
+
 ### 1. 检测点数量限制与P显一键清除（2026-01-19）
-
-**问题**: 长时间运行检测点无限增长 → 内存溢出/界面卡死。
-
-**解决**:
-- `PPIVisualSettings` 添加"检测点"输入框（默认1000，范围100~1000000）
-- `DetManager` 实现 FIFO：超出 `m_maxPoints` 自动淘汰最旧点
-- "显清"按钮：点击 → `CustomMessageBox::showConfirm()` → 清除所有检测点和航迹点
-
-```cpp
-// DetManager::addDetPoint() 中的FIFO淘汰
-while (mNodes.size() > m_maxPoints) {
-    DetNode& oldNode = mNodes.first();
-    if (oldNode.point) { mScene->removeItem(oldNode.point); delete oldNode.point; }
-    mNodes.removeFirst();
-}
-
-// PPIView::onClearDisplayRequested()
-if (m_scene->det()) m_scene->det()->clear();
-if (m_scene->tra()) m_scene->tra()->clear();
-```
-
-**相关文件**: `PolarDisp/ppivisualsettings.*`, `PointManager/detmanager.*`, `PolarDisp/ppiview.*`
-
----
+- 问题：检测点无限增长导致内存/卡顿。
+- `DetManager` FIFO 淘汰（超 `m_maxPoints` 删最旧）；`PPIVisualSettings` 加"检测点"输入框（默认1000，100~1000000）；"显清"按钮经 `CustomMessageBox::showConfirm` 清空检测点+航迹。
+- 文件：`PolarDisp/ppivisualsettings.*`、`PointManager/detmanager.*`、`PolarDisp/ppiview.*`（`onClearDisplayRequested`）。
 
 ### 2. 航迹角度单位修复（统一按度，2026-05-15）
+- 现象：常规/TBD/协同航迹方位角被放大数千度，触发 `DATA_INVALID_TRACK`。根因：历史代码误把 `azi/ele` 当弧度做 `×180/π`；联调确认三类航迹角度字段均为**度**，不再转换。
+- 文件：`Controller/data2dispmanager.cpp`(DBT)、`tbd2dispmanager.cpp`(TBD)、`collabtrack2dispmanager.cpp`(协同)，均 `info.azimuth/elevation = pt->azi/ele`。
 
-**现象**: 常规/TBD/协同航迹在联调时出现方位角被放大到数千度，触发 `DATA_INVALID_TRACK`。
-**根因**: 历史代码将航迹 `azi/ele` 误按弧度处理并执行 `×(180/π)`；当前联调协议确认三类航迹角度字段均为**度**。
+### 3. 航迹显示样式（颜色、线宽、关注态）
+- 颜色（`Basic/DispBasci.h`）：检测点绿 `(0,255,0)`、DBT 橙 `(255,128,0)`、TBD 黄 `(255,255,0)`、协同青蓝 `CO_TRACK_COLOR`。
+- 连线（`PointManager/trackmanager.cpp`）：宽2、实线、圆端点/圆角、透明度0.8。
+- 关注态（2026-05）：右键 `DraggableLabel` 菜单 `关注/取消关注`；被关注批次在 P显 为更大空心三角、层级提到最高；`statMethod==2` 消批或取消关注后恢复普通样式。
 
-```cpp
-// Controller/data2dispmanager.cpp（DBT）
-info.azimuth   = traPointInfo->azi;
-info.elevation = traPointInfo->ele;
-
-// Controller/tbd2dispmanager.cpp（TBD）
-info.azimuth   = pt->azi;
-info.elevation = pt->ele;
-
-// Controller/collabtrack2dispmanager.cpp（协同）
-info.azimuth   = pt->azi;
-info.elevation = pt->ele;
-```
-
----
-
-### 3. 航迹显示样式（颜色、线宽）
-
-**颜色方案**（`Basic/DispBasci.h` `TRA_COLOR`）:
-- 检测点: **绿色** `QColor(0, 255, 0)`
-- DBT航迹: **橙色** `QColor(255, 128, 0)`（由红色改为橙色）
-- TBD航迹: **黄色** `QColor(255, 255, 0)`
-
-**连线样式**（`PointManager/trackmanager.cpp`）:
-```cpp
-QPen pen(s.color);
-pen.setWidth(2);               // 线宽从1改为2
-pen.setStyle(Qt::SolidLine);
-pen.setCapStyle(Qt::RoundCap); // 圆形端点
-pen.setJoinStyle(Qt::RoundJoin);
-line->setPen(pen);
-line->setOpacity(0.8);        // 80%不透明度
-```
-
-**关注态显示**（2026-05）:
-- 右键 `DraggableLabel` 菜单新增 `关注 / 取消关注`
-- 被关注批次在 `P显` 中显示为**较大的空心三角点**
-- 被关注批次的点、标签与连线层级提升到最高，便于在密集点迹中持续观察
-- `statMethod==2` 消批或手动 `取消关注` 后恢复普通显示样式
-
----
-
-### 4. 数据流连接修复（2025-10-24）
-
-修复内容（详见 `.azure/dataflow_fix_summary.md`）:
-
-```cpp
-// ppisscene.cpp 构造函数：PPIScene数据流
-connect(CON_INS, &Controller::detInfoProcess, m_det, &DetManager::addDetPoint);
-connect(CON_INS, &Controller::traInfoProcess, m_track, &TrackManager::addTrackPoint);
-
-// mainoverlayout.cpp：航迹表格实时更新
-connect(CON_INS, &Controller::traInfoProcess, this, &MainOverLayOut::updateTrackList);
-connect(CON_INS, &Controller::traInfoProcess, this, &MainOverLayOut::updateDroneTrackList);
-
-// mainoverlayout.cpp：扇区显示数据流
-connect(CON_INS, &Controller::detInfoProcess,
-        m_sectorWidget->scene()->detManager(), &SectorDetManager::addDetPoint);
-connect(CON_INS, &Controller::traInfoProcess,
-        m_sectorWidget->scene()->trackManager(), &SectorTrackManager::addTrackPoint);
-```
-
----
+### 4. 数据流连接修复（2025-10-24，详见 `.azure/dataflow_fix_summary.md`）
+- PPIScene：`Controller::detInfoProcess/traInfoProcess → DetManager/TrackManager::add*Point`（`ppisscene.cpp`）。
+- 航迹表格：`traInfoProcess → MainOverLayOut::updateTrackList/updateDroneTrackList`（`mainoverlayout.cpp`）。
+- 扇区：`det/traInfoProcess → Sector{Det,Track}Manager::add*Point`（`mainoverlayout.cpp`）。
 
 ### 5. 数据存储管理（datasaveui，2026-01-26）
-
-**协议（下行 显控→信处）**:
-```cpp
-struct DataSave   { ushort mesID=0xCC01; uchar saveSwitch/*0:停 1:开*/; uchar dataID; };
-struct DataDel    { ushort mesID=0xCC02; uchar dataID; };
-struct OfflineDel { ushort mesID=0xCC03; uchar onSwitch/*0:正常 1:离线*/; uchar dataID; };
-```
-
-**协议（上行 信处→显控）**:
-```cpp
-struct DataSaveOK  { ushort mesID=0xDD02; uchar dataID; ushort dataSize/*GB*/; };
-struct DataDelOK   { ushort mesID=0xDD03; uchar dataID; };
-struct OfflineStat { ushort mesID=0xDD04; uchar delStat/*0:正常 1:离线*/; uchar dataID; };
-```
-
----
+- 下行 显控→信处：`DataSave 0xCC01`(saveSwitch,dataID)、`DataDel 0xCC02`(dataID)、`OfflineDel 0xCC03`(onSwitch,dataID)。
+- 上行 信处→显控：`DataSaveOK 0xDD02`(dataID,dataSize/GB)、`DataDelOK 0xDD03`(dataID)、`OfflineStat 0xDD04`(delStat,dataID)。
+- 结构体定义见 `Basic/Protocol.h`。
 
 ### 6. 健康管理窗口实时更新（2026-01-26）
+- 窗口持久化（不重建）、数据实时刷新。数据源：`MonitorParam 0xCF01`（4 软件模块状态，状态码 0正常/1异常/2启动成功/3启动失败/4关闭成功/5关闭失败）、`BITReport 0xDE02`（10 项硬件 BIT + FPGA温度 + 阵面温度 + 偏航角 + 扫描角）。
+- 成员见 `mainoverlayout.h`（`m_healthWindow`、各状态按钮、`m_tempLabel/m_angleLabel`）；逻辑见 `MainOverLayOut::updateHealthWindow()`。
 
-**改进**: 窗口持久化（不再每次重建），数据实时刷新。
+### 7. 距离-方位图 / 距离-高度图（RangeAzimuth/RangeHeight，2026-01~05）
+- 架构：直角坐标基类 `CustomLineChart`（cusWidgets）→ `RangeAzimuthChart`（X=方位0~360°，Y=距离）→ `RangeAzimuthWidget`（工具栏+图表）。`RangeHeightChart/Widget` 为 `B显` 后的 `高显`（X=距离 km 同步主PPI量程，Y=高度 m，默认0~500 可配）。
+- 关键接口（`rangeazimuthchart.h`）：`addDetectionPoint/addTrackPoint/addPointInfo`、`setDetection/TrackVisible`、`setDetection/TrackSizeRatio`、`setRangeFromMain`、`setAzimuthRange`(支持跨0°)、`clearRadarData`、`setMaxDetectionPoints`。
+- 同步：主PPI `PolarAxis::rangeChanged → setRangeFromMain`；`MousePositionInfo` spinbox/checkbox → 三路视图统一大小/显隐；`DetManager::setMaxPoints` → 各路 `setMaxDetectionPoints`。
+- 配置 `[rangeAzimuthDisp.angle] min/max`；QSS 对象名 `#RangeAzimuthChartToolBar`、`#RangeAzimuthChart`。
 
-**数据源**:
-- `MonitorParam (0xCF01)`: 4个软件模块状态
-  - 状态码: 0正常(绿)、1异常(红)、2启动成功(绿)、3启动失败(红)、4关闭成功(黄)、5关闭失败(红)
-- `BITReport (0xDE02)`: 10项硬件状态位 + FPGA温度 + 阵面温度 + 偏航角 + 扫描角
+### 8. 多通道航迹显示开关（2026-05-09）
+- 通道：TBD `0xEE02`(`6010→8010`)、协同 `0xEE03`(`6020→8020`，复用 `TBDTrackHead+TBDTrackInfo+TBDPoint`)；`PointInfo.type` 新增 `CooperativeTrackPointType=4`。
+- 开关 `[displayConfig] iftbd/ifxietong`（默认 false）：false 时不创建管理器/不监听端口/不显示 UI。`MousePositionInfo` 动态加复选框、`MainOverLayOut` 动态加表页、`RangeAzimuthChart`/`TrackManager`/`SectorTrackManager` 按类型着色与显隐。
 
-**窗口成员** (`mainoverlayout.h`):
-```cpp
-CusWindow*   m_healthWindow;   // 持久化窗口指针
-QPushButton* m_sigProBtn;      // 信号处理状态按钮
-QPushButton* m_dataProBtn;     // 数据处理状态按钮
-QPushButton* m_beamConBtn;     // 波束调度状态按钮
-QPushButton* m_targetRecBtn;   // 目标识别状态按钮
-// 硬件BIT: m_btnTxOpen/DutyCycle/PulseWidth/RxOpen/FreqSrc/DigBoard/Servo/Beidou/Bluetooth/PowerBoard
-QLabel*      m_tempLabel;      // 温度信息标签
-QLabel*      m_angleLabel;     // 角度信息标签
-```
+### 9. 参数对话框统一规范（2026-01-15，参考 `paramWidget/servocontrol.cpp`）
+- "确定下发"：打包结构体发信号，**不关窗**（便于连续下发）；"取消"：向上找 `CusWindow` 父指针 `close()`。
+- 构造中 `disconnect` `buttonBox` 默认 accepted/rejected，改连自定义 `onAccept/onCancel`。
 
----
-
-### 7. 距离-方位图表（RangeAzimuthChart/Widget，2026-01）
-
-**架构**: 直角坐标系（X=方位角 0~360°，Y=距离 m），取代旧极坐标版本。
-
-**类层次**:
-```
-CustomLineChart（cusWidgets/customlinechart.h）-- 通用直角坐标图表基类
-    └── RangeAzimuthChart（PolarDisp/rangeazimuthchart.h）-- 雷达专用图表
-            └── （集成到）RangeAzimuthWidget（含工具栏+图表）
-```
-
-**核心接口** (`RangeAzimuthChart`):
-```cpp
-void addDetectionPoint(const PointInfo& info);      // 检测点（绿色，含Tooltip）
-void addTrackPoint(const trackInfo& info);           // DBT航迹（黄色，含Tooltip）
-void addPointInfo(const PointInfo& info);            // 统一接口（航迹/TBD）
-
-void setDetectionVisible(bool);                      // 可见性控制
-void setTrackVisible(bool);
-void setDetectionSizeRatio(double);                  // 大小比例 0.5x~3.0x
-void setTrackSizeRatio(double);
-
-void setRangeFromMain(double minRange, double maxRange); // 与主PPI距离同步
-void setAzimuthRange(double min, double max);        // 方位角过滤（支持跨0°）
-void clearRadarData();                               // 清除所有数据
-void setMaxDetectionPoints(int);                     // FIFO最大数量
-```
-
-**同步机制**:
-```
-主PPI PolarAxis::rangeChanged → RangeAzimuthWidget::setRangeFromMain()
-MousePositionInfo spinbox valueChanged → 三路视图统一setDetectionSizeRatio()
-MousePositionInfo checkbox → 三路视图统一setAllVisible()
-主PPI DetManager::setMaxPoints() → 同步调用各路setMaxDetectionPoints()
-```
-
-**工具栏布局**:
-```
-[标题] [方位范围: <最小>° ~ <最大>°] [检测点:N | 航迹:M] [清除] [重置]
-```
-
-**配置** (`config.toml`):
-```toml
-[rangeAzimuthDisp.angle]
-min = 0
-max = 360
-```
-
-**QSS对象名（用于darkstyle.qss）**:
-- 工具栏: `#RangeAzimuthChartToolBar`
-- 图表主体: `#RangeAzimuthChart`
-
-**扩展显示**（2026-05）:
-- 新增 `RangeHeightChart/Widget`，作为 `B显` 后的 `高显` TAB
-- 坐标系：X=距离（km，与主PPI量程同步），Y=高度（m，默认0~500，可配置）
-- 复用 `CustomLineChart`、点迹Tooltip、显隐控制、大小控制、FIFO与无人机过滤逻辑
-
----
-
-### 10. 多通道航迹显示开关（2026-05-09）
-
-**新增通道**:
-- TBD航迹：`0xEE02`，`6010 -> 8010`
-- 协同航迹：`0xEE03`，`6020 -> 8020`
-
-**协议约定**:
-- 协同航迹通道复用 `TBDTrackHead + TBDTrackInfo + TBDPoint` 帧体定义
-- `PointInfo.type` 新增 `CooperativeTrackPointType = 4`
-
-**配置开关** (`config.toml` `[displayConfig]`):
-- `iftbd = false`
-- `ifxietong = false`
-
-**行为规则**:
-- 开关为 `false` 时：不创建对应接收管理器，不监听对应端口，不显示对应UI控件/表页
-- `MousePositionInfo` 按开关动态添加 `TBD航迹` / `协同航迹` 可见性复选框
-- `MainOverLayOut` 动态添加对应航迹表页
-- `RangeAzimuthChart`、`TrackManager`、`SectorTrackManager` 按类型分别控制颜色与可见性
-
-**颜色方案**:
-- 常规航迹：`TRA_COLOR`（红）
-- TBD航迹：`TBD_COLOR`（黄）
-- 协同航迹：`CO_TRACK_COLOR`（青蓝）
-
----
-
-### 8. 参数对话框统一规范（2026-01-15）
-
-**参考实现**: `paramWidget/servocontrol.cpp`
-
-**按钮行为标准**:
-- "确定下发": 打包协议结构体发送信号，**不关闭窗口**（便于连续下发）
-- "取消": 查找 `CusWindow` 父指针并关闭
-
-```cpp
-// 构造函数：断开默认连接，绑定自定义槽
-disconnect(ui->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
-disconnect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
-connect(ui->buttonBox->button(QDialogButtonBox::Ok),
-        &QPushButton::clicked, this, &YourDialog::onAccept);
-connect(ui->buttonBox->button(QDialogButtonBox::Cancel),
-        &QPushButton::clicked, this, &YourDialog::onCancel);
-
-// onCancel：向上查找CusWindow父窗口关闭
-void YourDialog::onCancel() {
-    QWidget* p = parentWidget();
-    while (p && !qobject_cast<CusWindow*>(p)) p = p->parentWidget();
-    if (p) p->close();
-}
-```
-
----
-
-### 9. 参数保存到 config.toml（2026-01-21）
-
-**功能**: "保存参数"按钮 → 确认弹窗 → 写入 config.toml → 下次启动自动恢复。
-
-**已支持段落** (`[params.*]`):
-- `params.servo` — 伺服控制（cmd, speed, az）
-- `params.scanrange` — 扫描范围（workMode）
-- `params.beamcontrol` — 波形控制（freqID, type，3个波形配置）
-- `params.sigpro` — 信号处理（16个参数）
-- `params.datapro` — 数据处理（15个参数）
-- `params.datasave` — 数据保存（saveSwitch, dataID）
-
-**实现模式**:
-```cpp
-// .h
-private slots:
-    void onSaveToConfig();
-
-// .cpp 构造函数（加载默认值）
-ui->fieldXxx->setValue(CF_INS.xxxParam(硬编码默认值));
-connect(ui->saveButton, &QPushButton::clicked, this, &类名::onSaveToConfig);
-
-// .cpp 实现
-void 类名::onSaveToConfig() {
-    if (!CustomMessageBox::showConfirm(this, tr("确认保存"),
-                                       tr("是否将当前参数保存到配置文件？"))) return;
-    CF_INS.saveXxxParam(UI读取的值...);
-    if (CF_INS.save()) {
-        CustomMessageBox::showInfo(this, tr("保存成功"), tr("参数已保存！\n下次启动将自动加载。"));
-    } else {
-        CustomMessageBox::showWarning(this, tr("保存失败"), tr("无法保存配置文件，请检查文件权限。"));
-    }
-}
-```
-
-**.ui 文件片段**（在 `QDialogButtonBox` 之前）:
-```xml
-<item>
- <widget class="QPushButton" name="saveButton">
-  <property name="text"><string>保存参数</string></property>
- </widget>
-</item>
-```
+### 10. 参数保存到 config.toml（2026-01-21）
+- "保存参数"按钮 → `CustomMessageBox::showConfirm` → `CF_INS.saveXxxParam(...)` + `CF_INS.save()` → 成功/失败弹窗；下次启动构造中用 `CF_INS.xxxParam(默认值)` 恢复。
+- 已支持段落 `[params.*]`：`servo`(cmd,speed,az)、`scanrange`(workMode)、`beamcontrol`(freqID,type,3波形)、`sigpro`(16参)、`datapro`(15参)、`datasave`(saveSwitch,dataID)。
+- `.ui` 在 `QDialogButtonBox` 前加 `QPushButton name="saveButton"`。
 
 ---
 
@@ -936,104 +692,27 @@ dataToScene            # RangeAzimuth坐标转换
 
 ## 版本历史（整合全部文档）
 
-### v1.0 (2025-08-18)
-- 初版协议（internal_protocol.md v1.0）
+> 早期版本（v1.0–v5.16）精简为一版一行；详细变更见 git 历史。最近版本（v5.17+）保留要点。
 
-### v4.0 (2025-09-18)
-- 控制表512B对齐；BIT新增偏航与子阵电源BIT
-
-### v5.0 (2025-10-24 + 2025-12-11)
-- 协议v5.0：控制表512B与外部协议一致；新增目标识别状态上报
-- **数据流修复**：PPIScene、航迹表格、扇区显示数据流连接修复
-- 新增 `ExternalCtrlManager` 外部雷控/伺服链路
-- 协议v5.1（2025-12-25）：外部链路默认参数写入config.toml
-
-### v5.1-UI (2026-01-15)
-- 修复参数对话框按钮样式与行为不统一
-- 移除 darkstyle.qss 中特定对话框的QSS覆盖
-
-### v5.2 (2026-01-19)
-- 检测点数量限制（`DetManager` FIFO + `PPIVisualSettings`输入框）
-- P显一键清除（"显清"按钮 + 确认对话框）
-- 修复 `ConfigManager::displayConfig()` 方法缺失
-
-### v5.3 (2026-01-21)
-- 参数保存到 config.toml（servo/scanrange/beamcontrol/sigpro/datapro/datasave）
-
-### v5.4 (2026-01-26)
-- **数据存储管理**（datasaveui，0xCC01~03/0xDD02~04）
-- **健康管理窗口实时更新**（持久化 + 6状态 + 10项BIT + 温度/角度）
-- **距离-方位图表**（`RangeAzimuthChart`，直角坐标系）
-  - `CustomLineChart` 通用基类（cusWidgets/）
-  - Tooltip、范围同步、大小同步、FIFO
-  - 深色主题QSS（`#RangeAzimuthChartToolBar`）
-
-### v5.5 (2026-01-28)
-- 距离-方位图超出范围点隐藏而非删除（显示逻辑修复）
-- 方位角跨0°范围支持（如330°~30°）
-
-### v5.6 (2026-02-04)
-- **航迹角度单位修复**：DBT/TBD 弧度→度（×180/π）
-- 航迹颜色：橙色(255,128,0)，线宽2，圆形端点，80%透明度
-- 移除 TrackManager 重复信号连接
-
-### v5.7 (2026-03-23)
-- **外部协议扩展**：AD数据帧（`sendAdFrame`/`adFrameReceived`/`sendSystemControlWithAd`）
-- **Claude.md 全面整合重写**（基于所有34个MD文档）
-
-### v5.8 (2026-05-09)
-- **多通道航迹开关**：新增 TBD / 协同航迹配置开关 `iftbd`、`ifxietong`
-- **协同航迹通道**：新增 `0xEE03`、`6020 -> 8020` 接收链路
-- **UI扩展**：动态新增 TBD / 协同航迹表页与可见性开关
-- **显示扩展**：P显、扇区、B显按航迹类型分别着色与显隐控制
-
-### v5.9 (2026-05-12)
-- **高显TAB**：新增 `RangeHeightChart/Widget`，位于 `B显` 之后
-- **坐标定义**：X轴为距离（km，主PPI量程同步），Y轴为高度（m，默认0~500，可设置）
-- **联动扩展**：检测点/航迹数据流、显清、点数上限、点大小、普通无人机过滤同步接入高显
-
-### v5.10 (2026-05-13)
-- **航迹关注功能**：`DraggableLabel` 右键菜单新增 `关注 / 取消关注`
-- **关注态样式**：被关注批次在 `P显` 中显示为更大的空心三角点，且层级提升到最高
-- **生命周期**：手动取消关注或批次消批后，自动恢复普通航迹样式
-
-### v5.11 (2026-05-14)
-- **单批航迹点数限制**：新增 `displayConfig.max_track_points`，默认 `200`
-- **配置入口**：`PPIVisualSettings` 新增“航迹点”输入框，修改后立即同步到 `P显`、扇区、`B显`、`高显`
-- **显示策略**：`TrackManager` / `SectorTrackManager` 对每个批次独立执行 FIFO 裁剪，避免普通航迹批次历史无限增长
-- **图表对齐**：`B显` / `高显` 的航迹点上限也改为按 `batch` 独立裁剪，保留每批最新 `N` 个点，不再按全局总数裁剪
-
-### v5.12 (2026-05-15)
-- **压测性能开关**：新增 `displayConfig.track_label_refresh_ms`、`chart_track_labels_enabled`、`chart_track_label_refresh_ms`、`send_road_points_to_datapro`
-- **主P显优化**：`TrackManager` 的批号标签改为限频刷新，仍保持可见性与锚线更新，减少每点 `setPlainText/setPos` 开销
-- **B显/高显优化**：图表批号标签支持直接关闭，并支持最小刷新间隔，降低全量 `refreshTrackLabels()` 的文本绘制成本
-- **B显/高显增量刷新**：新航迹点到来时只刷新当前批次的 FIFO 与显隐状态，避免每点触发全图航迹遍历；标签关闭时不再清空 latest-index 缓存，保证无人机过滤逻辑可用
-- **道路点下发优化**：`PPIView` 启动/地理位置变化时的道路点下发改为可配置关闭，便于纯航迹压测时剔除无关负载
-
-### v5.13 (2026-05-18)
-- **P显检测点批量绘制**：`DetManager` 不再为每个检测点创建 `DetPoint` 图元，改为单个 `DetBatchItem` 保存 FIFO 点列并用 `QPainter::drawPoints()` 批量绘制，减少 `QGraphicsScene` item 创建/删除压力
-- **P显航迹批量绘制**：`TrackManager` 每个 batch 使用一个 `TrackBatchItem` 绘制历史点和连线，只保留每批最新 `TrackPoint` 作为交互锚点/关注态图元，避免每点一个 `TrackPoint` 加一条 `QGraphicsLineItem`
-- **交互保持**：`PPIScene::mousePressEvent()` 在旧 `Point*` 命中失败时回退调用 `TrackManager::pointInfoAt()` / `DetManager::pointInfoAt()`，批量绘制后的历史航迹点和检测点仍可点击并发出 `trackPointClicked`
-- **UI刷新限速**：检测点与航迹批量 item 使用 16ms 单次定时器合并 repaint 请求；数据接收继续入队，GUI 正常负载下接近 60 FPS，积压时跳过中间重复 repaint
-- **Bounds增量优化**：检测点/航迹新点到来时只扩展批量 item 的 boundingRect，不再每点全量扫描历史点；量程变化、显隐切换、清空和上限调整时仍会完整重建 bounds
-- **航迹绘制降载**：普通航迹按颜色分桶后批量 `drawLines()` / `drawPoints()`，关闭普通态抗锯齿；关注态保留原空心三角样式
-- **B显/高显批量绘制**：`RangeAzimuthChart` / `RangeHeightChart` 改为单个 batch item 批量 `drawPoints()`，新增检测点/航迹点不再创建 `QGraphicsEllipseItem`，显隐判断延迟到 paint 阶段，避免每点扫描整张图表
-
-### v5.14 (2026-05-18)
-- **扇区数据流降载**：新增 `displayConfig.sector_display_enabled` 与 `sector_display_data_enabled`，默认不创建/不连接隐藏扇区显示，避免 `SectorDetManager` / `SectorTrackManager` 的 per-point item 路径进入压测热路径
-- **扇区隐藏图元优化**：扇区检测点、航迹点、连线、标签在不可见时从 `QGraphicsScene` 移除但保留对象和业务数据；重新可见时再加入 scene，减少 invisible item 对 scene 索引、命中测试和遍历的压力
-
-### v5.15 (2026-05-22)
-- **显控入口调整**：`伺服控制` 按钮从“雷达控制”tab 移至“参数设置”tab，并新增 `伺服归北` 快捷按钮。
-- **伺服归北序列**：点击 `伺服归北` 后立即下发 `方位归北 0°`，4 秒后自动下发 `方位寻位 0°`，两条命令均写入显控命令日志。
-- **模式下发联动**：TWS/TAS 模式对话框完成参数下发后，如果雷达仍处于待机状态，自动触发现有“进入工作”按钮逻辑；已在工作态时不反向切回待机。
-
-### v5.16 (2026-05-29)
-- **旧GCS上报开关**：旧二进制 GCS `0x52` 航迹目标上报由 `network.gcs.target_report_enabled` 控制，默认 `false`；关闭时右键目标下发入口和后续自动上报都不启用。
-- **边缘终端JSON上报**：新增 `EdgeRadarReporter`，由 `network.edge_radar_report.enabled` 控制，默认 `false`；开启后按 UDP JSON `type=target` 单目标单包上报普通航迹。
-- **JSON心跳**：`EdgeRadarReporter` 按 `network.edge_radar_report.heartbeat_interval_ms` 发送 `type=heartbeat`，GPS 来源为 `[radar] latitude/longitude/altitude`。
-- **上报调试日志**：`EdgeRadarReporter` 输出初始化配置、绑定结果、目标/心跳发送结果与完整 JSON payload，便于和 Wireshark 抓包逐字段对照；旧 `GCSManager` 日志不再接入显控主日志。
-- **默认通信参数**：`network.edge_radar_report.target_ip=192.168.1.100`、`target_port=9001`、`local_ip=0.0.0.0`、`local_port=0`；TBD/协同航迹暂不进入该鸟/无人机 JSON 目标协议。
+- **v1.0**(2025-08-18) 初版协议。
+- **v4.0**(2025-09-18) 控制表512B对齐；BIT 增偏航与子阵电源。
+- **v5.0/5.1**(2025-10~12) 协议v5.0 控制表512B 对齐外部协议、目标识别状态上报；数据流连接修复；新增 `ExternalCtrlManager`；外部链路默认参数写入 config.toml。
+- **v5.1-UI**(2026-01-15) 参数对话框按钮样式/行为统一；移除特定对话框 QSS 覆盖。
+- **v5.2**(2026-01-19) 检测点 FIFO 上限 + "显清"；补 `ConfigManager::displayConfig()`。
+- **v5.3**(2026-01-21) 参数保存到 config.toml（servo/scanrange/beamcontrol/sigpro/datapro/datasave）。
+- **v5.4**(2026-01-26) 数据存储管理（0xCC01~03/0xDD02~04）；健康管理窗口实时更新；距离-方位图表（`RangeAzimuthChart`+`CustomLineChart`）。
+- **v5.5**(2026-01-28) B显超范围点隐藏而非删除；方位角跨0°支持。
+- **v5.6**(2026-02-04) 航迹角度修复（当时 DBT/TBD ×180/π，后于 v5.18 改回全按度）；航迹橙色/线宽2/圆端点/0.8 透明。
+- **v5.7**(2026-03-23) 外部协议 AD 数据帧；CLAUDE.md 全面整合重写。
+- **v5.8**(2026-05-09) 多通道航迹开关 `iftbd`/`ifxietong`；协同航迹通道 `0xEE03`(6020→8020)；动态表页/可见性/按类型着色。
+- **v5.9**(2026-05-12) 高显 TAB（`RangeHeightChart`，X=距离km/Y=高度m）。
+- **v5.10**(2026-05-13) 航迹关注功能（右键关注/取消关注，空心三角+置顶）。
+- **v5.11**(2026-05-14) 单批航迹点数上限 `displayConfig.max_track_points`(200)，按 batch 独立 FIFO。
+- **v5.12**(2026-05-15) 压测性能开关（标签限频刷新、图表标签可关、增量刷新、道路点下发可关）。
+- **v5.13**(2026-05-18) P显/B显/高显批量绘制（`DetBatchItem`/`TrackBatchItem`/batch item + `drawPoints/drawLines`），16ms 合并 repaint，增量 bounds，命中回退 `pointInfoAt`。
+- **v5.14**(2026-05-18) 扇区数据流降载（`sector_display_enabled`/`sector_display_data_enabled`），隐藏图元移出 scene。
+- **v5.15**(2026-05-22) `伺服控制` 移到"参数设置"tab + `伺服归北`（归北0°→4s后寻位0°）；TWS/TAS 下发后待机态自动进入工作。
+- **v5.16**(2026-05-29) 旧 GCS `0x52` 上报开关 `network.gcs.target_report_enabled`(默认false)；新增 `EdgeRadarReporter`（UDP JSON `type=target`/`heartbeat`，默认 `192.168.1.100:9001`）。
 
 ### v5.17 (2026-06-15)
 - **边缘终端目标上报节拍**：`EdgeRadarReporter` 按协议维护普通航迹最新点缓存，定时遍历当前普通航迹并逐目标发送单包 `type=target` JSON；无目标时不发送目标包，仅保留心跳。
@@ -1044,6 +723,41 @@ dataToScene            # RangeAzimuth坐标转换
 - **边缘识别结果回传**：新增 `EdgeRadarResultReceiver`，默认监听 `network.edge_radar_result.local_ip/local_port`（`0.0.0.0:9002`），接收边缘终端回传的 `type=recognition_result` JSON 光电识别结果，解析 `track_id/is_drone/count/detections/timestamp` 并保留完整调试日志。
 - **总控MQTT上报**：新增 `TotalControlMqttClient`，使用 QtNetwork 实现 MQTT 3.1.1 QoS0 发布；默认 topic `x576/target/result`，按 `track_id` 将雷达侧结果放入 `radar` 对象、光电侧结果放入 `optical` 对象，不做本地融合，由总控端自行融合。
 - **总控协议文档**：新增 `docs/total_control_mqtt_protocol.md`，说明 MQTT Broker、topic、JSON 字段、`radar/optical` 对象和总控端处理建议。
+
+### v5.19 (2026-06-28)
+- **地图偏移补偿改为坐标空间无关方案**：彻底修复"P显圆圈相对真实位置右偏，且改量程约 1 秒后漂到错误位置"的外场问题。
+  - **根因**：旧 `PPIView::calculateMapDisplayParameters` 用 **PPI 子区域自身比例**（`qMin(ppiW,ppiH)/2` + 量程算出的 `metersPerPixel`）把"PPI 中心相对地图中心的像素偏移"换算成米→经纬度，再在 C++ 侧减到地图中心；但地图最终是按 **整窗地图(centralWidget)的比例** 在 WebEngine(CSS 像素)中渲染。两个坐标空间（Qt 逻辑像素 vs WebEngine CSS 像素、PPI 比例 vs 地图比例）不一致，叠加 `AA_EnableHighDpiScaling` 的文本缩放/不同分辨率，导致补偿后的目标中心算错；`map.setBounds` 的平移动画把地图在约 1 秒内"漂"到这个错误目标，表现为先对后偏。
+  - **修复**：C++ 只输出 **PPI 中心占地图容器尺寸的比例**（`pixelOffset / centralWidget尺寸`，无量纲、DPI/分辨率自动抵消）；HTML 端用 **地图自身比例**（`range×1000/containerWidth`）把该比例还原为像素→米→经纬度偏移，反推地图中心，使雷达(GCJ02)精确钉在 PPI 中心像素，任意量程/分辨率/DPI 均对齐。
+  - **接口变更**：`PPIView::calculateMapDisplayParameters` / `radarCenterChanged` 增加 `offsetRatioX/Y`；`MapProxyWidget` 新增 `syncRadarToMapWithOffset` 并存储 `m_offsetRatioX/Y`，`centerOn`/`setCenterOn` 增加偏移比例参数；`chooseMap` 通过 URL `offx/offy` 把偏移透传给首帧。
+  - **北斗实时上报路径修正**：`geoLocationUpdated → syncRadarToMap` 旧版用原始经纬度居中、丢失偏移补偿（有北斗时每秒覆盖一次正确位置）；现复用已存储偏移比例，与 `onGeoLocationChanged` 路径一致。
+  - **4 图层统一 GCJ02**：`indexNoL.html`/`index.html`/`index3d.html` 补齐原本缺失的 WGS84→GCJ02 转换（此前仅 `indexS.html` 有），避免切换图层后偏移行为不一致。
+  - **关闭 setBounds 动画**：4 个 html 的 `new AMap.Map(...)` 增加 `animateEnable: false`，改量程瞬间到位，消除动画期间的可见漂移。
+- **注意事项**：程序从 `applicationDirPath()` 加载 html，构建后须确保更新的 `htmls/*.html` 已复制到运行目录；`maplibre.html`（OSM 引擎，已禁用）使用 WGS84 瓦片、无需 GCJ02 转换，保持原样。
+
+### v5.20 (2026-06-28)
+- **主界面版本号显示**：主界面标题区原英文名 `Radar Control Platform`（`SubtitleLabel`）改为显示软件版本号。
+  - 版本号常量集中定义在 `Basic/DispBasci.h` 的 `APP_VERSION_STR`，发布新版只改这一处（同时建议同步 `mainoverlayout.ui` 占位文本）。
+  - `MainOverLayOut` 构造中 `ui->SubtitleLabel->setText(APP_VERSION_STR)`，tooltip 改为“软件版本号”；`mainoverlayout.ui` 的 `SubtitleLabel` 文本同步为占位版本号（运行时由 setText 覆盖）。
+  - 中文标题 `TitleLabel`（雷达控制平台）保持不变。
+
+### v5.21 (2026-06-29)
+- **渲染后端可配置（修外场两类显示故障）**：
+  - **故障**：① 打开某些录屏软件后显控黑屏（切桌面再切回仍黑）；② 部分电脑持续黑屏闪烁。根因均为 **QtWebEngine(Chromium) 的 GPU 加速渲染与显卡驱动/桌面合成(DWM)、录屏软件钩取冲突**。
+  - **方案**：新增 `[webengine]` 配置项，逐台调试、无需重新编译；相关设置在 `QApplication` 创建前生效（故 `main.cpp` 提前 `ConfigManager::load`）。
+    - `gl_backend`：`desktop`(默认,`AA_UseDesktopOpenGL`+Core3.3) | `angle`/`gles`(`AA_UseOpenGLES`,更兼容) | `software`(`AA_UseSoftwareOpenGL`,最兼容)。
+    - `disable_gpu`：true 时给 Chromium 加 `--disable-gpu --disable-gpu-compositing`（经 `qputenv("QTWEBENGINE_CHROMIUM_FLAGS", ...)`），关闭 WebEngine GPU 加速/合成（地图为2D瓦片，软件渲染足够）。
+    - `extra_chromium_flags`：追加自定义 Chromium 参数（空格分隔），高级调优用。
+  - **排障顺序**：先 `disable_gpu=true`；仍异常 → `gl_backend="angle"`；再不行 → `gl_backend="software"`。
+  - **改动**：`main.cpp`（QApplication 前按配置设 `AA_Use*OpenGL` 与 Chromium flags，`setupOpenGL` 仅 desktop 后端调用）、`Basic/ConfigManager.h`（`webEngineGlBackend/webEngineDisableGpu/webEngineExtraChromiumFlags`）、`config.toml` `[webengine]`。
+
+### v5.22 (2026-06-29)
+- **黑屏闪烁修复定稿（双显卡笔记本，如联想 Y9000P）**：v5.21 的 `disable_gpu` 方案不适用本工程——离线高德 AMap 2.0 基于 **WebGL** 渲染，关 GPU 会导致**地图整块空白**。真正根因是 **NVIDIA Optimus 双显卡（Intel 核显 ↔ NVIDIA 独显）切换使 WebEngine 共享 GL 上下文失效**，在"切软件 / 点窗口 / 切地图"时整屏黑屏闪烁。
+  - **默认改为 ANGLE**：`gl_backend` 默认 `"angle"`（`AA_UseOpenGLES` → Direct3D11），Windows/双显卡上最稳，且 WebGL 地图正常显示。`config.toml`、`ConfigManager` 默认、`main.cpp` 默认均改为 `angle`。
+  - **强制独显**：`main.cpp` 顶部导出 `NvOptimusEnablement=1` 与 `AmdPowerXpressRequestHighPerformance=1`（仅 `Q_OS_WIN`），把双显卡笔记本钉在独显上，消除核显↔独显切换这个根因。
+  - **disable_gpu 警示**：`disable_gpu=true` 会让 WebGL 地图空白，本工程一般保持 `false`；config 注释已标注。
+  - **排障顺序**：`angle`(默认) → 不行 `desktop` → 再不行 `software`。
+  - **部署注意**：使用 `angle` 需随程序部署 ANGLE 运行库（`libEGL.dll`/`libGLESv2.dll`/`d3dcompiler_47.dll`，windeployqt 默认会带）。
+  - 现场无需重新编译也可临时缓解：NVIDIA 控制面板 → 将本程序 exe 指定为"高性能 NVIDIA 处理器"。
 
 ---
 

@@ -280,6 +280,24 @@ public:
         return getValue("webengine.debug_port", def).toInt();
     }
 
+    // WebEngine 渲染后端配置（必须在 QApplication 创建前读取）
+    // 用于解决黑屏/黑屏闪烁（GPU 加速与显卡/双显卡切换/桌面合成冲突）
+    // 取值：angle/gles（ANGLE→D3D，默认，Windows/双显卡最稳，WebGL地图正常）| desktop（原生OpenGL）| software（软件渲染）
+    QString webEngineGlBackend(const QString& def = "angle") const {
+        return getValue("webengine.gl_backend", def).toString();
+    }
+
+    // true 时给 Chromium 加 --disable-gpu --disable-gpu-compositing，关闭 WebEngine 的 GPU 加速/合成
+    // （地图为2D瓦片，软件渲染足够；可消除录屏黑屏与部分显卡的黑屏闪烁）
+    bool webEngineDisableGpu(bool def = false) const {
+        return getValue("webengine.disable_gpu", def).toBool();
+    }
+
+    // 追加自定义 Chromium 启动参数（空格分隔），用于高级调优，一般留空
+    QString webEngineExtraChromiumFlags(const QString& def = "") const {
+        return getValue("webengine.extra_chromium_flags", def).toString();
+    }
+
     // 显示配置相关
     int displayConfig(const QString& key, int def = 1000) const {
         return getValue("displayConfig." + key, def).toInt();

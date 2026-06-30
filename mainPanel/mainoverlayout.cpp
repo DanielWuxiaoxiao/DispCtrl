@@ -533,7 +533,9 @@ void MainOverLayOut::topRightSet() {
 
     ui->TitleLabel->setToolTip("系统标题");
 
-    ui->SubtitleLabel->setToolTip("系统副标题");
+    // 副标题位置改为显示软件版本号（替代原英文名 "Radar Control Platform"）
+    ui->SubtitleLabel->setText(APP_VERSION_STR);
+    ui->SubtitleLabel->setToolTip("软件版本号");
 
     connect(ui->minButton, &QPushButton::clicked, CON_INS, &Controller::minimizeWindow);
     connect(ui->CloseButton, &QPushButton::clicked, this, [this]() {

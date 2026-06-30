@@ -44,6 +44,7 @@
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QMouseEvent>
+#include <QResizeEvent>
 #include <QLineF>
 
 class PPIScene;
@@ -294,6 +295,15 @@ protected:
      */
     void wheelEvent(QWheelEvent* event) override;
 
+    /**
+     * @brief 尺寸变化事件处理
+     * @param event 尺寸事件对象
+     * @details 当处于自动适配状态(m_autoFit)时，按控件真实尺寸重新 fitInView，
+     *          使小PPI默认填满方框（即默认就是“重置视图”状态）；
+     *          用户手动缩放/选区后 m_autoFit 置 false，resize 不再打断其视图。
+     */
+    void resizeEvent(QResizeEvent* event) override;
+
 private:
     /**
      * @brief 更新缩放级别
@@ -311,6 +321,7 @@ private:
     PPIScene* m_scene;               ///< PPI场景指针
     Mode m_mode;                     ///< 当前交互模式
     double m_zoomFactor;             ///< 当前缩放因子
+    bool m_autoFit;                  ///< true=随控件尺寸自动填满方框(默认/重置态)；用户缩放或选区后置false
 
     // 测距相关组件（提供具象的尺子表现）
     bool m_measuring;                ///< 是否正在进行测距操作

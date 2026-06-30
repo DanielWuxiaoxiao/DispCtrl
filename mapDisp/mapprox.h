@@ -52,7 +52,7 @@
  * MapProxyWidget* mapProxy = new MapProxyWidget();
  * QWebEngineView* view = mapProxy->getView();
  * layout->addWidget(view);
- * mapProxy->setCenterOn(120.0, 30.0, 10.0);  // 定位到指定坐标
+ * mapProxy->setCenterOn(120.0, 30.0, 10.0, 0.0, 0.0);  // 定位到指定坐标（无偏移）
  * @endcode
  */
 class MapProxyWidget : public QObject
@@ -104,6 +104,8 @@ private:
     double m_currentLongitude;  ///< 当前雷达经度
     double m_currentLatitude;   ///< 当前雷达纬度
     double m_currentRange;      ///< 当前显示范围(公里)
+    double m_offsetRatioX = 0.0; ///< PPI中心相对地图中心的水平偏移占容器宽度比例（无量纲，免疫DPI/分辨率）
+    double m_offsetRatioY = 0.0; ///< PPI中心相对地图中心的垂直偏移占容器高度比例（无量纲，免疫DPI/分辨率）
     MapEngine m_currentEngine;  ///< 当前地图引擎
     int m_currentMapType;       ///< 当前地图类型索引
     bool m_initialLoadPending = true; ///< true until deferred initial load fires
@@ -123,24 +125,37 @@ public slots:
 
     /**
      * @brief 设置地图中心位置和缩放级别
-     * @param lng 经度值(度)
-     * @param lat 纬度值(度)
+     * @param lng 经度值(度，WGS84原始坐标)
+     * @param lat 纬度值(度，WGS84原始坐标)
      * @param range 显示范围(公里)
+     * @param offsetRatioX PPI中心相对地图中心的水平偏移占容器宽度比例（默认沿用已存储值）
+     * @param offsetRatioY PPI中心相对地图中心的垂直偏移占容器高度比例（默认沿用已存储值）
      * @details 响应HTML页面的定位请求：
-     *          - 将雷达坐标转换为地理坐标
-     *          - 计算合适的地图缩放级别
-     *          - 通过信号通知HTML更新地图视图
+     *          - 把雷达原始WGS84坐标与偏移比例透传给HTML
+     *          - HTML端完成WGS84→GCJ02转换与像素偏移补偿
      */
-    void setCenterOn(float lng, float lat, float range);
+    void setCenterOn(float lng, float lat, float range, float offsetRatioX, float offsetRatioY);
 
     /**
-     * @brief 同步雷达中心位置和范围到地图
-     * @param longitude 雷达中心经度
-     * @param latitude 雷达中心纬度
+     * @brief 同步雷达中心位置和范围到地图（沿用已存储的偏移比例）
+     * @param longitude 雷达中心经度(WGS84)
+     * @param latitude 雷达中心纬度(WGS84)
      * @param range 雷达范围（公里）
-     * @details 响应PPIView的雷达位置/范围变化，同步更新地图显示范围
+     * @details 用于经纬高实时上报等只更新位置的场景，偏移比例复用上一次PPI计算结果
      */
     void syncRadarToMap(double longitude, double latitude, double range);
+
+    /**
+     * @brief 同步雷达中心、范围及PPI偏移比例到地图
+     * @param longitude 雷达中心经度(WGS84)
+     * @param latitude 雷达中心纬度(WGS84)
+     * @param range 雷达范围（公里）
+     * @param offsetRatioX PPI中心相对地图中心的水平偏移占容器宽度比例
+     * @param offsetRatioY PPI中心相对地图中心的垂直偏移占容器高度比例
+     * @details 响应PPIView::radarCenterChanged，存储最新偏移比例并刷新地图
+     */
+    void syncRadarToMapWithOffset(double longitude, double latitude, double range,
+                                  double offsetRatioX, double offsetRatioY);
 
     /**
      * @brief 设置地图灰度显示模式
@@ -191,7 +206,7 @@ signals:
      *          - JavaScript监听此信号并调用地图API
      *          - 实现雷达数据与地图的同步显示
      */
-    void centerOn(float lng, float lat, float range);
+    void centerOn(float lng, float lat, float range, float offsetRatioX, float offsetRatioY);
 
     /**
      * @brief 灰度模式变化信号

@@ -21,7 +21,11 @@
 
 #include <QApplication>
 #include <QDir>
+#include <QStringList>
 #include <QSurfaceFormat>
+#include <QOpenGLContext>
+#include <QOffscreenSurface>
+#include <QOpenGLFunctions>
 #include <QAbstractSocket>
 #include "mainwindow.h"
 #include "Basic/bindThread.h"
@@ -43,6 +47,17 @@
 #include <QPushButton>
 #include <QMessageBox>
 #include <QIcon>
+
+#ifdef Q_OS_WIN
+// 双显卡（联想 Y9000P 等 NVIDIA Optimus / AMD 双显）笔记本：强制使用独立显卡。
+// 避免 Intel 核显 ↔ 独显 之间切换导致 QtWebEngine 共享 GL 上下文失效，
+// 在"切换软件 / 点击窗口 / 切换地图"时出现整屏黑屏闪烁。
+// 这两个导出符号会被显卡驱动识别（必须从 exe 导出、全局可见）。
+extern "C" {
+    __declspec(dllexport) unsigned long NvOptimusEnablement = 0x00000001;
+    __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}
+#endif
 
 /**
  * @brief 设置OpenGL渲染格式
@@ -417,12 +432,43 @@ int main(int argc, char *argv[]) {
     // 第一步：Qt应用程序属性配置（必须在QApplication实例化之前）
     // =============================================================================
 
+    // 提前加载配置，以便据此选择渲染后端（GPU相关设置必须在 QApplication 之前生效）。
+    // 第四步会再次 load 做完整校验，此处重复加载无副作用。
+    ConfigManager::instance().load("config.toml");
+
+    // ---- WebEngine / Chromium GPU 渲染开关（解决外场两类显示故障）----
+    // 故障1：打开某些录屏软件后显控黑屏（录屏钩取GPU/桌面合成，WebEngine的GPU表面被判为受保护/被抢占）
+    // 故障2：部分电脑持续黑屏闪烁（显卡/驱动与desktop OpenGL不兼容，Chromium合成器反复丢失GL上下文）
+    // 对策：可通过 config.toml [webengine] 关闭 WebEngine 的 GPU 加速、或切换 GL 后端，逐台调试无需重新编译。
+    {
+        QStringList chromiumFlags;
+        if (ConfigManager::instance().webEngineDisableGpu(false)) {
+            // 地图为2D瓦片，软件渲染足够；关闭GPU加速/合成可消除上述黑屏与闪烁
+            chromiumFlags << "--disable-gpu" << "--disable-gpu-compositing";
+        }
+        const QString extraFlags = ConfigManager::instance().webEngineExtraChromiumFlags("").trimmed();
+        if (!extraFlags.isEmpty()) {
+            chromiumFlags << extraFlags;
+        }
+        if (!chromiumFlags.isEmpty()) {
+            qputenv("QTWEBENGINE_CHROMIUM_FLAGS", chromiumFlags.join(' ').toUtf8());
+        }
+    }
+
     // 启用高DPI缩放，确保在4K显示器上正常显示
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 
-    // 使用系统原生桌面OpenGL，避免ANGLE渲染器问题
-    // 对QWebEngineView的性能和兼容性至关重要
-    QApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
+    // GL 后端选择：angle/gles（默认，ANGLE→D3D，Windows/双显卡最稳）| desktop（原生OpenGL）| software（软件渲染）
+    const QString glBackend = ConfigManager::instance().webEngineGlBackend("angle").toLower();
+    if (glBackend == "software") {
+        QApplication::setAttribute(Qt::AA_UseSoftwareOpenGL);
+    } else if (glBackend == "angle" || glBackend == "gles") {
+        QApplication::setAttribute(Qt::AA_UseOpenGLES);
+    } else {
+        // 系统原生桌面OpenGL（性能最好），并设置 Core 3.3 默认格式（仅此后端适用）
+        QApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
+        setupOpenGL();
+    }
 
     // 启用OpenGL上下文共享，提高多窗口渲染性能
     // QWebEngineView依赖独立进程，此设置增强稳定性
@@ -443,6 +489,42 @@ int main(int argc, char *argv[]) {
                  .arg(ScaleHelper::factor())
                  .arg(ScaleHelper::leftPanelWidth())
                  .arg(ScaleHelper::rightPanelWidth()));
+
+    // =============================================================================
+    // 渲染后端诊断日志（外场黑屏/黑屏闪烁排查用）
+    // 记录：实际生效的 GL 后端、Chromium flags、以及真正在用的 GPU/驱动。
+    //   · GL_RENDERER 含 "Direct3D11" → ANGLE 已走 D3D（预期）
+    //   · GL_VENDOR/GL_RENDERER 含 "NVIDIA" → 独显强制生效；含 "Intel" → 仍在核显（问题点）
+    //   · 含 "SwiftShader"/"WARP"/"llvmpipe" → 落到软件渲染
+    // =============================================================================
+    {
+        LOG_INFO(QString("[Render] gl_backend=%1 | disable_gpu=%2 | AA(GLES=%3,Desktop=%4,Software=%5) | platform=%6 | chromium_flags=%7")
+                     .arg(glBackend)
+                     .arg(ConfigManager::instance().webEngineDisableGpu(false))
+                     .arg(QApplication::testAttribute(Qt::AA_UseOpenGLES))
+                     .arg(QApplication::testAttribute(Qt::AA_UseDesktopOpenGL))
+                     .arg(QApplication::testAttribute(Qt::AA_UseSoftwareOpenGL))
+                     .arg(QApplication::platformName())
+                     .arg(QString::fromUtf8(qgetenv("QTWEBENGINE_CHROMIUM_FLAGS"))));
+
+        QOffscreenSurface diagSurface;
+        diagSurface.create();
+        QOpenGLContext diagCtx;
+        if (diagSurface.isValid() && diagCtx.create() && diagCtx.makeCurrent(&diagSurface)) {
+            QOpenGLFunctions* f = diagCtx.functions();
+            auto glStr = [f](GLenum name) -> QString {
+                const GLubyte* s = f->glGetString(name);
+                return s ? QString::fromLatin1(reinterpret_cast<const char*>(s)) : QStringLiteral("?");
+            };
+            LOG_INFO(QString("[Render] GL_VENDOR=%1 | GL_RENDERER=%2 | GL_VERSION=%3")
+                         .arg(glStr(GL_VENDOR))
+                         .arg(glStr(GL_RENDERER))
+                         .arg(glStr(GL_VERSION)));
+            diagCtx.doneCurrent();
+        } else {
+            LOG_WARNING("[Render] 无法创建 OpenGL 上下文以查询 GPU 信息（可能 ANGLE/驱动初始化异常，请尝试切换 gl_backend）");
+        }
+    }
 
     // =============================================================================
     // 第三步：初始化错误处理框架
@@ -472,7 +554,7 @@ int main(int argc, char *argv[]) {
     // 第六步：用户界面配置
     // =============================================================================
     setupFont(app);      // 设置全局字体
-    setupOpenGL();       // 配置OpenGL渲染
+    // OpenGL 默认格式已在 QApplication 之前按 GL 后端配置（仅 desktop 后端设置 Core 3.3），此处不再重复
     setupStyle(app);     // 应用深色主题样式
 
     // =============================================================================

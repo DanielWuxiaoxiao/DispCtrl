@@ -193,7 +193,7 @@ void FramelessMainWindow::setupOverlayUI()
     // 连接PPI视图的雷达中心变化信号到地图组件的同步方法
     // 实现雷达位置/范围变化时自动同步地图显示范围
     connect(m_overlayWidget->getPPIView(), &PPIView::radarCenterChanged,
-            m_map, &MapProxyWidget::syncRadarToMap);
+            m_map, &MapProxyWidget::syncRadarToMapWithOffset);
 
     // 连接经纬高上报信号到地图，实时更新地图中心经纬度
     connect(CON_INS, &Controller::geoLocationUpdated,
@@ -213,10 +213,10 @@ void FramelessMainWindow::setupOverlayUI()
     // 初始化时同步一次雷达位置到地图
     PPIView* ppiView = m_overlayWidget->getPPIView();
     if (ppiView) {
-        // 使用PPIView的新计算方法获取地图显示参数
-        double mapCenterLng, mapCenterLat, mapRange;
-        ppiView->calculateMapDisplayParameters(mapCenterLng, mapCenterLat, mapRange);
-        m_map->syncRadarToMap(mapCenterLng, mapCenterLat, mapRange);
+        // 使用PPIView的新计算方法获取地图显示参数（含PPI偏移比例）
+        double mapCenterLng, mapCenterLat, mapRange, offRatioX, offRatioY;
+        ppiView->calculateMapDisplayParameters(mapCenterLng, mapCenterLat, mapRange, offRatioX, offRatioY);
+        m_map->syncRadarToMapWithOffset(mapCenterLng, mapCenterLat, mapRange, offRatioX, offRatioY);
 
         // 初始化GCS管理器并注入到PPIView
         GCSManager* gcsMgr = new GCSManager(this);

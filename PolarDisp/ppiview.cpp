@@ -144,8 +144,13 @@ QPointF PPIView::getPPIViewCenterInMainWindow() const
  * @details 根据PPIView相对于MapProxyWidget的位置偏移，计算地图应该显示的中心和范围
  *          核心逻辑：PPIView中心 = 雷达经纬度位置，地图中心 = 雷达位置 - PPIView相对MapProxyWidget的偏移
  */
-void PPIView::calculateMapDisplayParameters(double& mapCenterLng, double& mapCenterLat, double& mapRange) const
+void PPIView::calculateMapDisplayParameters(double& mapCenterLng, double& mapCenterLat, double& mapRange,
+                                            double& offsetRatioX, double& offsetRatioY) const
 {
+    // 默认无偏移（容器尺寸无效或拿不到MainWindow时回退）
+    offsetRatioX = 0.0;
+    offsetRatioY = 0.0;
+
     QWidget* mainWindow = window();
     if (!mainWindow) {
         // 如果无法获取MainWindow，直接返回雷达位置作为地图中心
@@ -183,45 +188,36 @@ void PPIView::calculateMapDisplayParameters(double& mapCenterLng, double& mapCen
     // 3. 计算MapProxyWidget（centralWidget）的中心位置
     QPointF mapProxyCenter(centralWidget->width() / 2.0, centralWidget->height() / 2.0);
 
-    // 4. 计算PPIView中心相对于MapProxyWidget中心的像素偏移
+    // 4. 计算PPIView中心相对于MapProxyWidget中心的像素偏移（Qt逻辑像素）
     // 注意：这里偏移的含义是 PPIView中心 - MapProxyWidget中心
     QPointF pixelOffset = QPointF(ppiCenterInMainWindow) - mapProxyCenter;
 
-    // 5. 获取PPI的像素到距离的转换比例（基于当前PPI显示范围）
+    // 5. 关键改动：偏移以"占容器尺寸的比例"形式输出（无量纲）。
+    //    pixelOffset 与 centralWidget 尺寸都在 Qt 同一坐标系（逻辑像素）下相除，
+    //    DPI/文本缩放因子自动抵消；不同分辨率下该比例也保持一致。
+    //    HTML 端再用地图自身比例把该比例还原为偏移并与 GCJ02 转换串联，
+    //    从而避免跨 Qt / WebEngine 两个坐标空间换算带来的像素含义不一致。
+    if (centralWidget->width() > 0 && centralWidget->height() > 0) {
+        offsetRatioX = pixelOffset.x() / static_cast<double>(centralWidget->width());
+        offsetRatioY = pixelOffset.y() / static_cast<double>(centralWidget->height());
+    }
+
+    // 6. 地图中心直接输出雷达原始 WGS84 位置（不在 C++ 侧做经纬度偏移），
+    //    像素偏移与 WGS84→GCJ02 转换统一交给 HTML 端在地图投影下完成。
+    mapCenterLng = m_radarLongitude;
+    mapCenterLat = m_radarLatitude;
+
+    // 7. 计算地图显示范围（保持与 PPI 比例一致：横屏时 HTML 的 米/像素 == PPI metersPerPixel，
+    //    保证距离环与地图比例对齐）
     double pixelsPerMeter = 1.0; // 默认值
     if (m_scene && m_scene->axis() && m_currentRange > 0) {
         // 使用PPI的实际显示范围计算比例
-        // PPI显示半径范围是m_currentRange km = m_currentRange * 1000 m
-        // 假设PPI显示半径在视图中占据的像素是视图半径
         double ppiRadiusPixels = qMin(width(), height()) / 2.0;
         double ppiRadiusMeters = m_currentRange * 1000.0; // 转换为米
         pixelsPerMeter = ppiRadiusPixels / ppiRadiusMeters;
     }
-
-    // 6. 将像素偏移转换为米偏移
     double metersPerPixel = 1.0 / pixelsPerMeter;
-    double meterOffsetX = pixelOffset.x() * metersPerPixel;
-    double meterOffsetY = pixelOffset.y() * metersPerPixel;
 
-    // 7. 将米偏移转换为经纬度偏移
-    const double earthRadius = 6378137.0; // 地球半径，米
-    const double degreesToRadians = M_PI / 180.0;
-
-    // 纬度偏移（屏幕Y向下为正，但纬度向北为正，所以需要负号）
-    double latOffset = -meterOffsetY / (earthRadius * degreesToRadians);
-
-    // 经度偏移（屏幕X向右为正，经度向东为正）
-    double latRad = m_radarLatitude * degreesToRadians;
-    double lngOffset = meterOffsetX / (earthRadius * cos(latRad) * degreesToRadians);
-
-    // 8. 计算地图中心经纬度
-    // 核心逻辑：由于PPIView中心 = 雷达位置，而地图要显示的中心应该是考虑偏移后的位置
-    // 地图中心 = 雷达位置 - 偏移量（这样PPIView中心就能正确对应到雷达位置）
-    mapCenterLng = m_radarLongitude - lngOffset;
-    mapCenterLat = m_radarLatitude - latOffset;
-
-    // 9. 计算地图显示范围
-    // 根据MapProxyWidget的大小计算需要显示的地理范围
     double mapWidthPixels = centralWidget->width();
     double mapHeightPixels = centralWidget->height();
     double mapMaxDimensionPixels = qMax(mapWidthPixels, mapHeightPixels);
@@ -234,10 +230,11 @@ void PPIView::calculateMapDisplayParameters(double& mapCenterLng, double& mapCen
     double minRequiredRange = m_currentRange * 2.0; // 至少是PPI范围的2倍
     mapRange = qMax(mapRange, minRequiredRange);
 
-    LOG_INFO(QString("Map params calc: PPIView center in MainWindow(%1,%2), MapProxy center(%3,%4), pixel offset(%5,%6)")
+    LOG_INFO(QString("Map params calc: PPIView center in MainWindow(%1,%2), MapProxy center(%3,%4), pixel offset(%5,%6), ratio(%7,%8)")
             .arg(ppiCenterInMainWindow.x()).arg(ppiCenterInMainWindow.y())
             .arg(mapProxyCenter.x()).arg(mapProxyCenter.y())
-            .arg(pixelOffset.x()).arg(pixelOffset.y()));
+            .arg(pixelOffset.x()).arg(pixelOffset.y())
+            .arg(offsetRatioX).arg(offsetRatioY));
     LOG_INFO(QString("Map params calc: Radar pos(%1,%2), Map center(%3,%4), Map range %5km, PPI range %6km")
             .arg(m_radarLongitude).arg(m_radarLatitude)
             .arg(mapCenterLng).arg(mapCenterLat)
@@ -316,9 +313,9 @@ PPIView::PPIView(QWidget* parent)
     // 延迟发送初始雷达位置信号，确保在MainWindow连接信号后再发送
     QTimer::singleShot(100, this, [this]() {
         // 使用计算的地图显示参数发送初始信号
-        double mapCenterLng, mapCenterLat, mapRange;
-        calculateMapDisplayParameters(mapCenterLng, mapCenterLat, mapRange);
-        emit radarCenterChanged(mapCenterLng, mapCenterLat, mapRange);
+        double mapCenterLng, mapCenterLat, mapRange, offRatioX, offRatioY;
+        calculateMapDisplayParameters(mapCenterLng, mapCenterLat, mapRange, offRatioX, offRatioY);
+        emit radarCenterChanged(mapCenterLng, mapCenterLat, mapRange, offRatioX, offRatioY);
 
         // 初始下发量程内道路点经纬度给数据处理
         sendRoadPointsToDataPro();
@@ -935,9 +932,9 @@ void PPIView::resizeEvent(QResizeEvent* e) {
     fitInView(m_scene->sceneRect(), Qt::KeepAspectRatio);
 
     // PPIView尺寸变化可能影响其在MainWindow中的相对位置，需要重新计算地图显示参数
-    double mapCenterLng, mapCenterLat, mapRange;
-    calculateMapDisplayParameters(mapCenterLng, mapCenterLat, mapRange);
-    emit radarCenterChanged(mapCenterLng, mapCenterLat, mapRange);
+    double mapCenterLng, mapCenterLat, mapRange, offRatioX, offRatioY;
+    calculateMapDisplayParameters(mapCenterLng, mapCenterLat, mapRange, offRatioX, offRatioY);
+    emit radarCenterChanged(mapCenterLng, mapCenterLat, mapRange, offRatioX, offRatioY);
 }
 
 /**
@@ -967,9 +964,9 @@ void PPIView::onMaxDistanceChanged(double distance)
 
     // 发出雷达中心位置变化信号，通知地图组件更新范围
     // 使用计算的地图显示参数而不是直接的雷达位置
-    double mapCenterLng, mapCenterLat, mapRange;
-    calculateMapDisplayParameters(mapCenterLng, mapCenterLat, mapRange);
-    emit radarCenterChanged(mapCenterLng, mapCenterLat, mapRange);
+    double mapCenterLng, mapCenterLat, mapRange, offRatioX, offRatioY;
+    calculateMapDisplayParameters(mapCenterLng, mapCenterLat, mapRange, offRatioX, offRatioY);
+    emit radarCenterChanged(mapCenterLng, mapCenterLat, mapRange, offRatioX, offRatioY);
 
     // 转发信号给其他需要处理距离变化的组件
     emit maxDistanceChanged(distance);
@@ -1228,9 +1225,9 @@ void PPIView::onGeoLocationChanged(double latitude, double longitude, double alt
     sendRoadPointsToDataPro();
 
     // 同步更新地图中心
-    double mapCenterLng, mapCenterLat, mapRange;
-    calculateMapDisplayParameters(mapCenterLng, mapCenterLat, mapRange);
-    emit radarCenterChanged(mapCenterLng, mapCenterLat, mapRange);
+    double mapCenterLng, mapCenterLat, mapRange, offRatioX, offRatioY;
+    calculateMapDisplayParameters(mapCenterLng, mapCenterLat, mapRange, offRatioX, offRatioY);
+    emit radarCenterChanged(mapCenterLng, mapCenterLat, mapRange, offRatioX, offRatioY);
 
     LOG_INFO(QString("Radar geo updated: lat=%1, lon=%2 → recalc OSM + send road points")
             .arg(latitude, 0, 'f', 7).arg(longitude, 0, 'f', 7));
@@ -1314,9 +1311,9 @@ void PPIView::setRadarCenter(double longitude, double latitude)
     m_radarLatitude = latitude;
 
     // 发出雷达中心位置变化信号，使用计算的地图显示参数
-    double mapCenterLng, mapCenterLat, mapRange;
-    calculateMapDisplayParameters(mapCenterLng, mapCenterLat, mapRange);
-    emit radarCenterChanged(mapCenterLng, mapCenterLat, mapRange);
+    double mapCenterLng, mapCenterLat, mapRange, offRatioX, offRatioY;
+    calculateMapDisplayParameters(mapCenterLng, mapCenterLat, mapRange, offRatioX, offRatioY);
+    emit radarCenterChanged(mapCenterLng, mapCenterLat, mapRange, offRatioX, offRatioY);
 
     LOG_INFO(QString("Radar center update: %1,%2, range %3km, Map center %4,%5, Map range %6km")
             .arg(longitude).arg(latitude).arg(m_currentRange)
