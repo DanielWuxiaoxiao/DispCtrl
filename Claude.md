@@ -772,7 +772,22 @@ dataToScene            # RangeAzimuth坐标转换
   - **网络**：本地绑定 `192.168.101.9:9009`，发往激光终端 `192.168.101.10:9009`（单端口双向）；sender=2100/receiver=5100。
   - **开关与独立性**：`config.toml [laser].enabled`（默认 false）。**关闭时不创建模块、右键菜单不出现该项、不占网络资源**；与 GCS/边缘/MQTT 等其它上报下发互不关联。
   - **模块**：新增 `Controller/laserreportmanager.h/.cpp`（镜像 `EdgeRadarReporter`：`reportTrackPoint` 缓存最新点、`removeTrackPoint` 消批、`start/stopReport` 由右键驱动、1s 定时发送）；`PPIView` 注入 `setLaserReportManager` 并在 `trackPointAdded/trackRemoved` 喂数据、`onTrackLabelRightClicked` 加菜单项；`mainwindow.cpp` 创建并接日志；已同步 `CMakeLists.txt` / `DispCtrl.pro`。
-  - **暂未实现**：模式1 自动10目标上报、激光端控制指令(授时/搜索范围/工作状态)的接收响应——当前为右键单目标持续侦察 + 周期状态帧心跳，如需可再加。
+  - **（v5.24 时）暂未实现**：模式1 自动10目标上报、激光端控制指令接收——已在 v5.25 补齐。
+
+### v5.25 (2026-06-29)
+- **激光模块补齐"激光终端"全部对应功能**（在 v5.24 单目标侦察+状态心跳基础上）：
+  - **模式1 自动上报（全部目标）**：右键航迹「开启/关闭激光自动上报(全部目标)」全局开关；开启后每拍上报当前全部普通航迹（最多 `LASER_MAX_TARGETS=10`），无目标也发空侦察帧（`targetCount=0`）。优先级：自动上报开 → 走全部目标；否则 → 单目标（`m_activeBatch`），与协议第6节一致。侦察帧构建改为多目标向量版 `buildReconFrame(QVector<PointInfo>, cancelFlag)`。
+  - **激光端控制指令接收 + 控制响应**：`m_socket` 绑定端口(9009)接收激光端(sender=5100)控制帧 `0x0100`；校验帧头/尾/校验和/发送方后解析 `LaserControlHeader(6)+内容`：
+    - `0x0101 授时`(`LaserTimeSync`)、`0x0201 工作状态`(`LaserWorkStateSet`，Bit0..3；更新本地 `m_workState` 并反映到状态帧)、`0x0104 搜索范围`(`LaserSearchRange`，**float 字段按大端解析** `bswapFloat`；更新本地 `m_scanRanges` 列表并反映到状态帧 `scanAreaCount`+`LaserScanRangeInfo`)；
+    - 每条已知指令回 `0x0101` 控制响应 `LaserControlResponse(cmdSeq,result=1)`，未知类别回 `result=0`；
+    - 同时 `emit laserTimeSyncCommand/laserWorkStateCommand/laserSearchRangeCommand` 供外部驱动雷达。
+  - **控制指令真正驱动雷达**（`mainwindow.cpp` 接线，受 `[laser].apply_control` 门控，默认 true）：
+    - **工作状态(0x0201)** Bit0 → 发射开关：`laserWorkStateCommand` → `TranRecControl{recv=1, tran=Bit0}` → `CON_INS->sendTRParam`（复用主界面"阵面发射"同一下发通道）。
+    - **授时(0x0101)**：雷达时间来自北斗，无外部授时下发通道，仅回响应+日志，不驱动。
+    - **搜索范围(0x0104)/波形下发**：按需求暂不驱动（信号已抛出，未接线）。
+    - `apply_control=false` 时：控制指令仍正常接收+回响应+日志，但不改变雷达状态。
+  - **协议结构补充**：`Basic/Protocol.h` 新增 `LaserControlHeader/LaserTimeSync/LaserWorkStateSet/LaserSearchRange/LaserControlResponse` 及常量 `LASER_FT_CONTROL=0x0100 / LASER_FT_CTRL_RESP=0x0101 / LASER_CT_TIME_SYNC=0x0101 / LASER_CT_SEARCH_RANGE=0x0104 / LASER_CT_WORK_STATE=0x0201`。均对照 RadarAPP `parseLaserFrame`/`sendLaserControlResponse` 校准。
+  - **独立性**：全部仍受 `[laser].enabled` 控制，关闭时不接收/不发送/右键无项；自动上报默认关(右键手动开)；驱动雷达额外受 `[laser].apply_control` 门控。
 
 ---
 

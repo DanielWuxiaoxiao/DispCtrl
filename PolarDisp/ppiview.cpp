@@ -1388,13 +1388,19 @@ void PPIView::onTrackLabelRightClicked(int batchID)
             tr("目标下发 [批次: %1]").arg(batchID));
     }
 
-    // 激光上报菜单项：仅在 [laser].enabled 时出现；显示“开启/关闭”取决于当前是否在上报该目标
-    QAction* laserAction = nullptr;
+    // 激光上报菜单项：仅在 [laser].enabled 时出现
+    QAction* laserAction = nullptr;      // 单目标持续上报开关
+    QAction* laserAutoAction = nullptr;  // 自动上报(全部目标)开关
     if (m_laserReportEnabled && m_laserReportManager) {
         const bool reporting = m_laserReportManager->isReporting(batchID);
         laserAction = menu.addAction(reporting
             ? tr("关闭激光上报 [批次: %1]").arg(batchID)
             : tr("激光上报 [批次: %1]").arg(batchID));
+
+        const bool autoOn = m_laserReportManager->isAutoReport();
+        laserAutoAction = menu.addAction(autoOn
+            ? tr("关闭激光自动上报(全部目标)")
+            : tr("开启激光自动上报(全部目标)"));
     }
 
     const bool focused = m_scene->track()->isBatchFocused(batchID);
@@ -1414,6 +1420,11 @@ void PPIView::onTrackLabelRightClicked(int batchID)
         } else {
             m_laserReportManager->startReport(batchID);
         }
+        return;
+    }
+
+    if (laserAutoAction && chosen == laserAutoAction) {
+        m_laserReportManager->setAutoReport(!m_laserReportManager->isAutoReport());
         return;
     }
 

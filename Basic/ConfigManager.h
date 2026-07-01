@@ -320,6 +320,11 @@ public:
     QString laserSaveDir(const QString& def = "LaserReportLog") const {
         return getValue("laser.save_dir", def).toString();
     }
+    // 激光端控制指令是否真正驱动雷达（true=工作状态Bit0驱动发射开关；false=仅回响应+日志）
+    // 注意：仍受 laser.enabled 总开关约束；波形下发(搜索范围)始终不驱动。
+    bool laserApplyControl(bool def = true) const {
+        return getValue("laser.apply_control", def).toBool();
+    }
 
     // 显示配置相关
     int displayConfig(const QString& key, int def = 1000) const {

@@ -183,6 +183,7 @@ udp_port = 9009                      # 单端口双向UDP端口
 report_interval_ms = 1000            # 持续上报周期(ms)
 save_txt = true                      # 是否把每次“下发新目标”的信息保存到本地txt
 save_dir = "LaserReportLog"          # txt保存目录（相对程序运行目录）
+apply_control = true                 # 激光端控制指令是否真正驱动雷达(工作状态Bit0→发射开关)；false仅回响应+日志。波形下发(搜索范围)始终不驱动
 
 # =============================================================================
 # 参数配置（运行时保存） Parameter Configuration (Runtime Save)

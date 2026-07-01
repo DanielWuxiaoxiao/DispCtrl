@@ -1117,8 +1117,14 @@ constexpr unsigned char LASER_FRAME_HEAD0 = 0xEB;
 constexpr unsigned char LASER_FRAME_HEAD1 = 0x90;
 constexpr unsigned char LASER_FRAME_TAIL0 = 0x4C;
 constexpr unsigned char LASER_FRAME_TAIL1 = 0x5A;
-constexpr unsigned short LASER_FT_RECON   = 0x0300;  // 侦察帧类型
-constexpr unsigned short LASER_FT_STATUS  = 0x0200;  // 状态帧类型（隐含心跳）
+constexpr unsigned short LASER_FT_RECON   = 0x0300;  // 侦察帧类型（雷达→激光端）
+constexpr unsigned short LASER_FT_STATUS  = 0x0200;  // 状态帧类型（雷达→激光端，隐含心跳）
+constexpr unsigned short LASER_FT_CONTROL   = 0x0100; // 控制数据帧（激光端→雷达）
+constexpr unsigned short LASER_FT_CTRL_RESP = 0x0101; // 控制响应帧（雷达→激光端）
+// 控制类别(controlType)
+constexpr unsigned short LASER_CT_TIME_SYNC    = 0x0101; // 系统授时
+constexpr unsigned short LASER_CT_SEARCH_RANGE = 0x0104; // 搜索范围设置（float字段为大端）
+constexpr unsigned short LASER_CT_WORK_STATE   = 0x0201; // 工作状态设置（Bit0=发射开关）
 constexpr unsigned short LASER_SENDER_ID  = 2100;    // 雷达端设备ID(210X)
 constexpr unsigned short LASER_RECEIVER_ID = 5100;   // 激光端设备ID(510X)
 constexpr unsigned short LASER_RECON_TYPE_ID = 1;    // 1=雷达侦察结果
@@ -1158,6 +1164,38 @@ typedef struct _LaserReconData {
     unsigned int   dataSeq;      // 侦察序号，递增
     unsigned short targetCount;  // 目标数N，最大10
 } LaserReconData;
+
+// 控制数据帧头(6字节)：激光端→雷达
+typedef struct _LaserControlHeader {
+    unsigned int   cmdSeq;       // 指令序号（流水号）
+    unsigned short controlType;  // 控制类别 0x0101授时/0x0104搜索范围/0x0201工作状态
+} LaserControlHeader;
+
+// 系统授时内容(8字节)
+typedef struct _LaserTimeSync {
+    LaserDataTime syncTime;
+} LaserTimeSync;
+
+// 工作状态设置内容(1字节)：按位 1开发射/0关，Bit0~3 对应阵面1~4
+typedef struct _LaserWorkStateSet {
+    unsigned char workState;
+} LaserWorkStateSet;
+
+// 搜索范围设置内容(19字节)：注意 float 字段由对端按大端发送，解析时需字节翻转
+typedef struct _LaserSearchRange {
+    unsigned char  setFlag;        // 0:取消扫描区 1:建立扫描区
+    unsigned short rangeID;        // 扫描区编号
+    float          startAzimuth;   // 起始方位角 [0,360)
+    float          endAzimuth;     // 终止方位角
+    float          startElevation; // 起始俯仰角 [-90,90]
+    float          endElevation;   // 终止俯仰角
+} LaserSearchRange;
+
+// 控制响应内容(6字节)：雷达→激光端
+typedef struct _LaserControlResponse {
+    unsigned int   cmdSeq;   // 所响应的控制帧指令序号
+    unsigned short result;   // 0失败 / 1成功
+} LaserControlResponse;
 
 // 状态数据-扫描范围信息(18字节)
 typedef struct _LaserScanRangeInfo {

@@ -8,6 +8,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QStringList>
 #include <QTextStream>
 #include <QtGlobal>
 #include <cmath>
@@ -71,6 +72,9 @@ bool LaserReportManager::init()
         }
     }
 
+    // 接收激光端控制帧（单端口双向）：授时/搜索范围/工作状态 → 解析+回响应
+    connect(m_socket, &QUdpSocket::readyRead, this, &LaserReportManager::onIncomingDatagram);
+
     // 1s 周期定时器：启用后常驻运行，每拍发状态帧(心跳)；有活动目标时附带侦察帧。
     m_timer = new QTimer(this);
     m_timer->setTimerType(Qt::PreciseTimer);
@@ -102,11 +106,22 @@ void LaserReportManager::removeTrackPoint(int batch)
     if (wasActive) {
         // 消批：若有最后已知点，补发一帧 cancelFlag=1 通知激光端目标消失
         if (hadInfo && m_socket) {
-            sendFrame(buildReconFrame(last, 1), QStringLiteral("CANCEL"), last);
+            sendReconForTargets({last}, 1, QStringLiteral("CANCEL"));
         }
         emit logMessage(QString("[LASER][CANCEL] batch=%1 已消批，停止上报").arg(batch));
         stopReport();
     }
+}
+
+void LaserReportManager::setAutoReport(bool on)
+{
+    if (!m_enabled) return;
+    if (m_autoReportEnabled == on) return;
+    m_autoReportEnabled = on;
+    emit logMessage(QString("[LASER][AUTO] 自动上报(全部目标,最多%1) %2")
+                        .arg(LASER_MAX_TARGETS)
+                        .arg(on ? QStringLiteral("已开启") : QStringLiteral("已关闭")));
+    if (on) onReportTick();  // 立即发一拍
 }
 
 void LaserReportManager::startReport(int batch)
@@ -151,52 +166,21 @@ void LaserReportManager::onReportTick()
     // 1) 状态帧（隐含心跳）：每拍都发，与是否有目标无关
     sendStatusFrame();
 
-    // 2) 侦察帧：仅当有活动目标且有缓存航迹点时附带
-    if (m_activeBatch < 0) return;
-    if (!m_latest.contains(m_activeBatch)) {
-        return;  // 目标暂无新点，本周期跳过侦察帧
+    // 2) 侦察帧：优先级——自动上报开启→全部目标(最多10)；否则→单目标(若有)
+    if (m_autoReportEnabled) {
+        QVector<PointInfo> targets;
+        for (auto it = m_latest.cbegin(); it != m_latest.cend() && targets.size() < LASER_MAX_TARGETS; ++it) {
+            targets.append(it.value());
+        }
+        // 自动模式即使无目标也发空侦察帧（协议允许 targetCount=0）
+        sendReconForTargets(targets, 0, QStringLiteral("AUTO"));
+    } else if (m_activeBatch >= 0 && m_latest.contains(m_activeBatch)) {
+        sendReconForTargets({m_latest.value(m_activeBatch)}, 0, QStringLiteral("RECON"));
     }
-    const PointInfo info = m_latest.value(m_activeBatch);
-    sendFrame(buildReconFrame(info, 0), QStringLiteral("RECON"), info);
 }
 
-bool LaserReportManager::sendFrame(const QByteArray& frame, const QString& tag, const PointInfo& info)
+void LaserReportManager::fillTargetInfo(LaserTargetInfo& t, const PointInfo& info, unsigned char cancelFlag)
 {
-    if (!m_socket) return false;
-    const qint64 written = m_socket->writeDatagram(frame, m_laserHost, m_udpPort);
-    if (written < 0) {
-        emit logMessage(QString("[LASER][%1][ERROR] writeDatagram failed target=%2:%3 err=%4")
-                            .arg(tag).arg(m_laserHost.toString()).arg(m_udpPort)
-                            .arg(m_socket->errorString()));
-        return false;
-    }
-    emit logMessage(QString("[LASER][%1] seq=%2 batch=%3 dist=%4 az=%5 el=%6 spd=%7 type=%8 q=%9 bytes=%10 -> %11:%12")
-                        .arg(tag)
-                        .arg(m_dataSeq)
-                        .arg(info.batch)
-                        .arg(static_cast<double>(info.range), 0, 'f', 1)
-                        .arg(static_cast<double>(normalizedAzimuth(info.azimuth)), 0, 'f', 2)
-                        .arg(static_cast<double>(info.elevation), 0, 'f', 2)
-                        .arg(static_cast<double>(info.speed), 0, 'f', 1)
-                        .arg(mapTargetType(info))
-                        .arg(mapTrackQuality(info))
-                        .arg(written)
-                        .arg(m_laserHost.toString()).arg(m_udpPort));
-    return true;
-}
-
-QByteArray LaserReportManager::buildReconFrame(const PointInfo& info, unsigned char cancelFlag)
-{
-    // 内容域 = LaserReconData(12) + 1×LaserTargetInfo(64)
-    LaserReconData recon;
-    std::memset(&recon, 0, sizeof(recon));
-    recon.typeID      = LASER_RECON_TYPE_ID;
-    recon.targetCount = 1;
-    recon.dataSeq     = ++m_dataSeq;
-    // contentLen 仅统计目标域字节数（= targetCount × 64），与 RadarAPP 设备端一致（不含12字节ReconData头）
-    recon.contentLen  = static_cast<unsigned int>(sizeof(LaserTargetInfo));
-
-    LaserTargetInfo t;
     std::memset(&t, 0, sizeof(t));
     t.batchID        = info.batch;
     t.targetTime     = nowLaserTime();
@@ -210,9 +194,23 @@ QByteArray LaserReportManager::buildReconFrame(const PointInfo& info, unsigned c
     t.cancelFlag     = cancelFlag;
     t.targetType     = mapTargetType(info);
     t.trackQuality   = mapTrackQuality(info);
+}
+
+QByteArray LaserReportManager::buildReconFrame(const QVector<PointInfo>& targets, unsigned char cancelFlag)
+{
+    const int count = qMin(targets.size(), LASER_MAX_TARGETS);
+
+    // 内容域 = LaserReconData(12) + count×LaserTargetInfo(64)
+    LaserReconData recon;
+    std::memset(&recon, 0, sizeof(recon));
+    recon.typeID      = LASER_RECON_TYPE_ID;
+    recon.targetCount = static_cast<unsigned short>(count);
+    recon.dataSeq     = ++m_dataSeq;
+    // contentLen 仅统计目标域字节数（= targetCount × 64），与 RadarAPP 一致（不含12字节头）
+    recon.contentLen  = static_cast<unsigned int>(count * sizeof(LaserTargetInfo));
 
     const unsigned short contentBytes =
-        static_cast<unsigned short>(sizeof(LaserReconData) + sizeof(LaserTargetInfo));
+        static_cast<unsigned short>(sizeof(LaserReconData) + count * sizeof(LaserTargetInfo));
 
     LaserFrameHeader hdr;
     std::memset(&hdr, 0, sizeof(hdr));
@@ -227,7 +225,11 @@ QByteArray LaserReportManager::buildReconFrame(const PointInfo& info, unsigned c
     QByteArray frame;
     frame.append(reinterpret_cast<const char*>(&hdr), sizeof(hdr));
     frame.append(reinterpret_cast<const char*>(&recon), sizeof(recon));
-    frame.append(reinterpret_cast<const char*>(&t), sizeof(t));
+    for (int i = 0; i < count; ++i) {
+        LaserTargetInfo t;
+        fillTargetInfo(t, targets.at(i), cancelFlag);
+        frame.append(reinterpret_cast<const char*>(&t), sizeof(t));
+    }
 
     // 校验和：从 frameType 起（跳过2字节帧头）到数据内容止，按字节累加取低16位
     unsigned int sum = 0;
@@ -243,18 +245,42 @@ QByteArray LaserReportManager::buildReconFrame(const PointInfo& info, unsigned c
     return frame;
 }
 
+bool LaserReportManager::sendReconForTargets(const QVector<PointInfo>& targets, unsigned char cancelFlag, const QString& tag)
+{
+    if (!m_socket) return false;
+    const QByteArray frame = buildReconFrame(targets, cancelFlag);
+    const qint64 written = m_socket->writeDatagram(frame, m_laserHost, m_udpPort);
+    if (written < 0) {
+        emit logMessage(QString("[LASER][%1][ERROR] writeDatagram failed target=%2:%3 err=%4")
+                            .arg(tag).arg(m_laserHost.toString()).arg(m_udpPort)
+                            .arg(m_socket->errorString()));
+        return false;
+    }
+    const int count = qMin(targets.size(), LASER_MAX_TARGETS);
+    QStringList batches;
+    for (int i = 0; i < count; ++i) batches << QString::number(targets.at(i).batch);
+    emit logMessage(QString("[LASER][%1] seq=%2 count=%3 cancel=%4 batches=[%5] bytes=%6 -> %7:%8")
+                        .arg(tag).arg(m_dataSeq).arg(count).arg(cancelFlag)
+                        .arg(batches.join(','))
+                        .arg(written)
+                        .arg(m_laserHost.toString()).arg(m_udpPort));
+    return true;
+}
+
 QByteArray LaserReportManager::buildStatusFrame()
 {
     // 状态帧内容 = LaserStatusData(13)（无扫描区，scanAreaCount=0）
     LaserStatusData status;
+    const unsigned short scanCount = static_cast<unsigned short>(m_scanRanges.size());
     std::memset(&status, 0, sizeof(status));
     status.typeID        = 1;            // 1=雷达设备状态
     status.statusSeq     = ++m_statusSeq;
-    status.workState     = 0x0F;         // 阵面全开（本工程不管理控制指令，固定缺省）
-    status.faultState    = 0x0F;         // 全部正常
-    status.workMode      = 0;            // 搜索
-    status.scanAreaCount = 0;            // 不下发扫描区
-    const unsigned short contentBytes = static_cast<unsigned short>(sizeof(LaserStatusData));
+    status.workState     = m_workState;  // 受激光端 0x0201 更新（默认0x0F全开）
+    status.faultState    = m_faultState; // 默认全部正常
+    status.workMode      = m_workMode;   // 默认搜索
+    status.scanAreaCount = scanCount;    // 受激光端 0x0104 更新
+    const unsigned short contentBytes = static_cast<unsigned short>(
+        sizeof(LaserStatusData) + scanCount * sizeof(LaserScanRangeInfo));
     status.contentLen    = static_cast<unsigned short>(
         contentBytes - sizeof(status.typeID) - sizeof(status.contentLen));
 
@@ -271,6 +297,9 @@ QByteArray LaserReportManager::buildStatusFrame()
     QByteArray frame;
     frame.append(reinterpret_cast<const char*>(&hdr), sizeof(hdr));
     frame.append(reinterpret_cast<const char*>(&status), sizeof(status));
+    for (unsigned short i = 0; i < scanCount; ++i) {
+        frame.append(reinterpret_cast<const char*>(&m_scanRanges[i]), sizeof(LaserScanRangeInfo));
+    }
 
     unsigned int sum = 0;
     for (int i = 2; i < frame.size(); ++i) {
@@ -377,4 +406,180 @@ float LaserReportManager::normalizedAzimuth(float azimuth)
     float v = std::fmod(azimuth, 360.0f);
     if (v < 0.0f) v += 360.0f;
     return v;
+}
+
+float LaserReportManager::bswapFloat(float v)
+{
+    unsigned int u;
+    std::memcpy(&u, &v, sizeof(u));
+    u = ((u & 0x000000FFu) << 24) | ((u & 0x0000FF00u) << 8) |
+        ((u & 0x00FF0000u) >> 8)  | ((u & 0xFF000000u) >> 24);
+    float r;
+    std::memcpy(&r, &u, sizeof(r));
+    return r;
+}
+
+void LaserReportManager::onIncomingDatagram()
+{
+    while (m_socket && m_socket->hasPendingDatagrams()) {
+        QByteArray buf;
+        buf.resize(static_cast<int>(m_socket->pendingDatagramSize()));
+        m_socket->readDatagram(buf.data(), buf.size());
+        parseControlFrame(buf);
+    }
+}
+
+void LaserReportManager::parseControlFrame(const QByteArray& datagram)
+{
+    const int totalLen = datagram.size();
+    if (totalLen < static_cast<int>(sizeof(LaserFrameHeader) + sizeof(LaserFrameTail))) return;
+
+    const char* data = datagram.constData();
+    if (static_cast<unsigned char>(data[0]) != LASER_FRAME_HEAD0 ||
+        static_cast<unsigned char>(data[1]) != LASER_FRAME_HEAD1) return;
+
+    LaserFrameHeader header;
+    std::memcpy(&header, data, sizeof(header));
+
+    const unsigned short payloadLen = header.dataLen;
+    const int expectedLen = static_cast<int>(sizeof(LaserFrameHeader) + payloadLen + sizeof(LaserFrameTail));
+    if (totalLen < expectedLen) return;
+
+    LaserFrameTail tail;
+    std::memcpy(&tail, data + sizeof(LaserFrameHeader) + payloadLen, sizeof(tail));
+    if (static_cast<unsigned char>(tail.frameTail[0]) != LASER_FRAME_TAIL0 ||
+        static_cast<unsigned char>(tail.frameTail[1]) != LASER_FRAME_TAIL1) return;
+
+    // 校验和（frameType起按字节累加低16位）
+    unsigned int sum = 0;
+    const int checkLen = static_cast<int>(sizeof(LaserFrameHeader)) - 2 + payloadLen;
+    for (int i = 2; i < 2 + checkLen; ++i) {
+        sum += static_cast<unsigned char>(data[i]);
+    }
+    if (static_cast<unsigned short>(sum & 0xFFFF) != tail.checkSum) {
+        emit logMessage(QStringLiteral("[LASER][CTRL][WARN] 校验和不符，丢弃"));
+        return;
+    }
+    // 仅接受来自激光端(5100)的控制帧
+    if (header.senderID != LASER_RECEIVER_ID) {
+        return;  // 发送方应为激光端 5100
+    }
+    if (header.frameType != LASER_FT_CONTROL) {
+        return;  // 仅处理控制帧
+    }
+    if (payloadLen < sizeof(LaserControlHeader)) return;
+
+    const char* payload = data + sizeof(LaserFrameHeader);
+    LaserControlHeader ctrlHdr;
+    std::memcpy(&ctrlHdr, payload, sizeof(ctrlHdr));
+    const char* ctrlContent = payload + sizeof(LaserControlHeader);
+    const unsigned short ctrlContentLen = static_cast<unsigned short>(payloadLen - sizeof(LaserControlHeader));
+
+    switch (ctrlHdr.controlType) {
+    case LASER_CT_TIME_SYNC: {  // 0x0101 系统授时
+        if (ctrlContentLen >= sizeof(LaserTimeSync)) {
+            LaserTimeSync ts;
+            std::memcpy(&ts, ctrlContent, sizeof(ts));
+            emit logMessage(QString("[LASER][CTRL] 授时 seq=%1 %2-%3-%4 %5:%6:%7.%8")
+                                .arg(ctrlHdr.cmdSeq)
+                                .arg(2000 + ts.syncTime.year).arg(ts.syncTime.month).arg(ts.syncTime.day)
+                                .arg(ts.syncTime.hour).arg(ts.syncTime.minute).arg(ts.syncTime.second)
+                                .arg(ts.syncTime.msecond));
+            emit laserTimeSyncCommand(ts.syncTime);
+            sendControlResponse(ctrlHdr.cmdSeq, 1);
+        }
+        break;
+    }
+    case LASER_CT_WORK_STATE: {  // 0x0201 工作状态设置
+        if (ctrlContentLen >= sizeof(LaserWorkStateSet)) {
+            LaserWorkStateSet ws;
+            std::memcpy(&ws, ctrlContent, sizeof(ws));
+            m_workState = ws.workState;  // 反映到后续状态帧
+            emit logMessage(QString("[LASER][CTRL] 工作状态设置 seq=%1 workState=0x%2")
+                                .arg(ctrlHdr.cmdSeq)
+                                .arg(ws.workState, 2, 16, QChar('0')));
+            emit laserWorkStateCommand(ws.workState);
+            sendControlResponse(ctrlHdr.cmdSeq, 1);
+        }
+        break;
+    }
+    case LASER_CT_SEARCH_RANGE: {  // 0x0104 搜索范围设置（float为大端）
+        if (ctrlContentLen >= sizeof(LaserSearchRange)) {
+            LaserSearchRange sr;
+            std::memcpy(&sr, ctrlContent, sizeof(sr));
+            sr.startAzimuth   = bswapFloat(sr.startAzimuth);
+            sr.endAzimuth     = bswapFloat(sr.endAzimuth);
+            sr.startElevation = bswapFloat(sr.startElevation);
+            sr.endElevation   = bswapFloat(sr.endElevation);
+
+            // 更新本地扫描范围列表（用于状态帧上报）
+            if (sr.setFlag == 0) {
+                // 取消：移除同 rangeID
+                for (int i = m_scanRanges.size() - 1; i >= 0; --i) {
+                    if (m_scanRanges[i].rangeID == sr.rangeID) m_scanRanges.removeAt(i);
+                }
+            } else {
+                LaserScanRangeInfo info;
+                info.rangeID        = sr.rangeID;
+                info.startAzimuth   = sr.startAzimuth;
+                info.endAzimuth     = sr.endAzimuth;
+                info.startElevation = sr.startElevation;
+                info.endElevation   = sr.endElevation;
+                bool replaced = false;
+                for (int i = 0; i < m_scanRanges.size(); ++i) {
+                    if (m_scanRanges[i].rangeID == sr.rangeID) { m_scanRanges[i] = info; replaced = true; break; }
+                }
+                if (!replaced) m_scanRanges.append(info);
+            }
+            emit logMessage(QString("[LASER][CTRL] 搜索范围 seq=%1 setFlag=%2 id=%3 az[%4,%5] el[%6,%7]")
+                                .arg(ctrlHdr.cmdSeq).arg(sr.setFlag).arg(sr.rangeID)
+                                .arg(sr.startAzimuth, 0, 'f', 2).arg(sr.endAzimuth, 0, 'f', 2)
+                                .arg(sr.startElevation, 0, 'f', 2).arg(sr.endElevation, 0, 'f', 2));
+            emit laserSearchRangeCommand(sr);
+            sendControlResponse(ctrlHdr.cmdSeq, 1);
+        }
+        break;
+    }
+    default:
+        emit logMessage(QString("[LASER][CTRL][WARN] 未知控制类别 0x%1 seq=%2")
+                            .arg(ctrlHdr.controlType, 4, 16, QChar('0')).arg(ctrlHdr.cmdSeq));
+        sendControlResponse(ctrlHdr.cmdSeq, 0);
+        break;
+    }
+}
+
+void LaserReportManager::sendControlResponse(unsigned int cmdSeq, unsigned short result)
+{
+    if (!m_socket) return;
+
+    LaserControlResponse resp;
+    resp.cmdSeq = cmdSeq;
+    resp.result = result;
+
+    const unsigned short contentBytes = static_cast<unsigned short>(sizeof(LaserControlResponse));
+    LaserFrameHeader hdr;
+    std::memset(&hdr, 0, sizeof(hdr));
+    hdr.frameHead[0] = LASER_FRAME_HEAD0;
+    hdr.frameHead[1] = LASER_FRAME_HEAD1;
+    hdr.frameType    = LASER_FT_CTRL_RESP;
+    hdr.senderID     = LASER_SENDER_ID;
+    hdr.receiverID   = LASER_RECEIVER_ID;
+    hdr.timeStamp    = nowLaserTime();
+    hdr.dataLen      = contentBytes;
+
+    QByteArray frame;
+    frame.append(reinterpret_cast<const char*>(&hdr), sizeof(hdr));
+    frame.append(reinterpret_cast<const char*>(&resp), sizeof(resp));
+    unsigned int sum = 0;
+    for (int i = 2; i < frame.size(); ++i) sum += static_cast<unsigned char>(frame.at(i));
+    LaserFrameTail tail;
+    tail.checkSum     = static_cast<unsigned short>(sum & 0xFFFF);
+    tail.frameTail[0] = LASER_FRAME_TAIL0;
+    tail.frameTail[1] = LASER_FRAME_TAIL1;
+    frame.append(reinterpret_cast<const char*>(&tail), sizeof(tail));
+
+    const qint64 written = m_socket->writeDatagram(frame, m_laserHost, m_udpPort);
+    emit logMessage(QString("[LASER][CTRL_RESP] seq=%1 result=%2 bytes=%3 -> %4:%5")
+                        .arg(cmdSeq).arg(result).arg(written)
+                        .arg(m_laserHost.toString()).arg(m_udpPort));
 }
