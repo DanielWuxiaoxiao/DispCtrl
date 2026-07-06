@@ -151,6 +151,8 @@ protected:
     void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
 
 private:
+    void updateAxisScaleFromScene();
+
     // 核心显示组件
     PolarAxis* m_axis;       ///< 极坐标轴 - 绘制方位角和距离刻度
     PolarGrid* m_grid;       ///< 极坐标网格 - 绘制距离圆和方位线

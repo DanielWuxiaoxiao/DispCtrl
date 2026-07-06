@@ -499,7 +499,7 @@ connect(m_marineMgr, &MarineRadarManager::radarStatusUpdated,
 ### 量程同步（syncMarineRange）
 量程切换时同步以下组件:
 1. `EchoRenderer::setRange(rangeM)` — 回波渲染范围
-2. `PolarAxis::setRange(0, rangeM)` — PPI极坐标轴
+2. `PPIScene::setRange(0, rangeM)` — 同步PPI极坐标轴并重算 pixelsPerMeter
 3. `m_lblOverlayRange` — PPI覆盖层量程标签
 4. `MarineRadarManager::setRange(code)` — 控制帧量程代号
 5. `RadarSimulator::setRangeMeter(rangeM)` — 仿真器量程
@@ -748,6 +748,7 @@ if (CON_INS) {
 
 ### 5. 量程同步必须全链路
 修改量程时必须同步: EchoRenderer + PolarAxis + 覆盖层标签 + MarineRadarManager + RadarSimulator。遗漏任一环节会导致回波与坐标不匹配。
+PPI主视图量程变化必须走 `PPIScene::setRange()`，不要直接调用 `PolarAxis::setRange()`；否则 `pixelsPerMeter` 不会按当前视图尺寸重算，非默认量程会出现圆形半径缩小/放大。
 
 ### 6. MarineEchoLine 方位范围
 方位值 0~4095，如果收到 >= 4096 的值应丢弃或取模。EchoRenderer 内部对此做了安全检查。

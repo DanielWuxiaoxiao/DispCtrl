@@ -125,10 +125,18 @@ PPIScene::~PPIScene() {
 void PPIScene::updateSceneSize(const QSize &newSize) {
     setSceneRect(QRectF(-newSize.width()/2, -newSize.height()/2, newSize.width(), newSize.height()));
 
-    double radius = qMin(newSize.width(), newSize.height())/2.0 - pviewMargin; // margin=20
-    m_axis->setPixelsPerMeter(radius / m_axis->maxRange());
+    updateAxisScaleFromScene();
 
     emit rangeChanged(m_axis->minRange(), m_axis->maxRange());
+}
+
+void PPIScene::updateAxisScaleFromScene()
+{
+    if (!m_axis || m_axis->maxRange() <= 0 || sceneRect().isEmpty())
+        return;
+
+    const double radius = qMax(1.0, qMin(sceneRect().width(), sceneRect().height()) / 2.0 - pviewMargin);
+    m_axis->setPixelsPerMeter(radius / m_axis->maxRange());
 }
 
 
@@ -231,6 +239,7 @@ void PPIScene::setRange(float minR, float maxR)
     if (maxR <= minR)
         maxR = minR + 1;
     m_axis->setRange(minR, maxR);
+    updateAxisScaleFromScene();
     emit rangeChanged(minR, maxR);
 }
 

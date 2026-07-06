@@ -639,9 +639,9 @@ void MainOverLayOut::syncMarineRange(int rangeIndex)
         mScene->echoRenderer()->setRange(rangeM);
     }
 
-    // 同步到 PPI 极坐标轴（单位 米）
-    if (mScene && mScene->axis()) {
-        mScene->axis()->setRange(0.0, rangeM);
+    // 同步到 PPI 场景。量程变化必须重算 pixelsPerMeter，保证圆形铺满显示区。
+    if (mScene) {
+        mScene->setRange(0.0f, static_cast<float>(rangeM));
     }
 
     // 同步到覆盖层标签

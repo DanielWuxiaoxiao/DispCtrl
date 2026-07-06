@@ -727,10 +727,7 @@ void PPIView::onMaxDistanceChanged(double distance)
         double currentMinRange = m_scene->axis()->minRange();
 
         // 设置新的距离范围
-        m_scene->axis()->setRange(currentMinRange, maxRangeInMeters);
-
-        // 触发场景更新
-        m_scene->updateSceneSize(size());
+        m_scene->setRange(static_cast<float>(currentMinRange), static_cast<float>(maxRangeInMeters));
 
         // 重新适应视图
         fitInView(m_scene->sceneRect(), Qt::KeepAspectRatio);
