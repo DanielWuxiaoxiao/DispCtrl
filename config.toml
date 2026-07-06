@@ -87,6 +87,12 @@ topic = "x576/target/result"
 keep_alive_sec = 30
 publish_interval_ms = 4000
 
+[ui]
+# DPI policy:
+# fixed  = do not follow Windows display/text scaling; preferred for fixed-layout display control UI
+# system = follow system DPI scaling; fallback for high-DPI systems that require OS scaling
+dpi_policy = "fixed"
+
 # =============================================================================
 # 雷达系统参数配置 Radar System Parameters Configuration
 # =============================================================================

@@ -789,6 +789,11 @@ dataToScene            # RangeAzimuth坐标转换
   - **协议结构补充**：`Basic/Protocol.h` 新增 `LaserControlHeader/LaserTimeSync/LaserWorkStateSet/LaserSearchRange/LaserControlResponse` 及常量 `LASER_FT_CONTROL=0x0100 / LASER_FT_CTRL_RESP=0x0101 / LASER_CT_TIME_SYNC=0x0101 / LASER_CT_SEARCH_RANGE=0x0104 / LASER_CT_WORK_STATE=0x0201`。均对照 RadarAPP `parseLaserFrame`/`sendLaserControlResponse` 校准。
   - **独立性**：全部仍受 `[laser].enabled` 控制，关闭时不接收/不发送/右键无项；自动上报默认关(右键手动开)；驱动雷达额外受 `[laser].apply_control` 门控。
 
+### v5.26 (2026-07-05)
+- **固定DPI策略**：新增 `ui.dpi_policy`，默认 `fixed`。fixed 模式在 `QApplication` 创建前禁用 Qt 高DPI缩放、固定 `QT_SCALE_FACTOR=1`，并通过 `AA_Use96Dpi`/`QT_FONT_DPI=96` 固定字体DPI，使显控界面不跟随 Windows 125/150/175% 显示缩放和分辨率切换后的系统DPI变化，避免固定布局在高文本缩放下挤压重叠。
+- **DPI兼容回退**：`ui.dpi_policy="system"` 时保留原 `AA_EnableHighDpiScaling` 行为，用于高DPI/地图现场兼容回退。地图偏移补偿仍使用 PPI 中心相对容器比例，不依赖绝对DPI。
+- **DPI诊断日志**：启动日志记录 `dpiPolicy`、Qt逻辑尺寸、估算物理尺寸、devicePixelRatio、ScaleHelper布局因子和渲染属性，便于对比 100/125/175% 缩放现场表现。
+
 ---
 
 ## 联系与贡献

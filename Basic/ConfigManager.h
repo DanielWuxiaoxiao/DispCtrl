@@ -235,6 +235,13 @@ public:
         return getValue("ui.fonts." + key, def).toInt();
     }
 
+    // UI DPI策略（必须在 QApplication 创建前读取）
+    // fixed：显控固定按物理像素布局，不跟随 Windows 文本/显示缩放
+    // system：跟随系统DPI缩放（Qt高DPI），用于现场兼容回退
+    QString uiDpiPolicy(const QString& def = "fixed") const {
+        return getValue("ui.dpi_policy", def).toString();
+    }
+
     int windowProperty(const QString& key, int def = 0) const {
         return getValue("ui.window." + key, def).toInt();
     }

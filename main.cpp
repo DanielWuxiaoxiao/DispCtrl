@@ -101,8 +101,8 @@ void setupStyle(QApplication& app) {
         QString style = QString::fromUtf8(file.readAll());
 
         // 统一右下角两个信息窗字体大小（鼠标信息窗 + 视觉设置窗）
-        // 放入全局QSS，避免在各自widget中硬编码导致大小不一致
-        // 注意：字体由 AA_EnableHighDpiScaling 自动处理，此处保持固定px即可
+        // 放入全局QSS，避免在各自widget中硬编码导致大小不一致。
+        // 字体大小保持固定px；实际是否跟随系统DPI由 ui.dpi_policy 决定。
         style += R"(
 
 /* --- Unified overlay panel fonts --- */
@@ -455,8 +455,21 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // 启用高DPI缩放，确保在4K显示器上正常显示
-    QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    // UI DPI策略：
+    // fixed：禁用Qt高DPI缩放，使显控固定按自身布局比例显示，不跟随Windows 125/150/175%缩放。
+    // system：保留Qt高DPI缩放，作为高DPI/地图现场兼容回退。
+    const QString dpiPolicy = ConfigManager::instance().uiDpiPolicy("fixed").trimmed().toLower();
+    const bool fixedDpi = (dpiPolicy != "system");
+    if (fixedDpi) {
+        qputenv("QT_ENABLE_HIGHDPI_SCALING", "0");
+        qputenv("QT_AUTO_SCREEN_SCALE_FACTOR", "0");
+        qputenv("QT_SCALE_FACTOR", "1");
+        qputenv("QT_FONT_DPI", "96");
+        QApplication::setAttribute(Qt::AA_DisableHighDpiScaling);
+        QApplication::setAttribute(Qt::AA_Use96Dpi);
+    } else {
+        QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    }
 
     // GL 后端选择：angle/gles（默认，ANGLE→D3D，Windows/双显卡最稳）| desktop（原生OpenGL）| software（软件渲染）
     const QString glBackend = ConfigManager::instance().webEngineGlBackend("angle").toLower();
@@ -482,10 +495,14 @@ int main(int argc, char *argv[]) {
     // =============================================================================
     // 第二.五步：初始化屏幕缩放因子（必须在 QApplication 之后、setupFont 之前）
     // =============================================================================
-    ScaleHelper::init();
-    LOG_INFO(QString("ScaleHelper initialized: logical=%1x%2 factor=%3 leftPanel=%4 rightPanel=%5")
+    ScaleHelper::init(fixedDpi ? QStringLiteral("fixed") : QStringLiteral("system"));
+    LOG_INFO(QString("ScaleHelper initialized: dpiPolicy=%1 logical=%2x%3 physical≈%4x%5 dpr=%6 factor=%7 leftPanel=%8 rightPanel=%9")
+                 .arg(ScaleHelper::dpiPolicy())
                  .arg(ScaleHelper::logicalWidth())
                  .arg(ScaleHelper::logicalHeight())
+                 .arg(ScaleHelper::physicalWidth())
+                 .arg(ScaleHelper::physicalHeight())
+                 .arg(ScaleHelper::devicePixelRatio())
                  .arg(ScaleHelper::factor())
                  .arg(ScaleHelper::leftPanelWidth())
                  .arg(ScaleHelper::rightPanelWidth()));
@@ -498,14 +515,19 @@ int main(int argc, char *argv[]) {
     //   · 含 "SwiftShader"/"WARP"/"llvmpipe" → 落到软件渲染
     // =============================================================================
     {
-        LOG_INFO(QString("[Render] gl_backend=%1 | disable_gpu=%2 | AA(GLES=%3,Desktop=%4,Software=%5) | platform=%6 | chromium_flags=%7")
+        LOG_INFO(QString("[Render] gl_backend=%1 | disable_gpu=%2 | dpi_policy=%3 | AA(HighDpi=%4,DisableHighDpi=%5,Use96Dpi=%6,GLES=%7,Desktop=%8,Software=%9) | platform=%10 | chromium_flags=%11 | font_dpi=%12")
                      .arg(glBackend)
                      .arg(ConfigManager::instance().webEngineDisableGpu(false))
+                     .arg(ScaleHelper::dpiPolicy())
+                     .arg(QApplication::testAttribute(Qt::AA_EnableHighDpiScaling))
+                     .arg(QApplication::testAttribute(Qt::AA_DisableHighDpiScaling))
+                     .arg(QApplication::testAttribute(Qt::AA_Use96Dpi))
                      .arg(QApplication::testAttribute(Qt::AA_UseOpenGLES))
                      .arg(QApplication::testAttribute(Qt::AA_UseDesktopOpenGL))
                      .arg(QApplication::testAttribute(Qt::AA_UseSoftwareOpenGL))
                      .arg(QApplication::platformName())
-                     .arg(QString::fromUtf8(qgetenv("QTWEBENGINE_CHROMIUM_FLAGS"))));
+                     .arg(QString::fromUtf8(qgetenv("QTWEBENGINE_CHROMIUM_FLAGS")))
+                     .arg(QString::fromUtf8(qgetenv("QT_FONT_DPI"))));
 
         QOffscreenSurface diagSurface;
         diagSurface.create();

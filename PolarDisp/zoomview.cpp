@@ -37,6 +37,7 @@
 #include <QButtonGroup>
 #include <QGraphicsPathItem>
 #include <QGraphicsEllipseItem>
+#include <QList>
 #include <QPainterPath>
 #include <QPen>
 #include <QBrush>
@@ -115,6 +116,17 @@ ZoomViewToolBar::ZoomViewToolBar(QWidget* parent)
     m_pointerBtn->setText("↖");
     m_pointerBtn->setToolTip("指针模式");
     m_pointerBtn->setObjectName("PointerBtn");
+
+    const QSize toolButtonSize(28, 28);
+    const QSize toolIconSize(18, 18);
+    const QList<QPushButton*> iconButtons = {
+        m_zoomInBtn, m_zoomOutBtn, m_resetBtn, m_dragBtn, m_measureBtn, m_pointerBtn
+    };
+    for (QPushButton* button : iconButtons) {
+        button->setFixedSize(toolButtonSize);
+        button->setIconSize(toolIconSize);
+        button->setFocusPolicy(Qt::NoFocus);
+    }
 
     // 互斥逻辑使用 QButtonGroup
     QButtonGroup* modeGroup = new QButtonGroup(this);

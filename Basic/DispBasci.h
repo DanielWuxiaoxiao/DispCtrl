@@ -14,7 +14,7 @@
  * @details 显示在主界面标题区（原英文名 SubtitleLabel 处）。
  *          发布新版本时只需修改此处一处。
  */
-#define APP_VERSION_STR "V5.25"
+#define APP_VERSION_STR "V5.26"
 
 #include <QColor>
 #include <QString>
@@ -28,25 +28,28 @@
 #include "Protocol.h"
 
 /**
- * @brief 屏幕分辨率自适应布局助手（方案B-v2）
+ * @brief 屏幕分辨率自适应布局助手（方案B-v3）
  * @details 仅处理面板宽度、按钮高度等布局尺寸的自适应
- *          字体大小由 Qt AA_EnableHighDpiScaling 自动处理，不在此重复缩放
  *
- *          计算方式：取物理像素高度 / devicePixelRatio 得到逻辑高度
- *          以逻辑 1080 为基准 factor=1.0
- *          面板宽度直接取逻辑屏幕宽度的百分比
+ *          ui.dpi_policy=fixed 时禁用 Qt 高DPI缩放，软件不跟随 Windows 显示/文本缩放；
+ *          ui.dpi_policy=system 时保留 Qt 高DPI缩放，跟随系统DPI。
  *
  *          在 main() 中 QApplication 创建后、setupFont 之前调用 init()
  */
 class ScaleHelper {
 public:
-    /// 初始化：根据逻辑屏幕尺寸计算布局缩放因子
-    static void init() {
+    /// 初始化：根据当前 Qt 坐标系屏幕尺寸计算布局缩放因子
+    static void init(const QString& dpiPolicy = QStringLiteral("fixed")) {
+        s_dpiPolicy = dpiPolicy;
         QScreen* screen = QGuiApplication::primaryScreen();
         if (screen) {
-            // size() 在 AA_EnableHighDpiScaling 下返回逻辑像素
+            // fixed: size() 通常接近物理像素；system: size() 为 Qt 高DPI逻辑像素。
+            // 后续布局始终使用同一 Qt 坐标系，避免混用物理/逻辑坐标。
             s_logicalW = screen->size().width();
             s_logicalH = screen->size().height();
+            s_physicalW = screen->geometry().width() * screen->devicePixelRatio();
+            s_physicalH = screen->geometry().height() * screen->devicePixelRatio();
+            s_devicePixelRatio = screen->devicePixelRatio();
             s_factor = std::clamp(s_logicalH / 1080.0, 0.7, 2.0);
         }
     }
@@ -63,6 +66,14 @@ public:
     static int logicalWidth() { return s_logicalW; }
     /// 逻辑屏幕高度
     static int logicalHeight() { return s_logicalH; }
+    /// 屏幕设备像素比
+    static double devicePixelRatio() { return s_devicePixelRatio; }
+    /// 估算物理屏幕宽度
+    static int physicalWidth() { return s_physicalW; }
+    /// 估算物理屏幕高度
+    static int physicalHeight() { return s_physicalH; }
+    /// 当前DPI策略
+    static QString dpiPolicy() { return s_dpiPolicy; }
 
     // Compact mode for 1920x1080/100% logical screens.
     static bool compactLayout() {
@@ -98,6 +109,10 @@ private:
     static inline double s_factor = 1.0;
     static inline int s_logicalW = 1920;
     static inline int s_logicalH = 1080;
+    static inline int s_physicalW = 1920;
+    static inline int s_physicalH = 1080;
+    static inline double s_devicePixelRatio = 1.0;
+    static inline QString s_dpiPolicy = QStringLiteral("fixed");
 };
 
 //COLOR

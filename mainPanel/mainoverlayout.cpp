@@ -3030,6 +3030,7 @@ void MainOverLayOut::applyScaledSizes() {
     const int rightMinW = compact ? 300 : 340;
     const int rightMaxW = compact ? 470 : 560;
     const int topButtonW = compact ? 82 : 92;
+    const int topButtonIcon = compact ? 18 : 20;
     const int funcButtonW = compact ? 70 : 78;
     const int funcButtonH = compact ? 56 : 62;
     const int funcIcon = compact ? 30 : 34;
@@ -3045,6 +3046,8 @@ void MainOverLayOut::applyScaledSizes() {
     ui->CloseButton->setMaximumWidth(topButtonW);
     ui->minButton->setMinimumWidth(topButtonW);
     ui->minButton->setMaximumWidth(topButtonW);
+    ui->CloseButton->setIconSize(QSize(topButtonIcon, topButtonIcon));
+    ui->minButton->setIconSize(QSize(topButtonIcon, topButtonIcon));
     ui->CloseButton->setFocusPolicy(Qt::NoFocus);
     ui->minButton->setFocusPolicy(Qt::NoFocus);
     ui->timeLabel->setMaximumWidth(rightW);
