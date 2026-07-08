@@ -92,6 +92,8 @@ publish_interval_ms = 4000
 # fixed  = do not follow Windows display/text scaling; preferred for fixed-layout display control UI
 # system = follow system DPI scaling; fallback for high-DPI systems that require OS scaling
 dpi_policy = "fixed"
+# Internal UI scale applied on top of resolution layout. Supported range: 0.70-1.60.
+ui_scale = 1.0
 
 # =============================================================================
 # 雷达系统参数配置 Radar System Parameters Configuration

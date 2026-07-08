@@ -3010,8 +3010,8 @@ void MainOverLayOut::applyScaledSizes() {
     int logo    = ScaleHelper::logoSize();          // 基准50px缩放
 
     // --- 左侧面板 ---
-    const int leftMinW = compact ? 300 : 340;
-    const int leftMaxW = compact ? 430 : 560;
+    const int leftMinW = ScaleHelper::uiScaled(compact ? 300 : 340);
+    const int leftMaxW = ScaleHelper::uiScaled(compact ? 430 : 560);
     if (m_leftSidebar) {
         m_leftSidebar->setMinimumWidth(leftMinW);
         m_leftSidebar->setMaximumWidth(leftMaxW);
@@ -3027,13 +3027,13 @@ void MainOverLayOut::applyScaledSizes() {
     ui->trackTab->setMaximumWidth(QWIDGETSIZE_MAX);
 
     // --- 右侧 P显/扇区显示面板 ---
-    const int rightMinW = compact ? 300 : 340;
-    const int rightMaxW = compact ? 470 : 560;
-    const int topButtonW = compact ? 82 : 92;
-    const int topButtonIcon = compact ? 18 : 20;
-    const int funcButtonW = compact ? 70 : 78;
-    const int funcButtonH = compact ? 56 : 62;
-    const int funcIcon = compact ? 30 : 34;
+    const int rightMinW = ScaleHelper::uiScaled(compact ? 300 : 340);
+    const int rightMaxW = ScaleHelper::uiScaled(compact ? 470 : 560);
+    const int topButtonW = ScaleHelper::uiScaled(compact ? 82 : 92);
+    const int topButtonIcon = ScaleHelper::uiScaled(compact ? 18 : 20);
+    const int funcButtonW = ScaleHelper::uiScaled(compact ? 70 : 78);
+    const int funcButtonH = ScaleHelper::uiScaled(compact ? 56 : 62);
+    const int funcIcon = ScaleHelper::uiScaled(compact ? 30 : 34);
     if (m_rightSidebar) {
         m_rightSidebar->setMinimumWidth(rightMinW);
         m_rightSidebar->setMaximumWidth(rightMaxW);
@@ -3041,7 +3041,7 @@ void MainOverLayOut::applyScaledSizes() {
     ui->horizontalSpacer_2->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
     ui->horizontalSpacer_3->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
     ui->horizontalSpacer->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
-    ui->LogoWidget->setMaximumWidth(qBound(230, rightW - 120, 300));
+    ui->LogoWidget->setMaximumWidth(qBound(ScaleHelper::uiScaled(230), rightW - ScaleHelper::uiScaled(120), ScaleHelper::uiScaled(300)));
     ui->CloseButton->setMinimumWidth(topButtonW);
     ui->CloseButton->setMaximumWidth(topButtonW);
     ui->minButton->setMinimumWidth(topButtonW);

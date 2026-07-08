@@ -7,6 +7,7 @@
  * @Description: 
  */
 #include "rangeheightchart.h"
+#include "../Basic/DispBasci.h"
 #include "../Basic/ConfigManager.h"
 #include "../Basic/log.h"
 #include <QDateTime>
@@ -263,7 +264,7 @@ RangeHeightChartToolBar::RangeHeightChartToolBar(QWidget* parent)
     m_minHeightEdit = new QLineEdit(this);
     m_minHeightEdit->setObjectName("RangeAzimuthMinEdit");
     m_minHeightEdit->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-    m_minHeightEdit->setFixedWidth(60);
+    m_minHeightEdit->setFixedWidth(ScaleHelper::uiScaled(60));
     m_minHeightEdit->setToolTip(tr("最小高度 (m)"));
     m_minHeightEdit->setText(QString::number(kDefaultMinHeight, 'f', 0));
     layout->addWidget(m_minHeightEdit);
@@ -274,7 +275,7 @@ RangeHeightChartToolBar::RangeHeightChartToolBar(QWidget* parent)
 
     m_maxHeightEdit = new QLineEdit(this);
     m_maxHeightEdit->setObjectName("RangeAzimuthMaxEdit");
-    m_maxHeightEdit->setFixedWidth(60);
+    m_maxHeightEdit->setFixedWidth(ScaleHelper::uiScaled(60));
     m_maxHeightEdit->setToolTip(tr("最大高度 (m)"));
     m_maxHeightEdit->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
     m_maxHeightEdit->setText(QString::number(kDefaultMaxHeight, 'f', 0));

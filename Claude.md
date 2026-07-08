@@ -791,6 +791,7 @@ dataToScene            # RangeAzimuth坐标转换
 
 ### v5.26 (2026-07-05)
 - **固定DPI策略**：新增 `ui.dpi_policy`，默认 `fixed`。fixed 模式在 `QApplication` 创建前禁用 Qt 高DPI缩放、固定 `QT_SCALE_FACTOR=1`，并通过 `AA_Use96Dpi`/`QT_FONT_DPI=96` 固定字体DPI，使显控界面不跟随 Windows 125/150/175% 显示缩放和分辨率切换后的系统DPI变化，避免固定布局在高文本缩放下挤压重叠。
+- **内部UI缩放轻量版**：新增 `ui.ui_scale`，默认 `1.0`，启动时读取并限制在 `0.70~1.60`。当前覆盖主界面/左右面板、PPI设置面板、P显工具栏、B/H工具栏和图表字体等显控关键控件；不影响雷达坐标、地图坐标和目标数据。启动日志会同时输出配置值和实际应用值，便于确认运行目录配置是否生效。
 - **DPI兼容回退**：`ui.dpi_policy="system"` 时保留原 `AA_EnableHighDpiScaling` 行为，用于高DPI/地图现场兼容回退。地图偏移补偿仍使用 PPI 中心相对容器比例，不依赖绝对DPI。
 - **DPI诊断日志**：启动日志记录 `dpiPolicy`、Qt逻辑尺寸、估算物理尺寸、devicePixelRatio、ScaleHelper布局因子和渲染属性，便于对比 100/125/175% 缩放现场表现。
 

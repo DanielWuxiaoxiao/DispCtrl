@@ -242,6 +242,10 @@ public:
         return getValue("ui.dpi_policy", def).toString();
     }
 
+    double uiScale(double def = 1.0) const {
+        return getValue("ui.ui_scale", def).toDouble();
+    }
+
     int windowProperty(const QString& key, int def = 0) const {
         return getValue("ui.window." + key, def).toInt();
     }

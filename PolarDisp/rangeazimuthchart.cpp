@@ -16,6 +16,7 @@
  */
 
 #include "rangeazimuthchart.h"
+#include "../Basic/DispBasci.h"
 #include "../Basic/ConfigManager.h"
 #include "../Basic/DispBasci.h"
 #include "../Basic/log.h"
@@ -282,7 +283,7 @@ RangeAzimuthChartToolBar::RangeAzimuthChartToolBar(QWidget* parent)
     m_minAzimuthEdit = new QLineEdit(this);
     m_minAzimuthEdit->setObjectName("RangeAzimuthMinEdit");
     m_minAzimuthEdit->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-    m_minAzimuthEdit->setFixedWidth(60);
+    m_minAzimuthEdit->setFixedWidth(ScaleHelper::uiScaled(60));
     m_minAzimuthEdit->setToolTip(tr("最小方位角 (0-360°)"));
     m_minAzimuthEdit->setText(QString::number(CF_INS.rangeAzimuthAngle("min", 0)));
     layout->addWidget(m_minAzimuthEdit);
@@ -293,7 +294,7 @@ RangeAzimuthChartToolBar::RangeAzimuthChartToolBar(QWidget* parent)
 
     m_maxAzimuthEdit = new QLineEdit(this);
     m_maxAzimuthEdit->setObjectName("RangeAzimuthMaxEdit");
-    m_maxAzimuthEdit->setFixedWidth(60);
+    m_maxAzimuthEdit->setFixedWidth(ScaleHelper::uiScaled(60));
     m_maxAzimuthEdit->setToolTip(tr("最大方位角 (0-360°)"));
     m_maxAzimuthEdit->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
     m_maxAzimuthEdit->setText(QString::number(CF_INS.rangeAzimuthAngle("max", 360)));

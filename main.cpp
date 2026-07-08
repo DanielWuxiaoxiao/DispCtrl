@@ -83,7 +83,8 @@ void setupOpenGL() {
  *          - 提供一致的用户界面体验
  */
 void setupFont(QApplication& app) {
-    QFont font("Microsoft YaHei", MAIN_FONT_SIZE);
+    QFont font("Microsoft YaHei");
+    font.setPixelSize(ScaleHelper::uiScaled(12));
     app.setFont(font);
 }
 
@@ -226,6 +227,73 @@ QSplitter#MainContentSplitter::handle:hover {
 
 )";
         }
+
+        QString runtimeScaleStyle = QStringLiteral(R"(
+
+/* --- Runtime UI scale overrides --- */
+#MousePositionInfo QLabel,
+#MousePositionInfo QCheckBox,
+#MousePositionInfo QDoubleSpinBox,
+#PPIVisualSettings QLabel,
+#PPIVisualSettings QLineEdit,
+#PPIVisualSettings QComboBox,
+#PPIVisualSettings QPushButton {
+    font-size: @overlayFont@px;
+}
+
+#MainOverLayOut QPushButton {
+    font-size: @mainFont@px;
+}
+
+#MainOverLayOut QTableWidget,
+#MainOverLayOut QHeaderView::section {
+    font-size: @mainFont@px;
+}
+
+#MainOverLayOut #TitleLabel {
+    font-size: @titleFont@px;
+}
+
+#MainOverLayOut #SubtitleLabel {
+    font-size: @subtitleFont@px;
+}
+
+#MainOverLayOut QPushButton#minButton,
+#MainOverLayOut QPushButton#CloseButton {
+    min-width: @topButtonMinWidth@px;
+    padding: @topButtonPadV@px @topButtonPadH@px;
+}
+
+#MainOverLayOut QToolButton[buttonGroup="A"] {
+    font-size: @funcFont@px;
+    padding: @funcPadV@px @funcPadH@px;
+    min-width: @funcMinWidth@px;
+}
+
+#RangeAzimuthLabel,
+#RangeAzimuthSeparatorLabel,
+#RangeAzimuthMinEdit,
+#RangeAzimuthMaxEdit,
+#RangeAzimuthClearButton,
+#RangeAzimuthResetButton {
+    font-size: @chartToolbarFont@px;
+}
+
+)");
+        const bool compact = ScaleHelper::compactLayout();
+        runtimeScaleStyle.replace(QStringLiteral("@overlayFont@"), QString::number(ScaleHelper::uiScaled(compact ? 10 : 12)));
+        runtimeScaleStyle.replace(QStringLiteral("@mainFont@"), QString::number(ScaleHelper::uiScaled(compact ? 11 : 12)));
+        runtimeScaleStyle.replace(QStringLiteral("@titleFont@"), QString::number(ScaleHelper::uiScaled(compact ? 18 : 24)));
+        runtimeScaleStyle.replace(QStringLiteral("@subtitleFont@"), QString::number(ScaleHelper::uiScaled(compact ? 12 : 15)));
+        runtimeScaleStyle.replace(QStringLiteral("@topButtonMinWidth@"), QString::number(ScaleHelper::uiScaled(compact ? 74 : 78)));
+        runtimeScaleStyle.replace(QStringLiteral("@topButtonPadV@"), QString::number(ScaleHelper::uiScaled(compact ? 3 : 4)));
+        runtimeScaleStyle.replace(QStringLiteral("@topButtonPadH@"), QString::number(ScaleHelper::uiScaled(compact ? 6 : 8)));
+        runtimeScaleStyle.replace(QStringLiteral("@funcFont@"), QString::number(ScaleHelper::uiScaled(compact ? 11 : 13)));
+        runtimeScaleStyle.replace(QStringLiteral("@funcPadV@"), QString::number(ScaleHelper::uiScaled(compact ? 4 : 6)));
+        runtimeScaleStyle.replace(QStringLiteral("@funcPadH@"), QString::number(ScaleHelper::uiScaled(compact ? 5 : 8)));
+        runtimeScaleStyle.replace(QStringLiteral("@funcMinWidth@"), QString::number(ScaleHelper::uiScaled(compact ? 64 : 76)));
+        runtimeScaleStyle.replace(QStringLiteral("@chartToolbarFont@"), QString::number(ScaleHelper::uiScaled(12)));
+        style += runtimeScaleStyle;
 
         app.setStyleSheet(style);
         file.close();
@@ -495,9 +563,12 @@ int main(int argc, char *argv[]) {
     // =============================================================================
     // 第二.五步：初始化屏幕缩放因子（必须在 QApplication 之后、setupFont 之前）
     // =============================================================================
-    ScaleHelper::init(fixedDpi ? QStringLiteral("fixed") : QStringLiteral("system"));
-    LOG_INFO(QString("ScaleHelper initialized: dpiPolicy=%1 logical=%2x%3 physical≈%4x%5 dpr=%6 factor=%7 leftPanel=%8 rightPanel=%9")
+    const double configuredUiScale = ConfigManager::instance().uiScale(1.0);
+    ScaleHelper::init(fixedDpi ? QStringLiteral("fixed") : QStringLiteral("system"), configuredUiScale);
+    LOG_INFO(QString("ScaleHelper initialized: dpiPolicy=%1 configuredUiScale=%2 appliedUiScale=%3 logical=%4x%5 physical≈%6x%7 dpr=%8 factor=%9 leftPanel=%10 rightPanel=%11")
                  .arg(ScaleHelper::dpiPolicy())
+                 .arg(configuredUiScale, 0, 'f', 2)
+                 .arg(ScaleHelper::uiScale(), 0, 'f', 2)
                  .arg(ScaleHelper::logicalWidth())
                  .arg(ScaleHelper::logicalHeight())
                  .arg(ScaleHelper::physicalWidth())

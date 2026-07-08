@@ -75,12 +75,12 @@ PPIVisualSettings::PPIVisualSettings(QWidget *parent)
     // 为距离输入框设置验证器
     QDoubleValidator* distanceValidator = new QDoubleValidator(1.0, 99999.0, 2, this);
     ui->maxDistanceEdit->setValidator(distanceValidator);
-    ui->maxDistanceEdit->setFixedWidth(64);
+    ui->maxDistanceEdit->setFixedWidth(ScaleHelper::uiScaled(64));
 
     // 为监测点数量输入框设置验证器（整数），最小值与槽函数内验证保持一致
     QIntValidator* pointsValidator = new QIntValidator(1, 1000000, this);
     ui->maxPointsEdit->setValidator(pointsValidator);
-    ui->maxPointsEdit->setFixedWidth(64);
+    ui->maxPointsEdit->setFixedWidth(ScaleHelper::uiScaled(64));
 
     setupTrackPointLimitRow();
 
