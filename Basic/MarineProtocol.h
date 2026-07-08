@@ -210,7 +210,7 @@ static_assert(sizeof(MarineControlFrame) == 16, "MarineControlFrame must be 16 b
  *  Byte 1:    0xA5 (帧头)
  *  Byte 2:    方位角低字节
  *  Byte 3:    方位角高字节 (小端，0.01度量化；19834表示198.34°)
- *  Byte 4:    style (0x01=普通 0x02=高分辨率)
+ *  Byte 4:    style (0x00/0x01=普通 0x02=高分辨率)
  *  Byte 5:    header checksum (byte[0]~byte[4] XOR)
  *  Byte 6:    0x5A (头部尾标志)
  *  // Status block (byte 7~15)
@@ -227,7 +227,7 @@ static_assert(sizeof(MarineControlFrame) == 16, "MarineControlFrame must be 16 b
  *  Byte 16-17: fftDataLen  FFT模值数据长度，单位为4字节word (大端)
  *  Byte 18-19: packetNum   包序号 (大端)
  *  Byte 20-21: reserved    保留
- *  // Byte 22~(22+fftDataLen*4-1): 回波幅值数据, 暂按2B/range cell解析
+ *  // Byte 22~(22+fftDataLen*4-1): 回波幅值数据, 1个小端uint32 word/range cell
  */
 struct MarineEchoHeader {
     uint8_t  leadByte;      ///< 0x00
@@ -279,7 +279,20 @@ struct MarineEchoHeader {
     }
 
     int rangeCellCount() const {
-        return echoByteCount() / 2;
+        return static_cast<int>(fftWordCount());
+    }
+
+    bool isStyleValid() const {
+        return style == 0x00 || style == 0x01 || style == 0x02;
+    }
+
+    bool isRangeValid() const {
+        return rangeCode < MARINE_RANGE_TABLE_SIZE;
+    }
+
+    bool isEchoLengthValid() const {
+        const int bytes = echoByteCount();
+        return bytes > 0 && bytes <= 8192 && (bytes % 4) == 0;
     }
 
     uint16_t packetNumber() const {
@@ -344,6 +357,8 @@ struct MarineEchoLine {
     double   azimuthDeg = 0.0; ///< 方位角(度)
     uint8_t  style = 0x01;     ///< 模式
     uint16_t packetNum = 0;    ///< 包序号
+    uint8_t  rangeCode = 7;    ///< Device range code carried by this echo line
+    double   sourceRangeMeters = marineRangeMeters(7); ///< Physical range covered by amplitudes
     QVector<uint8_t> amplitudes; ///< 各距离单元幅值 (0~255)
 
     /// 距离单元数

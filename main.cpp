@@ -21,7 +21,11 @@
 
 #include <QApplication>
 #include <QDir>
+#include <QStringList>
 #include <QSurfaceFormat>
+#include <QOpenGLContext>
+#include <QOffscreenSurface>
+#include <QOpenGLFunctions>
 #include <QAbstractSocket>
 #include "mainwindow.h"
 #include "Basic/bindThread.h"
@@ -33,6 +37,15 @@
 #include <QLoggingCategory>
 #include "Controller/controller.h"
 #include "Basic/authmanager.h"
+
+#ifdef Q_OS_WIN
+// Force the high-performance GPU on dual-GPU Windows laptops. This avoids
+// WebEngine GL context loss during focus/software/map switches.
+extern "C" {
+    __declspec(dllexport) unsigned long NvOptimusEnablement = 0x00000001;
+    __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}
+#endif
 
 // 登录对话框已移除，开机即启动
 
@@ -159,11 +172,33 @@ int main(int argc, char *argv[]) {
     // =============================================================================
 
     // 启用高DPI缩放，确保在4K显示器上正常显示
+    ConfigManager::instance().load("config.toml");
+
+    QStringList chromiumFlags;
+    if (ConfigManager::instance().webEngineDisableGpu(false)) {
+        chromiumFlags << "--disable-gpu" << "--disable-gpu-compositing";
+    }
+    const QString extraFlags = ConfigManager::instance().webEngineExtraChromiumFlags("").trimmed();
+    if (!extraFlags.isEmpty()) {
+        chromiumFlags << extraFlags;
+    }
+    if (!chromiumFlags.isEmpty()) {
+        qputenv("QTWEBENGINE_CHROMIUM_FLAGS", chromiumFlags.join(' ').toUtf8());
+    }
+
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 
-    // 使用系统原生桌面OpenGL，避免ANGLE渲染器问题
-    // 对QWebEngineView的性能和兼容性至关重要
-    QApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
+    // WebEngine backend: angle/gles is the default because ANGLE(D3D)
+    // is more stable than Desktop OpenGL on dual-GPU Windows machines.
+    const QString glBackend = ConfigManager::instance().webEngineGlBackend("angle").toLower();
+    if (glBackend == "software") {
+        QApplication::setAttribute(Qt::AA_UseSoftwareOpenGL);
+    } else if (glBackend == "angle" || glBackend == "gles") {
+        QApplication::setAttribute(Qt::AA_UseOpenGLES);
+    } else {
+        QApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
+        setupOpenGL();
+    }
 
     // 启用OpenGL上下文共享，提高多窗口渲染性能
     // QWebEngineView依赖独立进程，此设置增强稳定性
@@ -173,6 +208,7 @@ int main(int argc, char *argv[]) {
     // 第二步：创建Qt应用程序实例
     // =============================================================================
     QApplication app(argc, argv);
+    qInstallMessageHandler(enhancedLog);
 
     // =============================================================================
     // 第二.五步：初始化屏幕缩放因子（必须在 QApplication 之后、setupFont 之前）
@@ -182,6 +218,31 @@ int main(int argc, char *argv[]) {
             << ScaleHelper::logicalHeight() << " factor=" << ScaleHelper::factor()
             << " leftPanel=" << ScaleHelper::leftPanelWidth()
             << " rightPanel=" << ScaleHelper::rightPanelWidth();
+
+    qInfo() << "[Render] gl_backend=" << glBackend
+            << "disable_gpu=" << ConfigManager::instance().webEngineDisableGpu(false)
+            << "AA_GLES=" << QApplication::testAttribute(Qt::AA_UseOpenGLES)
+            << "AA_Desktop=" << QApplication::testAttribute(Qt::AA_UseDesktopOpenGL)
+            << "AA_Software=" << QApplication::testAttribute(Qt::AA_UseSoftwareOpenGL)
+            << "platform=" << QApplication::platformName()
+            << "chromium_flags=" << QString::fromUtf8(qgetenv("QTWEBENGINE_CHROMIUM_FLAGS"));
+
+    QOffscreenSurface diagSurface;
+    diagSurface.create();
+    QOpenGLContext diagCtx;
+    if (diagSurface.isValid() && diagCtx.create() && diagCtx.makeCurrent(&diagSurface)) {
+        QOpenGLFunctions* f = diagCtx.functions();
+        auto glStr = [f](GLenum name) -> QString {
+            const GLubyte* s = f->glGetString(name);
+            return s ? QString::fromLatin1(reinterpret_cast<const char*>(s)) : QStringLiteral("?");
+        };
+        qInfo() << "[Render] GL_VENDOR=" << glStr(GL_VENDOR)
+                << "GL_RENDERER=" << glStr(GL_RENDERER)
+                << "GL_VERSION=" << glStr(GL_VERSION);
+        diagCtx.doneCurrent();
+    } else {
+        qWarning() << "[Render] Failed to create diagnostic OpenGL context";
+    }
 
     // =============================================================================
     // 第三步：初始化错误处理框架
@@ -199,7 +260,6 @@ int main(int argc, char *argv[]) {
     // 第五步：用户界面配置
     // =============================================================================
     setupFont(app);      // 设置全局字体
-    setupOpenGL();       // 配置OpenGL渲染
     setupStyle(app);     // 应用深色主题样式
 
     // =============================================================================
@@ -209,8 +269,6 @@ int main(int argc, char *argv[]) {
     // =============================================================================
     // 第六步：日志系统配置
     // =============================================================================
-    qInstallMessageHandler(enhancedLog);
-
     // 输出日志文件位置信息（确保能看到日志文件路径）
     QString logPath = QDir::currentPath() + "/disp_ctrl_log.txt";
     qInfo() << "Log file path:" << logPath;

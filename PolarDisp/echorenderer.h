@@ -28,6 +28,8 @@
 #include <array>
 #include "Basic/MarineProtocol.h"
 
+class PolarAxis;
+
 /**
  * @class EchoRenderer
  * @brief PPI回波渲染引擎
@@ -56,7 +58,8 @@ public:
      * @param scene PPIScene指针, 渲染结果添加到此场景
      * @param imageSize PPI渲染图像边长(像素), 默认2048
      */
-    explicit EchoRenderer(QGraphicsScene* scene, int imageSize = 2048, QObject* parent = nullptr);
+    explicit EchoRenderer(QGraphicsScene* scene, PolarAxis* axis = nullptr,
+                          int imageSize = 2048, QObject* parent = nullptr);
     ~EchoRenderer() override;
 
     /// 获取渲染的 PixmapItem (用于 PPIScene 层级管理)
@@ -98,7 +101,8 @@ private:
     void buildColorTableSimrad();
     void buildColorTableRainbow();
     void buildColorTableGreen();
-    void drawEchoLineToImage(int aziIdx, const uint8_t* amplitudes, int count, bool clearLine);
+    int drawEchoLineToImage(int aziIdx, const uint8_t* amplitudes, int count,
+                            double sourceRangeMeters, bool clearLine);
     void updatePixmapItem();
 
     // ---- 扫描缓冲 ----
@@ -109,6 +113,7 @@ private:
     struct SweepLine {
         std::array<uint8_t, MAX_CELLS> amp{};    ///< 幅值 0~255
         int cellCount = 0;                        ///< 有效单元数
+        double sourceRangeMeters = 0.0;           ///< Physical range represented by amp[]
     };
 
     std::array<SweepLine, AZI_STEPS> m_sweepBuf; ///< 4096方位环形缓冲
@@ -118,7 +123,10 @@ private:
     QImage m_ppiImage;                            ///< PPI渲染画布
     QGraphicsPixmapItem* m_pixmapItem = nullptr;  ///< 场景中的显示项
     QGraphicsScene* m_scene = nullptr;
+    PolarAxis* m_axis = nullptr;
     bool m_imageDirty = false;
+    uint32_t m_rxLineCount = 0;
+    bool m_logNextLineInfo = true;
 
     QTimer* m_renderTimer = nullptr;
     // ---- 颜色映射 ----

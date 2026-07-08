@@ -876,3 +876,12 @@ m_marineMgr             # MarineRadarManager实例
 **文档结束**
 
 *本文档反映 DispCtrl 项目 ship-radar 分支的完整架构与实现状态。重大修改后请同步更新版本历史与注意事项章节。*
+
+---
+
+## 2026-07-05 Ship-Radar WebEngine Black-Screen Flicker Note
+
+- WebEngine GL backend is configured by `config.toml` `[webengine]`.
+- Default `gl_backend = "angle"` maps QtWebEngine to ANGLE/D3D and avoids the dual-GPU black-screen flicker that x576 fixed in commit `48f6d0bd27d9777e795b23cd7458762145afc2d1`.
+- Do not unconditionally call `Qt::AA_UseDesktopOpenGL`; only use Desktop OpenGL when `gl_backend = "desktop"`.
+- `indexNoL.html` and `indexS.html` must not apply CSS `filter` directly to the WebGL map container. Use `#mapMask` overlay instead.

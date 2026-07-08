@@ -11,6 +11,12 @@
 // ================== 日志函数 ==================
 void enhancedLog(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {    // —— 先做兜底过滤 —— //
+#ifndef QT_DEBUG
+    if (type == QtDebugMsg) {
+        return;
+    }
+#endif
+
     const QByteArray cat = context.category ? QByteArray(context.category) : QByteArray();
 
     // 屏蔽 Qt 内部的日志

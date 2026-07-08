@@ -16,10 +16,13 @@
 #include <QDebug>
 #include <QTransform>
 #include <cstring>
+#include "Basic/log.h"
+#include "polaraxis.h"
 
-EchoRenderer::EchoRenderer(QGraphicsScene* scene, int imageSize, QObject* parent)
+EchoRenderer::EchoRenderer(QGraphicsScene* scene, PolarAxis* axis, int imageSize, QObject* parent)
     : QObject(parent)
     , m_scene(scene)
+    , m_axis(axis)
     , m_imageSize(imageSize)
     , m_ppiImage(imageSize, imageSize, QImage::Format_ARGB32_Premultiplied)
 {
@@ -28,7 +31,7 @@ EchoRenderer::EchoRenderer(QGraphicsScene* scene, int imageSize, QObject* parent
     // 创建 PixmapItem 并添加到场景
     m_pixmapItem = new QGraphicsPixmapItem();
     m_pixmapItem->setTransformationMode(Qt::FastTransformation);
-    m_pixmapItem->setZValue(1);  // 在网格之上, 标注之下
+    m_pixmapItem->setZValue(-1);  // 在网格之下，避免回波覆盖量程圆和刻度
     if (m_scene) {
         m_scene->addItem(m_pixmapItem);
     }
@@ -65,7 +68,7 @@ void EchoRenderer::buildColorTable()
 void EchoRenderer::buildColorTableSimrad()
 {
     // SIMRAD Halo 高保真色阶:
-    // 参照实机截图，色彩从深蓝→青→绿→黄→橙→红→亮红白，过渡丰富饱和
+    // 参照实机截图，色彩从深蓝→青→绿→黄→橙→红，最高幅值保持红色
     // 0~15:   透明(噪底)
     // 16~50:  深蓝→蓝(弱回波)
     // 51~85:  蓝→青(海面杂波)
@@ -73,8 +76,7 @@ void EchoRenderer::buildColorTableSimrad()
     // 121~155: 绿→黄(较强回波)
     // 156~190: 黄→橙(强回波)
     // 191~225: 橙→红(很强回波)
-    // 226~245: 亮红(极强回波，如岸线)
-    // 246~255: 亮红→白(天气/最强)
+    // 226~255: 亮红→深红(极强回波，如岸线/最强目标)
 
     for (int i = 0; i < 256; ++i) {
         if (i < 16) {
@@ -116,15 +118,13 @@ void EchoRenderer::buildColorTableSimrad()
         } else if (i < 246) {
             // 亮红
             double t = (i - 226) / 19.0;
-            int g = static_cast<int>(t * 60);
-            int b = static_cast<int>(t * 30);
-            m_colorLUT[i] = qRgba(255, g, b, 255);
+            int g = static_cast<int>(40 * (1.0 - t));
+            m_colorLUT[i] = qRgba(255, g, 0, 255);
         } else {
-            // 亮红→白
+            // 亮红→深红，最高幅值仍保持红色
             double t = (i - 246) / 9.0;
-            int g = static_cast<int>(60 + t * 195);
-            int b = static_cast<int>(30 + t * 225);
-            m_colorLUT[i] = qRgba(255, g, b, 255);
+            int r = static_cast<int>(255 - t * 55);
+            m_colorLUT[i] = qRgba(r, 0, 0, 255);
         }
     }
 }
@@ -200,6 +200,8 @@ void EchoRenderer::setRange(double rangeMeters)
 
     if (!qFuzzyCompare(m_rangeMeter, rangeMeters)) {
         m_rangeMeter = rangeMeters;
+        m_logNextLineInfo = true;
+        LOG_DEBUG(QString("[EchoRenderer] display range set to %1m").arg(m_rangeMeter, 0, 'f', 1));
         clear();
     }
 }
@@ -214,6 +216,7 @@ void EchoRenderer::clear()
     for (auto& line : m_sweepBuf) {
         line.amp.fill(0);
         line.cellCount = 0;
+        line.sourceRangeMeters = 0.0;
     }
     m_ppiImage.fill(Qt::transparent);
     m_imageDirty = true;
@@ -231,14 +234,52 @@ void EchoRenderer::updateEchoLine(const MarineEchoLine& line)
 
     int count = qMin(line.cellCount(), MAX_CELLS);
     if (sl.cellCount > 0) {
-        drawEchoLineToImage(aziIdx, sl.amp.data(), sl.cellCount, true);
+        drawEchoLineToImage(aziIdx, sl.amp.data(), sl.cellCount, sl.sourceRangeMeters, true);
     }
 
     sl.cellCount = count;
+    sl.sourceRangeMeters = line.sourceRangeMeters > 0.0 ? line.sourceRangeMeters : m_rangeMeter;
+    int drawnPoints = 0;
 
     if (count > 0) {
         memcpy(sl.amp.data(), line.amplitudes.constData(), count);
-        drawEchoLineToImage(aziIdx, sl.amp.data(), count, false);
+        int activeCount = 0;
+        int saturatedCount = 0;
+        for (int i = 0; i < count; ++i) {
+            const uint8_t amp = sl.amp[i];
+            if (amp >= 16)
+                ++activeCount;
+            if (amp >= 250)
+                ++saturatedCount;
+        }
+
+        // A whole radial line at max amplitude is not a physical echo. It is
+        // usually a malformed/status/control datagram that passed weak framing
+        // and would otherwise leave a white spoke at 0 degrees.
+        if (activeCount > 64 && saturatedCount * 100 >= activeCount * 95) {
+            sl.amp.fill(0);
+            sl.cellCount = 0;
+            m_imageDirty = true;
+            return;
+        }
+        drawnPoints = drawEchoLineToImage(aziIdx, sl.amp.data(), count, sl.sourceRangeMeters, false);
+    }
+    ++m_rxLineCount;
+    if (m_logNextLineInfo || m_rxLineCount <= 5 || (m_rxLineCount % 512) == 0) {
+        const QString msg = QString("[EchoRenderer] line #%1 aziIdx=%2 aziDeg=%3 cells=%4 drawn=%5 sourceRange=%6m displayRange=%7m")
+                                .arg(m_rxLineCount)
+                                .arg(aziIdx)
+                                .arg(line.azimuthDeg, 0, 'f', 2)
+                                .arg(count)
+                                .arg(drawnPoints)
+                                .arg(sl.sourceRangeMeters, 0, 'f', 1)
+                                .arg(m_rangeMeter, 0, 'f', 1);
+        if (m_logNextLineInfo) {
+            LOG_DEBUG(msg);
+            m_logNextLineInfo = false;
+        } else {
+            LOG_DEBUG(msg);
+        }
     }
     m_imageDirty = true;
 }
@@ -263,13 +304,15 @@ void EchoRenderer::updatePixmapItem()
     }
 
     const double halfSize = m_imageSize / 2.0;
-    double sceneHalf = 0;
-    if (m_scene && !m_scene->sceneRect().isEmpty()) {
-        sceneHalf = qMin(m_scene->sceneRect().width(), m_scene->sceneRect().height()) / 2.0;
+    double displayRadius = 0.0;
+    if (m_axis && m_axis->maxRange() > 0.0 && m_axis->pixelsPerMeter() > 0.0) {
+        displayRadius = m_axis->rangeToPixel(m_axis->maxRange());
+    } else if (m_scene && !m_scene->sceneRect().isEmpty()) {
+        displayRadius = qMin(m_scene->sceneRect().width(), m_scene->sceneRect().height()) / 2.0;
     }
 
-    if (sceneHalf > 0 && halfSize > 0) {
-        const double scale = sceneHalf / halfSize;
+    if (displayRadius > 0.0 && halfSize > 0.0) {
+        const double scale = displayRadius / halfSize;
         m_pixmapItem->setTransform(QTransform::fromScale(scale, scale));
         m_pixmapItem->setOffset(-halfSize, -halfSize);
     } else {
@@ -277,20 +320,24 @@ void EchoRenderer::updatePixmapItem()
     }
 }
 
-void EchoRenderer::drawEchoLineToImage(int aziIdx, const uint8_t* amplitudes, int count, bool clearLine)
+int EchoRenderer::drawEchoLineToImage(int aziIdx, const uint8_t* amplitudes, int count,
+                                      double sourceRangeMeters, bool clearLine)
 {
-    if (!amplitudes || count <= 0 || m_rangeMeter <= 0)
-        return;
+    if (!amplitudes || count <= 0 || m_rangeMeter <= 0 || sourceRangeMeters <= 0.0)
+        return 0;
 
     const double halfImg = m_imageSize / 2.0;
-    const double pixelsPerMeter = halfImg / m_rangeMeter;
-    const double cellSpacing = m_rangeMeter / count;
+    const double maxImageRadius = qMax(1.0, halfImg - 2.0);
+    const double maxImageRadiusSq = maxImageRadius * maxImageRadius;
+    const double pixelsPerMeter = maxImageRadius / m_rangeMeter;
+    const double cellSpacing = sourceRangeMeters / count;
     const bool expandPoint = pixelsPerMeter * cellSpacing > 1.5;
 
     auto* bits = reinterpret_cast<QRgb*>(m_ppiImage.bits());
     const int stride = m_ppiImage.width();
     const double sinA = m_sinTable[aziIdx];
     const double cosA = m_cosTable[aziIdx];
+    int drawnPoints = 0;
 
     for (int r = 0; r < count; ++r) {
         const uint8_t amp = amplitudes[r];
@@ -298,10 +345,18 @@ void EchoRenderer::drawEchoLineToImage(int aziIdx, const uint8_t* amplitudes, in
             continue;
 
         const double dist = (r + 0.5) * cellSpacing;
+        if (dist >= m_rangeMeter)
+            continue;
+
         const int ix = static_cast<int>(halfImg + dist * pixelsPerMeter * sinA);
         const int iy = static_cast<int>(halfImg + dist * pixelsPerMeter * cosA);
 
         if (ix < 0 || ix >= m_imageSize || iy < 0 || iy >= m_imageSize)
+            continue;
+
+        const double ixCenter = (ix + 0.5) - halfImg;
+        const double iyCenter = (iy + 0.5) - halfImg;
+        if ((ixCenter * ixCenter + iyCenter * iyCenter) >= maxImageRadiusSq)
             continue;
 
         const QRgb color = clearLine ? qRgba(0, 0, 0, 0) : m_colorLUT[amp];
@@ -309,6 +364,7 @@ void EchoRenderer::drawEchoLineToImage(int aziIdx, const uint8_t* amplitudes, in
         const int idx = iy * stride + ix;
         if (clearLine || qAlpha(bits[idx]) < alpha) {
             bits[idx] = color;
+            ++drawnPoints;
         }
 
         if (expandPoint) {
@@ -322,12 +378,19 @@ void EchoRenderer::drawEchoLineToImage(int aziIdx, const uint8_t* amplitudes, in
                     if (nx < 0 || nx >= m_imageSize)
                         continue;
 
+                    const double rx = (nx + 0.5) - halfImg;
+                    const double ry = (ny + 0.5) - halfImg;
+                    if ((rx * rx + ry * ry) >= maxImageRadiusSq)
+                        continue;
+
                     const int ni = ny * stride + nx;
                     if (clearLine || qAlpha(bits[ni]) < alpha) {
                         bits[ni] = color;
+                        ++drawnPoints;
                     }
                 }
             }
         }
     }
+    return drawnPoints;
 }

@@ -133,6 +133,12 @@ bool Controller::sendExternalServoControl(const QByteArray& frame32) {
     return false;
 }
 
+void Controller::logMarineRxSnapshot(const QString& reason) const {
+    if (m_marineMgr) {
+        m_marineMgr->logRxSnapshot(reason);
+    }
+}
+
 void Controller::updateHeadingFromCtrlTable(double headingDeg) {
     emit scanHeadingChanged(headingDeg);
 }

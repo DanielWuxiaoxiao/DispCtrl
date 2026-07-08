@@ -9,6 +9,7 @@
 #include "mapprox.h"
 #include <QWebEngineSettings>
 #include <QWebEngineProfile>
+#include <QWebEnginePage>
 #include <QTimer>
 #include <QDir>
 #include "../Basic/ConfigManager.h"
@@ -73,6 +74,13 @@ MapProxyWidget::MapProxyWidget()
     webChannel->registerObject(QString("qtChannel"), this);
     mView->page()->setWebChannel(webChannel);
 
+    connect(mView->page(), &QWebEnginePage::renderProcessTerminated, this,
+            [](QWebEnginePage::RenderProcessTerminationStatus status, int exitCode) {
+                qWarning() << "[WebEngine] render process terminated, status="
+                           << static_cast<int>(status)
+                           << "exitCode=" << exitCode
+                           << "try config.toml [webengine] gl_backend=angle/desktop/software";
+            });
     /* 加载网页，注意加载网页必须在通道注册之后，其有有一个注册完成的信号，
            可根据需要调用  "http://localhost:8080/index.html"*/
 

@@ -117,6 +117,9 @@ auto_save_interval = 300             # 自动保存间隔（秒）
 # WebEngine调试配置
 enable_debug = true                  # 是否启用WebEngine远程调试
 debug_port = 9222                    # 调试端口
+gl_backend = "angle"                 # angle(D3D, recommended) | desktop(OpenGL) | software
+disable_gpu = false                  # true adds --disable-gpu; keep false for WebGL maps unless troubleshooting
+extra_chromium_flags = ""            # extra Chromium flags, space-separated
 
 # =============================================================================
 # 参数配置（运行时保存） Parameter Configuration (Runtime Save)
@@ -216,13 +219,12 @@ max_points = 1000                    # 最大检测点数量
 # =============================================================================
 # 船用雷达通信配置 Marine Radar Communication
 # =============================================================================
-
 [marine.network]
-local_ip = "192.168.1.100"           # 显控本机IP
-echo_port = 9000                     # 接收回波数据端口(接口4)
-servo_ip = "192.168.1.30"           # 伺服IP地址
-servo_port = 9000                    # 伺服控制端口(接口1)
-auto_send_ms = 0                     # 控制帧自动发送周期(ms), 0=不自动
+local_ip = "192.168.1.100"
+echo_port = 9000
+servo_ip = "192.168.1.30"
+servo_port = 9000
+auto_send_ms = 0
 
 [marine.control]
 # 默认控制参数

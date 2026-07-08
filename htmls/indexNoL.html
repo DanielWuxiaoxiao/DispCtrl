@@ -17,8 +17,7 @@
         /* 透明度 + 绿色滤镜 */
 
         /* 重点调整 */
-        filter: grayscale(100%) brightness(40%) contrast(200%) sepia(100%)
-          hue-rotate(90deg) saturate(300%);
+
         opacity: 0.9;
         /* grayscale(100%) → 完全去掉原色彩，留下灰度。
         brightness(40%) → 全体压暗，接近黑底。
@@ -26,6 +25,16 @@
         sepia(100%) hue-rotate(90deg) → 灰度转黄后再旋转色相到绿色。
         saturate(300%) → 提升绿色饱和度，让线条和地块凸显出雷达绿。
         opacity(0.9) → 不完全透明，保持雷达 UI 背景感。 */
+      }
+      #mapMask {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        pointer-events: none;
+        z-index: 9999;
+        background: rgba(2, 40, 18, 0.45);
       }
       html,
       body {
@@ -38,6 +47,7 @@
   </head>
   <body>
     <div id="container"></div>
+    <div id="mapMask"></div>
     <script src="qwebchannel.js"></script>
     <script type="text/javascript">
       //离线地图
@@ -150,9 +160,7 @@
         var container = document.getElementById("container");
         container.style.opacity = op;
 
-        container.style.filter =
-          `grayscale(${gray}%) brightness(80%) contrast(90%) ` +
-          `sepia(60%) hue-rotate(90deg) saturate(${100 + green * 50}%)`;
+        var mask = document.getElementById("mapMask"); if (mask) { mask.style.opacity = op; }
       }
     </script>
   </body>

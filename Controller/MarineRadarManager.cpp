@@ -66,6 +66,16 @@ QString firstBytesHex(const QByteArray& data, int maxBytes)
     return QString::fromLatin1(data.left(qMin(data.size(), maxBytes)).toHex());
 }
 
+QString cleanAddressText(QString text)
+{
+    text = text.trimmed();
+    if ((text.startsWith('"') && text.endsWith('"')) ||
+        (text.startsWith('\'') && text.endsWith('\''))) {
+        text = text.mid(1, text.length() - 2).trimmed();
+    }
+    return text;
+}
+
 } // namespace
 
 MarineRadarManager::MarineRadarManager(QObject* parent)
@@ -77,9 +87,17 @@ MarineRadarManager::MarineRadarManager(QObject* parent)
     m_rxSocket = new QUdpSocket(this);
     m_txSocket = new QUdpSocket(this);
     m_autoSendTimer = new QTimer(this);
+    auto* rxPumpTimer = new QTimer(this);
+    m_rxSocket->setSocketOption(QAbstractSocket::ReceiveBufferSizeSocketOption, 4 * 1024 * 1024);
 
     connect(m_rxSocket, &QUdpSocket::readyRead, this, &MarineRadarManager::onReadyRead);
     connect(m_autoSendTimer, &QTimer::timeout, this, &MarineRadarManager::onAutoSend);
+    connect(rxPumpTimer, &QTimer::timeout, this, [this]() {
+        if (m_rxSocket && m_rxSocket->hasPendingDatagrams()) {
+            onReadyRead();
+        }
+    });
+    rxPumpTimer->start(20);
     LOG_INFO("[MarineRadar] manager created");
 }
 
@@ -91,26 +109,44 @@ MarineRadarManager::~MarineRadarManager()
 void MarineRadarManager::init(const QString& localIp, uint16_t localPort,
                               const QString& servoIp, uint16_t servoPort)
 {
-    m_servoAddr = QHostAddress(servoIp);
+    const QString cleanLocalIp = cleanAddressText(localIp);
+    const QString cleanServoIp = cleanAddressText(servoIp);
+
+    m_servoAddr = QHostAddress(cleanServoIp);
     m_servoPort = servoPort;
     LOG_INFO(QString("[MarineRadar][INIT] bind=%1:%2 servo=%3:%4")
-             .arg(localIp.isEmpty() ? QStringLiteral("0.0.0.0") : localIp)
+             .arg(cleanLocalIp.isEmpty() ? QStringLiteral("0.0.0.0") : cleanLocalIp)
              .arg(localPort)
-             .arg(servoIp)
+             .arg(cleanServoIp)
              .arg(servoPort));
+    if (m_servoAddr.isNull()) {
+        QString msg = QString("[MarineRadar][INIT] invalid servo_ip='%1'; UDP control send target is not usable")
+                          .arg(cleanServoIp);
+        LOG_ERROR(msg);
+        emit logMessage(msg);
+    }
 
     // 绑定接收端口
     if (m_rxSocket->state() == QAbstractSocket::BoundState)
         m_rxSocket->close();
 
-    QHostAddress bindAddr = localIp.isEmpty() ? QHostAddress::AnyIPv4 : QHostAddress(localIp);
+    QHostAddress bindAddr = cleanLocalIp.isEmpty() ? QHostAddress::AnyIPv4 : QHostAddress(cleanLocalIp);
+    if (!cleanLocalIp.isEmpty() && bindAddr.isNull()) {
+        QString msg = QString("[MarineRadar][INIT] invalid local_ip='%1'; fallback bind address to 0.0.0.0")
+                          .arg(cleanLocalIp);
+        LOG_ERROR(msg);
+        emit logMessage(msg);
+        bindAddr = QHostAddress::AnyIPv4;
+    }
     if (!m_rxSocket->bind(bindAddr, localPort, QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint)) {
         QString msg = QString("[MarineRadar][INIT] failed to bind %1:%2 - %3")
-                          .arg(localIp).arg(localPort).arg(m_rxSocket->errorString());
+                          .arg(cleanLocalIp).arg(localPort).arg(m_rxSocket->errorString());
         LOG_ERROR(msg);
         emit logMessage(msg);
     } else {
-        QString msg = QString("[MarineRadar][INIT] listening on %1:%2").arg(localIp).arg(localPort);
+        QString msg = QString("[MarineRadar][INIT] listening on %1:%2")
+                          .arg(cleanLocalIp.isEmpty() ? QStringLiteral("0.0.0.0") : cleanLocalIp)
+                          .arg(localPort);
         LOG_INFO(msg);
         emit logMessage(msg);
     }
@@ -126,7 +162,14 @@ void MarineRadarManager::sendControl(const MarineControlFrame& frame)
     f.updateChecksum();
 
     QByteArray data(reinterpret_cast<const char*>(&f), sizeof(f));
-    const qint64 written = m_txSocket->writeDatagram(data, m_servoAddr, m_servoPort);
+    // Use the bound receive socket for TX whenever possible so the radar sees
+    // the configured echo_port as the UDP source port. Some devices reply to
+    // the control packet source port; an unbound TX socket would use an
+    // ephemeral port and move echo data away from the socket we actually read.
+    QUdpSocket* sendSocket = (m_rxSocket && m_rxSocket->state() == QAbstractSocket::BoundState)
+                             ? m_rxSocket
+                             : m_txSocket;
+    const qint64 written = sendSocket->writeDatagram(data, m_servoAddr, m_servoPort);
     ++m_txCount;
 
     if (written != data.size()) {
@@ -136,12 +179,14 @@ void MarineRadarManager::sendControl(const MarineControlFrame& frame)
                     .arg(data.size())
                     .arg(m_servoAddr.toString())
                     .arg(m_servoPort)
-                    .arg(m_txSocket->errorString())
+                    .arg(sendSocket->errorString())
                     .arg(controlSummary(f)));
     } else if (shouldLogSample(m_txCount, 5, 50)) {
-        LOG_INFO(QString("[MarineRadar][TX] sent #%1 bytes=%2 target=%3:%4 %5")
+        LOG_INFO(QString("[MarineRadar][TX] sent #%1 bytes=%2 src=%3:%4 target=%5:%6 %7")
                  .arg(m_txCount)
                  .arg(written)
+                 .arg(sendSocket->localAddress().toString())
+                 .arg(sendSocket->localPort())
                  .arg(m_servoAddr.toString())
                  .arg(m_servoPort)
                  .arg(controlSummary(f)));
@@ -251,6 +296,24 @@ void MarineRadarManager::setAutoSendInterval(int ms)
     }
 }
 
+void MarineRadarManager::logRxSnapshot(const QString& reason) const
+{
+    const bool hasPending = m_rxSocket && m_rxSocket->hasPendingDatagrams();
+    const qint64 pendingSize = hasPending ? m_rxSocket->pendingDatagramSize() : 0;
+    LOG_DEBUG(QString("[MarineRadar][RX-SNAPSHOT] %1 state=%2 boundLocal=%3:%4 rx=%5 echo=%6 invalid=%7 pending=%8 pendingSize=%9 drainScheduled=%10 error=%11")
+              .arg(reason)
+              .arg(m_rxSocket ? static_cast<int>(m_rxSocket->state()) : -1)
+              .arg(m_rxSocket ? m_rxSocket->localAddress().toString() : QStringLiteral("<null>"))
+              .arg(m_rxSocket ? m_rxSocket->localPort() : 0)
+              .arg(m_rxDatagramCount)
+              .arg(m_rxEchoCount)
+              .arg(m_rxInvalidCount)
+              .arg(hasPending ? 1 : 0)
+              .arg(pendingSize)
+              .arg(m_rxDrainScheduled ? 1 : 0)
+              .arg(m_rxSocket ? m_rxSocket->errorString() : QStringLiteral("<null>")));
+}
+
 void MarineRadarManager::onAutoSend()
 {
     sendControl(m_ctrl);
@@ -267,8 +330,8 @@ void MarineRadarManager::onReadyRead()
     QElapsedTimer budget;
     budget.start();
     int processed = 0;
-    constexpr int kMaxDatagramsPerDrain = 64;
-    constexpr qint64 kMaxDrainMs = 4;
+    constexpr int kMaxDatagramsPerDrain = 256;
+    constexpr qint64 kMaxDrainMs = 8;
 
     while (m_rxSocket->hasPendingDatagrams()) {
         const QNetworkDatagram datagram = m_rxSocket->receiveDatagram();
@@ -276,11 +339,11 @@ void MarineRadarManager::onReadyRead()
         ++m_rxDatagramCount;
 
         if (shouldLogSample(m_rxDatagramCount, 5, 512)) {
-            LOG_INFO(QString("[MarineRadar][RX] datagram #%1 bytes=%2 from=%3:%4")
-                     .arg(m_rxDatagramCount)
-                     .arg(data.size())
-                     .arg(datagram.senderAddress().toString())
-                     .arg(datagram.senderPort()));
+            LOG_DEBUG(QString("[MarineRadar][RX] datagram #%1 bytes=%2 from=%3:%4")
+                      .arg(m_rxDatagramCount)
+                      .arg(data.size())
+                      .arg(datagram.senderAddress().toString())
+                      .arg(datagram.senderPort()));
         }
 
         parseEchoDatagram(data);
@@ -328,6 +391,17 @@ void MarineRadarManager::parseEchoDatagram(const QByteArray& data)
 
     if (!hdr->isStatusValid() && shouldLogSample(m_rxDatagramCount, 5, 512)) {
         LOG_WARNING(QString("[MarineRadar][RX] status checksum mismatch %1").arg(echoSummary(*hdr)));
+    }
+
+    if (!hdr->isStyleValid() || !hdr->isRangeValid() || !hdr->isEchoLengthValid()) {
+        ++m_rxInvalidCount;
+        if (shouldLogSample(m_rxInvalidCount, 5, 100)) {
+            LOG_WARNING(QString("[MarineRadar][RX] invalid echo metadata invalidCount=%1 bytes=%2 %3")
+                        .arg(m_rxInvalidCount)
+                        .arg(data.size())
+                        .arg(echoSummary(*hdr)));
+        }
+        return;
     }
 
     // 提取状态
@@ -383,25 +457,29 @@ void MarineRadarManager::parseEchoDatagram(const QByteArray& data)
     line.azimuthDeg = hdr->azimuthDeg();
     line.style      = hdr->style;
     line.packetNum  = hdr->packetNumber();
+    line.rangeCode  = hdr->rangeCode;
+    line.sourceRangeMeters = marineRangeMeters(hdr->rangeCode);
 
-    // 拷贝幅值数据
-    // Echo payload is temporarily defined as one big-endian uint16 per range cell.
-    // The current renderer consumes 8-bit amplitudes, so clamp each magnitude.
-    const int cellCount = echoBytes / 2;
+    // Copy amplitudes. The echo payload is one little-endian uint32 magnitude
+    // per range cell; the renderer consumes 8-bit amplitudes.
+    const int cellCount = hdr->rangeCellCount();
     line.amplitudes.resize(cellCount);
     const uint8_t* echoData = reinterpret_cast<const uint8_t*>(data.constData()) + HEADER_SIZE;
     for (int i = 0; i < cellCount; ++i) {
-        const uint16_t magnitude = (static_cast<uint16_t>(echoData[i * 2]) << 8) |
-                                   static_cast<uint16_t>(echoData[i * 2 + 1]);
-        line.amplitudes[i] = static_cast<uint8_t>(qMin<uint16_t>(magnitude, 255));
+        const int offset = i * 4;
+        const uint32_t magnitude = static_cast<uint32_t>(echoData[offset]) |
+                                   (static_cast<uint32_t>(echoData[offset + 1]) << 8) |
+                                   (static_cast<uint32_t>(echoData[offset + 2]) << 16) |
+                                   (static_cast<uint32_t>(echoData[offset + 3]) << 24);
+        line.amplitudes[i] = static_cast<uint8_t>(qMin<uint32_t>(magnitude, 255U));
     }
 
     ++m_rxEchoCount;
     if (shouldLogSample(m_rxEchoCount, 5, 512)) {
-        LOG_INFO(QString("[MarineRadar][RX] echo #%1 bytes=%2 %3")
-                 .arg(m_rxEchoCount)
-                 .arg(data.size())
-                 .arg(echoSummary(*hdr)));
+        LOG_DEBUG(QString("[MarineRadar][RX] echo #%1 bytes=%2 %3")
+                  .arg(m_rxEchoCount)
+                  .arg(data.size())
+                  .arg(echoSummary(*hdr)));
     }
 
     emit echoLineReceived(line);

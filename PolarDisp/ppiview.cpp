@@ -166,14 +166,14 @@ void PPIView::calculateMapDisplayParameters(double& mapCenterLng, double& mapCen
     double minRequiredRange = m_currentRange * 2.0; // 至少是PPI范围的2倍
     mapRange = qMax(mapRange, minRequiredRange);
 
-    LOG_INFO(QString("Map params calc: PPIView center in MainWindow(%1,%2), MapProxy center(%3,%4), pixel offset(%5,%6)")
-            .arg(ppiCenterInMainWindow.x()).arg(ppiCenterInMainWindow.y())
-            .arg(mapProxyCenter.x()).arg(mapProxyCenter.y())
-            .arg(pixelOffset.x()).arg(pixelOffset.y()));
-    LOG_INFO(QString("Map params calc: Radar pos(%1,%2), Map center(%3,%4), Map range %5km, PPI range %6km")
-            .arg(m_radarLongitude).arg(m_radarLatitude)
-            .arg(mapCenterLng).arg(mapCenterLat)
-            .arg(mapRange).arg(m_currentRange));
+    LOG_DEBUG(QString("Map params calc: PPIView center in MainWindow(%1,%2), MapProxy center(%3,%4), pixel offset(%5,%6)")
+              .arg(ppiCenterInMainWindow.x()).arg(ppiCenterInMainWindow.y())
+              .arg(mapProxyCenter.x()).arg(mapProxyCenter.y())
+              .arg(pixelOffset.x()).arg(pixelOffset.y()));
+    LOG_DEBUG(QString("Map params calc: Radar pos(%1,%2), Map center(%3,%4), Map range %5km, PPI range %6km")
+              .arg(m_radarLongitude).arg(m_radarLatitude)
+              .arg(mapCenterLng).arg(mapCenterLat)
+              .arg(mapRange).arg(m_currentRange));
 }
 
 /**
@@ -328,8 +328,8 @@ void PPIView::setPPIScene(PPIScene* scene) {
         double maxRangeInMeters = m_scene->axis()->maxRange();
         double maxRangeInKm = maxRangeInMeters / 1000.0;
         m_currentRange = maxRangeInKm;
-        LOG_INFO(QString("PPI range sync: Scene %1m -> View %2km")
-                .arg(maxRangeInMeters).arg(maxRangeInKm));
+        LOG_DEBUG(QString("PPI range sync: Scene %1m -> View %2km")
+                  .arg(maxRangeInMeters).arg(maxRangeInKm));
     }
 }
 

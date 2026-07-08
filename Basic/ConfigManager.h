@@ -15,6 +15,7 @@
 #include <QMap>
 #include <QVariant>
 #include <QTextStream>
+#include <QtGlobal>
 
 #define CF_INS ConfigManager::instance()
 
@@ -158,6 +159,18 @@ public:
 
     int webEngineDebugPort(int def = 6669) const {
         return getValue("webengine.debug_port", def).toInt();
+    }
+
+    QString webEngineGlBackend(const QString& def = "angle") const {
+        return getValue("webengine.gl_backend", def).toString();
+    }
+
+    bool webEngineDisableGpu(bool def = false) const {
+        return getValue("webengine.disable_gpu", def).toBool();
+    }
+
+    QString webEngineExtraChromiumFlags(const QString& def = "") const {
+        return getValue("webengine.extra_chromium_flags", def).toString();
     }
 
     // 显示配置相关
@@ -571,13 +584,15 @@ private:
             qInfo() << "Successfully loaded TOML config:" << path << "with" << configData.size() << "entries";
 
             // 调试：打印params段的值
-            qInfo() << "=== Loaded params values ===";
-            qInfo() << "params.servo.cmd:" << configData.value("params.servo.cmd", "NOT FOUND");
-            qInfo() << "params.servo.speed:" << configData.value("params.servo.speed", "NOT FOUND");
-            qInfo() << "params.servo.az:" << configData.value("params.servo.az", "NOT FOUND");
-            qInfo() << "params.scanrange.workMode:" << configData.value("params.scanrange.workMode", "NOT FOUND");
-            qInfo() << "params.beamcontrol.freqID:" << configData.value("params.beamcontrol.freqID", "NOT FOUND");
-            qInfo() << "============================";
+            if (qEnvironmentVariableIsSet("DISPCTRL_TOML_DEBUG")) {
+                qDebug() << "=== Loaded params values ===";
+                qDebug() << "params.servo.cmd:" << configData.value("params.servo.cmd", "NOT FOUND");
+                qDebug() << "params.servo.speed:" << configData.value("params.servo.speed", "NOT FOUND");
+                qDebug() << "params.servo.az:" << configData.value("params.servo.az", "NOT FOUND");
+                qDebug() << "params.scanrange.workMode:" << configData.value("params.scanrange.workMode", "NOT FOUND");
+                qDebug() << "params.beamcontrol.freqID:" << configData.value("params.beamcontrol.freqID", "NOT FOUND");
+                qDebug() << "============================";
+            }
         }
         return success;
     }
@@ -586,8 +601,10 @@ private:
     bool parseToml(const QString& content) {
         QStringList lines = content.split('\n');
         QString currentSection = "";
+        const bool verboseToml = qEnvironmentVariableIsSet("DISPCTRL_TOML_DEBUG");
 
-        qInfo() << "parseToml: Total lines:" << lines.size();
+        if (verboseToml)
+            qDebug() << "parseToml: Total lines:" << lines.size();
 
         for (const QString& line : lines) {
             QString trimmed = line.trimmed();
@@ -600,7 +617,8 @@ private:
             // 处理节（section）
             if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
                 currentSection = trimmed.mid(1, trimmed.length() - 2);
-                qInfo() << "parseToml: Found section:" << currentSection;
+                if (verboseToml)
+                    qDebug() << "parseToml: Found section:" << currentSection;
                 continue;
             }
 
@@ -610,16 +628,16 @@ private:
                 QString key = trimmed.left(equalPos).trimmed();
                 QString value = trimmed.mid(equalPos + 1).trimmed();
 
+                // Remove inline comments before quote stripping so string values
+                // like key = "value" # comment are parsed as value.
+                int commentPos = value.indexOf('#');
+                if (commentPos >= 0) {
+                    value = value.left(commentPos).trimmed();
+                }
                 // 移除引号
                 if ((value.startsWith('"') && value.endsWith('"')) ||
                     (value.startsWith('\'') && value.endsWith('\''))) {
                     value = value.mid(1, value.length() - 2);
-                }
-
-                // 移除行内注释
-                int commentPos = value.indexOf('#');
-                if (commentPos >= 0) {
-                    value = value.left(commentPos).trimmed();
                 }
 
                 // 构建完整的键路径
@@ -647,8 +665,8 @@ private:
                 configData[fullKey] = varValue;
 
                 // 调试：打印params段的键值对
-                if (fullKey.startsWith("params.")) {
-                    qInfo() << "parseToml: Parsed" << fullKey << "=" << varValue;
+                if (verboseToml && fullKey.startsWith("params.")) {
+                    qDebug() << "parseToml: Parsed" << fullKey << "=" << varValue;
                 }
             }
         }

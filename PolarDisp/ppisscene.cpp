@@ -175,8 +175,8 @@ void PPIScene::initLayerObjects()
 {
     m_grid = new PolarGrid(this, m_axis);
 
-    // 船用回波渲染引擎 (在网格之上)
-    m_echo = new EchoRenderer(this, 2048, this);
+    // 船用回波渲染引擎 (在网格之下)
+    m_echo = new EchoRenderer(this, m_axis, 2048, this);
 
     // 使用单例 Tooltip，不要创建新实例
     // Tooltip 是 Q_GLOBAL_STATIC 管理的全局单例

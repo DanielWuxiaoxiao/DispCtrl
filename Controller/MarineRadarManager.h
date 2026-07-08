@@ -68,6 +68,7 @@ public:
 
     /// 控制帧发送周期(ms), 0=不自动发送
     void setAutoSendInterval(int ms);
+    void logRxSnapshot(const QString& reason) const;
 
 signals:
     /**

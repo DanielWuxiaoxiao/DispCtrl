@@ -122,6 +122,7 @@ public:
     // 外部雷控链路发送接口（空壳，调用方填充数据并确保长度正确）
     bool sendExternalSystemControl(const QByteArray& frame512);
     bool sendExternalServoControl(const QByteArray& frame32);
+    void logMarineRxSnapshot(const QString& reason) const;
 
 signals:
     // === 向资源系统发送控制参数 ===

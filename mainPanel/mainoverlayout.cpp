@@ -23,6 +23,7 @@
 #include <QDebug>
 #include <QDoubleSpinBox>
 #include <QLabel>
+#include <QHBoxLayout>
 #include <QSlider>
 #include <QSignalBlocker>
 #include <QPushButton>
@@ -34,6 +35,10 @@
 #include "PolarDisp/echolinechart.h"
 #include "Basic/MarineProtocol.h"
 #include "Controller/MarineRadarManager.h"
+
+namespace {
+constexpr const char* kShipRadarUiVersion = "V2";
+}
 
 MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::MainOverLayOut) {
     ui->setupUi(this);
@@ -99,6 +104,21 @@ void MainOverLayOut::topRightSet() {
     ui->timeLabel->setToolTip("系统时间");
 
     ui->TitleLabel->setToolTip("系统标题");
+
+    const QString buildText = QString("%1 %2 %3").arg(QString::fromLatin1(kShipRadarUiVersion),
+                                                      QString::fromLatin1(__DATE__),
+                                                      QString::fromLatin1(__TIME__));
+    auto* versionLabel = new QLabel(QString::fromLatin1(kShipRadarUiVersion), ui->topBarWidget);
+    versionLabel->setObjectName("buildVersionLabel");
+    versionLabel->setToolTip(buildText);
+    versionLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    versionLabel->setStyleSheet("color: #44ff44; font-size: 12px; "
+                                "font-family: 'Consolas', monospace; background: transparent;");
+    if (auto* topLayout = qobject_cast<QHBoxLayout*>(ui->topBarWidget->layout())) {
+        const int timeIndex = topLayout->indexOf(ui->timeLabel);
+        topLayout->insertWidget(timeIndex >= 0 ? timeIndex : topLayout->count(), versionLabel);
+    }
+    LOG_INFO(QString("[Build] %1").arg(buildText));
 
     connect(ui->minButton, &QPushButton::clicked, CON_INS, &Controller::minimizeWindow);
     connect(ui->CloseButton, &QPushButton::clicked, this, [this]() {
@@ -620,11 +640,11 @@ void MainOverLayOut::setupColorBar()
         }
         for (int i = 226; i < 246; ++i) {
             double t = (i - 226) / 19.0;
-            lut[i] = qRgb(255, static_cast<int>(t * 60), static_cast<int>(t * 30));
+            lut[i] = qRgb(255, static_cast<int>(40 * (1.0 - t)), 0);
         }
         for (int i = 246; i <= 255; ++i) {
             double t = (i - 246) / 9.0;
-            lut[i] = qRgb(255, static_cast<int>(60 + t * 195), static_cast<int>(30 + t * 225));
+            lut[i] = qRgb(static_cast<int>(255 - t * 55), 0, 0);
         }
         m_colorBar->setColorLUT(lut);
     }
