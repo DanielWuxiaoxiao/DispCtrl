@@ -22,13 +22,16 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QDoubleSpinBox>
+#include <QGridLayout>
 #include <QLabel>
 #include <QHBoxLayout>
 #include <QSlider>
 #include <QSignalBlocker>
+#include <QSpinBox>
 #include <QPushButton>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <QWheelEvent>
 
 #include "PolarDisp/echorenderer.h"
 #include "PolarDisp/colorbarwidget.h"
@@ -38,6 +41,18 @@
 
 namespace {
 constexpr const char* kShipRadarUiVersion = "V2";
+
+class NoWheelSpinBox : public QSpinBox
+{
+public:
+    explicit NoWheelSpinBox(QWidget* parent = nullptr) : QSpinBox(parent) {}
+
+protected:
+    void wheelEvent(QWheelEvent* event) override
+    {
+        event->ignore();
+    }
+};
 }
 
 MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::MainOverLayOut) {
@@ -88,8 +103,9 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
         if (m_lblTransmitIndicator) {
             m_lblTransmitIndicator->setText(tx ? QString::fromUtf8("\u25CF 发射开") : QString::fromUtf8("\u25CF 发射关"));
             m_lblTransmitIndicator->setStyleSheet(
-                tx ? "color: #44ff44; font-size: 18px; font-family: 'Microsoft YaHei'; background: transparent;"
-                   : "color: #ff4444; font-size: 18px; font-family: 'Microsoft YaHei'; background: transparent;");
+                QString("color: %1; font-size: %2px; font-family: 'Microsoft YaHei'; background: transparent;")
+                    .arg(tx ? "#44ff44" : "#ff4444")
+                    .arg(ScaleHelper::uiScaled(18)));
         }
     });
 
@@ -112,8 +128,9 @@ void MainOverLayOut::topRightSet() {
     versionLabel->setObjectName("buildVersionLabel");
     versionLabel->setToolTip(buildText);
     versionLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    versionLabel->setStyleSheet("color: #44ff44; font-size: 12px; "
-                                "font-family: 'Consolas', monospace; background: transparent;");
+    versionLabel->setStyleSheet(QString("color: #44ff44; font-size: %1px; "
+                                        "font-family: 'Consolas', monospace; background: transparent;")
+                                    .arg(ScaleHelper::uiScaled(12)));
     if (auto* topLayout = qobject_cast<QHBoxLayout*>(ui->topBarWidget->layout())) {
         const int timeIndex = topLayout->indexOf(ui->timeLabel);
         topLayout->insertWidget(timeIndex >= 0 ? timeIndex : topLayout->count(), versionLabel);
@@ -158,35 +175,41 @@ void MainOverLayOut::setupPPIOverlay() {
     m_lblOverlayRange = new QLabel(QString::fromUtf8("量程  2.0 km"), m_ppiOverlay);
     m_lblOverlayRange->setObjectName("ppiOverlayLabel");
     m_lblOverlayRange->setStyleSheet(
-        "color: #ff8800; font-size: 32px; font-weight: bold; "
-        "font-family: 'Microsoft YaHei', 'Consolas', monospace; background: transparent;");
+        QString("color: #ff8800; font-size: %1px; font-weight: bold; "
+                "font-family: 'Microsoft YaHei', 'Consolas', monospace; background: transparent;")
+            .arg(ScaleHelper::uiScaled(32)));
 
     // 船首向上 模式
     auto* lblHU = new QLabel(QString::fromUtf8("船首向上"), m_ppiOverlay);
-    lblHU->setStyleSheet("color: #44ff44; font-size: 22px; font-weight: bold; "
-                         "font-family: 'Microsoft YaHei'; background: transparent;");
+    lblHU->setStyleSheet(QString("color: #44ff44; font-size: %1px; font-weight: bold; "
+                                 "font-family: 'Microsoft YaHei'; background: transparent;")
+                             .arg(ScaleHelper::uiScaled(22)));
 
     // 相对运动
     auto* lblRM = new QLabel(QString::fromUtf8("相对运动"), m_ppiOverlay);
-    lblRM->setStyleSheet("color: #44ff44; font-size: 22px; font-weight: bold; "
-                         "font-family: 'Microsoft YaHei'; background: transparent;");
+    lblRM->setStyleSheet(QString("color: #44ff44; font-size: %1px; font-weight: bold; "
+                                 "font-family: 'Microsoft YaHei'; background: transparent;")
+                             .arg(ScaleHelper::uiScaled(22)));
 
     // 发射状态指示
     m_lblTransmitIndicator = new QLabel(QString::fromUtf8("\u25CF 发射关"), m_ppiOverlay);
     m_lblTransmitIndicator->setObjectName("ppiOverlayLabel");
-    m_lblTransmitIndicator->setStyleSheet("color: #ff4444; font-size: 18px; "
-                                          "font-family: 'Microsoft YaHei'; background: transparent;");
+    m_lblTransmitIndicator->setStyleSheet(QString("color: #ff4444; font-size: %1px; "
+                                                  "font-family: 'Microsoft YaHei'; background: transparent;")
+                                              .arg(ScaleHelper::uiScaled(18)));
 
     // 距标圈指示
     m_lblRangeRing = new QLabel(QString::fromUtf8("\u25CF 距标圈"), m_ppiOverlay);
     m_lblRangeRing->setObjectName("ppiOverlayLabel");
-    m_lblRangeRing->setStyleSheet("color: #44ff44; font-size: 18px; "
-                                  "font-family: 'Microsoft YaHei'; background: transparent;");
+    m_lblRangeRing->setStyleSheet(QString("color: #44ff44; font-size: %1px; "
+                                          "font-family: 'Microsoft YaHei'; background: transparent;")
+                                      .arg(ScaleHelper::uiScaled(18)));
 
     // 雷达型号
     auto* lblModel = new QLabel(QString::fromUtf8("西电船用"), m_ppiOverlay);
-    lblModel->setStyleSheet("color: #888; font-size: 16px; "
-                            "font-family: 'Microsoft YaHei'; background: transparent;");
+    lblModel->setStyleSheet(QString("color: #888; font-size: %1px; "
+                                    "font-family: 'Microsoft YaHei'; background: transparent;")
+                                .arg(ScaleHelper::uiScaled(16)));
 
     overlayLayout->addWidget(m_lblOverlayRange);
     overlayLayout->addWidget(lblHU);
@@ -198,7 +221,7 @@ void MainOverLayOut::setupPPIOverlay() {
     overlayLayout->addWidget(lblModel);
     overlayLayout->addStretch();
 
-    m_ppiOverlay->setFixedSize(260, 280);
+    m_ppiOverlay->setFixedSize(ScaleHelper::uiScaled(260), ScaleHelper::uiScaled(280));
     m_ppiOverlay->move(0, 0);
     m_ppiOverlay->show();
     m_ppiOverlay->raise();
@@ -232,7 +255,8 @@ void MainOverLayOut::setupPPIOverlay() {
     // 位置 标题
     auto* lblPosTitle = new QLabel(QString::fromUtf8("位置"), m_ppiNavOverlay);
     lblPosTitle->setStyleSheet(
-        "color: #888888; font-size: 16px; font-family: 'Microsoft YaHei'; background: transparent;");
+        QString("color: #888888; font-size: %1px; font-family: 'Microsoft YaHei'; background: transparent;")
+            .arg(ScaleHelper::uiScaled(16)));
 
     // 经纬度（度°分.小数' 格式）
     double lat = CF_INS.latitude();
@@ -248,14 +272,16 @@ void MainOverLayOut::setupPPIOverlay() {
     m_lblNavPos = new QLabel(m_ppiNavOverlay);
     m_lblNavPos->setText(QString("%1\n%2").arg(formatCoord(lat, true), formatCoord(lon, false)));
     m_lblNavPos->setStyleSheet(
-        "color: #cccccc; font-size: 18px; font-family: 'Consolas', 'Microsoft YaHei', monospace; "
-        "background: transparent; line-height: 1.4;");
+        QString("color: #cccccc; font-size: %1px; font-family: 'Consolas', 'Microsoft YaHei', monospace; "
+                "background: transparent; line-height: 1.4;")
+            .arg(ScaleHelper::uiScaled(18)));
 
     // 光标距离 + 方位
     m_lblNavCursor = new QLabel(QString::fromUtf8("光标  --.- km  --- °T"), m_ppiNavOverlay);
     m_lblNavCursor->setStyleSheet(
-        "color: #ff8800; font-size: 18px; font-family: 'Microsoft YaHei', 'Consolas', monospace; "
-        "background: transparent;");
+        QString("color: #ff8800; font-size: %1px; font-family: 'Microsoft YaHei', 'Consolas', monospace; "
+                "background: transparent;")
+            .arg(ScaleHelper::uiScaled(18)));
 
     navLayout->addStretch();
     navLayout->addWidget(lblPosTitle);
@@ -263,7 +289,7 @@ void MainOverLayOut::setupPPIOverlay() {
     navLayout->addSpacing(4);
     navLayout->addWidget(m_lblNavCursor);
 
-    m_ppiNavOverlay->setFixedSize(280, 150);
+    m_ppiNavOverlay->setFixedSize(ScaleHelper::uiScaled(280), ScaleHelper::uiScaled(150));
     m_ppiNavOverlay->show();
     m_ppiNavOverlay->raise();
 
@@ -366,11 +392,13 @@ void MainOverLayOut::logCommand(const QString& commandName, const QString& param
  */
 void MainOverLayOut::applyScaledSizes() {
     const int rightW = ScaleHelper::rightPanelWidth();
+    const int rightExtra = ScaleHelper::uiScaled(80);
 
     ui->rightPanelWidget->setMinimumWidth(rightW);
-    ui->rightPanelWidget->setMaximumWidth(rightW + 80);
+    ui->rightPanelWidget->setMaximumWidth(rightW + rightExtra);
 
     qInfo() << "ScaleHelper applied: factor=" << ScaleHelper::factor()
+            << "uiScale=" << ScaleHelper::uiScale()
             << "rightPanel=" << rightW;
 }
 
@@ -457,6 +485,21 @@ void MainOverLayOut::setupMarineControls()
                            static_cast<uint8_t>(m_servoCombo->currentData().toInt())), 'f', 2));
 
     m_marineCtrlPanel = ui->marineCtrlPanel;
+    auto* historyLabel = new QLabel(QString::fromUtf8(u8"\u4fdd\u7559\u5708\u6570"), m_marineCtrlPanel);
+    auto* historySpin = new NoWheelSpinBox(m_marineCtrlPanel);
+    historySpin->setObjectName("marineSweepHistorySpin");
+    historySpin->setRange(1, 8);
+    historySpin->setValue(qBound(1, CF_INS.marineDisplayInt("sweep_history_rounds", 1), 8));
+    historySpin->setKeyboardTracking(false);
+    historySpin->setFocusPolicy(Qt::ClickFocus);
+    historySpin->setToolTip(QString::fromUtf8(u8"\u540c\u4e00\u65b9\u4f4d\u4fdd\u7559\u7684\u626b\u63cf\u5708\u6570"));
+    if (auto* grid = qobject_cast<QGridLayout*>(ui->marineCtrlLayout)) {
+        grid->addWidget(historyLabel, 11, 0);
+        grid->addWidget(historySpin, 11, 1, 1, 2);
+    }
+    if (mScene && mScene->echoRenderer()) {
+        mScene->echoRenderer()->setSweepHistoryRounds(historySpin->value());
+    }
     m_btnSendMarineControl = ui->sendMarineControlButton;
     m_btnSendMarineControl->setText(QString::fromUtf8(u8"\u4e0b\u53d1\u53c2\u6570"));
     auto* startButton = ui->marineStartButton;
@@ -464,45 +507,60 @@ void MainOverLayOut::setupMarineControls()
     startButton->setText(QString::fromUtf8(u8"\u542f\u52a8"));
     stopButton->setText(QString::fromUtf8(u8"\u505c\u6b62"));
 
-    const QString buttonStyle =
+    const QString buttonStyle = QString(
         "QPushButton { background: #1a1a1a; color: #ff8800; border: 1px solid #ff8800; "
-        "border-radius: 4px; padding: 6px 10px; font-size: 14px; font-weight: bold; "
+        "border-radius: 4px; padding: %1px %2px; font-size: %3px; font-weight: bold; "
         "font-family: 'Microsoft YaHei'; }"
         "QPushButton:hover { background: #2a1a0a; }"
-        "QPushButton:pressed { background: #3a260d; }";
-    const QString txStyle =
+        "QPushButton:pressed { background: #3a260d; }")
+        .arg(ScaleHelper::uiScaled(6))
+        .arg(ScaleHelper::uiScaled(10))
+        .arg(ScaleHelper::uiScaled(14));
+    const QString txStyle = QString(
         "QPushButton { background: #1a1a1a; color: #44ff44; border: 1px solid #333; "
-        "border-radius: 4px; padding: 6px 10px; font-size: 14px; font-weight: bold; "
+        "border-radius: 4px; padding: %1px %2px; font-size: %3px; font-weight: bold; "
         "font-family: 'Microsoft YaHei'; }"
         "QPushButton:checked { background: #4a1010; color: #ff4444; border-color: #ff4444; }"
         "QPushButton:disabled { background: #070b0a; color: #56635f; border: 1px solid #24302d; }"
-        "QPushButton:hover { background: #2a2a2a; }";
+        "QPushButton:hover { background: #2a2a2a; }")
+        .arg(ScaleHelper::uiScaled(6))
+        .arg(ScaleHelper::uiScaled(10))
+        .arg(ScaleHelper::uiScaled(14));
     m_btnSendMarineControl->setStyleSheet(buttonStyle);
     startButton->setStyleSheet(buttonStyle);
     stopButton->setStyleSheet(buttonStyle);
     m_btnTxToggle->setStyleSheet(txStyle);
-    m_marineCtrlPanel->setStyleSheet(
+    m_marineCtrlPanel->setStyleSheet(QString(
         "QWidget#marineCtrlPanel { background: #0a0a0a; border: 1px solid #333; border-radius: 4px; }"
-        "QLabel { color: #999; font-size: 13px; font-family: 'Microsoft YaHei'; background: transparent; }"
+        "QLabel { color: #999; font-size: %1px; font-family: 'Microsoft YaHei'; background: transparent; }"
         "QLabel:disabled { color: #4d5a56; }"
-        "QComboBox, QDoubleSpinBox { background: #111; color: #fff; border: 1px solid #555; "
-        "border-radius: 3px; padding: 4px; min-height: 22px; }"
-        "QComboBox:disabled, QDoubleSpinBox:disabled { background: #070b0a; color: #56635f; "
+        "QComboBox, QDoubleSpinBox, QSpinBox { background: #111; color: #fff; border: 1px solid #555; "
+        "border-radius: 3px; padding: %2px; min-height: %3px; }"
+        "QComboBox:disabled, QDoubleSpinBox:disabled, QSpinBox:disabled { background: #070b0a; color: #56635f; "
         "border: 1px solid #24302d; }"
         "QComboBox::drop-down:disabled { border-left: 1px solid #24302d; }"
-        "QSlider::groove:horizontal { height: 5px; background: #003f3a; border-radius: 2px; }"
-        "QSlider::handle:horizontal { width: 14px; margin: -5px 0; background: #4aa3ff; border-radius: 7px; }"
+        "QSlider::groove:horizontal { height: %4px; background: #003f3a; border-radius: 2px; }"
+        "QSlider::handle:horizontal { width: %5px; margin: -%6px 0; background: #4aa3ff; border-radius: 7px; }"
         "QSlider::groove:horizontal:disabled { background: #14211f; }"
-        "QSlider::handle:horizontal:disabled { background: #3d4946; }");
+        "QSlider::handle:horizontal:disabled { background: #3d4946; }")
+        .arg(ScaleHelper::uiScaled(13))
+        .arg(ScaleHelper::uiScaled(4))
+        .arg(ScaleHelper::uiScaled(22))
+        .arg(ScaleHelper::uiScaled(5))
+        .arg(ScaleHelper::uiScaled(14))
+        .arg(ScaleHelper::uiScaled(5)));
 
     auto* toggleBtn = ui->marineToggleBtn;
     toggleBtn->setCheckable(true);
     toggleBtn->setChecked(false);
     toggleBtn->setText(QString::fromUtf8(u8"\u25bc \u96f7\u8fbe\u63a7\u5236"));
-    toggleBtn->setStyleSheet(
+    toggleBtn->setStyleSheet(QString(
         "QPushButton { background: #1a1a1a; color: #ff8800; border: 1px solid #333; "
-        "border-radius: 3px; padding: 6px 10px; font-size: 14px; font-family: 'Microsoft YaHei'; }"
-        "QPushButton:hover { background: #2a2a2a; }");
+        "border-radius: 3px; padding: %1px %2px; font-size: %3px; font-family: 'Microsoft YaHei'; }"
+        "QPushButton:hover { background: #2a2a2a; }")
+        .arg(ScaleHelper::uiScaled(6))
+        .arg(ScaleHelper::uiScaled(10))
+        .arg(ScaleHelper::uiScaled(14)));
     m_marineCtrlPanel->setVisible(false);
 
     connect(toggleBtn, &QPushButton::toggled, this, [this, toggleBtn](bool checked) {
@@ -518,8 +576,9 @@ void MainOverLayOut::setupMarineControls()
             m_lblTransmitIndicator->setText(checked ? QString::fromUtf8(u8"\u25cf \u53d1\u5c04\u5f00")
                                                     : QString::fromUtf8(u8"\u25cf \u53d1\u5c04\u5173"));
             m_lblTransmitIndicator->setStyleSheet(
-                QString("color: %1; font-size: 14px; font-weight: bold; background: transparent;")
-                    .arg(checked ? "#44ff44" : "#ff4444"));
+                QString("color: %1; font-size: %2px; font-weight: bold; background: transparent;")
+                    .arg(checked ? "#44ff44" : "#ff4444")
+                    .arg(ScaleHelper::uiScaled(14)));
         }
     });
 
@@ -537,6 +596,17 @@ void MainOverLayOut::setupMarineControls()
         const auto gear = static_cast<uint8_t>(qBound(0, m_servoCombo->currentData().toInt(),
                                                       static_cast<int>(MARINE_SERVO_MAX_GEAR)));
         servoRpmLabel->setText(QString::number(marineServoGearRpm(gear), 'f', 2));
+    });
+    connect(historySpin, QOverload<int>::of(&QSpinBox::valueChanged), this, [this, historySpin](int rounds) {
+        if (mScene && mScene->echoRenderer()) {
+            mScene->echoRenderer()->setSweepHistoryRounds(rounds);
+        }
+        LOG_INFO(QString("[Marine] sweep history rounds changed to %1 focus=%2 underMouse=%3")
+                 .arg(rounds)
+                 .arg(historySpin->hasFocus() ? 1 : 0)
+                 .arg(historySpin->underMouse() ? 1 : 0));
+        CF_INS.saveValue("marine.display.sweep_history_rounds", rounds);
+        CF_INS.save();
     });
 
     auto setEnabled = [](QWidget* widget, bool enabled) {
@@ -757,9 +827,10 @@ void MainOverLayOut::setupSimradNavPanel()
     m_lblNavTime = ui->lblNavTime;
     m_lblNavDate = ui->lblNavDate;
 
-    m_navPanel->setStyleSheet(
+    m_navPanel->setStyleSheet(QString(
         "#simradNavPanel { background: #0a0a0a; border-left: 2px solid #ff8800; }"
-        "QLabel { color: #888; font-size: 14px; font-family: 'Microsoft YaHei'; background: transparent; }");
+        "QLabel { color: #888; font-size: %1px; font-family: 'Microsoft YaHei'; background: transparent; }")
+        .arg(ScaleHelper::uiScaled(14)));
 
     auto styleValue = [](QLabel* label, const QColor& color, int fontSize) {
         if (!label) {
@@ -768,7 +839,7 @@ void MainOverLayOut::setupSimradNavPanel()
         label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
         label->setStyleSheet(QString("color: %1; font-size: %2px; font-weight: bold; "
                                      "font-family: 'Consolas', 'Courier New', monospace; background: transparent;")
-                                 .arg(color.name()).arg(fontSize));
+                                 .arg(color.name()).arg(ScaleHelper::uiScaled(fontSize)));
     };
     auto styleText = [](QLabel* label, int fontSize = 20) {
         if (!label) {
@@ -776,7 +847,7 @@ void MainOverLayOut::setupSimradNavPanel()
         }
         label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
         label->setStyleSheet(QString("color: #fff; font-size: %1px; font-family: 'Consolas', monospace; background: transparent;")
-                                 .arg(fontSize));
+                                 .arg(ScaleHelper::uiScaled(fontSize)));
     };
 
     styleValue(m_lblSOGVal, QColor(0xff, 0x88, 0x00), 42);
@@ -817,20 +888,27 @@ void MainOverLayOut::setupSimradTheme()
         "QWidget#viewWidget { border: 2px solid #ff8800; background: #000; }");
 
     // 顶栏深色 + 橙色底线
-    ui->topBarWidget->setStyleSheet(
+    ui->topBarWidget->setStyleSheet(QString(
         "QWidget#topBarWidget { background: #111; border-bottom: 2px solid #ff8800; }"
-        "QLabel { color: #ccc; font-size: 15px; background: transparent; }");
+        "QLabel { color: #ccc; font-size: %1px; background: transparent; }")
+        .arg(ScaleHelper::uiScaled(15)));
     ui->TitleLabel->setStyleSheet(
-        "color: #ff8800; font-size: 18px; font-weight: bold; background: transparent;");
+        QString("color: #ff8800; font-size: %1px; font-weight: bold; background: transparent;")
+            .arg(ScaleHelper::uiScaled(18)));
 
     // 底栏深色 + 橙色顶线
-    ui->bottomBarWidget->setStyleSheet(
+    ui->bottomBarWidget->setStyleSheet(QString(
         "QWidget#bottomBarWidget { background: #111; border-top: 2px solid #ff8800; }"
-        "QLabel { color: #aaa; font-size: 12px; background: transparent; }"
+        "QLabel { color: #aaa; font-size: %1px; background: transparent; }"
         "QPushButton { background: #222; color: #ff8800; border: 1px solid #444; "
-        "border-radius: 3px; padding: 2px 6px; min-width: 24px; min-height: 24px; "
-        "font-size: 16px; font-weight: bold; }"
-        "QPushButton:hover { background: #333; }");
+        "border-radius: 3px; padding: %2px %3px; min-width: %4px; min-height: %4px; "
+        "font-size: %5px; font-weight: bold; }"
+        "QPushButton:hover { background: #333; }")
+        .arg(ScaleHelper::uiScaled(12))
+        .arg(ScaleHelper::uiScaled(2))
+        .arg(ScaleHelper::uiScaled(6))
+        .arg(ScaleHelper::uiScaled(24))
+        .arg(ScaleHelper::uiScaled(16)));
 
     // 右侧面板背景
     ui->rightPanelWidget->setStyleSheet(
@@ -839,7 +917,8 @@ void MainOverLayOut::setupSimradTheme()
     // 顶栏文字更新为 SIMRAD 风格
     ui->lblDisplayMode->setText("HU  RM");
     ui->lblDisplayMode->setStyleSheet(
-        "color: #44ff44; font-size: 15px; font-weight: bold; background: transparent;");
+        QString("color: #44ff44; font-size: %1px; font-weight: bold; background: transparent;")
+            .arg(ScaleHelper::uiScaled(15)));
     ui->TitleLabel->setText("西电船用");
 }
 
@@ -849,9 +928,10 @@ void MainOverLayOut::setupSimradTheme()
 
 void MainOverLayOut::setupServoStatusPanel()
 {
-    ui->servoStatusPanel->setStyleSheet(
+    ui->servoStatusPanel->setStyleSheet(QString(
         "#servoStatusPanel { background: #0a0a0a; border: 1px solid #333; border-radius: 4px; }"
-        "QLabel { color: #888; font-size: 12px; font-family: 'Microsoft YaHei'; background: transparent; }");
+        "QLabel { color: #888; font-size: %1px; font-family: 'Microsoft YaHei'; background: transparent; }")
+        .arg(ScaleHelper::uiScaled(12)));
 
     m_lblStRangeVal = ui->lblStRangeVal;
     m_lblStTxState = ui->lblStTxState;
@@ -867,8 +947,10 @@ void MainOverLayOut::setupServoStatusPanel()
             return;
         }
         label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        label->setStyleSheet(QString("color: %1; font-size: 13px; font-weight: bold; "
-                                     "font-family: 'Consolas', monospace; background: transparent;").arg(color));
+        label->setStyleSheet(QString("color: %1; font-size: %2px; font-weight: bold; "
+                                     "font-family: 'Consolas', monospace; background: transparent;")
+                                 .arg(color)
+                                 .arg(ScaleHelper::uiScaled(13)));
     };
     applyValueStyle(m_lblStRangeVal);
     applyValueStyle(m_lblStTxState);
@@ -892,9 +974,10 @@ void MainOverLayOut::onMarineStatusUpdated(const MarineRadarStatus& status)
         bool tx = status.txOn;
         m_lblStTxState->setText(tx ? QString::fromUtf8("\u5f00") : QString::fromUtf8("\u5173"));
         m_lblStTxState->setStyleSheet(
-            QString("color: %1; font-size: 13px; font-weight: bold; "
+            QString("color: %1; font-size: %2px; font-weight: bold; "
                     "font-family: 'Consolas', monospace; background: transparent;")
-                .arg(tx ? "#ff4444" : "#44ff44"));
+                .arg(tx ? "#ff4444" : "#44ff44")
+                .arg(ScaleHelper::uiScaled(13)));
     }
 
     auto gainText = [](uint8_t v) -> QString {
@@ -921,9 +1004,10 @@ void MainOverLayOut::onMarineStatusUpdated(const MarineRadarStatus& status)
         bool ok = (status.freqStatus == 0);
         m_lblStFreq->setText(ok ? QString::fromUtf8("\u6b63\u5e38") : QString::fromUtf8("\u5f02\u5e38"));
         m_lblStFreq->setStyleSheet(
-            QString("color: %1; font-size: 13px; font-weight: bold; "
+            QString("color: %1; font-size: %2px; font-weight: bold; "
                     "font-family: 'Consolas', monospace; background: transparent;")
-                .arg(ok ? "#44ff44" : "#ff4444"));
+                .arg(ok ? "#44ff44" : "#ff4444")
+                .arg(ScaleHelper::uiScaled(13)));
     }
 
     // 同步发射指示灯到PPI覆盖层
@@ -932,8 +1016,9 @@ void MainOverLayOut::onMarineStatusUpdated(const MarineRadarStatus& status)
         m_lblTransmitIndicator->setText(tx ? QString::fromUtf8("\u25CF \u53d1\u5c04\u5f00")
                                            : QString::fromUtf8("\u25CF \u53d1\u5c04\u5173"));
         m_lblTransmitIndicator->setStyleSheet(
-            QString("color: %1; font-size: 14px; font-weight: bold; background: transparent;")
-                .arg(tx ? "#44ff44" : "#ff4444"));
+            QString("color: %1; font-size: %2px; font-weight: bold; background: transparent;")
+                .arg(tx ? "#44ff44" : "#ff4444")
+                .arg(ScaleHelper::uiScaled(14)));
     }
 }
 
@@ -950,12 +1035,15 @@ void MainOverLayOut::setupAScopeToggle()
     // 切换按钮（放在PPI覆盖层右上角）
     m_btnToggleAScope = new QPushButton("A", ui->viewWidget);
     m_btnToggleAScope->setToolTip(QString::fromUtf8("PPI / A\u663e \u5207\u6362"));
-    m_btnToggleAScope->setFixedSize(36, 36);
-    m_btnToggleAScope->setStyleSheet(
+    const int toggleSize = ScaleHelper::uiScaled(36);
+    m_btnToggleAScope->setFixedSize(toggleSize, toggleSize);
+    m_btnToggleAScope->setStyleSheet(QString(
         "QPushButton { background: #1a1a1a; color: #ff8800; border: 2px solid #ff8800; "
-        "border-radius: 18px; font-size: 16px; font-weight: bold; }"
+        "border-radius: %1px; font-size: %2px; font-weight: bold; }"
         "QPushButton:hover { background: #333; }"
-        "QPushButton:checked { background: #ff8800; color: #000; }");
+        "QPushButton:checked { background: #ff8800; color: #000; }")
+        .arg(toggleSize / 2)
+        .arg(ScaleHelper::uiScaled(16)));
     m_btnToggleAScope->setCheckable(true);
     m_btnToggleAScope->setChecked(false);
     m_btnToggleAScope->raise();

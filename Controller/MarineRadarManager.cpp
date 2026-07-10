@@ -11,6 +11,7 @@
  * @brief 船用雷达UDP通信管理器实现
  */
 #include "MarineRadarManager.h"
+#include "Basic/ConfigManager.h"
 #include "Basic/log.h"
 #include <QNetworkDatagram>
 #include <QElapsedTimer>
@@ -98,6 +99,25 @@ MarineRadarManager::MarineRadarManager(QObject* parent)
         }
     });
     rxPumpTimer->start(20);
+
+    auto* rxDebugTimer = new QTimer(this);
+    connect(rxDebugTimer, &QTimer::timeout, this, [this]() {
+        const bool echoDebug = CF_INS.marineDisplayBool("echo_debug", false);
+        if (!echoDebug || !m_rxSocket)
+            return;
+
+        LOG_DEBUG(QString("[MarineRadar][SOCKET-DEBUG] state=%1 local=%2:%3 rxDatagrams=%4 rxEcho=%5 invalid=%6 pending=%7 pendingSize=%8 error=%9")
+                  .arg(static_cast<int>(m_rxSocket->state()))
+                  .arg(m_rxSocket->localAddress().toString())
+                  .arg(m_rxSocket->localPort())
+                  .arg(m_rxDatagramCount)
+                  .arg(m_rxEchoCount)
+                  .arg(m_rxInvalidCount)
+                  .arg(m_rxSocket->hasPendingDatagrams() ? 1 : 0)
+                  .arg(m_rxSocket->hasPendingDatagrams() ? m_rxSocket->pendingDatagramSize() : 0)
+                  .arg(m_rxSocket->errorString()));
+    });
+    rxDebugTimer->start(5000);
     LOG_INFO("[MarineRadar] manager created");
 }
 
@@ -119,6 +139,9 @@ void MarineRadarManager::init(const QString& localIp, uint16_t localPort,
              .arg(localPort)
              .arg(cleanServoIp)
              .arg(servoPort));
+    LOG_INFO(QString("[MarineRadar][INIT] echo_debug=%1 sweep_history_rounds=%2")
+             .arg(CF_INS.marineDisplayBool("echo_debug", false) ? 1 : 0)
+             .arg(CF_INS.marineDisplayInt("sweep_history_rounds", 1)));
     if (m_servoAddr.isNull()) {
         QString msg = QString("[MarineRadar][INIT] invalid servo_ip='%1'; UDP control send target is not usable")
                           .arg(cleanServoIp);
@@ -345,6 +368,14 @@ void MarineRadarManager::onReadyRead()
                       .arg(datagram.senderAddress().toString())
                       .arg(datagram.senderPort()));
         }
+        if (CF_INS.marineDisplayBool("echo_debug", false) && shouldLogSample(m_rxDatagramCount, 20, 128)) {
+            LOG_DEBUG(QString("[MarineRadar][DATAGRAM-DEBUG] rxDatagram=%1 bytes=%2 from=%3:%4 first32=%5")
+                      .arg(m_rxDatagramCount)
+                      .arg(data.size())
+                      .arg(datagram.senderAddress().toString())
+                      .arg(datagram.senderPort())
+                      .arg(firstBytesHex(data, 32)));
+        }
 
         parseEchoDatagram(data);
 
@@ -452,8 +483,15 @@ void MarineRadarManager::parseEchoDatagram(const QByteArray& data)
         return; // 数据不完整
     }
 
+    const uint16_t renderIdx = hdr->azimuthRenderIndex();
+    const bool azimuthChanged = renderIdx != m_lastDebugRenderIdx;
+    if (azimuthChanged) {
+        m_lastDebugRenderIdx = renderIdx;
+        ++m_debugAziChangeCount;
+    }
+
     MarineEchoLine line;
-    line.azimuthRaw = hdr->azimuthRenderIndex();
+    line.azimuthRaw = renderIdx;
     line.azimuthDeg = hdr->azimuthDeg();
     line.style      = hdr->style;
     line.packetNum  = hdr->packetNumber();
@@ -465,17 +503,47 @@ void MarineRadarManager::parseEchoDatagram(const QByteArray& data)
     const int cellCount = hdr->rangeCellCount();
     line.amplitudes.resize(cellCount);
     const uint8_t* echoData = reinterpret_cast<const uint8_t*>(data.constData()) + HEADER_SIZE;
+    int activeCount = 0;
+    int maxAmp = 0;
+    uint32_t ampHash = 2166136261u;
     for (int i = 0; i < cellCount; ++i) {
         const int offset = i * 4;
         const uint32_t magnitude = static_cast<uint32_t>(echoData[offset]) |
                                    (static_cast<uint32_t>(echoData[offset + 1]) << 8) |
                                    (static_cast<uint32_t>(echoData[offset + 2]) << 16) |
                                    (static_cast<uint32_t>(echoData[offset + 3]) << 24);
-        line.amplitudes[i] = static_cast<uint8_t>(qMin<uint32_t>(magnitude, 255U));
+        const uint8_t amp = static_cast<uint8_t>(qMin<uint32_t>(magnitude, 255U));
+        line.amplitudes[i] = amp;
+        if (amp >= 16)
+            ++activeCount;
+        maxAmp = qMax(maxAmp, static_cast<int>(amp));
+        ampHash ^= amp;
+        ampHash *= 16777619u;
     }
 
     ++m_rxEchoCount;
-    if (shouldLogSample(m_rxEchoCount, 5, 512)) {
+    const bool echoDebug = CF_INS.marineDisplayBool("echo_debug", false);
+    const bool packetSample = shouldLogSample(m_rxEchoCount, 20, 128);
+    const bool forcedSample = (m_rxEchoCount <= 20) || ((m_rxEchoCount % 8192) == 0);
+    const bool angleSample = azimuthChanged &&
+                             (m_debugAziChangeCount <= 256 || (m_debugAziChangeCount % 64) == 0);
+    if (echoDebug && (packetSample || forcedSample || angleSample)) {
+        LOG_DEBUG(QString("[MarineRadar][ECHO-DEBUG] rxEcho=%1 protoBin=%2 angle=%3 renderIdx=%4 angleChanged=%5 angleChanges=%6 packet=%7 cells=%8 active=%9 maxAmp=%10 ampHash=0x%11 range=%12 firstAmp=%13 lastAmp=%14")
+                  .arg(m_rxEchoCount)
+                  .arg(hdr->azimuthRaw())
+                  .arg(hdr->azimuthDeg(), 0, 'f', 3)
+                  .arg(renderIdx)
+                  .arg(azimuthChanged ? 1 : 0)
+                  .arg(m_debugAziChangeCount)
+                  .arg(hdr->packetNumber())
+                  .arg(cellCount)
+                  .arg(activeCount)
+                  .arg(maxAmp)
+                  .arg(ampHash, 8, 16, QLatin1Char('0'))
+                  .arg(static_cast<int>(hdr->rangeCode))
+                  .arg(cellCount > 0 ? static_cast<int>(line.amplitudes.first()) : -1)
+                  .arg(cellCount > 0 ? static_cast<int>(line.amplitudes.last()) : -1));
+    } else if (shouldLogSample(m_rxEchoCount, 5, 512)) {
         LOG_DEBUG(QString("[MarineRadar][RX] echo #%1 bytes=%2 %3")
                   .arg(m_rxEchoCount)
                   .arg(data.size())

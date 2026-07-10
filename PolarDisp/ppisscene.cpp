@@ -177,6 +177,7 @@ void PPIScene::initLayerObjects()
 
     // 船用回波渲染引擎 (在网格之下)
     m_echo = new EchoRenderer(this, m_axis, 2048, this);
+    m_echo->setSweepHistoryRounds(CF_INS.marineDisplayInt("sweep_history_rounds", 1));
 
     // 使用单例 Tooltip，不要创建新实例
     // Tooltip 是 Q_GLOBAL_STATIC 管理的全局单例

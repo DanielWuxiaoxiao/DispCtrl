@@ -10,6 +10,7 @@
 #define DISPBASCI_H
 
 #include <QColor>
+#include <QString>
 #include <qnamespace.h>
 #include <QWidget>
 #include <QScreen>
@@ -18,25 +19,28 @@
 #include <cmath>
 
 /**
- * @brief 屏幕分辨率自适应布局助手（方案B-v2）
- * @details 仅处理面板宽度、按钮高度等布局尺寸的自适应
- *          字体大小由 Qt AA_EnableHighDpiScaling 自动处理，不在此重复缩放
- *
- *          计算方式：取物理像素高度 / devicePixelRatio 得到逻辑高度
- *          以逻辑 1080 为基准 factor=1.0
- *          面板宽度直接取逻辑屏幕宽度的百分比
+ * @brief 屏幕分辨率与Windows DPI适配助手
+ * @details ui.dpi_policy=fixed 时禁用 Qt 高DPI缩放，显控不跟随 Windows 文本/显示缩放；
+ *          ui.dpi_policy=system 时保留 Qt 高DPI缩放，作为现场兼容回退。
+ *          ui.ui_scale 在上述基础上对显控内部控件/文字做受控缩放。
  *
  *          在 main() 中 QApplication 创建后、setupFont 之前调用 init()
  */
 class ScaleHelper {
 public:
-    /// 初始化：根据逻辑屏幕尺寸计算布局缩放因子
-    static void init() {
+    /// 初始化：根据当前 Qt 坐标系屏幕尺寸计算布局缩放因子
+    static void init(const QString& dpiPolicy = QStringLiteral("fixed"), double uiScale = 1.0) {
+        s_dpiPolicy = dpiPolicy;
+        s_uiScale = std::clamp(uiScale, 0.70, 1.60);
         QScreen* screen = QGuiApplication::primaryScreen();
         if (screen) {
-            // size() 在 AA_EnableHighDpiScaling 下返回逻辑像素
+            // fixed: size() 通常接近物理像素；system: size() 为 Qt 高DPI逻辑像素。
+            // 后续布局始终使用同一 Qt 坐标系，避免混用物理/逻辑坐标。
             s_logicalW = screen->size().width();
             s_logicalH = screen->size().height();
+            s_physicalW = static_cast<int>(std::round(screen->geometry().width() * screen->devicePixelRatio()));
+            s_physicalH = static_cast<int>(std::round(screen->geometry().height() * screen->devicePixelRatio()));
+            s_devicePixelRatio = screen->devicePixelRatio();
             s_factor = std::clamp(s_logicalH / 1080.0, 0.7, 2.0);
         }
     }
@@ -44,24 +48,49 @@ public:
     /// 布局缩放因子 (逻辑1080p → 1.0)
     static double factor() { return s_factor; }
 
-    /// 按布局缩放因子缩放整数值（仅用于按钮高度、间距等布局尺寸）
+    /// 按分辨率布局缩放因子和内部UI缩放系数缩放整数值
     static int scaled(int base) {
-        return static_cast<int>(std::round(base * s_factor));
+        return static_cast<int>(std::round(base * s_factor * s_uiScale));
+    }
+
+    /// 仅按内部UI缩放系数缩放整数值（用于字体、图标、固定输入框）
+    static int uiScaled(int base) {
+        return static_cast<int>(std::round(base * s_uiScale));
     }
 
     /// 逻辑屏幕宽度
     static int logicalWidth() { return s_logicalW; }
     /// 逻辑屏幕高度
     static int logicalHeight() { return s_logicalH; }
+    /// 屏幕设备像素比
+    static double devicePixelRatio() { return s_devicePixelRatio; }
+    /// 估算物理屏幕宽度
+    static int physicalWidth() { return s_physicalW; }
+    /// 估算物理屏幕高度
+    static int physicalHeight() { return s_physicalH; }
+    /// 当前DPI策略
+    static QString dpiPolicy() { return s_dpiPolicy; }
+    /// 当前内部UI缩放系数
+    static double uiScale() { return s_uiScale; }
+
+    static bool compactLayout() {
+        return s_logicalW <= 1920 && s_logicalH <= 1080;
+    }
 
     /// 左侧信息面板宽度 (逻辑屏幕宽度的 22%)
     static int leftPanelWidth() {
-        return static_cast<int>(s_logicalW * 0.22);
+        const int base = compactLayout()
+            ? std::clamp(static_cast<int>(std::round(s_logicalW * 0.195)), 350, 380)
+            : std::clamp(static_cast<int>(std::round(s_logicalW * 0.22)), 380, 520);
+        return uiScaled(base);
     }
 
     /// 右侧P显/B显面板宽度 (逻辑屏幕宽度的 20%)
     static int rightPanelWidth() {
-        return static_cast<int>(s_logicalW * 0.20);
+        const int base = compactLayout()
+            ? std::clamp(static_cast<int>(std::round(s_logicalW * 0.18)), 320, 350)
+            : std::clamp(static_cast<int>(std::round(s_logicalW * 0.21)), 400, 440);
+        return uiScaled(base);
     }
 
     /// 按钮最小高度 (基准40px按布局因子缩放)
@@ -75,8 +104,13 @@ public:
 
 private:
     static inline double s_factor = 1.0;
+    static inline double s_uiScale = 1.0;
     static inline int s_logicalW = 1920;
     static inline int s_logicalH = 1080;
+    static inline int s_physicalW = 1920;
+    static inline int s_physicalH = 1080;
+    static inline double s_devicePixelRatio = 1.0;
+    static inline QString s_dpiPolicy = QStringLiteral("fixed");
 };
 
 //COLOR

@@ -16,6 +16,7 @@
  */
 
 #include "customlinechart.h"
+#include "../Basic/DispBasci.h"
 #include <QResizeEvent>
 #include <QDebug>
 #include <cmath>
@@ -244,7 +245,8 @@ void CustomLineChart::drawAxes()
     double height = this->height() - m_topMargin - m_bottomMargin;
 
     QPen axisPen(m_axisColor, 2);
-    QFont labelFont("微软雅黑", 9);
+    QFont labelFont("微软雅黑");
+    labelFont.setPixelSize(ScaleHelper::uiScaled(12));
 
     // 绘制X轴刻度标签
     if (m_xAxisConfig.majorTickInterval > 0) {
@@ -307,7 +309,9 @@ void CustomLineChart::drawAxes()
     // 绘制X轴标题
     if (!m_xAxisConfig.label.isEmpty()) {
         QGraphicsTextItem* xTitle = new QGraphicsTextItem(m_xAxisConfig.label);
-        QFont titleFont("微软雅黑", 10, QFont::Bold);
+        QFont titleFont("微软雅黑");
+        titleFont.setBold(true);
+        titleFont.setPixelSize(ScaleHelper::uiScaled(14));
         xTitle->setFont(titleFont);
         xTitle->setDefaultTextColor(m_textColor);
 
@@ -322,7 +326,9 @@ void CustomLineChart::drawAxes()
     // 绘制Y轴标题（垂直）
     if (!m_yAxisConfig.label.isEmpty()) {
         QGraphicsTextItem* yTitle = new QGraphicsTextItem(m_yAxisConfig.label);
-        QFont titleFont("微软雅黑", 10, QFont::Bold);
+        QFont titleFont("微软雅黑");
+        titleFont.setBold(true);
+        titleFont.setPixelSize(ScaleHelper::uiScaled(14));
         yTitle->setFont(titleFont);
         yTitle->setDefaultTextColor(m_textColor);
 

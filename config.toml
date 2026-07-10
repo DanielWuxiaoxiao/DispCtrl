@@ -50,6 +50,14 @@ DISP_CTRL_ID = 47876                 # 显示控制系统ID
 TAR_CLA_ID = 47877                   # 目标分类系统ID
 MONITOR_ID = 47878                   # 监控系统ID
 
+[ui]
+# DPI policy:
+# fixed  = 不跟随 Windows 显示/文本缩放，适合固定布局显控界面
+# system = 跟随系统 DPI 缩放，作为高DPI现场兼容回退
+dpi_policy = "fixed"
+# 显控内部UI缩放系数，叠加在分辨率自适应之上。支持范围 0.70~1.60
+ui_scale = 1.0
+
 # =============================================================================
 # 雷达系统参数配置 Radar System Parameters Configuration
 # =============================================================================
@@ -244,3 +252,5 @@ servo_speed = 8                      # 兼容旧配置键；新界面优先读�
 # 扫描回波显示参数
 echo_decay_ms = 10000                # 回波衰减时间(ms) — 余辉持续时长
 colormap = "simrad"                  # 色彩映射方案: simrad / rainbow / green
+sweep_history_rounds = 1             # 同一方位保留的扫描圈数，范围1~8，默认1圈
+echo_debug = false                  # 回波/历史圈调试日志，定位绘图残留时临时打开

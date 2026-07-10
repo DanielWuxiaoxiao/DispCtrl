@@ -109,6 +109,8 @@ private:
     uint32_t m_rxEchoCount = 0;         ///< 有效回波帧计数
     uint32_t m_rxInvalidCount = 0;      ///< 无效/不完整帧计数
     bool m_rxDrainScheduled = false;    ///< 接收积压分片处理标记
+    uint16_t m_lastDebugRenderIdx = 0xffff;
+    uint32_t m_debugAziChangeCount = 0;
 };
 
 #endif // MARINERADARMANAGER_H

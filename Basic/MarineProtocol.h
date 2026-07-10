@@ -13,7 +13,7 @@
  *   - 接口1: 显控→伺服 控制帧 (16字节)
  *   - 接口4: 伺服→显控 回波数据帧 (变长)
  *
- * 字节序：控制帧按结构体布局；回波方位为小端0.01度量化，回波长度/包序号为大端。
+ * 字节序：控制帧按结构体布局；回波方位为小端0~8191编号，回波长度/包序号为大端。
  */
 #ifndef MARINEPROTOCOL_H
 #define MARINEPROTOCOL_H
@@ -75,9 +75,11 @@ inline QString marineControlCmdLabel(uint8_t cmdNum) {
 /// 回波帧前导字节
 constexpr uint8_t MARINE_ECHO_LEAD = 0x00;
 
-/// 方位角分辨率: 4096 steps = 360°
-/// Internal renderer azimuth bins. Protocol azimuth is 0.01-degree quantized.
+/// Internal renderer azimuth bins: 4096 steps = 360°.
 constexpr uint16_t MARINE_AZI_STEPS = 4096;
+
+/// Echo protocol azimuth bins: 8192 steps = 360°.
+constexpr uint16_t MARINE_ECHO_AZI_BINS = 8192;
 
 /// 量程编码表 (RangeVal → 最大量程, 单位: 米)
 /// 对应关系: index 0~14 → meters
@@ -208,8 +210,8 @@ static_assert(sizeof(MarineControlFrame) == 16, "MarineControlFrame must be 16 b
  * @details
  *  Byte 0:    0x00 (前导)
  *  Byte 1:    0xA5 (帧头)
- *  Byte 2:    方位角低字节
- *  Byte 3:    方位角高字节 (小端，0.01度量化；19834表示198.34°)
+ *  Byte 2:    方位编号低字节
+ *  Byte 3:    方位编号高字节 (小端，0~8191 对应 0~360°)
  *  Byte 4:    style (0x00/0x01=普通 0x02=高分辨率)
  *  Byte 5:    header checksum (byte[0]~byte[4] XOR)
  *  Byte 6:    0x5A (头部尾标志)
@@ -232,8 +234,8 @@ static_assert(sizeof(MarineControlFrame) == 16, "MarineControlFrame must be 16 b
 struct MarineEchoHeader {
     uint8_t  leadByte;      ///< 0x00
     uint8_t  headFlag;      ///< 0xA5
-    uint8_t  aziLow;        ///< 方位角低8位
-    uint8_t  aziHigh;       ///< 方位角高8位
+    uint8_t  aziLow;        ///< 方位编号低8位
+    uint8_t  aziHigh;       ///< 方位编号高8位
     uint8_t  style;         ///< 0x01/0x02
     uint8_t  hdrChecksum;   ///< XOR(byte[0]~byte[4])
     uint8_t  hdrTail;       ///< 0x5A
@@ -255,18 +257,19 @@ struct MarineEchoHeader {
     uint8_t  reservedHigh;  ///< Reserved high byte
     uint8_t  reservedLow;   ///< Reserved low byte
 
-    // Azimuth is little-endian and quantized by 0.01 degree.
+    // Echo azimuth is a little-endian bin number in [0, 8191].
     uint16_t azimuthRaw() const {
         return static_cast<uint16_t>(aziLow) | (static_cast<uint16_t>(aziHigh) << 8);
     }
 
     double azimuthDeg() const {
-        return azimuthRaw() * 0.01;
+        return (static_cast<double>(azimuthRaw() % MARINE_ECHO_AZI_BINS) * 360.0) /
+               static_cast<double>(MARINE_ECHO_AZI_BINS);
     }
 
     uint16_t azimuthRenderIndex() const {
-        const uint32_t centiDeg = static_cast<uint32_t>(azimuthRaw()) % 36000U;
-        return static_cast<uint16_t>(((centiDeg * MARINE_AZI_STEPS) + 18000U) / 36000U % MARINE_AZI_STEPS);
+        const uint32_t bin = static_cast<uint32_t>(azimuthRaw()) % MARINE_ECHO_AZI_BINS;
+        return static_cast<uint16_t>((bin * MARINE_AZI_STEPS) / MARINE_ECHO_AZI_BINS);
     }
 
     // FFT data length is big-endian/network order, unit: 4-byte word.

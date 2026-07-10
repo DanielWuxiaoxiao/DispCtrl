@@ -16,8 +16,18 @@
 #include <QDebug>
 #include <QTransform>
 #include <cstring>
+#include "Basic/ConfigManager.h"
 #include "Basic/log.h"
 #include "polaraxis.h"
+
+namespace {
+
+bool shouldLogSample(uint32_t count, uint32_t firstCount, uint32_t interval)
+{
+    return count <= firstCount || (interval > 0 && count % interval == 0);
+}
+
+} // namespace
 
 EchoRenderer::EchoRenderer(QGraphicsScene* scene, PolarAxis* axis, int imageSize, QObject* parent)
     : QObject(parent)
@@ -211,16 +221,112 @@ void EchoRenderer::setRenderInterval(int ms)
     m_renderTimer->setInterval(qMax(16, ms));  // 最高~60fps
 }
 
+void EchoRenderer::setSweepHistoryRounds(int rounds)
+{
+    const int bounded = qBound(1, rounds, MAX_SWEEP_HISTORY);
+    if (m_sweepHistoryRounds == bounded) {
+        if (CF_INS.marineDisplayBool("echo_debug", false)) {
+            LOG_DEBUG(QString("[EchoRenderer][CONFIG-DEBUG] sweep history rounds already %1").arg(m_sweepHistoryRounds));
+        }
+        return;
+    }
+
+    const int oldRounds = m_sweepHistoryRounds;
+    m_sweepHistoryRounds = bounded;
+    LOG_INFO(QString("[EchoRenderer] sweep history rounds %1 -> %2").arg(oldRounds).arg(m_sweepHistoryRounds));
+    clear();
+}
+
 void EchoRenderer::clear()
 {
-    for (auto& line : m_sweepBuf) {
-        line.amp.fill(0);
-        line.cellCount = 0;
-        line.sourceRangeMeters = 0.0;
+    for (auto& bucket : m_sweepBuf) {
+        for (auto& line : bucket.lines) {
+            line.amp.fill(0);
+            line.cellCount = 0;
+            line.sourceRangeMeters = 0.0;
+            line.generation = 0;
+        }
+        bucket.count = 0;
     }
+    m_lastSweepAziIdx = -1;
+    m_currentSweepGeneration = 0;
     m_ppiImage.fill(Qt::transparent);
     m_imageDirty = true;
     updatePixmapItem();
+}
+
+int EchoRenderer::advanceSweepWindow(int aziIdx)
+{
+    if (aziIdx < 0 || aziIdx >= AZI_STEPS)
+        return 0;
+
+    if (m_lastSweepAziIdx < 0) {
+        m_lastSweepAziIdx = aziIdx;
+        return 0;
+    }
+
+    if (aziIdx == m_lastSweepAziIdx)
+        return 0;
+
+    const int forward = (aziIdx - m_lastSweepAziIdx + AZI_STEPS) % AZI_STEPS;
+    if (forward <= 0 || forward >= AZI_STEPS / 2) {
+        m_lastSweepAziIdx = aziIdx;
+        return 0;
+    }
+
+    if (aziIdx < m_lastSweepAziIdx)
+        ++m_currentSweepGeneration;
+
+    const uint32_t minGeneration =
+        (m_currentSweepGeneration >= static_cast<uint32_t>(m_sweepHistoryRounds - 1))
+            ? (m_currentSweepGeneration - static_cast<uint32_t>(m_sweepHistoryRounds - 1))
+            : 0;
+
+    int expiredPoints = 0;
+    int idx = (m_lastSweepAziIdx + 1) % AZI_STEPS;
+    while (idx != aziIdx) {
+        expiredPoints += clearExpiredBucket(idx, minGeneration);
+        idx = (idx + 1) % AZI_STEPS;
+    }
+
+    m_lastSweepAziIdx = aziIdx;
+    return expiredPoints;
+}
+
+int EchoRenderer::clearExpiredBucket(int aziIdx, uint32_t minGeneration)
+{
+    auto& bucket = m_sweepBuf[aziIdx];
+    if (bucket.count <= 0)
+        return 0;
+
+    int clearedPoints = 0;
+    int writeIndex = 0;
+    for (int i = 0; i < bucket.count; ++i) {
+        const auto& oldLine = bucket.lines[i];
+        if (oldLine.cellCount <= 0)
+            continue;
+
+        if (oldLine.generation < minGeneration) {
+            clearedPoints += drawEchoLineToImage(aziIdx, oldLine.amp.data(), oldLine.cellCount,
+                                                 oldLine.sourceRangeMeters, true);
+            continue;
+        }
+
+        if (writeIndex != i)
+            bucket.lines[writeIndex] = bucket.lines[i];
+        ++writeIndex;
+    }
+
+    for (int i = writeIndex; i < bucket.count; ++i) {
+        bucket.lines[i].amp.fill(0);
+        bucket.lines[i].cellCount = 0;
+        bucket.lines[i].sourceRangeMeters = 0.0;
+        bucket.lines[i].generation = 0;
+    }
+    bucket.count = writeIndex;
+    if (clearedPoints > 0)
+        m_imageDirty = true;
+    return clearedPoints;
 }
 
 // ============================================================================
@@ -230,23 +336,39 @@ void EchoRenderer::clear()
 void EchoRenderer::updateEchoLine(const MarineEchoLine& line)
 {
     int aziIdx = line.azimuthRaw % AZI_STEPS;
-    auto& sl = m_sweepBuf[aziIdx];
+    const bool azimuthChanged = aziIdx != m_lastDebugAziIdx;
+    if (azimuthChanged) {
+        m_lastDebugAziIdx = aziIdx;
+        ++m_debugAziChangeCount;
+    }
+    const int expiredPoints = advanceSweepWindow(aziIdx);
+    auto& bucket = m_sweepBuf[aziIdx];
 
     int count = qMin(line.cellCount(), MAX_CELLS);
-    if (sl.cellCount > 0) {
-        drawEchoLineToImage(aziIdx, sl.amp.data(), sl.cellCount, sl.sourceRangeMeters, true);
+    const int historyBefore = bucket.count;
+    int clearedPoints = expiredPoints;
+    for (int i = 0; i < bucket.count; ++i) {
+        const auto& oldLine = bucket.lines[i];
+        if (oldLine.cellCount > 0) {
+            clearedPoints += drawEchoLineToImage(aziIdx, oldLine.amp.data(), oldLine.cellCount,
+                                                 oldLine.sourceRangeMeters, true);
+        }
     }
 
-    sl.cellCount = count;
-    sl.sourceRangeMeters = line.sourceRangeMeters > 0.0 ? line.sourceRangeMeters : m_rangeMeter;
+    SweepLine newLine;
+    newLine.cellCount = count;
+    newLine.sourceRangeMeters = line.sourceRangeMeters > 0.0 ? line.sourceRangeMeters : m_rangeMeter;
+    newLine.generation = m_currentSweepGeneration;
     int drawnPoints = 0;
+    bool acceptNewLine = true;
+    bool droppedOldest = false;
 
     if (count > 0) {
-        memcpy(sl.amp.data(), line.amplitudes.constData(), count);
+        memcpy(newLine.amp.data(), line.amplitudes.constData(), count);
         int activeCount = 0;
         int saturatedCount = 0;
         for (int i = 0; i < count; ++i) {
-            const uint8_t amp = sl.amp[i];
+            const uint8_t amp = newLine.amp[i];
             if (amp >= 16)
                 ++activeCount;
             if (amp >= 250)
@@ -257,23 +379,76 @@ void EchoRenderer::updateEchoLine(const MarineEchoLine& line)
         // usually a malformed/status/control datagram that passed weak framing
         // and would otherwise leave a white spoke at 0 degrees.
         if (activeCount > 64 && saturatedCount * 100 >= activeCount * 95) {
-            sl.amp.fill(0);
-            sl.cellCount = 0;
-            m_imageDirty = true;
-            return;
+            newLine.amp.fill(0);
+            newLine.cellCount = 0;
+            acceptNewLine = false;
         }
-        drawnPoints = drawEchoLineToImage(aziIdx, sl.amp.data(), count, sl.sourceRangeMeters, false);
+    }
+
+    if (acceptNewLine && newLine.cellCount > 0) {
+        bool replacedCurrentGeneration = false;
+        if (bucket.count > 0 && bucket.lines[bucket.count - 1].generation == m_currentSweepGeneration) {
+            bucket.lines[bucket.count - 1] = newLine;
+            replacedCurrentGeneration = true;
+        }
+
+        if (!replacedCurrentGeneration && bucket.count >= m_sweepHistoryRounds) {
+            for (int i = 1; i < bucket.count; ++i) {
+                bucket.lines[i - 1] = bucket.lines[i];
+            }
+            bucket.count = qMax(0, bucket.count - 1);
+            droppedOldest = true;
+        }
+        if (!replacedCurrentGeneration) {
+            bucket.lines[bucket.count++] = newLine;
+        }
+    }
+
+    for (int i = 0; i < bucket.count; ++i) {
+        const auto& visibleLine = bucket.lines[i];
+        if (visibleLine.cellCount > 0) {
+            drawnPoints += drawEchoLineToImage(aziIdx, visibleLine.amp.data(),
+                                               visibleLine.cellCount,
+                                               visibleLine.sourceRangeMeters, false);
+        }
     }
     ++m_rxLineCount;
-    if (m_logNextLineInfo || m_rxLineCount <= 5 || (m_rxLineCount % 512) == 0) {
-        const QString msg = QString("[EchoRenderer] line #%1 aziIdx=%2 aziDeg=%3 cells=%4 drawn=%5 sourceRange=%6m displayRange=%7m")
+    const bool echoDebug = CF_INS.marineDisplayBool("echo_debug", false);
+    const bool packetSample = shouldLogSample(m_rxLineCount, 20, 128);
+    const bool forcedSample = (m_rxLineCount <= 20) || ((m_rxLineCount % 8192) == 0);
+    const bool angleSample = azimuthChanged &&
+                             (m_debugAziChangeCount <= 256 || (m_debugAziChangeCount % 64) == 0);
+    if (echoDebug && (packetSample || forcedSample || angleSample)) {
+        LOG_DEBUG(QString("[EchoRenderer][HISTORY-DEBUG] line=%1 aziIdx=%2 aziDeg=%3 angleChanged=%4 angleChanges=%5 sweepGen=%6 incomingCells=%7 historyBefore=%8 limit=%9 expiredPx=%10 clearedPx=%11 accept=%12 droppedOldest=%13 historyAfter=%14 redrawnPx=%15 sourceRange=%16m displayRange=%17m")
+                  .arg(m_rxLineCount)
+                  .arg(aziIdx)
+                  .arg(line.azimuthDeg, 0, 'f', 3)
+                  .arg(azimuthChanged ? 1 : 0)
+                  .arg(m_debugAziChangeCount)
+                  .arg(m_currentSweepGeneration)
+                  .arg(count)
+                  .arg(historyBefore)
+                  .arg(m_sweepHistoryRounds)
+                  .arg(expiredPoints)
+                  .arg(clearedPoints)
+                  .arg(acceptNewLine ? 1 : 0)
+                  .arg(droppedOldest ? 1 : 0)
+                  .arg(bucket.count)
+                  .arg(drawnPoints)
+                  .arg(newLine.sourceRangeMeters, 0, 'f', 1)
+                  .arg(m_rangeMeter, 0, 'f', 1));
+    } else if (m_logNextLineInfo || m_rxLineCount <= 5 || (m_rxLineCount % 512) == 0) {
+        const QString msg = QString("[EchoRenderer] line #%1 aziIdx=%2 aziDeg=%3 cells=%4 cleared=%5 drawn=%6 sourceRange=%7m displayRange=%8m history=%9/%10")
                                 .arg(m_rxLineCount)
                                 .arg(aziIdx)
                                 .arg(line.azimuthDeg, 0, 'f', 2)
                                 .arg(count)
+                                .arg(clearedPoints)
                                 .arg(drawnPoints)
-                                .arg(sl.sourceRangeMeters, 0, 'f', 1)
-                                .arg(m_rangeMeter, 0, 'f', 1);
+                                .arg(newLine.sourceRangeMeters, 0, 'f', 1)
+                                .arg(m_rangeMeter, 0, 'f', 1)
+                                .arg(bucket.count)
+                                .arg(m_sweepHistoryRounds);
         if (m_logNextLineInfo) {
             LOG_DEBUG(msg);
             m_logNextLineInfo = false;

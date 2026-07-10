@@ -21,6 +21,7 @@
 
 #include <QApplication>
 #include <QDir>
+#include <QFont>
 #include <QStringList>
 #include <QSurfaceFormat>
 #include <QOpenGLContext>
@@ -74,6 +75,7 @@ void setupOpenGL() {
  */
 void setupFont(QApplication& app) {
     QFont font("Microsoft YaHei", MAIN_FONT_SIZE);
+    font.setPointSizeF(MAIN_FONT_SIZE * ScaleHelper::uiScale());
     app.setFont(font);
 }
 
@@ -93,23 +95,23 @@ void setupStyle(QApplication& app) {
         // 统一右下角两个信息窗字体大小（鼠标信息窗 + 视觉设置窗）
         // 放入全局QSS，避免在各自widget中硬编码导致大小不一致
         // 注意：字体由 AA_EnableHighDpiScaling 自动处理，此处保持固定px即可
-        style += R"(
+        style += QString(R"(
 
 /* --- Unified overlay panel fonts --- */
 #MousePositionInfo QLabel,
 #MousePositionInfo QCheckBox,
 #MousePositionInfo QDoubleSpinBox {
-    font-size: 12px;
+    font-size: %1px;
 }
 
 #PPIVisualSettings QLabel,
 #PPIVisualSettings QLineEdit,
 #PPIVisualSettings QComboBox,
 #PPIVisualSettings QPushButton {
-    font-size: 12px;
+    font-size: %1px;
 }
 
-)";
+)").arg(ScaleHelper::uiScaled(12));
 
         app.setStyleSheet(style);
         file.close();
@@ -172,7 +174,7 @@ int main(int argc, char *argv[]) {
     // =============================================================================
 
     // 启用高DPI缩放，确保在4K显示器上正常显示
-    ConfigManager::instance().load("config.toml");
+    const bool configLoaded = ConfigManager::instance().load("config.toml");
 
     QStringList chromiumFlags;
     if (ConfigManager::instance().webEngineDisableGpu(false)) {
@@ -186,7 +188,21 @@ int main(int argc, char *argv[]) {
         qputenv("QTWEBENGINE_CHROMIUM_FLAGS", chromiumFlags.join(' ').toUtf8());
     }
 
-    QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    // UI DPI策略：
+    // fixed：禁用Qt高DPI缩放，使显控固定按自身布局比例显示，不跟随Windows 125/150/175%缩放。
+    // system：保留Qt高DPI缩放，作为高DPI/地图现场兼容回退。
+    const QString dpiPolicy = ConfigManager::instance().uiDpiPolicy("fixed").trimmed().toLower();
+    const bool fixedDpi = (dpiPolicy != "system");
+    if (fixedDpi) {
+        qputenv("QT_ENABLE_HIGHDPI_SCALING", "0");
+        qputenv("QT_AUTO_SCREEN_SCALE_FACTOR", "0");
+        qputenv("QT_SCALE_FACTOR", "1");
+        qputenv("QT_FONT_DPI", "96");
+        QApplication::setAttribute(Qt::AA_DisableHighDpiScaling);
+        QApplication::setAttribute(Qt::AA_Use96Dpi);
+    } else {
+        QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+    }
 
     // WebEngine backend: angle/gles is the default because ANGLE(D3D)
     // is more stable than Desktop OpenGL on dual-GPU Windows machines.
@@ -213,19 +229,30 @@ int main(int argc, char *argv[]) {
     // =============================================================================
     // 第二.五步：初始化屏幕缩放因子（必须在 QApplication 之后、setupFont 之前）
     // =============================================================================
-    ScaleHelper::init();
-    qInfo() << "ScaleHelper initialized: logical=" << ScaleHelper::logicalWidth() << "x"
-            << ScaleHelper::logicalHeight() << " factor=" << ScaleHelper::factor()
-            << " leftPanel=" << ScaleHelper::leftPanelWidth()
-            << " rightPanel=" << ScaleHelper::rightPanelWidth();
+    const double configuredUiScale = ConfigManager::instance().uiScale(1.0);
+    ScaleHelper::init(fixedDpi ? QStringLiteral("fixed") : QStringLiteral("system"), configuredUiScale);
+    qInfo() << "ScaleHelper initialized:"
+            << "dpiPolicy=" << ScaleHelper::dpiPolicy()
+            << "configuredUiScale=" << configuredUiScale
+            << "appliedUiScale=" << ScaleHelper::uiScale()
+            << "logical=" << QString("%1x%2").arg(ScaleHelper::logicalWidth()).arg(ScaleHelper::logicalHeight())
+            << "physical≈" << QString("%1x%2").arg(ScaleHelper::physicalWidth()).arg(ScaleHelper::physicalHeight())
+            << "dpr=" << ScaleHelper::devicePixelRatio()
+            << "factor=" << ScaleHelper::factor()
+            << "rightPanel=" << ScaleHelper::rightPanelWidth();
 
     qInfo() << "[Render] gl_backend=" << glBackend
             << "disable_gpu=" << ConfigManager::instance().webEngineDisableGpu(false)
+            << "dpi_policy=" << ScaleHelper::dpiPolicy()
+            << "AA_HighDpi=" << QApplication::testAttribute(Qt::AA_EnableHighDpiScaling)
+            << "AA_DisableHighDpi=" << QApplication::testAttribute(Qt::AA_DisableHighDpiScaling)
+            << "AA_Use96Dpi=" << QApplication::testAttribute(Qt::AA_Use96Dpi)
             << "AA_GLES=" << QApplication::testAttribute(Qt::AA_UseOpenGLES)
             << "AA_Desktop=" << QApplication::testAttribute(Qt::AA_UseDesktopOpenGL)
             << "AA_Software=" << QApplication::testAttribute(Qt::AA_UseSoftwareOpenGL)
             << "platform=" << QApplication::platformName()
-            << "chromium_flags=" << QString::fromUtf8(qgetenv("QTWEBENGINE_CHROMIUM_FLAGS"));
+            << "chromium_flags=" << QString::fromUtf8(qgetenv("QTWEBENGINE_CHROMIUM_FLAGS"))
+            << "font_dpi=" << QString::fromUtf8(qgetenv("QT_FONT_DPI"));
 
     QOffscreenSurface diagSurface;
     diagSurface.create();
@@ -250,6 +277,15 @@ int main(int argc, char *argv[]) {
     ErrorHandler& errorHandler = ErrorHandler::instance();
     Q_UNUSED(errorHandler); // 标记为已使用，避免编译器警告
     qInfo() << "Error handler initialized";
+
+
+    if (!configLoaded) {
+        LOG_ERROR("Failed to load config.toml, using default configuration");
+    } else {
+        LOG_INFO(QString("Configuration loaded before Controller init; echo_debug=%1 sweep_history_rounds=%2")
+                 .arg(ConfigManager::instance().marineDisplayBool("echo_debug", false) ? 1 : 0)
+                 .arg(ConfigManager::instance().marineDisplayInt("sweep_history_rounds", 1)));
+    }
 
     // =============================================================================
     // 第四步：控制器系统初始化
@@ -277,11 +313,11 @@ int main(int argc, char *argv[]) {
     // =============================================================================
     // 第七步：配置文件加载和验证
     // =============================================================================
-    if (!ConfigManager::instance().load("config.toml")) {
+    if (!configLoaded) {
         LOG_ERROR("Failed to load config.toml, using default configuration");
         // 不返回错误，继续运行，使用默认配置
     } else {
-        LOG_INFO("Configuration loaded successfully from config.toml");
+        LOG_INFO("Configuration already loaded from config.toml");
     }
     // =============================================================================
     // 第八步：主窗口创建和显示

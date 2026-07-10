@@ -80,6 +80,10 @@ public:
     /// 设置渲染刷新率(ms)
     void setRenderInterval(int ms);
 
+    /// 设置同一方位保留的扫描圈数，默认1圈。
+    void setSweepHistoryRounds(int rounds);
+    int sweepHistoryRounds() const { return m_sweepHistoryRounds; }
+
     /// 获取PPI图像尺寸
     int imageSize() const { return m_imageSize; }
 
@@ -103,20 +107,29 @@ private:
     void buildColorTableGreen();
     int drawEchoLineToImage(int aziIdx, const uint8_t* amplitudes, int count,
                             double sourceRangeMeters, bool clearLine);
+    int advanceSweepWindow(int aziIdx);
+    int clearExpiredBucket(int aziIdx, uint32_t minGeneration);
     void updatePixmapItem();
 
     // ---- 扫描缓冲 ----
-    static constexpr int AZI_STEPS = 4096;      ///< 方位分辨率
+    static constexpr int AZI_STEPS = 4096;       ///< 方位分辨率
     static constexpr int MAX_CELLS = 2048;       ///< 最大距离单元数
+    static constexpr int MAX_SWEEP_HISTORY = 8;  ///< 同一方位最多保留圈数
 
     /// 每条扫描线的缓冲
     struct SweepLine {
         std::array<uint8_t, MAX_CELLS> amp{};    ///< 幅值 0~255
         int cellCount = 0;                        ///< 有效单元数
         double sourceRangeMeters = 0.0;           ///< Physical range represented by amp[]
+        uint32_t generation = 0;                  ///< Sweep generation that produced this line
     };
 
-    std::array<SweepLine, AZI_STEPS> m_sweepBuf; ///< 4096方位环形缓冲
+    struct SweepBucket {
+        std::array<SweepLine, MAX_SWEEP_HISTORY> lines{};
+        int count = 0;
+    };
+
+    std::array<SweepBucket, AZI_STEPS> m_sweepBuf; ///< 4096方位环形缓冲
 
     // ---- 渲染 ----
     int m_imageSize;                              ///< 图像边长
@@ -127,6 +140,10 @@ private:
     bool m_imageDirty = false;
     uint32_t m_rxLineCount = 0;
     bool m_logNextLineInfo = true;
+    int m_lastDebugAziIdx = -1;
+    uint32_t m_debugAziChangeCount = 0;
+    int m_lastSweepAziIdx = -1;
+    uint32_t m_currentSweepGeneration = 0;
 
     QTimer* m_renderTimer = nullptr;
     // ---- 颜色映射 ----
@@ -136,6 +153,7 @@ private:
     // ---- 参数 ----
     double m_rangeMeter = 1852.0;                 ///< 当前量程(米), 默认1nm
     int m_decayMs = 10000;                        ///< 余辉衰减时间(ms)
+    int m_sweepHistoryRounds = 1;                 ///< 同一方位保留的扫描圈数
 
     // 预计算: 极坐标→像素映射辅助
     QVector<double> m_sinTable;                   ///< sin(azi) for 0~4095

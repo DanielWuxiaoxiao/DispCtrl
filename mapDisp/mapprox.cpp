@@ -17,8 +17,6 @@
 MapProxyWidget::MapProxyWidget()
 {
     // 加载配置文件
-    CF_INS.load("config.toml");
-
     // 初始化当前雷达状态（从配置文件读取默认值）
     m_currentLongitude = CF_INS.longitude();
     m_currentLatitude = CF_INS.latitude();

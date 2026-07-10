@@ -128,6 +128,17 @@ public:
         return getValue("ui.fonts." + key, def).toInt();
     }
 
+    // UI DPI策略（必须在 QApplication 创建前读取）
+    // fixed：显控固定按自身布局比例显示，不跟随 Windows 文本/显示缩放
+    // system：跟随系统DPI缩放（Qt高DPI），用于现场兼容回退
+    QString uiDpiPolicy(const QString& def = "fixed") const {
+        return getValue("ui.dpi_policy", def).toString();
+    }
+
+    double uiScale(double def = 1.0) const {
+        return getValue("ui.ui_scale", def).toDouble();
+    }
+
     int windowProperty(const QString& key, int def = 0) const {
         return getValue("ui.window." + key, def).toInt();
     }
@@ -562,6 +573,20 @@ public:
     int marineDisplayInt(const QString& key, int def = 0) const {
         return getValue("marine.display." + key, def).toInt();
     }
+    bool marineDisplayBool(const QString& key, bool def = false) const {
+        const QVariant value = getValue("marine.display." + key, def);
+        if (value.type() == QVariant::Bool)
+            return value.toBool();
+        if (value.canConvert<int>() && value.type() != QVariant::String)
+            return value.toInt() != 0;
+
+        const QString text = value.toString().trimmed().toLower();
+        if (text == "true" || text == "1" || text == "yes" || text == "on")
+            return true;
+        if (text == "false" || text == "0" || text == "no" || text == "off")
+            return false;
+        return def;
+    }
 
 private:
     QMap<QString, QVariant> configData;
@@ -576,12 +601,49 @@ private:
         }
 
         QTextStream in(&file);
+        in.setCodec("UTF-8");
         QString content = in.readAll();
         file.close();
 
+        configData.clear();
         bool success = parseToml(content);
         if (success) {
+            const bool verboseToml = qEnvironmentVariableIsSet("DISPCTRL_TOML_DEBUG");
+            if (!configData.contains("marine.display.echo_debug") && content.contains("echo_debug")) {
+                QString currentSection;
+                const QStringList rawLines = content.split('\n');
+                for (int i = 0; i < rawLines.size(); ++i) {
+                    const QString trimmed = rawLines.at(i).trimmed();
+                    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+                        currentSection = trimmed.mid(1, trimmed.length() - 2).trimmed();
+                        continue;
+                    }
+                    if (currentSection == "marine.display" && trimmed.startsWith("echo_debug")) {
+                        QString value = trimmed.mid(trimmed.indexOf('=') + 1).trimmed();
+                        const int commentPos = value.indexOf('#');
+                        if (commentPos >= 0)
+                            value = value.left(commentPos).trimmed();
+                        if ((value.startsWith('"') && value.endsWith('"')) ||
+                            (value.startsWith('\'') && value.endsWith('\''))) {
+                            value = value.mid(1, value.length() - 2).trimmed();
+                        }
+
+                        const QString boolText = value.toLower();
+                        const bool enabled = (boolText == "true" || boolText == "1" ||
+                                              boolText == "yes" || boolText == "on");
+                        configData["marine.display.echo_debug"] = enabled;
+                        qWarning() << "[ConfigManager][fallback] parsed marine.display.echo_debug line"
+                                   << (i + 1) << "value=" << value << "enabled=" << enabled;
+                        break;
+                    }
+                }
+            }
             qInfo() << "Successfully loaded TOML config:" << path << "with" << configData.size() << "entries";
+            if (verboseToml) {
+                qInfo() << "[ConfigManager][marine.display] echo_debug raw="
+                        << configData.value("marine.display.echo_debug", "<missing>")
+                        << "contains=" << configData.contains("marine.display.echo_debug");
+            }
 
             // 调试：打印params段的值
             if (qEnvironmentVariableIsSet("DISPCTRL_TOML_DEBUG")) {
@@ -608,6 +670,10 @@ private:
 
         for (const QString& line : lines) {
             QString trimmed = line.trimmed();
+            if (verboseToml && trimmed.contains("echo_debug")) {
+                qInfo() << "[ConfigManager][parseToml] echo_debug candidate section="
+                        << currentSection << "line=" << trimmed;
+            }
 
             // 跳过注释和空行
             if (trimmed.isEmpty() || trimmed.startsWith('#')) {
@@ -663,6 +729,10 @@ private:
                 }
 
                 configData[fullKey] = varValue;
+                if (verboseToml && fullKey == "marine.display.echo_debug") {
+                    qInfo() << "[ConfigManager][parseToml] parsed" << fullKey << "=" << varValue
+                            << "type=" << varValue.typeName();
+                }
 
                 // 调试：打印params段的键值对
                 if (verboseToml && fullKey.startsWith("params.")) {
@@ -689,6 +759,7 @@ private:
 
         // 读取现有内容
         QTextStream in(&file);
+        in.setCodec("UTF-8");
         QString content = in.readAll();
         file.seek(0);
 
@@ -806,7 +877,9 @@ private:
 
             // 更新参数值（支持 params.* 和 displayConfig 段）
             int equalPos = trimmed.indexOf('=');
-            if (equalPos > 0 && (currentSection.startsWith("params.") || currentSection == "displayConfig")) {
+            if (equalPos > 0 && (currentSection.startsWith("params.") ||
+                                 currentSection == "displayConfig" ||
+                                 currentSection.startsWith("marine."))) {
                 QString key = trimmed.left(equalPos).trimmed();
                 QString fullKey = currentSection + "." + key;
 
@@ -834,6 +907,7 @@ private:
         // 写回文件
         file.resize(0);
         QTextStream out(&file);
+        out.setCodec("UTF-8");
         out << lines.join('\n');
         file.close();
 

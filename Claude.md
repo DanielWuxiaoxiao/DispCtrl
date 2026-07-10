@@ -870,6 +870,7 @@ m_marineMgr             # MarineRadarManager实例
 - **X576 legacy UI removal**: removed obsolete X576 main-panel widgets/buttons and kept only ship-radar UI-controlled panels.
 - **CMakeLists.txt**: 新增 echorenderer/colorbarwidget/RadarSimulator/MarineRadarManager
 - **2026-05-22 船用控制命令**: `MarineControlFrame::cmdNum` 已启用，`0x00` 仅参数、`0x01` 位置、`0x02` 速度、`0x03` 停止、`0x04` 启动。`azimuth` 按角度 * 100 小端编码；`servo` 作为 0~8 速度档位，PS 侧按 `档位 * 6.00 rpm` 转为 `$cmd,spd`。
+- **2026-07-08 回波方位编号**: 回波头 `Byte2-3` 已改为小端方位编号 `0~8191`，真实角度按 `bin * 360 / 8192` 解析；PPI 内部仍映射到 4096 方位索引用于渲染。`[marine.display] sweep_history_rounds` 控制同一方位保留扫描圈数，默认 1，最大 8。
 
 ---
 
