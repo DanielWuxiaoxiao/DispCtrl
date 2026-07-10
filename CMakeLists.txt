@@ -177,6 +177,7 @@ set(SRC_FILES
     Controller/beamschedulemanager.cpp         # 波束调度报告UDP接收管理器
     Controller/geofencemanager.cpp             # 电子围栏检测管理器
     Controller/recordmanager.cpp               # 场景录制/回放管理器
+    Controller/raedatasetreader.cpp            # 离线RAE点迹数据读取器
 
     # 主界面模块 - 控制面板和布局
     mainPanel/mainoverlayout.cpp               # 主界面覆盖布局

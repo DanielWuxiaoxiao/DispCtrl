@@ -33,6 +33,7 @@
 #include "Basic/ConfigManager.h"
 #include "Basic/DispBasci.h"
 #include "Basic/log.h"
+#include "Basic/offlinerae.h"
 #include "Controller/RadarDataManager.h"  // 雷达数据管理器头文件
 #include "PolarDisp/tooltip.h"
 
@@ -46,6 +47,9 @@ constexpr int kPpiRefreshIntervalMs = 16; // ~60 FPS when the GUI thread keeps u
 
 QColor displayTrackColor(const PointInfo& info)
 {
+    if (OfflineRae::isOffline(info)) {
+        return OfflineRae::colorFor(info, TRA_COLOR);
+    }
     if (info.type == PointType::Track) {
         return (info.targetRecResult == 1) ? TRA_COLOR : DRONE_COLOR;
     }
@@ -156,12 +160,29 @@ public:
             QVarLengthArray<QPointF, 256> tbdPoints;
             QVarLengthArray<QPointF, 256> cooperativePoints;
 
+            QVarLengthArray<QLineF, 256> offlineCyanLines;
+            QVarLengthArray<QLineF, 256> offlineRedLines;
+            QVarLengthArray<QLineF, 256> offlineBlueLines;
+            QVarLengthArray<QPointF, 256> offlineCyanPoints;
+            QVarLengthArray<QPointF, 256> offlineRedPoints;
+            QVarLengthArray<QPointF, 256> offlineBluePoints;
+
             auto lineBucket = [&](const PointInfo& info) -> QVarLengthArray<QLineF, 256>& {
+                if (OfflineRae::isOffline(info)) {
+                    if (info.targetRecResult == OfflineRae::kColorRed) return offlineRedLines;
+                    if (info.targetRecResult == OfflineRae::kColorBlue) return offlineBlueLines;
+                    return offlineCyanLines;
+                }
                 if (info.type == PointType::TBDPointType) return tbdLines;
                 if (info.type == PointType::CooperativeTrackPointType) return cooperativeLines;
                 return (info.targetRecResult == 1) ? trackLines : otherLines;
             };
             auto pointBucket = [&](const PointInfo& info) -> QVarLengthArray<QPointF, 256>& {
+                if (OfflineRae::isOffline(info)) {
+                    if (info.targetRecResult == OfflineRae::kColorRed) return offlineRedPoints;
+                    if (info.targetRecResult == OfflineRae::kColorBlue) return offlineBluePoints;
+                    return offlineCyanPoints;
+                }
                 if (info.type == PointType::TBDPointType) return tbdPoints;
                 if (info.type == PointType::CooperativeTrackPointType) return cooperativePoints;
                 return (info.targetRecResult == 1) ? trackPoints : otherPoints;
@@ -202,10 +223,16 @@ public:
             drawLines(DRONE_COLOR, otherLines);
             drawLines(trackTypeColor(PointType::TBDPointType), tbdLines);
             drawLines(trackTypeColor(PointType::CooperativeTrackPointType), cooperativeLines);
+            drawLines(QColor(0, 255, 255), offlineCyanLines);
+            drawLines(QColor(255, 0, 0), offlineRedLines);
+            drawLines(QColor(0, 0, 255), offlineBlueLines);
             drawPoints(TRA_COLOR, trackPoints);
             drawPoints(DRONE_COLOR, otherPoints);
             drawPoints(trackTypeColor(PointType::TBDPointType), tbdPoints);
             drawPoints(trackTypeColor(PointType::CooperativeTrackPointType), cooperativePoints);
+            drawPoints(QColor(0, 255, 255), offlineCyanPoints);
+            drawPoints(QColor(255, 0, 0), offlineRedPoints);
+            drawPoints(QColor(0, 0, 255), offlineBluePoints);
         } else {
             for (int i = 1; i < m_series->nodes.size(); ++i) {
                 const TrackNode& node = m_series->nodes[i];
@@ -759,6 +786,9 @@ void TrackManager::addTrackPoint(const PointInfo& info)
 
 void TrackManager::limitBatchPoints(TrackSeries& series)
 {
+    if (!series.nodes.isEmpty() && OfflineRae::isOffline(series.nodes.first().info)) {
+        return;
+    }
     while (series.nodes.size() > m_maxPointsPerBatch) {
         series.nodes.removeFirst();
     }
@@ -833,6 +863,15 @@ void TrackManager::updateLatestLabel(int batchID, bool force)
     }
     if (!s.latestPoint) return;
     const auto& pi = latest.info;
+    if (OfflineRae::isOffline(pi)) {
+        if (s.label) {
+            s.label->setVisible(false);
+        }
+        if (s.labelLine) {
+            s.labelLine->setVisible(false);
+        }
+        return;
+    }
     const QColor labelColor = displayTrackColor(pi);
     const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
     const bool labelExists = (s.label != nullptr);

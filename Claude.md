@@ -795,6 +795,11 @@ dataToScene            # RangeAzimuth坐标转换
 - **DPI兼容回退**：`ui.dpi_policy="system"` 时保留原 `AA_EnableHighDpiScaling` 行为，用于高DPI/地图现场兼容回退。地图偏移补偿仍使用 PPI 中心相对容器比例，不依赖绝对DPI。
 - **DPI诊断日志**：启动日志记录 `dpiPolicy`、Qt逻辑尺寸、估算物理尺寸、devicePixelRatio、ScaleHelper布局因子和渲染属性，便于对比 100/125/175% 缩放现场表现。
 
+### v5.27 (2026-07-08)
+- **离线RAE点迹绘制**：新增 `[offline_rae]` 配置和 `RaeDatasetReader`，显控读取 MATLAB 导出的 `RAE1` little-endian 二进制文件并转换为 `PointInfo`，不直接解析内部 `.mat`。离线数据标记为 `statMethod=250`，直投 PPI/B显/H显显示对象，避免触发航迹表、总控 MQTT、激光上报等实时链路。
+- **两类脚本数据入口**：`offline_rae.enabled=true` 时在右侧功能按钮区动态显示 `ADSB点迹` 和 `对比点迹` 两个按钮，分别读取 `adsb_file` / `compare_file`。默认点击前显清，按数据最大距离自动扩大量程，日志写入文件并同步到显控日志区。
+- **MATLAB导出脚本**：新增 `matlabScript/export_rae_bins.m`，按 `adsb.m` 和 `compare.m` 的筛选逻辑导出 `adsb_rae.bin` / `compare_rae.bin`。二进制记录包含 `timestamp_ms/type/batch/range_m/azimuth_deg/elevation_deg/snr/speed/amp/targetRecResult`，距离默认从 km 转 m；离线轨迹统一按航迹绘制，颜色码与 MATLAB 一致：101=青色、102=红色、103=蓝色。离线轨迹跳过 batch 标签和 `max_track_points` 截断。
+
 ---
 
 ## 联系与贡献

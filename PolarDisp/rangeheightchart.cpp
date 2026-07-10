@@ -10,6 +10,7 @@
 #include "../Basic/DispBasci.h"
 #include "../Basic/ConfigManager.h"
 #include "../Basic/log.h"
+#include "../Basic/offlinerae.h"
 #include <QDateTime>
 #include <QGraphicsItem>
 #include <QGraphicsSceneHoverEvent>
@@ -88,6 +89,9 @@ public:
         QVarLengthArray<QPointF, 2048> otherTracks;
         QVarLengthArray<QPointF, 2048> tbdTracks;
         QVarLengthArray<QPointF, 2048> cooperativeTracks;
+        QVarLengthArray<QPointF, 2048> offlineCyanTracks;
+        QVarLengthArray<QPointF, 2048> offlineRedTracks;
+        QVarLengthArray<QPointF, 2048> offlineBlueTracks;
 
         for (const auto& item : m_chart->m_detections) {
             if (m_chart->shouldShowDetection(item.info)) {
@@ -98,7 +102,8 @@ public:
             if (!m_chart->shouldShowTrack(item.info)) {
                 continue;
             }
-            trackBucket(item.info, normalTracks, otherTracks, tbdTracks, cooperativeTracks)
+            trackBucket(item.info, normalTracks, otherTracks, tbdTracks, cooperativeTracks,
+                        offlineCyanTracks, offlineRedTracks, offlineBlueTracks)
                 .append(pointFor(item.info));
         }
 
@@ -119,6 +124,15 @@ public:
         drawPoints(painter, m_chart->m_cooperativeTrackColor,
                    qMax<qreal>(1.0, m_chart->m_baseTrackSize * m_chart->m_trackSizeRatio),
                    cooperativeTracks);
+        drawPoints(painter, QColor(0, 255, 255),
+                   qMax<qreal>(1.0, m_chart->m_baseTrackSize * m_chart->m_trackSizeRatio),
+                   offlineCyanTracks);
+        drawPoints(painter, QColor(255, 0, 0),
+                   qMax<qreal>(1.0, m_chart->m_baseTrackSize * m_chart->m_trackSizeRatio),
+                   offlineRedTracks);
+        drawPoints(painter, QColor(0, 0, 255),
+                   qMax<qreal>(1.0, m_chart->m_baseTrackSize * m_chart->m_trackSizeRatio),
+                   offlineBlueTracks);
         painter->restore();
     }
 
@@ -180,8 +194,16 @@ private:
                                                        QVarLengthArray<QPointF, 2048>& normalTracks,
                                                        QVarLengthArray<QPointF, 2048>& otherTracks,
                                                        QVarLengthArray<QPointF, 2048>& tbdTracks,
-                                                       QVarLengthArray<QPointF, 2048>& cooperativeTracks)
+                                                       QVarLengthArray<QPointF, 2048>& cooperativeTracks,
+                                                       QVarLengthArray<QPointF, 2048>& offlineCyanTracks,
+                                                       QVarLengthArray<QPointF, 2048>& offlineRedTracks,
+                                                       QVarLengthArray<QPointF, 2048>& offlineBlueTracks)
     {
+        if (OfflineRae::isOffline(info)) {
+            if (info.targetRecResult == OfflineRae::kColorRed) return offlineRedTracks;
+            if (info.targetRecResult == OfflineRae::kColorBlue) return offlineBlueTracks;
+            return offlineCyanTracks;
+        }
         if (info.type == PointType::TBDPointType) return tbdTracks;
         if (info.type == PointType::CooperativeTrackPointType) return cooperativeTracks;
         return (info.targetRecResult == 1) ? normalTracks : otherTracks;
@@ -710,6 +732,11 @@ void RangeHeightChart::limitTrackPoints()
 void RangeHeightChart::limitTrackPointsForBatch(unsigned type, int batch)
 {
     const quint64 key = makeTrackLabelKey(type, batch);
+    for (const auto& item : m_tracks) {
+        if (makeTrackLabelKey(item.info.type, item.info.batch) == key && OfflineRae::isOffline(item.info)) {
+            return;
+        }
+    }
     while (m_trackCountsByKey.value(key, 0) > m_maxTrackPoints) {
         int removeIndex = -1;
         for (int i = 0; i < m_tracks.size(); ++i) {
@@ -751,6 +778,9 @@ void RangeHeightChart::refreshAllPoints()
 
 QColor RangeHeightChart::trackColor(const PointInfo& info) const
 {
+    if (OfflineRae::isOffline(info)) {
+        return OfflineRae::colorFor(info, m_trackColor);
+    }
     if (info.type == PointType::Track) {
         return (info.targetRecResult == 1) ? m_trackColor : m_otherTrackColor;
     }
@@ -773,6 +803,9 @@ QString RangeHeightChart::trackTooltipLabel(unsigned type) const
 
 QString RangeHeightChart::trackLabelText(const PointInfo& info) const
 {
+    if (OfflineRae::isOffline(info)) {
+        return QString();
+    }
     return QString("batch : %1").arg(info.batch);
 }
 
@@ -848,6 +881,9 @@ void RangeHeightChart::refreshTrackLabels()
         }
 
         const TrackItem* trackItem = &m_tracks[index];
+        if (OfflineRae::isOffline(trackItem->info)) {
+            continue;
+        }
 
         const quint64 key = it.key();
         activeKeys.insert(key);

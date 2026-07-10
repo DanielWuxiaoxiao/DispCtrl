@@ -96,6 +96,17 @@ dpi_policy = "fixed"
 ui_scale = 1.0
 
 # =============================================================================
+# 离线RAE点迹绘制 Offline RAE Dataset Drawing
+# =============================================================================
+[offline_rae]
+enabled = false
+# MATLAB脚本导出的RAE1二进制文件。路径相对软件运行目录，也可填写绝对路径。
+adsb_file = "data/adsb_rae.bin"
+compare_file = "data/compare_rae.bin"
+clear_before_draw = true
+max_records_per_click = 200000
+
+# =============================================================================
 # 雷达系统参数配置 Radar System Parameters Configuration
 # =============================================================================
 

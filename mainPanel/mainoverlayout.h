@@ -65,6 +65,7 @@ class FrozenColumnHelper; ///< 表格冻结列辅助类
 class ScreenRecorderWidget; ///< 屏幕录制与回放组件
 class QTabWidget;      ///< Qt标签页控件
 class QSplitter;
+class QToolButton;
 
 
 namespace Ui {
@@ -353,6 +354,16 @@ private slots:
     void onRecordPlayClicked();
 
     /**
+     * @brief 绘制 adsb.m 对应的离线RAE点迹数据
+     */
+    void onDrawOfflineAdsbClicked();
+
+    /**
+     * @brief 绘制 compare.m 对应的离线RAE点迹数据
+     */
+    void onDrawOfflineCompareClicked();
+
+    /**
      * @brief 处理发射开关按钮点击
      * @details 弹出确认对话框，确认后下发发射开关命令（接收默认开启）
      */
@@ -372,6 +383,9 @@ private slots:
 
 private:
     void setupResizableMainLayout();
+    void setupOfflineRaeButtons();
+    void drawOfflineRaeDataset(const QString& filePath, const QString& datasetName);
+    QString resolveRuntimePath(const QString& path) const;
 
     Ui::MainOverLayOut *ui;           ///< UI界面对象指针
     PPIView* mView;                   ///< PPI雷达显示视图
@@ -531,6 +545,8 @@ private:
     // 录屏回放窗口相关
     CusWindow* m_recorderWindow;         ///< 录屏回放窗口指针
     ScreenRecorderWidget* m_recorderWidget; ///< 录屏回放组件指针
+    QToolButton* m_offlineAdsbButton = nullptr;    ///< adsb.m离线点迹绘制按钮
+    QToolButton* m_offlineCompareButton = nullptr; ///< compare.m离线点迹绘制按钮
 
     // BIT状态按钮
     QPushButton* m_btnTxOpen;            ///< 阵面发射开启状态

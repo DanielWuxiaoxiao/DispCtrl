@@ -11,11 +11,14 @@
 #include "Basic/ConfigManager.h"
 #include "Basic/DispBasci.h"
 #include "Basic/log.h"
+#include "Basic/offlinerae.h"
 #include "Controller/RadarDataManager.h"
 #include "Controller/controller.h"
+#include "Controller/raedatasetreader.h"
 #include "PointManager/detmanager.h"
 #include "PointManager/trackmanager.h"
 #include "PolarDisp/mousepositioninfo.h"
+#include "PolarDisp/polaraxis.h"
 #include "PolarDisp/ppisscene.h"
 #include "PolarDisp/ppiview.h"
 #include "PolarDisp/pviewtopleft.h"
@@ -28,9 +31,12 @@
 // 参数配置对话框头文件
 #include <QApplication>
 #include <QComboBox>
+#include <QCoreApplication>
 #include <QDateTime>
 #include <QDebug>
 #include <QDoubleValidator>
+#include <QDir>
+#include <QFileInfo>
 #include <QGridLayout>
 #include <QHeaderView>
 #include <QIntValidator>
@@ -45,6 +51,7 @@
 #include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
+#include <cmath>
 
 #include "PointManager/sectordetmanager.h"
 #include "PointManager/sectortrackmanager.h"
@@ -286,6 +293,7 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
 
     // 连接记录回放按钮
     connect(ui->toolButton_3, &QToolButton::clicked, this, &MainOverLayOut::onRecordPlayClicked);
+    setupOfflineRaeButtons();
 
     // ========== 关键修复：连接航迹数据到表格显示 ==========
     // 从Controller接收航迹数据并更新表格
@@ -1141,6 +1149,10 @@ void MainOverLayOut::flushPendingTrackTableUpdates()
 void MainOverLayOut::applyTrackListUpdate(const PointInfo& info, bool& sortMain, bool& sortTbd,
                                           bool& sortCooperative)
 {
+    if (OfflineRae::isOffline(info)) {
+        return;
+    }
+
     if (info.statMethod == 2) {
         removeTrackRow(ui->tableWidget, info.type, info.batch);
         if (m_tbdTrackTable && info.type == PointType::TBDPointType) {
@@ -1176,6 +1188,10 @@ void MainOverLayOut::applyTrackListUpdate(const PointInfo& info, bool& sortMain,
 
 void MainOverLayOut::applyDroneTrackListUpdate(const PointInfo& info, bool& sortDrone)
 {
+    if (OfflineRae::isOffline(info)) {
+        return;
+    }
+
     if (info.type != PointType::Track) {
         return;
     }
@@ -2997,6 +3013,160 @@ void MainOverLayOut::onRecordPlayClicked() {
     LOG_INFO("Screen recorder window opened");
 }
 
+void MainOverLayOut::setupOfflineRaeButtons()
+{
+    if (!CF_INS.offlineRaeEnabled(false)) {
+        LOG_INFO("[OfflineRAE] disabled by config");
+        return;
+    }
+
+    auto createButton = [this](const QString& objectName,
+                               const QString& text,
+                               const QIcon& icon,
+                               int column) -> QToolButton* {
+        auto* btn = new QToolButton(ui->FuncWidget);
+        btn->setObjectName(objectName);
+        btn->setText(text);
+        btn->setIcon(icon);
+        btn->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+        btn->setProperty("buttonGroup", QStringLiteral("A"));
+        btn->setFocusPolicy(Qt::NoFocus);
+        btn->setIconSize(ui->toolButton_3->iconSize());
+        const bool compact = ScaleHelper::compactLayout();
+        btn->setMinimumWidth(ScaleHelper::uiScaled(compact ? 70 : 78));
+        btn->setMinimumHeight(ScaleHelper::uiScaled(compact ? 56 : 62));
+        btn->setIconSize(QSize(ScaleHelper::uiScaled(compact ? 30 : 34),
+                               ScaleHelper::uiScaled(compact ? 30 : 34)));
+        ui->gridLayout_2->addWidget(btn, 1, column);
+        return btn;
+    };
+
+    m_offlineAdsbButton = createButton(QStringLiteral("OfflineAdsbButton"),
+                                       QStringLiteral("ADSB点迹"),
+                                       QIcon(QStringLiteral(":/resources/icon/data.png")),
+                                       0);
+    m_offlineCompareButton = createButton(QStringLiteral("OfflineCompareButton"),
+                                          QStringLiteral("对比点迹"),
+                                          QIcon(QStringLiteral(":/resources/icon/radararray.png")),
+                                          1);
+
+    connect(m_offlineAdsbButton, &QToolButton::clicked,
+            this, &MainOverLayOut::onDrawOfflineAdsbClicked);
+    connect(m_offlineCompareButton, &QToolButton::clicked,
+            this, &MainOverLayOut::onDrawOfflineCompareClicked);
+
+    LOG_INFO(QString("[OfflineRAE] enabled adsb_file=%1 compare_file=%2")
+             .arg(CF_INS.offlineRaeFile("adsb_file", "data/adsb_rae.bin"),
+                  CF_INS.offlineRaeFile("compare_file", "data/compare_rae.bin")));
+}
+
+QString MainOverLayOut::resolveRuntimePath(const QString& path) const
+{
+    if (path.isEmpty()) {
+        return path;
+    }
+    QFileInfo info(path);
+    if (info.isAbsolute()) {
+        return QDir::cleanPath(path);
+    }
+    return QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(path);
+}
+
+void MainOverLayOut::onDrawOfflineAdsbClicked()
+{
+    drawOfflineRaeDataset(resolveRuntimePath(CF_INS.offlineRaeFile("adsb_file", "data/adsb_rae.bin")),
+                          QStringLiteral("ADSB点迹"));
+}
+
+void MainOverLayOut::onDrawOfflineCompareClicked()
+{
+    drawOfflineRaeDataset(resolveRuntimePath(CF_INS.offlineRaeFile("compare_file", "data/compare_rae.bin")),
+                          QStringLiteral("对比点迹"));
+}
+
+void MainOverLayOut::drawOfflineRaeDataset(const QString& filePath, const QString& datasetName)
+{
+    const int maxRecords = CF_INS.offlineRaeMaxRecords(200000);
+    const auto result = RaeDatasetReader::loadFile(filePath, maxRecords);
+    if (!result.ok) {
+        LOG_WARNING(QString("[OfflineRAE] %1 load failed: %2").arg(datasetName, result.message));
+        logCommand(QStringLiteral("离线点迹绘制失败"), QString("%1: %2").arg(datasetName, result.message));
+        CustomMessageBox::showWarning(this, QStringLiteral("离线点迹绘制失败"), result.message);
+        return;
+    }
+
+    if (CF_INS.offlineRaeClearBeforeDraw(true) && mView) {
+        mView->onClearDisplayRequested();
+        clearAllTracks();
+    }
+
+    float maxRangeM = 0.0f;
+    for (const auto& record : result.records) {
+        maxRangeM = qMax(maxRangeM, record.point.range);
+    }
+    if (maxRangeM > 0.0f && mScene && mScene->axis() && maxRangeM > mScene->axis()->maxRange()) {
+        const double nextMaxKm = std::ceil((static_cast<double>(maxRangeM) / 1000.0) * 1.05);
+        mView->onMaxDistanceChanged(qMax(1.0, nextMaxKm));
+        LOG_INFO(QString("[OfflineRAE] expanded display range to %1 km for %2")
+                 .arg(qMax(1.0, nextMaxKm), 0, 'f', 0)
+                 .arg(datasetName));
+    }
+
+    int detCount = 0;
+    int trackCount = 0;
+    int tbdCount = 0;
+    int cooperativeCount = 0;
+
+    for (const auto& record : result.records) {
+        switch (record.pointType) {
+            case PointType::Detection:
+                if (mScene && mScene->det()) {
+                    mScene->det()->addDetPoint(record.point);
+                }
+                ++detCount;
+                break;
+            case PointType::Track:
+                if (mScene && mScene->track()) {
+                    mScene->track()->addTrackPoint(record.point);
+                }
+                ++trackCount;
+                break;
+            case PointType::TBDPointType:
+                if (mScene && mScene->track()) {
+                    mScene->track()->addTrackPoint(record.point);
+                }
+                ++tbdCount;
+                break;
+            case PointType::CooperativeTrackPointType:
+                if (mScene && mScene->track()) {
+                    mScene->track()->addTrackPoint(record.point);
+                }
+                ++cooperativeCount;
+                break;
+            default:
+                break;
+        }
+
+        if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
+            m_rangeAzimuthWidget->chart()->addPointInfo(record.point);
+        }
+        if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
+            m_rangeHeightWidget->chart()->addPointInfo(record.point);
+        }
+    }
+
+    const QString summary = QString("%1 records=%2 det=%3 track=%4 tbd=%5 coop=%6 file=%7")
+                                .arg(datasetName)
+                                .arg(result.records.size())
+                                .arg(detCount)
+                                .arg(trackCount)
+                                .arg(tbdCount)
+                                .arg(cooperativeCount)
+                                .arg(filePath);
+    LOG_INFO(QString("[OfflineRAE] draw complete: %1").arg(summary));
+    logCommand(QStringLiteral("离线点迹绘制"), summary);
+}
+
 /**
  * @brief 根据屏幕分辨率动态设置面板宽度、按钮高度等尺寸
  * @details 覆盖 .ui 文件中的固定像素值，使界面在 1366×768 ~ 3840×2160 范围内自适应
@@ -3053,9 +3223,13 @@ void MainOverLayOut::applyScaledSizes() {
     ui->timeLabel->setMaximumWidth(rightW);
     ui->FuncWidget->setMaximumWidth(rightW);
     const QList<QToolButton*> functionButtons = {
-        ui->toolButton_3, ui->radarsystem, ui->FuncToolButton_2, ui->FuncToolButton
+        ui->toolButton_3, ui->radarsystem, ui->FuncToolButton_2, ui->FuncToolButton,
+        m_offlineAdsbButton, m_offlineCompareButton
     };
     for (auto* btn : functionButtons) {
+        if (!btn) {
+            continue;
+        }
         btn->setMinimumWidth(funcButtonW);
         btn->setMinimumHeight(funcButtonH);
         btn->setIconSize(QSize(funcIcon, funcIcon));

@@ -246,6 +246,22 @@ public:
         return getValue("ui.ui_scale", def).toDouble();
     }
 
+    bool offlineRaeEnabled(bool def = false) const {
+        return getValue("offline_rae.enabled", def).toBool();
+    }
+
+    QString offlineRaeFile(const QString& key, const QString& def = "") const {
+        return getValue("offline_rae." + key, def).toString();
+    }
+
+    int offlineRaeMaxRecords(int def = 200000) const {
+        return getValue("offline_rae.max_records_per_click", def).toInt();
+    }
+
+    bool offlineRaeClearBeforeDraw(bool def = true) const {
+        return getValue("offline_rae.clear_before_draw", def).toBool();
+    }
+
     int windowProperty(const QString& key, int def = 0) const {
         return getValue("ui.window." + key, def).toInt();
     }
