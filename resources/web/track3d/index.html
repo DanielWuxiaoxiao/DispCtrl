@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self' qrc:; script-src 'self' qrc:; style-src 'self' qrc:; img-src 'self' data: qrc:; connect-src 'none';">
+    <title>3D航迹显示</title>
+    <link rel="stylesheet" href="track3d.css">
+</head>
+<body>
+    <div id="scene-root"></div>
+    <div id="axis-legend">
+        <span class="axis-x">X 东向距离 (km)</span>
+        <span class="axis-y">Y 高度 (m)</span>
+        <span class="axis-z">Z 北向距离 (km)</span>
+        <span id="axis-range"></span>
+    </div>
+    <div id="tooltip" role="tooltip"></div>
+    <div id="status-overlay">3D渲染初始化中…</div>
+
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <script src="three.min.js"></script>
+    <script src="OrbitControls.js"></script>
+    <script src="track3d.js"></script>
+</body>
+</html>

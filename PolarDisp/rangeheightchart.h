@@ -65,6 +65,8 @@ public:
 
     void setRangeFromMain(double minRange, double maxRange);
     void setHeightRange(double minHeight, double maxHeight);
+    double minHeight() const { return m_minHeight; }
+    double maxHeight() const { return m_maxHeight; }
 
     void setDetectionVisible(bool visible);
     void setTrackVisible(bool visible);
@@ -79,6 +81,7 @@ public:
 
 signals:
     void pointCountChanged(int detCount, int trackCount);
+    void heightRangeChanged(double minHeight, double maxHeight);
 
 private:
     void resizeEvent(QResizeEvent* event) override;

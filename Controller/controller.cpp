@@ -221,6 +221,19 @@ void Controller::updateHeadingFromCtrlTable(double headingDeg) {
 }
 
 void Controller::onBITReport(BITReport res) {
+    static quint64 s_bitLogCount = 0;
+    ++s_bitLogCount;
+    if (s_bitLogCount <= 3 || s_bitLogCount % 100 == 0) {
+        LOG_INFO(QString("[Controller] BIT report: radarId=%1 yawDeg=%2 scanAngleDeg=%3")
+                 .arg(res.radarId)
+                 .arg(res.yaw * 0.01, 0, 'f', 2)
+                 .arg(res.scanAngle * 0.01, 0, 'f', 2));
+    }
+    if (res.radarId < RADAR_ID_MIN || res.radarId > RADAR_ID_MAX) {
+        LOG_WARNING(QString("[Controller] Invalid radarId=%1 in BIT report")
+                    .arg(res.radarId));
+    }
+
     // qDebug() << "[Controller] onBITReport called - yaw:" << res.yaw
     //          << "scanAngle:" << res.scanAngle;
 

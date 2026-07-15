@@ -419,6 +419,15 @@
 | 信号处理软件状态   | uchar  | 0 正常 /1 异常 /2 启动成功 /3 启动失败     |
 | 目标识别软件状态   | uchar  | 0 正常 /1 异常 /2 启动成功 /3 启动失败     |
 
+## 2026-07-14 protocol update
+
+- `0xDD01` point reports now use the documented 56-byte point record: the last 8 bytes are `targetConfidence` (`float`) and `targetRecResult` (`uint`). The frame-level `radarId` is in the range `0..3` and is copied into `PointInfo::radarId`.
+- `0xDE02` BIT reports now include `radarId` immediately before the reserve area. The reserve area is 21 bytes, so the packed `BITReport` size remains 39 bytes.
+- `0xEE01`, `0xEE02`, and `0xEE03` track reports were kept in the existing layout: `mesID` + `trackNum` + `N * trackInfo`. The field sum of `trackInfo` is 61 bytes, although the 2026-07-14 table says 58 bytes. These tables do not define a radar/array ID, so track frames cannot be separated by radar ID until that field position and size are specified by the protocol owner. Legacy track decoding therefore remains unchanged and uses radar ID 0 internally.
+- The 2026-07-03 external-control document adds fields inside the existing opaque 512-byte system-control table. `ExternalSystemControl512` remains a pass-through buffer; no external frame-size change is required in the display controller.
+- `Basic/Protocol.h` contains size assertions for the byte-level structures. Invalid DD01 radar IDs are logged, and DD01/DE02 receive logs include the radar ID for field troubleshooting.
+- Health management now keeps four independent `BITReport` caches and presents four tabs (`radarId` 0..3). Software status remains shared; hardware BIT, temperature, yaw, scan angle, and last-report time are updated per array.
+
 ## 备注
 
 - 控制表固定 512B，与外部通信协议一致。

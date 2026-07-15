@@ -2086,6 +2086,37 @@ PhotoElectricParam QLineEdit {
     border-radius: 4px;
 }
 
+/* 三维航迹显示：工具栏由 Qt 绘制，场景主题由 track3d.css 保持同色系。 */
+#Track3DWidget {
+    background-color: rgb(10, 16, 16);
+}
+
+#Track3DToolBar {
+    background-color: rgba(16, 24, 24, 0.92);
+    border-bottom: 1px solid rgba(0, 255, 136, 0.35);
+}
+
+#Track3DToolBar QLabel {
+    color: #66ffcc;
+    background-color: transparent;
+}
+
+#Track3DToolBar QPushButton {
+    color: #00ff88;
+    background-color: rgba(0, 255, 136, 0.15);
+    border: 1px solid #00ff88;
+    border-radius: 2px;
+    padding: 3px 10px;
+}
+
+#Track3DToolBar QPushButton:hover {
+    background-color: rgba(0, 255, 136, 0.28);
+}
+
+#Track3DToolBar QPushButton:pressed {
+    background-color: rgba(0, 255, 136, 0.10);
+}
+
 /* =============================================================================
  * ScreenRecorderWidget 录屏回放窗口样式
  * =============================================================================

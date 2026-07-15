@@ -27,5 +27,11 @@
         <file>resources/icon/hand.png</file>
         <file>resources/icon/meas.png</file>
         <file>resources/icon/reset.png</file>
+        <file alias="track3d/index.html">resources/web/track3d/index.html</file>
+        <file alias="track3d/track3d.css">resources/web/track3d/track3d.css</file>
+        <file alias="track3d/track3d.js">resources/web/track3d/track3d.js</file>
+        <file alias="track3d/three.min.js">resources/web/track3d/three.min.js</file>
+        <file alias="track3d/OrbitControls.js">resources/web/track3d/OrbitControls.js</file>
+        <file alias="track3d/THREE-LICENSE.txt">resources/web/track3d/THREE-LICENSE.txt</file>
     </qresource>
 </RCC>

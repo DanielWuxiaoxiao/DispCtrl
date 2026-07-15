@@ -397,6 +397,9 @@ ExternalCtrlManager::externalCtrlLog(QString)     // 日志
 - 关键接口（`rangeazimuthchart.h`）：`addDetectionPoint/addTrackPoint/addPointInfo`、`setDetection/TrackVisible`、`setDetection/TrackSizeRatio`、`setRangeFromMain`、`setAzimuthRange`(支持跨0°)、`clearRadarData`、`setMaxDetectionPoints`。
 - 同步：主PPI `PolarAxis::rangeChanged → setRangeFromMain`；`MousePositionInfo` spinbox/checkbox → 三路视图统一大小/显隐；`DetManager::setMaxPoints` → 各路 `setMaxDetectionPoints`。
 - 配置 `[rangeAzimuthDisp.angle] min/max`；QSS 对象名 `#RangeAzimuthChartToolBar`、`#RangeAzimuthChart`。
+- `3D显`：`Track3DWidget` 使用 Qt WebEngine + WebChannel 承载随程序资源打包的 Three.js r128，仅保留 `(PointInfo.type, batch)` 对应的最新航迹点；普通/TBD/协同、无人机筛选、点大小、显清和离线 RAE 直投均与 P/B/H 显同步，不接收检测点、不保存历史轨迹线。
+- 三维坐标：水平距离为 `range*cos(elevation)`，X=东向、Z=北向、Y=`altitute`；水平范围同步 PPI，垂直范围同步 H显。Web 端独立归一化三轴但保持真实单位标签，范围外航迹仍保留在 C++ 最新点模型中。
+- 3D 性能/稳定性：C++ 以 50ms 合并 WebChannel 增量，隐藏页仅维护最新模型并在恢复时发送快照；JS 按颜色批量使用 `THREE.Points/BufferGeometry` 且按需渲染。WebEngine 页面/渲染进程首次异常限次重载，再次失败显示占位并写文件日志。
 
 ### 8. 多通道航迹显示开关（2026-05-09）
 - 通道：TBD `0xEE02`(`6010→8010`)、协同 `0xEE03`(`6020→8020`，复用 `TBDTrackHead+TBDTrackInfo+TBDPoint`)；`PointInfo.type` 新增 `CooperativeTrackPointType=4`。
@@ -800,6 +803,11 @@ dataToScene            # RangeAzimuth坐标转换
 - **两类脚本数据入口**：`offline_rae.enabled=true` 时在右侧功能按钮区动态显示 `ADSB点迹` 和 `对比点迹` 两个按钮，分别读取 `adsb_file` / `compare_file`。默认点击前显清，按数据最大距离自动扩大量程，日志写入文件并同步到显控日志区。
 - **MATLAB导出脚本**：新增 `matlabScript/export_rae_bins.m`，按 `adsb.m` 和 `compare.m` 的筛选逻辑导出 `adsb_rae.bin` / `compare_rae.bin`。二进制记录包含 `timestamp_ms/type/batch/range_m/azimuth_deg/elevation_deg/snr/speed/amp/targetRecResult`，距离默认从 km 转 m；离线轨迹统一按航迹绘制，颜色码与 MATLAB 一致：101=青色、102=红色、103=蓝色。离线轨迹跳过 batch 标签和 `max_track_points` 截断。
 
+### v5.28 (2026-07-10)
+- **3D最新航迹显示**：B显/H显后新增可分离的`3D显`，使用本地 Three.js r128 + `QWebEngineView/QWebChannel` 显示当前量程和H显高度范围内的最新航迹点，支持拖动旋转、滚轮缩放、视角复位和悬停详情。
+- **统一数据语义**：以`type+batch`为航迹键，`statMethod==2`精确消批；颜色、显隐、无人机模式、点大小、显清和离线RAE直投与现有显示同步。三维物理坐标采用水平投影距离与协议目标高度，Web端只负责归一化和批量渲染。
+- **限频和容错**：航迹增量最多20批/秒，隐藏页停止跨进程推送，WebGL资源全部由qrc离线打包；渲染进程异常采用一次重载后降级占位策略。新增可选`DISPCTRL_BUILD_TESTS`坐标换算QTest。
+
 ---
 
 ## 联系与贡献
@@ -810,6 +818,17 @@ dataToScene            # RangeAzimuth坐标转换
   - 统一 clang-format 风格
   - 关键模块需有单元测试
   - 提交信息：简短主题 + 关键说明
+
+---
+
+### v5.29 (2026-07-14)
+- **X576 internal protocol 2026-07-14**: `0xDD01` now decodes the documented 56-byte point record tail as `targetConfidence` plus `targetRecResult`; the frame-level `radarId` (`0..3`) is carried into `PointInfo::radarId`. `0xDE02` adds the documented `radarId` before a 21-byte reserve area while preserving the packed 39-byte report size.
+- **Track-frame compatibility**: `0xEE01/EE02/EE03` remain `mesID + trackNum + N * trackInfo` because the updated tables do not specify a radar/array ID field. The table's 58-byte note conflicts with the field sum and the implementation layout of 61 bytes. The receiver does not guess an ID position; track multi-array separation requires a follow-up protocol definition.
+- **External control compatibility**: the 2026-07-03 additions are inside the existing opaque 512-byte system-control table, so `ExternalSystemControl512` remains pass-through and the outer frame does not change.
+- **Validation**: `Basic/Protocol.h` has compile-time size assertions for DD01 point records, EE track records, and DE02 BIT reports; receive logs identify DD01/DE02 radar IDs and reject out-of-range DD01 IDs with a warning.
+
+### v5.30 (2026-07-14)
+- **Four-array health management**: `MainOverLayOut` caches `BITReport` by `radarId` and the health window now contains four array tabs (`0..3`). Software status remains shared, while each tab has independent hardware BIT buttons, temperatures, yaw/scan angles, and last-report time. Tab switching rebinds the existing update path to the selected array cache.
 
 ---
 

@@ -7,6 +7,7 @@
  * @Description: 
  */
 #include "sig2dispmanager.h"
+#include "Basic/log.h"
 #include "UDP/threadudpsocket.h"
 #include "controller.h"
 #include "RadarDataManager.h"  // 雷达数据管理器头文件
@@ -57,7 +58,8 @@ void sig2dispmanager::detInfoDecode(QByteArray data)
 {
     // 基本长度校验：帧头+msgID+控制表(512)+雷达ID+数量字段
     const int kMinSize = static_cast<int>(sizeof(ProtocolFrame) + sizeof(unsigned short) + 512
-                                          + sizeof(unsigned char) + sizeof(unsigned short));
+                                          + sizeof(unsigned char) + sizeof(unsigned short)
+                                          + sizeof(ProtocolEnd));
     if (data.size() < kMinSize) {
         return;
     }
@@ -85,17 +87,24 @@ void sig2dispmanager::detInfoDecode(QByteArray data)
     // 跳过控制表并读取雷达ID
     rawData += controlLen;
     auto radarId = *reinterpret_cast<const unsigned char*>(rawData);
-    Q_UNUSED(radarId);
+    if (radarId < RADAR_ID_MIN || radarId > RADAR_ID_MAX) {
+        LOG_WARNING(QString("[Sig2DispManager] Invalid radarId=%1 in detection frame")
+                    .arg(radarId));
+    }
     rawData += sizeof(unsigned char);
     // 读取点迹数量
     auto detNum = *reinterpret_cast<const unsigned short*>(rawData);
     rawData += sizeof(unsigned short);
     // 根据剩余长度修正 detNum，防止越界
-    const auto remaining = data.size() - static_cast<int>(rawData - data.constData());
+    const char* end = data.constData() + data.size() - sizeof(ProtocolEnd);
+    const auto remaining = end - rawData;
     const auto maxDet = remaining / static_cast<int>(sizeof(detInfo));
     if (detNum > maxDet) {
         detNum = static_cast<unsigned short>(maxDet);
     }
+    const detInfo* firstDet = detNum > 0
+        ? reinterpret_cast<const detInfo*>(rawData)
+        : nullptr;
     PointInfo info;
 
     for(int i =0; i<detNum; i++)
@@ -110,7 +119,9 @@ void sig2dispmanager::detInfoDecode(QByteArray data)
         info.speed = detPointInfo->vel;
         info.altitute = detPointInfo->altitute;
         info.amp = detPointInfo->amp;
-        info.targetRecResult = 0;  // 检测点无识别结果
+        info.targetConfidence = detPointInfo->targetConfidence;
+        info.targetRecResult = detPointInfo->targetRecResult;
+        info.radarId = radarId;
 
         // 使用新的统一数据管理器
         RADAR_DATA_MGR.processDetection(info);
@@ -119,6 +130,17 @@ void sig2dispmanager::detInfoDecode(QByteArray data)
         emit detInfoProcess(info);
 
         rawData += sizeof(detInfo);
+    }
+
+    static quint64 s_detFrameLogCount = 0;
+    ++s_detFrameLogCount;
+    if (s_detFrameLogCount <= 3 || s_detFrameLogCount % 100 == 0) {
+        LOG_INFO(QString("[Sig2DispManager] Decoded detection frame: radarId=%1 detections=%2 size=%3 firstConfidence=%4 firstTargetRec=%5")
+                 .arg(radarId)
+                 .arg(detNum)
+                 .arg(data.size())
+                 .arg(firstDet ? firstDet->targetConfidence : 0.0f, 0, 'f', 3)
+                 .arg(firstDet ? firstDet->targetRecResult : 0));
     }
 }
 

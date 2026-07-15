@@ -606,6 +606,8 @@ void RangeHeightChart::setRangeFromMain(double minRange, double maxRange)
 
 void RangeHeightChart::setHeightRange(double minHeight, double maxHeight)
 {
+    const bool changed = !qFuzzyCompare(m_minHeight + 1.0, minHeight + 1.0)
+        || !qFuzzyCompare(m_maxHeight + 1.0, maxHeight + 1.0);
     m_minHeight = minHeight;
     m_maxHeight = maxHeight;
 
@@ -632,6 +634,9 @@ void RangeHeightChart::setHeightRange(double minHeight, double maxHeight)
     refreshAllPoints();
     if (m_batchItem) {
         m_batchItem->refreshGeometry();
+    }
+    if (changed) {
+        emit heightRangeChanged(minHeight, maxHeight);
     }
 }
 

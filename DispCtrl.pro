@@ -138,6 +138,8 @@ SOURCES += \
     PolarDisp/sectorwidget.cpp \
     PolarDisp/rangeazimuthwidget.cpp \
     PolarDisp/rangeazimuthchart.cpp \
+    PolarDisp/rangeheightchart.cpp \
+    PolarDisp/track3dwidget.cpp \
     PolarDisp/tooltip.cpp \
     PolarDisp/zoomview.cpp \
     \
@@ -237,6 +239,9 @@ HEADERS += \
     PolarDisp/sectorwidget.h \
     PolarDisp/rangeazimuthwidget.h \
     PolarDisp/rangeazimuthchart.h \
+    PolarDisp/rangeheightchart.h \
+    PolarDisp/track3dcoordinate.h \
+    PolarDisp/track3dwidget.h \
     PolarDisp/tooltip.h \
     PolarDisp/zoomview.h \
     \

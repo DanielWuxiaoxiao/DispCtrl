@@ -59,6 +59,7 @@
 #include "PolarDisp/sectorwidget.h"
 #include "PolarDisp/rangeazimuthchart.h"
 #include "PolarDisp/rangeheightchart.h"
+#include "PolarDisp/track3dwidget.h"
 #include "PolarDisp/zoomview.h"
 #include "paramWidget/batterycontrol.h"
 #include "paramWidget/dataprocessui.h"
@@ -219,6 +220,8 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
 
     // 初始化健康管理窗口指针
     m_healthWindow = nullptr;
+    m_healthTabs = nullptr;
+    m_activeHealthPanel = 0;
     m_sigProBtn = nullptr;
     m_dataProBtn = nullptr;
     m_beamConBtn = nullptr;
@@ -390,6 +393,9 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
             if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
                 m_rangeHeightWidget->chart()->setTrackVisible(visible);
             }
+            if (m_track3DWidget) {
+                m_track3DWidget->setTrackVisible(visible);
+            }
         });
 
         if (CF_INS.iftbd(false)) {
@@ -406,6 +412,9 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
                 }
                 if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
                     m_rangeHeightWidget->chart()->setTbdTrackVisible(visible);
+                }
+                if (m_track3DWidget) {
+                    m_track3DWidget->setTbdTrackVisible(visible);
                 }
             });
         }
@@ -424,6 +433,9 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
                 }
                 if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
                     m_rangeHeightWidget->chart()->setCooperativeTrackVisible(visible);
+                }
+                if (m_track3DWidget) {
+                    m_track3DWidget->setCooperativeTrackVisible(visible);
                 }
             });
         }
@@ -466,6 +478,9 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
             }
             if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
                 m_rangeHeightWidget->chart()->setTrackSizeRatio(ratio);
+            }
+            if (m_track3DWidget) {
+                m_track3DWidget->setTrackSizeRatio(ratio);
             }
         });
 
@@ -608,6 +623,14 @@ void MainOverLayOut::mainPView() {
     }
     m_rangeAzimuthWidget = new RangeAzimuthChartWidget(this);  // 新的直角坐标系图表显示
     m_rangeHeightWidget = new RangeHeightChartWidget(this);    // 新的距离-高度图表显示
+    m_track3DWidget = new Track3DWidget(this);                  // 三维最新航迹显示
+
+    if (m_rangeHeightWidget && m_rangeHeightWidget->chart() && m_track3DWidget) {
+        connect(m_rangeHeightWidget->chart(), &RangeHeightChart::heightRangeChanged,
+                m_track3DWidget, &Track3DWidget::setHeightRange);
+        m_track3DWidget->setHeightRange(m_rangeHeightWidget->chart()->minHeight(),
+                                        m_rangeHeightWidget->chart()->maxHeight());
+    }
 
     // 从配置文件读取并应用初始最大检测点数量
     if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
@@ -643,11 +666,14 @@ void MainOverLayOut::mainPView() {
         "B显", m_rangeAzimuthWidget, QIcon(":/resources/icon/radararray.png"), this);
     DetachableWidget* rangeHeightDetachable = new DetachableWidget(
         "高显", m_rangeHeightWidget, QIcon(":/resources/icon/radararray.png"), this);
+    DetachableWidget* track3DDetachable = new DetachableWidget(
+        "3D显", m_track3DWidget, QIcon(":/resources/icon/radararray.png"), this);
 
     // 添加到TabWidget
     //displayTabWidget->addTab(sectorDetachable, "扇区显示");
     displayTabWidget->addTab(rangeAzDetachable, "B显");
     displayTabWidget->addTab(rangeHeightDetachable, "H显");
+    displayTabWidget->addTab(track3DDetachable, "3D显");
 
     // 将TabWidget添加到布局
     QVBoxLayout* layout2 = new QVBoxLayout(ui->pviewSectorW);
@@ -697,6 +723,9 @@ void MainOverLayOut::mainPView() {
             if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
                 m_rangeHeightWidget->chart()->addPointInfo(info);
             }
+            if (m_track3DWidget) {
+                m_track3DWidget->addPointInfo(info);
+            }
         });
 
         // 连接TBD航迹数据到距离-方位图表
@@ -708,6 +737,9 @@ void MainOverLayOut::mainPView() {
                 }
                 if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
                     m_rangeHeightWidget->chart()->addPointInfo(info);
+                }
+                if (m_track3DWidget) {
+                    m_track3DWidget->addPointInfo(info);
                 }
             });
         }
@@ -721,6 +753,9 @@ void MainOverLayOut::mainPView() {
                 if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
                     m_rangeHeightWidget->chart()->addPointInfo(info);
                 }
+                if (m_track3DWidget) {
+                    m_track3DWidget->addPointInfo(info);
+                }
             });
         }
     }
@@ -733,6 +768,10 @@ void MainOverLayOut::mainPView() {
         if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
             connect(mView, &PPIView::clearDisplayTriggered,
                     m_rangeHeightWidget->chart(), &RangeHeightChart::clearRadarData);
+        }
+        if (m_track3DWidget) {
+            connect(mView, &PPIView::clearDisplayTriggered,
+                    m_track3DWidget, &Track3DWidget::clearRadarData);
         }
 
         // ========== 连接最大检测点数量变化到距离-方位图表 ==========
@@ -776,6 +815,9 @@ void MainOverLayOut::mainPView() {
             if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
                 m_rangeHeightWidget->chart()->setRangeFromMain(min, max);
             }
+            if (m_track3DWidget) {
+                m_track3DWidget->setRangeFromMain(min, max);
+            }
         });
 
         // 同步到扇区显示
@@ -800,6 +842,9 @@ void MainOverLayOut::mainPView() {
         }
         if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
             m_rangeHeightWidget->chart()->setRangeFromMain(minR, maxR);
+        }
+        if (m_track3DWidget) {
+            m_track3DWidget->setRangeFromMain(minR, maxR);
         }
         if (m_sectorWidget && m_sectorWidget->scene() && m_sectorWidget->scene()->axis()) {
             m_sectorWidget->scene()->axis()->setRange(minR, maxR);
@@ -1303,6 +1348,9 @@ void MainOverLayOut::applyTrackTabDisplayMode() {
     if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
         m_rangeHeightWidget->chart()->setOnlyRecognizedDroneTracksVisible(droneTabActive);
     }
+    if (m_track3DWidget) {
+        m_track3DWidget->setOnlyRecognizedDroneTracksVisible(droneTabActive);
+    }
 
     MousePositionInfo* posInfo = mView ? mView->getMousePositionInfo() : nullptr;
     const bool trackVisible = posInfo ? posInfo->isTrackVisible() : true;
@@ -1329,6 +1377,11 @@ void MainOverLayOut::applyTrackTabDisplayMode() {
         m_rangeHeightWidget->chart()->setTrackVisible(normalTrackDisplay);
         m_rangeHeightWidget->chart()->setTbdTrackVisible(specialTrackDisplay && tbdVisible);
         m_rangeHeightWidget->chart()->setCooperativeTrackVisible(specialTrackDisplay && cooperativeVisible);
+    }
+    if (m_track3DWidget) {
+        m_track3DWidget->setTrackVisible(normalTrackDisplay);
+        m_track3DWidget->setTbdTrackVisible(specialTrackDisplay && tbdVisible);
+        m_track3DWidget->setCooperativeTrackVisible(specialTrackDisplay && cooperativeVisible);
     }
 }
 
@@ -1609,6 +1662,29 @@ void MainOverLayOut::onStartSoftwareClicked() {
  * @brief 更新健康管理窗口的实时显示
  * @details 根据最新的 MonitorParam 和 BITReport 数据更新窗口内容
  */
+void MainOverLayOut::bindHealthPanel(int panelId)
+{
+    if (panelId < 0 || panelId >= kRadarPanelCount) {
+        return;
+    }
+
+    const HealthPanelWidgets& widgets = m_healthPanelWidgets[panelId];
+    m_activeHealthPanel = panelId;
+    m_btnTxOpen = widgets.txOpen;
+    m_btnDutyCycle = widgets.dutyCycle;
+    m_btnPulseWidth = widgets.pulseWidth;
+    m_btnRxOpen = widgets.rxOpen;
+    m_btnFreqSrc = widgets.freqSrc;
+    m_btnDigBoard = widgets.digBoard;
+    m_btnServo = widgets.servo;
+    m_btnBeidou = widgets.beidou;
+    m_btnBluetooth = widgets.bluetooth;
+    m_btnPowerBoard = widgets.powerBoard;
+    m_tempLabel = widgets.tempLabel;
+    m_angleLabel = widgets.angleLabel;
+    m_lastBITReport = m_bitReports[panelId];
+}
+
 void MainOverLayOut::updateHealthWindow()
 {
     // 如果窗口不存在或不可见，直接返回
@@ -1828,6 +1904,19 @@ void MainOverLayOut::updateHealthWindow()
                                 .arg(m_lastBITReport.yaw * 0.01, 0, 'f', 2)
                                 .arg(m_lastBITReport.scanAngle * 0.01, 0, 'f', 2);
         m_angleLabel->setText(angleInfo);
+    }
+
+    QLabel* lastUpdateLabel = m_healthPanelWidgets[m_activeHealthPanel].lastUpdateLabel;
+    if (lastUpdateLabel) {
+        const QDateTime& reportTime = m_bitReportTimes[m_activeHealthPanel];
+        if (reportTime.isValid()) {
+            lastUpdateLabel->setText(QString("阵面 %1 最后 BIT 上报: %2")
+                                     .arg(m_activeHealthPanel)
+                                     .arg(reportTime.toString("yyyy-MM-dd HH:mm:ss")));
+        } else {
+            lastUpdateLabel->setText(QString("阵面 %1 尚未收到 BIT 上报")
+                                     .arg(m_activeHealthPanel));
+        }
     }
 }
 
@@ -2579,10 +2668,21 @@ void MainOverLayOut::onServoCtrlRet(ServoCtrlRet res) {
 
 void MainOverLayOut::onBITReport(BITReport res) {
     // 保存最新的BIT报告（始终保存，用于健康管理窗口实时显示）
-    m_lastBITReport = res;
+    if (res.radarId < RADAR_ID_MIN || res.radarId > RADAR_ID_MAX) {
+        LOG_WARNING(QString("[MainOverLayOut] Ignore BIT report with invalid radarId=%1")
+                    .arg(res.radarId));
+        return;
+    }
+
+    const int panelId = static_cast<int>(res.radarId);
+    m_bitReports[panelId] = res;
 
     // 检查是否需要更新日志和界面（1分钟更新一次）
     QDateTime currentTime = QDateTime::currentDateTime();
+    m_bitReportTimes[panelId] = currentTime;
+    if (panelId == m_activeHealthPanel) {
+        m_lastBITReport = res;
+    }
     bool shouldUpdate = false;
 
     if (!m_lastBITUpdateTime.isValid() ||
@@ -2604,7 +2704,8 @@ void MainOverLayOut::onBITReport(BITReport res) {
             if (i != 4) subArrayInfo += ",";
         }
 
-        logCommand("BIT上报", QString("power=%1 fpga=%2°C panel=%3°C yaw=%4° sub=%5")
+        logCommand("BIT上报", QString("radarId=%1 power=%2 fpga=%3°C panel=%4°C yaw=%5° sub=%6")
+                                  .arg(res.radarId)
                                   .arg(powerState)
                                   .arg(QString::number(fpgaTemp, 'f', 1))
                                   .arg(QString::number(panelTemp, 'f', 1))
@@ -2638,6 +2739,8 @@ void MainOverLayOut::onRadarSystemClicked() {
     // 连接窗口关闭信号，清空指针
     connect(m_healthWindow, &QObject::destroyed, this, [this]() {
         m_healthWindow = nullptr;
+        m_healthTabs = nullptr;
+        m_activeHealthPanel = 0;
         m_sigProBtn = nullptr;
         m_dataProBtn = nullptr;
         m_beamConBtn = nullptr;
@@ -2654,6 +2757,9 @@ void MainOverLayOut::onRadarSystemClicked() {
         m_btnPowerBoard = nullptr;
         m_tempLabel = nullptr;
         m_angleLabel = nullptr;
+        for (auto& widgets : m_healthPanelWidgets) {
+            widgets = HealthPanelWidgets{};
+        }
     });
 
     // 创建内容Widget
@@ -2689,82 +2795,92 @@ void MainOverLayOut::onRadarSystemClicked() {
     mainLayout->addWidget(m_beamConBtn);
     mainLayout->addWidget(m_targetRecBtn);
 
-    // ===== BIT状态区域 =====
+    // ===== 四个阵面 BIT 状态页 =====
     mainLayout->addSpacing(20);
-    QLabel* bitLabel = new QLabel("BIT 状态信息", contentWidget);
+    QLabel* bitLabel = new QLabel("阵面健康状态", contentWidget);
     bitLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #66ffcc;");
     mainLayout->addWidget(bitLabel);
 
-    // 创建BIT状态网格布局
-    QGridLayout* bitGrid = new QGridLayout();
-    bitGrid->setSpacing(10);
+    m_healthTabs = new QTabWidget(contentWidget);
+    m_healthTabs->setDocumentMode(true);
+    m_healthTabs->setMinimumHeight(430);
 
-    // 创建BIT状态按钮
-    m_btnTxOpen = new QPushButton("阵面发射", contentWidget);
-    m_btnTxOpen->setEnabled(false);
-    bitGrid->addWidget(m_btnTxOpen, 0, 0);
+    for (int panelId = 0; panelId < kRadarPanelCount; ++panelId) {
+        QWidget* panelPage = new QWidget(m_healthTabs);
+        QVBoxLayout* panelLayout = new QVBoxLayout(panelPage);
+        panelLayout->setContentsMargins(12, 12, 12, 12);
+        panelLayout->setSpacing(10);
 
-    m_btnDutyCycle = new QPushButton("占空比", contentWidget);
-    m_btnDutyCycle->setEnabled(false);
-    bitGrid->addWidget(m_btnDutyCycle, 0, 1);
+        QLabel* panelTitle = new QLabel(QString("阵面 %1 BIT 状态").arg(panelId), panelPage);
+        panelTitle->setStyleSheet("font-size: 16px; font-weight: bold; color: #66ffcc;");
+        panelLayout->addWidget(panelTitle);
 
-    m_btnPulseWidth = new QPushButton("脉宽", contentWidget);
-    m_btnPulseWidth->setEnabled(false);
-    bitGrid->addWidget(m_btnPulseWidth, 1, 0);
+        QGridLayout* bitGrid = new QGridLayout();
+        bitGrid->setSpacing(10);
+        auto makeBitButton = [panelPage](const QString& text) {
+            auto* button = new QPushButton(text, panelPage);
+            button->setEnabled(false);
+            button->setMinimumHeight(42);
+            return button;
+        };
 
-    m_btnRxOpen = new QPushButton("阵面接收", contentWidget);
-    m_btnRxOpen->setEnabled(false);
-    bitGrid->addWidget(m_btnRxOpen, 1, 1);
+        HealthPanelWidgets& widgets = m_healthPanelWidgets[panelId];
+        widgets.txOpen = makeBitButton("阵面发射");
+        widgets.dutyCycle = makeBitButton("占空比");
+        widgets.pulseWidth = makeBitButton("脉宽");
+        widgets.rxOpen = makeBitButton("阵面接收");
+        widgets.freqSrc = makeBitButton("频率源");
+        widgets.digBoard = makeBitButton("收发板");
+        widgets.servo = makeBitButton("伺服");
+        widgets.beidou = makeBitButton("北斗");
+        widgets.bluetooth = makeBitButton("蓝牙");
+        widgets.powerBoard = makeBitButton("波控板电源");
 
-    m_btnFreqSrc = new QPushButton("频率源", contentWidget);
-    m_btnFreqSrc->setEnabled(false);
-    bitGrid->addWidget(m_btnFreqSrc, 2, 0);
+        bitGrid->addWidget(widgets.txOpen, 0, 0);
+        bitGrid->addWidget(widgets.dutyCycle, 0, 1);
+        bitGrid->addWidget(widgets.pulseWidth, 1, 0);
+        bitGrid->addWidget(widgets.rxOpen, 1, 1);
+        bitGrid->addWidget(widgets.freqSrc, 2, 0);
+        bitGrid->addWidget(widgets.digBoard, 2, 1);
+        bitGrid->addWidget(widgets.servo, 3, 0);
+        bitGrid->addWidget(widgets.beidou, 3, 1);
+        bitGrid->addWidget(widgets.bluetooth, 4, 0);
+        bitGrid->addWidget(widgets.powerBoard, 4, 1);
+        panelLayout->addLayout(bitGrid);
 
-    m_btnDigBoard = new QPushButton("收发板", contentWidget);
-    m_btnDigBoard->setEnabled(false);
-    bitGrid->addWidget(m_btnDigBoard, 2, 1);
+        widgets.tempLabel = new QLabel("温度信息加载中...", panelPage);
+        widgets.tempLabel->setStyleSheet("font-size: 14px; color: #ffffff; padding: 8px;");
+        panelLayout->addWidget(widgets.tempLabel);
 
-    m_btnServo = new QPushButton("伺服", contentWidget);
-    m_btnServo->setEnabled(false);
-    bitGrid->addWidget(m_btnServo, 3, 0);
+        widgets.angleLabel = new QLabel("角度信息加载中...", panelPage);
+        widgets.angleLabel->setStyleSheet("font-size: 14px; color: #ffffff; padding: 8px;");
+        panelLayout->addWidget(widgets.angleLabel);
 
-    m_btnBeidou = new QPushButton("北斗", contentWidget);
-    m_btnBeidou->setEnabled(false);
-    bitGrid->addWidget(m_btnBeidou, 3, 1);
+        widgets.lastUpdateLabel = new QLabel("等待 BIT 上报...", panelPage);
+        widgets.lastUpdateLabel->setStyleSheet("font-size: 12px; color: #999999; padding: 8px;");
+        panelLayout->addWidget(widgets.lastUpdateLabel);
+        panelLayout->addStretch();
 
-    m_btnBluetooth = new QPushButton("蓝牙", contentWidget);
-    m_btnBluetooth->setEnabled(false);
-    bitGrid->addWidget(m_btnBluetooth, 4, 0);
+        m_bitReports[panelId].radarId = static_cast<unsigned char>(panelId);
+        m_healthTabs->addTab(panelPage, QString("阵面 %1").arg(panelId));
+    }
 
-    m_btnPowerBoard = new QPushButton("波控板电源", contentWidget);
-    m_btnPowerBoard->setEnabled(false);
-    bitGrid->addWidget(m_btnPowerBoard, 4, 1);
-
-    mainLayout->addLayout(bitGrid);
-
-    // ===== 温度和角度信息 =====
-    mainLayout->addSpacing(10);
-    QLabel* infoLabel = new QLabel("温度和角度信息", contentWidget);
-    infoLabel->setStyleSheet("font-size: 16px; font-weight: bold; color: #66ffcc;");
-    mainLayout->addWidget(infoLabel);
-
-    m_tempLabel = new QLabel("温度信息加载中...", contentWidget);
-    m_tempLabel->setStyleSheet("font-size: 14px; color: #ffffff; padding: 10px;");
-    mainLayout->addWidget(m_tempLabel);
-
-    m_angleLabel = new QLabel("角度信息加载中...", contentWidget);
-    m_angleLabel->setStyleSheet("font-size: 14px; color: #ffffff; padding: 10px;");
-    mainLayout->addWidget(m_angleLabel);
+    mainLayout->addWidget(m_healthTabs);
+    connect(m_healthTabs, &QTabWidget::currentChanged, this, [this](int index) {
+        bindHealthPanel(index);
+        updateHealthWindow();
+    });
+    bindHealthPanel(0);
 
     mainLayout->addStretch();
 
     // 设置内容
     m_healthWindow->setContentWidget(contentWidget);
 
-    // 首次更新显示
-    updateHealthWindow();
-
     m_healthWindow->show();
+
+    // 首次更新显示（窗口显示后允许 updateHealthWindow 刷新缓存数据）
+    updateHealthWindow();
 }
 
 /**
@@ -3152,6 +3268,9 @@ void MainOverLayOut::drawOfflineRaeDataset(const QString& filePath, const QStrin
         }
         if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
             m_rangeHeightWidget->chart()->addPointInfo(record.point);
+        }
+        if (m_track3DWidget) {
+            m_track3DWidget->addPointInfo(record.point);
         }
     }
 

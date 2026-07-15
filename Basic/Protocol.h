@@ -65,6 +65,8 @@ constexpr unsigned short PHOTO_GET_DISP_PORT = 21001;
 
 constexpr unsigned HEADCODE = 0xFA55FA55;
 constexpr unsigned ENDCODE = 0x55FA55FA;
+constexpr unsigned char RADAR_ID_MIN = 0;
+constexpr unsigned char RADAR_ID_MAX = 3;
 
 typedef struct _ProtocolFrame
 {
@@ -750,9 +752,10 @@ typedef struct _detInfo
     float eleBeam;
     unsigned disChannel;
     unsigned dopChannel;
-    unsigned reserve;
-    unsigned reserve1;
+    float targetConfidence;
+    unsigned targetRecResult;
 }detInfo;
+static_assert(sizeof(detInfo) == 56, "DD01 point record must remain 56 bytes");
 
 // 三类航迹通用帧头
 // 0xEE01: 常规航迹
@@ -798,6 +801,8 @@ typedef struct _trackInfo
     unsigned reserve1;
     unsigned reserve2;
 }trackInfo;
+// The documented field sum is 61 bytes; the protocol table's "58 bytes" note is inconsistent.
+static_assert(sizeof(trackInfo) == 61, "EE01/EE02/EE03 track record layout changed");
 
 // 伺服控制回送 0xDE01
 typedef struct _ServoCtrlRet
@@ -839,7 +844,8 @@ typedef struct _BITReport
     unsigned short yaw;         // 阵面偏航角度 [0,360]，0.01°量化
     unsigned char subArrayPower[5];  // 子阵电源BIT信息（36bit，5字节）
     unsigned short scanAngle;   // 扫描角度 [0,360]，0.01°量化（用于显控扫描线绘制）
-    unsigned char reserve[22];  // 预留22字节
+    unsigned char radarId;
+    unsigned char reserve[21];  // 预留21字节
 
     _BITReport()
     {
@@ -851,9 +857,11 @@ typedef struct _BITReport
         yaw = 0;
         memset(subArrayPower, 0, sizeof(subArrayPower));
         scanAngle = 0;
+        radarId = RADAR_ID_MIN;
         memset(reserve, 0, sizeof(reserve));
     }
 }BITReport;
+static_assert(sizeof(BITReport) == 39, "DE02 BIT report layout must remain 39 bytes");
 
 typedef struct _PointInfo
 {
@@ -867,7 +875,9 @@ typedef struct _PointInfo
     float amp;
     unsigned int batch;
     unsigned char statMethod;
-    unsigned targetRecResult;  // 目标识别结果：0=其它，1=无人机
+    unsigned targetRecResult;  // 0=other, 1=drone
+    float targetConfidence = 0.0f;
+    unsigned char radarId = RADAR_ID_MIN;  // DD01 radar/array ID; EE track frames have no ID field
 }PointInfo;
 
 enum PointType

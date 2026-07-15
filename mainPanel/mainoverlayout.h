@@ -42,6 +42,7 @@
 #include <QDateTime>
 #include <QTableWidget>
 #include <QTimer>
+#include <array>
 #include <functional>
 #include <vector>
 #include "ui_mainoverlayout.h"
@@ -54,6 +55,7 @@ class ZoomViewWidget; ///< 缩放视图控制器
 class SectorWidget;   ///< 扇区控制面板
 class RangeAzimuthChartWidget; ///< 距离-方位图表显示面板
 class RangeHeightChartWidget; ///< 距离-高度图表显示面板
+class Track3DWidget;   ///< 三维航迹显示面板
 class AzElRangeWidget; ///< 方位角和俯仰角范围控制部件
 class mainviewTopLeft; ///< PPI视图左上角控制面板
 class CustomComboBox;  ///< 自定义组合框
@@ -394,6 +396,7 @@ private:
     SectorWidget* m_sectorWidget = nullptr;     ///< 扇区显示控制器
     RangeAzimuthChartWidget* m_rangeAzimuthWidget; ///< 距离-方位图表显示控制器
     RangeHeightChartWidget* m_rangeHeightWidget; ///< 距离-高度图表显示控制器
+    Track3DWidget* m_track3DWidget = nullptr; ///< 三维航迹显示控制器
     AzElRangeWidget* m_azElRangeWidget; ///< 方位角和俯仰角范围控制器
     mainviewTopLeft* m_topLeftWidget;   ///< PPI视图左上角控制面板，用于联动偏航和倾角
     QSplitter* m_mainSplitter = nullptr;
@@ -529,10 +532,15 @@ private:
     int m_dataProSta;                    ///< 数据处理软件状态
     int m_beamConSta;                    ///< 波束调度软件状态
     int m_targetRecSta;                  ///< 目标识别软件状态
-    BITReport m_lastBITReport;           ///< 最新的BIT上报信息
+    static constexpr int kRadarPanelCount = 4;
+    BITReport m_lastBITReport;           ///< 当前选中阵面的BIT上报信息
+    std::array<BITReport, kRadarPanelCount> m_bitReports{};
+    std::array<QDateTime, kRadarPanelCount> m_bitReportTimes{};
 
     // 健康管理窗口相关
     CusWindow* m_healthWindow;           ///< 雷达系统健康管理窗口指针
+    QTabWidget* m_healthTabs = nullptr;  ///< 四个阵面健康信息页
+    int m_activeHealthPanel = 0;
     QPushButton* m_sigProBtn;            ///< 信号处理状态按钮
     QPushButton* m_dataProBtn;           ///< 数据处理状态按钮
     QPushButton* m_beamConBtn;           ///< 波束调度状态按钮
@@ -547,6 +555,23 @@ private:
     ScreenRecorderWidget* m_recorderWidget; ///< 录屏回放组件指针
     QToolButton* m_offlineAdsbButton = nullptr;    ///< adsb.m离线点迹绘制按钮
     QToolButton* m_offlineCompareButton = nullptr; ///< compare.m离线点迹绘制按钮
+
+    struct HealthPanelWidgets {
+        QPushButton* txOpen = nullptr;
+        QPushButton* dutyCycle = nullptr;
+        QPushButton* pulseWidth = nullptr;
+        QPushButton* rxOpen = nullptr;
+        QPushButton* freqSrc = nullptr;
+        QPushButton* digBoard = nullptr;
+        QPushButton* servo = nullptr;
+        QPushButton* beidou = nullptr;
+        QPushButton* bluetooth = nullptr;
+        QPushButton* powerBoard = nullptr;
+        QLabel* tempLabel = nullptr;
+        QLabel* angleLabel = nullptr;
+        QLabel* lastUpdateLabel = nullptr;
+    };
+    std::array<HealthPanelWidgets, kRadarPanelCount> m_healthPanelWidgets{};
 
     // BIT状态按钮
     QPushButton* m_btnTxOpen;            ///< 阵面发射开启状态
@@ -573,6 +598,7 @@ private:
      * @details 根据最新的监控参数和BIT信息更新窗口控件
      */
     void updateHealthWindow();
+    void bindHealthPanel(int panelId);
 
     // 雷达控制状态成员
     bool m_isTransmitting;               ///< 发射状态（true=发射开启，false=发射关闭）

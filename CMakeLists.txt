@@ -135,6 +135,7 @@ set(SRC_FILES
     PolarDisp/rangeazimuthwidget.cpp           # 距离-方位显示部件
     PolarDisp/rangeazimuthchart.cpp            # 距离-方位图表（直角坐标系）
     PolarDisp/rangeheightchart.cpp             # 距离-高度图表（直角坐标系）
+    PolarDisp/track3dwidget.cpp                 # 三维最新航迹显示（WebEngine + Three.js）
     PolarDisp/pviewtopleft.cpp                 # 左上角视图
     PolarDisp/mousepositioninfo.cpp            # 鼠标位置信息
     PolarDisp/ppivisualsettings.cpp            # PPI视觉设置
@@ -228,6 +229,8 @@ set(HDR_FILES
     # 主界面头文件
     mainwindow.h                               # 主窗口类定义
     PolarDisp/rangeheightchart.h               # 距离-高度图表
+    PolarDisp/track3dcoordinate.h               # 三维航迹物理坐标换算
+    PolarDisp/track3dwidget.h                   # 三维最新航迹显示
 
     # 控制模块头文件 - 数据流和业务逻辑
     Controller/targetdispmanager.h             # 目标显示管理器
@@ -379,6 +382,18 @@ add_executable(DispCtrl
 
 # 链接Qt库到DispCtrl目标
 target_link_libraries(DispCtrl PRIVATE ${QT_LIBS})
+
+option(DISPCTRL_BUILD_TESTS "Build focused DispCtrl QTest targets" OFF)
+if(DISPCTRL_BUILD_TESTS)
+    enable_testing()
+    find_package(Qt5 REQUIRED COMPONENTS Test)
+    add_executable(track3d_coordinate_test
+        tests/track3dcoordinate_test.cpp
+    )
+    target_include_directories(track3d_coordinate_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(track3d_coordinate_test PRIVATE Qt5::Core Qt5::Test)
+    add_test(NAME track3d_coordinate_test COMMAND track3d_coordinate_test)
+endif()
 
 ##############################################################################
 # 输出目录配置
