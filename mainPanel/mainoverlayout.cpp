@@ -650,9 +650,10 @@ void MainOverLayOut::mainPView() {
     QTabWidget* displayTabWidget = new QTabWidget(this);
     displayTabWidget->setObjectName("DisplayTabWidget");
 
-    // 设置Tab标签页稍微加宽，与darkstyle.qss样式保持一致
+    // 页签保留足够宽度，避免高 DPI 或较窄布局下中文标题被挤压。
     displayTabWidget->setStyleSheet(
         "QTabWidget#DisplayTabWidget QTabBar::tab { "
+        "    min-width: 58px; "
         "    padding: 4px 12px; "
         "}"
     );
@@ -1081,14 +1082,27 @@ void MainOverLayOut::setupTrackTable(QTableWidget* tableWidget, FrozenColumnHelp
     tableWidget->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
 
     QHeaderView* headerView = tableWidget->horizontalHeader();
+    // 初始列宽由 fitTrackTableColumnsToViewport 均匀分配；各列仍可手动调整。
     headerView->setStretchLastSection(false);
     headerView->setMinimumSectionSize(48);
     for (int i = 0; i < headers.size(); ++i) {
         headerView->setSectionResizeMode(i, QHeaderView::Interactive);
     }
+    tableWidget->setProperty("trackColumnsNeedInitialFit", true);
+    tableWidget->setProperty("trackColumnsUserResized", false);
+    tableWidget->setProperty("trackColumnsFitting", false);
+    connect(headerView, &QHeaderView::sectionResized, tableWidget,
+            [tableWidget](int, int, int) {
+                if (!tableWidget->property("trackColumnsFitting").toBool()) {
+                    tableWidget->setProperty("trackColumnsUserResized", true);
+                }
+            });
     fitTrackTableColumnsToViewport(tableWidget);
     QTimer::singleShot(0, tableWidget, [this, tableWidget]() {
-        fitTrackTableColumnsToViewport(tableWidget);
+        if (tableWidget->viewport()->width() > 0) {
+            fitTrackTableColumnsToViewport(tableWidget);
+            tableWidget->setProperty("trackColumnsNeedInitialFit", false);
+        }
     });
 
     frozenHelper = nullptr;
@@ -1100,31 +1114,27 @@ void MainOverLayOut::fitTrackTableColumnsToViewport(QTableWidget* tableWidget)
         return;
     }
 
-    const QList<int> baseWidths = {64, 58, 58, 58, 58, 58, 54, 70};
     const int minColumnWidth = tableWidget->horizontalHeader()->minimumSectionSize();
-    int baseTotal = 0;
-    int minTotal = 0;
-    for (int i = 0; i < tableWidget->columnCount(); ++i) {
-        baseTotal += baseWidths.value(i, minColumnWidth);
-        minTotal += minColumnWidth;
-    }
+    const int columnCount = tableWidget->columnCount();
+    const int minTotal = columnCount * minColumnWidth;
 
     const int viewportWidth = tableWidget->viewport()->width();
     const int targetWidth = qMax(viewportWidth, minTotal);
-    if (baseTotal <= 0 || targetWidth <= 0) {
+    if (columnCount <= 0 || targetWidth <= 0) {
         return;
     }
 
     int assignedWidth = 0;
-    for (int i = 0; i < tableWidget->columnCount(); ++i) {
-        const int baseWidth = baseWidths.value(i, minColumnWidth);
-        int width = qMax(minColumnWidth, (targetWidth * baseWidth) / baseTotal);
-        if (i == tableWidget->columnCount() - 1) {
+    tableWidget->setProperty("trackColumnsFitting", true);
+    for (int i = 0; i < columnCount; ++i) {
+        int width = qMax(minColumnWidth, targetWidth / columnCount);
+        if (i == columnCount - 1) {
             width = qMax(minColumnWidth, targetWidth - assignedWidth);
         }
         tableWidget->setColumnWidth(i, width);
         assignedWidth += width;
     }
+    tableWidget->setProperty("trackColumnsFitting", false);
 }
 
 void MainOverLayOut::syncFrozenTrackTables()
@@ -1334,6 +1344,17 @@ void MainOverLayOut::updateTargetClassification(unsigned int batchID, int target
 void MainOverLayOut::onTrackTabChanged(int index) {
     Q_UNUSED(index);
     applyTrackTabDisplayMode();
+
+    // 无人机页签初始不可见，首次切换后再按真实 viewport 宽度铺满列。
+    if (ui->trackTab->currentWidget() == ui->droneTrackTab &&
+        !ui->droneTableWidget->property("trackColumnsUserResized").toBool()) {
+        QTimer::singleShot(0, ui->droneTableWidget, [this]() {
+            if (ui->droneTableWidget->viewport()->width() > 0) {
+                fitTrackTableColumnsToViewport(ui->droneTableWidget);
+                ui->droneTableWidget->setProperty("trackColumnsNeedInitialFit", false);
+            }
+        });
+    }
 }
 
 void MainOverLayOut::applyTrackTabDisplayMode() {
@@ -1911,11 +1932,11 @@ void MainOverLayOut::updateHealthWindow()
         const QDateTime& reportTime = m_bitReportTimes[m_activeHealthPanel];
         if (reportTime.isValid()) {
             lastUpdateLabel->setText(QString("阵面 %1 最后 BIT 上报: %2")
-                                     .arg(m_activeHealthPanel)
+                                     .arg(m_activeHealthPanel + 1)
                                      .arg(reportTime.toString("yyyy-MM-dd HH:mm:ss")));
         } else {
             lastUpdateLabel->setText(QString("阵面 %1 尚未收到 BIT 上报")
-                                     .arg(m_activeHealthPanel));
+                                     .arg(m_activeHealthPanel + 1));
         }
     }
 }
@@ -2216,8 +2237,8 @@ void MainOverLayOut::onFreqControlClicked() {
 
     window->show();
 } /**
-   * @brief 打开电调控制对话框
-   * @details 配置波束控制参数
+   * @brief 打开阵面开启控制对话框
+   * @details 配置四个阵面的开启状态
    */
 void MainOverLayOut::onBatteryControlClicked() {
     // 创建自定义窗口，使用雷达图标
@@ -2240,8 +2261,15 @@ void MainOverLayOut::onBatteryControlClicked() {
     // 连接参数设置信号到Controller
     connect(dialog, &BatteryControl::setParam, CON_INS, &Controller::sendBCParam);
 
-    // 记录日志
-    connect(dialog, &BatteryControl::setParam, this, [this]() { logCommand("阵面开启控制", ""); });
+    // 记录四个阵面的实际下发状态
+    connect(dialog, &BatteryControl::setParam, this, [this](const BatteryControlM param) {
+        logCommand("阵面开启控制",
+                   QString("阵面1=%1, 阵面2=%2, 阵面3=%3, 阵面4=%4")
+                       .arg(param.quadrant1 ? QStringLiteral("开") : QStringLiteral("关"))
+                       .arg(param.quadrant2 ? QStringLiteral("开") : QStringLiteral("关"))
+                       .arg(param.quadrant3 ? QStringLiteral("开") : QStringLiteral("关"))
+                       .arg(param.quadrant4 ? QStringLiteral("开") : QStringLiteral("关")));
+    });
 
     window->show();
 }
@@ -2704,8 +2732,8 @@ void MainOverLayOut::onBITReport(BITReport res) {
             if (i != 4) subArrayInfo += ",";
         }
 
-        logCommand("BIT上报", QString("radarId=%1 power=%2 fpga=%3°C panel=%4°C yaw=%5° sub=%6")
-                                  .arg(res.radarId)
+        logCommand("BIT上报", QString("阵面ID=%1 power=%2 fpga=%3°C panel=%4°C yaw=%5° sub=%6")
+                                  .arg(panelId + 1)
                                   .arg(powerState)
                                   .arg(QString::number(fpgaTemp, 'f', 1))
                                   .arg(QString::number(panelTemp, 'f', 1))
@@ -2804,6 +2832,9 @@ void MainOverLayOut::onRadarSystemClicked() {
     m_healthTabs = new QTabWidget(contentWidget);
     m_healthTabs->setDocumentMode(true);
     m_healthTabs->setMinimumHeight(430);
+    m_healthTabs->setStyleSheet(
+        "QTabBar::tab { min-width: 72px; padding: 6px 10px; }"
+    );
 
     for (int panelId = 0; panelId < kRadarPanelCount; ++panelId) {
         QWidget* panelPage = new QWidget(m_healthTabs);
@@ -2811,7 +2842,7 @@ void MainOverLayOut::onRadarSystemClicked() {
         panelLayout->setContentsMargins(12, 12, 12, 12);
         panelLayout->setSpacing(10);
 
-        QLabel* panelTitle = new QLabel(QString("阵面 %1 BIT 状态").arg(panelId), panelPage);
+        QLabel* panelTitle = new QLabel(QString("阵面 %1 BIT 状态").arg(panelId + 1), panelPage);
         panelTitle->setStyleSheet("font-size: 16px; font-weight: bold; color: #66ffcc;");
         panelLayout->addWidget(panelTitle);
 
@@ -2862,7 +2893,7 @@ void MainOverLayOut::onRadarSystemClicked() {
         panelLayout->addStretch();
 
         m_bitReports[panelId].radarId = static_cast<unsigned char>(panelId);
-        m_healthTabs->addTab(panelPage, QString("阵面 %1").arg(panelId));
+        m_healthTabs->addTab(panelPage, QString("阵面 %1").arg(panelId + 1));
     }
 
     mainLayout->addWidget(m_healthTabs);
@@ -2998,6 +3029,7 @@ void MainOverLayOut::arrangeParamSettingsButtons()
     if (AuthManager::instance().isAdminMode()) {
         visibleButtons.append(ui->btnFreqControl);
     }
+    visibleButtons.append(ui->btnBatteryControl);
 
     for (int i = 0; i < visibleButtons.size(); ++i) {
         auto* btn = visibleButtons.at(i);
@@ -3312,8 +3344,14 @@ void MainOverLayOut::applyScaledSizes() {
     ui->setTab->setMinimumWidth(leftMinW);
     ui->setTab->setMaximumWidth(QWIDGETSIZE_MAX);
     ui->setTab->setMaximumHeight(setTabH);
+    ui->setTab->setStyleSheet(QString(
+        "QTabBar::tab { min-width: %1px; padding: 6px 10px; }"
+    ).arg(ScaleHelper::uiScaled(compact ? 104 : 116)));
     ui->trackTab->setMinimumWidth(leftMinW);
     ui->trackTab->setMaximumWidth(QWIDGETSIZE_MAX);
+    ui->trackTab->setStyleSheet(QString(
+        "QTabBar::tab { min-width: %1px; padding: 6px 10px; }"
+    ).arg(ScaleHelper::uiScaled(compact ? 142 : 156)));
 
     // --- 右侧 P显/扇区显示面板 ---
     const int rightMinW = ScaleHelper::uiScaled(compact ? 300 : 340);
@@ -3373,7 +3411,8 @@ void MainOverLayOut::applyScaledSizes() {
     QList<QPushButton*> radarBtns = {
         ui->btnStartSoftware, ui->btnStopSoftware,
         ui->btnTWSMode,       ui->btnTASMode,
-        ui->btnDataStorage,   ui->btnServoNorth,
+        ui->btnDataStorage,
+        ui->btnServoNorth,
         ui->btnRadarStandby,  ui->btnTransmitControl
     };
     for (auto* btn : radarBtns) {
@@ -3385,7 +3424,7 @@ void MainOverLayOut::applyScaledSizes() {
     QList<QPushButton*> paramBtns = {
         ui->btnDataProcess,   ui->btnSignalProcess,
         ui->btnServoControl,  ui->btnScanRange,
-        ui->btnFreqControl
+        ui->btnFreqControl,   ui->btnBatteryControl
     };
     for (auto* btn : paramBtns) {
         btn->setMinimumHeight(btnH);

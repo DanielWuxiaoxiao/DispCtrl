@@ -830,6 +830,26 @@ dataToScene            # RangeAzimuth坐标转换
 ### v5.30 (2026-07-14)
 - **Four-array health management**: `MainOverLayOut` caches `BITReport` by `radarId` and the health window now contains four array tabs (`0..3`). Software status remains shared, while each tab has independent hardware BIT buttons, temperatures, yaw/scan angles, and last-report time. Tab switching rebinds the existing update path to the selected array cache.
 
+### v5.31 (2026-07-14)
+- **Four-array PPI scan overlay**: `PolarDisp/ScanLayer` now caches the latest `BITReport` for each `radarId` and draws an independent dashed scan-sector boundary, solid scan line, and colored current-angle label for arrays `0..3`.
+  - The configured scan range remains in each array's local coordinates. At render time, each boundary and scan line is rotated by that array's `yaw` into the PPI north-referenced azimuth system (`global = yaw + local`).
+  - Array colors are used only by the scan overlay. Detection/track point colors, filtering, batch statistics, and table behavior remain unchanged.
+
+### v5.32 (2026-07-14)
+- **Four-array power control restored**: the existing `BatteryControl` dialog is visible from the parameter-settings tab. Its four checkboxes build one `BatteryControlM` command for arrays 1-4, send through `Controller::sendBCParam`, and write the four requested states to the command log. The button remains in the compact parameter-settings grid.
+
+### v5.33 (2026-07-14)
+- **Track table initial fill**: the hidden drone-track tab performs its first column-width fill after the tab becomes visible and its viewport has a real width. The last column also stretches to the viewport edge, while the other columns remain interactive for manual resizing.
+
+### v5.34 (2026-07-15)
+- **Multi-array BIT diagnostics and PPI rendering**: every received `BITReport` now logs all raw fields, decoded temperatures/angles, normalized angles, sub-array power bytes, and reserved bytes. PPI scan-range rendering uses the original shared translucent sector/afterglow; received arrays add separate color-coded scan lines using `yaw + scanAngle`, normalized to the north-referenced `0..360` range.
+
+### v5.35 (2026-07-15)
+- **Track table equal-width layout and scan labels**: normal and drone track tables initialize all columns with equal widths while keeping interactive manual resizing. Multi-array PPI scan lines again show the array ID, panel-local scan angle, and north-referenced angle in the corresponding array color.
+
+### v5.36 (2026-07-15)
+- **Display-only array numbering**: protocol and internal array indexes remain `radarId=0..3`, while all user-facing array labels use `1..4`.
+
 ---
 
 **文档结束**

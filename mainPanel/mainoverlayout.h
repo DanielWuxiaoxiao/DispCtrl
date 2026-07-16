@@ -307,8 +307,8 @@ private slots:
     void onFreqControlClicked();
 
     /**
-     * @brief 打开电调控制对话框
-     * @details 配置波束控制参数
+     * @brief 打开阵面开启控制对话框
+     * @details 配置四个阵面的开启状态
      */
     void onBatteryControlClicked();
 

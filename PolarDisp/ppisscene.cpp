@@ -49,7 +49,7 @@
  * 组件创建顺序：
  * - PolarAxis: 极坐标系统核心，提供坐标变换
  * - 显示组件: 通过initLayerObjects()创建
- * - ScanLayer: 雷达扫描线显示
+ * - ScanLayer: 四阵面扫描边界与扫描线显示
  *
  * 默认配置：
  * - 显示范围：从配置文件读取MIN_RANGE到MAX_RANGE
@@ -77,7 +77,8 @@ PPIScene::PPIScene(QObject *parent)
     m_scan->setSweepRange(-30, 30);    // 默认扫描范围（-30°~30°），后续会根据工作模式更新
     m_scan->setScanMode(ScanLayer::Loop);
 
-    // 连接BIT上报信号，实时更新扫描角度（波束指向）
+    // BIT carries per-array yaw and scan angle; ScanLayer renders each array
+    // in the common north-referenced PPI coordinate system.
     connect(CON_INS, &Controller::bitReport,
         m_scan, &ScanLayer::onBITReport);
 

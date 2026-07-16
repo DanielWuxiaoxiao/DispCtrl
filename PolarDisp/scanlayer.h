@@ -12,6 +12,7 @@
 #include <QGraphicsItem>
 #include <QTimer>
 #include <QObject>
+#include <array>
 #include "Basic/Protocol.h"
 
 class PolarAxis;
@@ -45,6 +46,17 @@ private slots:
     void advanceSweep();
 
 private:
+    struct PanelState {
+        bool received = false;
+        double yawDeg = 0.0;
+        double scanAngleDeg = 0.0;
+    };
+
+    static constexpr int kPanelCount = 4;
+
+    static double normalizeAngle(double deg);
+    double sweepSpan() const;
+
     /**
      * @brief 判断角度是否在扫描范围内
      * @param angle 待检查的角度
@@ -61,6 +73,10 @@ private:
     int m_direction = +1; // 1=顺时针，-1=逆时针  每次转动度数
 
     bool m_useRealTimeAngle = false; // 是否使用实时角度（来自BIT上报）
+
+    // Each panel keeps its own live BIT angle. The configured sweep range is
+    // shared in panel coordinates and rotated by the panel yaw at paint time.
+    std::array<PanelState, kPanelCount> m_panels{};
 };
 
 #endif // SCANLAYER_H

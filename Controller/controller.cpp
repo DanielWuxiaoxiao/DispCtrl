@@ -37,6 +37,7 @@
 #include "mon2dispmanager.h"
 #include "ExternalCtrlManager.h"
 #include "Basic/log.h"
+#include <cmath>
 
 // 全局静态单例实例定义
 Q_GLOBAL_STATIC(Controller, ControllerInstance)
@@ -221,17 +222,63 @@ void Controller::updateHeadingFromCtrlTable(double headingDeg) {
 }
 
 void Controller::onBITReport(BITReport res) {
-    static quint64 s_bitLogCount = 0;
-    ++s_bitLogCount;
-    if (s_bitLogCount <= 3 || s_bitLogCount % 100 == 0) {
-        LOG_INFO(QString("[Controller] BIT report: radarId=%1 yawDeg=%2 scanAngleDeg=%3")
-                 .arg(res.radarId)
-                 .arg(res.yaw * 0.01, 0, 'f', 2)
-                 .arg(res.scanAngle * 0.01, 0, 'f', 2));
+    QString subArrayPower;
+    for (int i = 0; i < static_cast<int>(sizeof(res.subArrayPower)); ++i) {
+        if (i > 0) {
+            subArrayPower += ' ';
+        }
+        subArrayPower += QStringLiteral("0x")
+                         + QString::number(static_cast<unsigned int>(res.subArrayPower[i]), 16)
+                               .rightJustified(2, QLatin1Char('0'));
     }
+
+    QString reserve;
+    for (int i = 0; i < static_cast<int>(sizeof(res.reserve)); ++i) {
+        if (i > 0) {
+            reserve += ' ';
+        }
+        reserve += QStringLiteral("0x")
+                   + QString::number(static_cast<unsigned int>(res.reserve[i]), 16)
+                         .rightJustified(2, QLatin1Char('0'));
+    }
+
+    const double yawDeg = res.yaw * 0.01;
+    const double scanAngleDeg = res.scanAngle * 0.01;
+    const double normalizedYawDeg = std::fmod(yawDeg + 360.0, 360.0);
+    const double normalizedScanAngleDeg = std::fmod(scanAngleDeg + 360.0, 360.0);
+    LOG_INFO(QString("[Controller] BIT report: mesID=0x%1 radarId=%2 "
+                     "bitGroup=0x%3 bitGroupBits=%4 powerState=0x%5 "
+                     "fpgaTempRaw=%6 fpgaTempDegC=%7 panelTempRaw=%8 panelTempDegC=%9 "
+                     "yawRaw=%10 yawDeg=%11 yawNormDeg=%12 "
+                     "subArrayPower=[%13] scanAngleRaw=%14 scanAngleDeg=%15 scanAngleNormDeg=%16 "
+                     "reserve=[%17]")
+                 .arg(res.mesID, 4, 16, QLatin1Char('0'))
+                 .arg(res.radarId)
+                 .arg(static_cast<unsigned int>(res.bitGroup), 2, 16, QLatin1Char('0'))
+                 .arg(static_cast<unsigned int>(res.bitGroup), 8, 2, QLatin1Char('0'))
+                 .arg(static_cast<unsigned int>(res.powerState), 2, 16, QLatin1Char('0'))
+                 .arg(res.fpgaTemp)
+                 .arg(res.fpgaTemp * 0.1, 0, 'f', 1)
+                 .arg(res.panelTemp)
+                 .arg(res.panelTemp * 0.1, 0, 'f', 1)
+                 .arg(res.yaw)
+                 .arg(yawDeg, 0, 'f', 2)
+                 .arg(normalizedYawDeg, 0, 'f', 2)
+                 .arg(subArrayPower)
+                 .arg(res.scanAngle)
+                 .arg(scanAngleDeg, 0, 'f', 2)
+                 .arg(normalizedScanAngleDeg, 0, 'f', 2)
+                 .arg(reserve));
+
     if (res.radarId < RADAR_ID_MIN || res.radarId > RADAR_ID_MAX) {
         LOG_WARNING(QString("[Controller] Invalid radarId=%1 in BIT report")
                     .arg(res.radarId));
+    }
+    if (res.yaw > 36000 || res.scanAngle > 36000) {
+        LOG_WARNING(QString("[Controller] BIT angle exceeds protocol range: radarId=%1 yawRaw=%2 scanAngleRaw=%3")
+                    .arg(res.radarId)
+                    .arg(res.yaw)
+                    .arg(res.scanAngle));
     }
 
     // qDebug() << "[Controller] onBITReport called - yaw:" << res.yaw
