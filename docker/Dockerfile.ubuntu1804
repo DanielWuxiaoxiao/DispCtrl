@@ -19,18 +19,31 @@ FROM ubuntu:18.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asia/Shanghai
 
+# Ubuntu 18.04 已结束标准支持，使用固定快照保证历史构建环境可重建。
+# old-releases 在当前环境已不再提供 bionic Release 文件。
+ARG UBUNTU_SNAPSHOT=20230327T000000Z
+RUN sed -i \
+        -e "s|http://archive.ubuntu.com/ubuntu/|https://snapshot.ubuntu.com/ubuntu/${UBUNTU_SNAPSHOT}/|g" \
+        -e "s|http://security.ubuntu.com/ubuntu/|https://snapshot.ubuntu.com/ubuntu/${UBUNTU_SNAPSHOT}/|g" \
+        -e "s|https://archive.ubuntu.com/ubuntu/|https://snapshot.ubuntu.com/ubuntu/${UBUNTU_SNAPSHOT}/|g" \
+        -e "s|https://security.ubuntu.com/ubuntu/|https://snapshot.ubuntu.com/ubuntu/${UBUNTU_SNAPSHOT}/|g" \
+        /etc/apt/sources.list
+
 # ---- 1) 添加 GCC 9 PPA 并安装工具链 ----
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        software-properties-common gpg-agent wget ca-certificates \
+RUN apt-get -o Acquire::https::Verify-Peer=false \
+        -o Acquire::https::Verify-Host=false update \
+    && apt-get -o Acquire::https::Verify-Peer=false \
+        -o Acquire::https::Verify-Host=false install -y --no-install-recommends \
+        ca-certificates software-properties-common gpg-agent wget \
+    && apt-get update \
     # GCC 9 PPA — C++17 完整支持
     && add-apt-repository ppa:ubuntu-toolchain-r/test -y \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
         # 编译工具链
-        gcc-9 g++-9 make pkg-config \
+        gcc-9 g++-9 make \
         # Qt/WebEngine 运行时系统依赖
-        libgl1-mesa-dev libxkbcommon-dev libxkbcommon-x11-0 libfontconfig1-dev \
+        libgl1-mesa-dev libxkbcommon0 libxkbcommon-x11-0 libfontconfig1 \
         libxcb-xinerama0 libxcb-icccm4 libxcb-image0 \
         libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
         libxcb-shape0 libxcb-xfixes0 libxcb-sync1 \
@@ -38,7 +51,7 @@ RUN apt-get update \
         libnss3 libasound2 libdbus-1-3 \
         libxcomposite1 libxdamage1 libxrandr2 libxtst6 libxss1 \
         # Qt5Network 依赖 Kerberos; WebEngineCore 依赖 Xcursor/Xi
-        libkrb5-dev libxcursor-dev libxi-dev \
+        libkrb5-3 libkrb5-dev libxcursor1 libxi6 \
         # RPATH 修补 + 打包
         patchelf tar gzip \
     # 设置 GCC 9 为默认编译器

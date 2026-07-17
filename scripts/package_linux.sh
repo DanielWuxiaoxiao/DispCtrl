@@ -9,7 +9,7 @@
 #   deploy/DispCtrl-linux-x64/          -- 独立部署目录
 #   deploy/DispCtrl-linux-x64.tar.gz    -- 压缩包
 ##############################################################################
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
@@ -17,6 +17,17 @@ BUILD_TYPE="${1:-Release}"
 BUILD_DIR="${PROJECT_DIR}/build/linux-${BUILD_TYPE,,}"
 DEPLOY_DIR="${PROJECT_DIR}/deploy/DispCtrl-linux-x64"
 APP_NAME="DispCtrl"
+
+require_command() {
+    if ! command -v "$1" >/dev/null 2>&1; then
+        echo "错误: 缺少命令 $1。请先安装 Linux 构建/打包依赖。" >&2
+        exit 1
+    fi
+}
+
+for command_name in qmake ldd tar gzip; do
+    require_command "$command_name"
+done
 
 echo "============================================"
 echo "  DispCtrl Linux Packaging"
@@ -36,6 +47,21 @@ done
 
 if [ -z "$APP_BINARY" ]; then
     echo "错误: 未找到编译产物。请先运行 build_linux.sh"
+    exit 1
+fi
+
+if [ ! -f "${PROJECT_DIR}/config.toml" ]; then
+    echo "错误: 未找到配置文件 ${PROJECT_DIR}/config.toml" >&2
+    exit 1
+fi
+
+if [ ! -f "${PROJECT_DIR}/scripts/deploy_readme.txt" ]; then
+    echo "错误: 未找到部署说明 ${PROJECT_DIR}/scripts/deploy_readme.txt" >&2
+    exit 1
+fi
+
+if [ ! -f "${PROJECT_DIR}/scripts/install_offline_deps.sh" ]; then
+    echo "错误: 未找到离线依赖安装脚本 ${PROJECT_DIR}/scripts/install_offline_deps.sh" >&2
     exit 1
 fi
 
@@ -119,6 +145,26 @@ QT_MODULES=(
 )
 
 COPIED_QT=0
+
+# Qt 5.15.2 on Linux links QtCore/QtNetwork against its bundled ICU 56
+# libraries. They are not guaranteed to be present on the target system, so
+# keep the Qt ICU runtime beside the other bundled libraries. Only copy the
+# SONAME entries (for example libicuuc.so.56); cp -L stores each target once.
+COPIED_ICU=0
+for lib in "${QT_LIBS}"/libicu*.so*; do
+    if [ -f "$lib" ]; then
+        bn=$(basename "$lib")
+        if [[ ! "$bn" =~ \.so\.[0-9]+$ ]]; then
+            continue
+        fi
+        if [ ! -f "${DEPLOY_DIR}/lib/${bn}" ]; then
+            cp -L "$lib" "${DEPLOY_DIR}/lib/"
+            COPIED_ICU=$((COPIED_ICU + 1))
+        fi
+    fi
+done
+echo "  Qt ICU libraries copied: ${COPIED_ICU}"
+
 for mod in "${QT_MODULES[@]}"; do
     # Qt5 库文件名模式: libQt5XXX.so.5.x.x, 我们复制 .so.5 符号链接指向的实际文件
     for lib in "${QT_LIBS}/libQt5${mod}.so.5"*; do
@@ -234,7 +280,7 @@ SKIP_PATTERN="^(linux-vdso|ld-linux|libc\.so|libm\.so|libdl\.so|libpthread\.so"
 SKIP_PATTERN+="|librt\.so|libresolv\.so"
 # DISPCTRL_BUNDLE_STDCPP=1 时捆绑 libstdc++ (用于 18.04 目标:
 #   GCC 9 的 libstdc++ GLIBCXX_3.4.28 > Ubuntu 18.04 系统自带的 3.4.25)
-if [ "${DISPCTRL_BUNDLE_STDCPP}" != "1" ]; then
+if [ "${DISPCTRL_BUNDLE_STDCPP:-0}" != "1" ]; then
     SKIP_PATTERN+="|libstdc\+\+|libgcc_s"
 else
     echo "  (DISPCTRL_BUNDLE_STDCPP=1: 将捆绑 libstdc++.so)"
@@ -253,7 +299,7 @@ SKIP_PATTERN+="|libpulse|libasound)"
 
 collect_deps() {
     local binary="$1"
-    ldd "$binary" 2>/dev/null | grep "=> /" | awk '{print $3}' | sort -u | while read -r lib; do
+    while IFS= read -r lib; do
         local bn
         bn=$(basename "$lib")
         if echo "$bn" | grep -qE "$SKIP_PATTERN"; then
@@ -263,25 +309,31 @@ collect_deps() {
             cp -L "$lib" "${DEPLOY_DIR}/lib/"
             echo "    + ${bn}"
         fi
-    done
+    done < <(ldd "$binary" 2>/dev/null | awk '/=> \/[[:alnum:]_.+\/-]+/ {print $3}' | sort -u)
 }
 
-# 收集主程序依赖
+# 收集主程序、WebEngine 子进程、Qt 库和插件的递归依赖。
+# 每轮重新扫描，直到没有新增库，避免遗漏“依赖的依赖”。
 collect_deps "${DEPLOY_DIR}/bin/${APP_NAME}"
-
-# 收集所有已复制 .so 的递归依赖
-for f in "${DEPLOY_DIR}/lib/"*.so*; do
-    [ -f "$f" ] && collect_deps "$f"
-done
-
-# WebEngine Process 的依赖
 if [ -f "${DEPLOY_DIR}/bin/QtWebEngineProcess" ]; then
     collect_deps "${DEPLOY_DIR}/bin/QtWebEngineProcess"
 fi
 
-# 插件的依赖
-for f in "${DEPLOY_DIR}/plugins/"*/*.so; do
-    [ -f "$f" ] && collect_deps "$f"
+while true; do
+    before_count=$(find "${DEPLOY_DIR}/lib" -type f -name '*.so*' | wc -l)
+
+    while IFS= read -r dependency_file; do
+        collect_deps "$dependency_file"
+    done < <(find "${DEPLOY_DIR}/lib" -type f -name '*.so*' -print)
+
+    while IFS= read -r plugin_file; do
+        collect_deps "$plugin_file"
+    done < <(find "${DEPLOY_DIR}/plugins" -type f -name '*.so' -print)
+
+    after_count=$(find "${DEPLOY_DIR}/lib" -type f -name '*.so*' | wc -l)
+    if [ "$after_count" -le "$before_count" ]; then
+        break
+    fi
 done
 
 # ---- 显式收集 xcb 扩展库 (部分通过 dlopen 加载，ldd 扫不到) ----
@@ -351,6 +403,13 @@ else
     echo "    安装: sudo apt install patchelf"
     echo "    不修补 RPATH 时需依赖 run.sh 中的 LD_LIBRARY_PATH"
 fi
+
+# 将部署说明放入发布目录根部，便于用户解压后直接查看。
+cp "${PROJECT_DIR}/scripts/deploy_readme.txt" "${DEPLOY_DIR}/readme.txt"
+echo "  ✓ readme.txt"
+cp "${PROJECT_DIR}/scripts/install_offline_deps.sh" "${DEPLOY_DIR}/"
+chmod +x "${DEPLOY_DIR}/install_offline_deps.sh"
+echo "  ✓ install_offline_deps.sh"
 
 ##############################################################################
 # 8. 创建启动脚本

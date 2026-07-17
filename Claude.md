@@ -2,7 +2,7 @@
 
 > **文档用途**: 本文档专为 AI 开发助手（Claude、GitHub Copilot、Cursor 等）提供项目全局上下文，整合了项目**所有 MD 文档**的核心知识，便于快速理解项目架构、代码规范、常见任务与注意事项。
 >
-> **最后更新**: 2026-03-23（全面整合，基于全部34个MD文件重写）
+> **最后更新**: 2026-07-15（补充 Linux 18.04+/20.04+ 部署与验证说明）
 >
 > **信息来源**: README.md / config_documentation.md / docs/internal_protocol.md / docs/external_protocol_notes.md / docs/parameter_save_feature.md / docs/data_storage_feature.md / docs/health_window_realtime_update.md / docs/track_display_fix.md / docs/track_angle_debug.md / docs/rangeazimuth_*.md（6篇）/ docs/changes_2025-12-25.md / docs/book/*.md（15章）/ .azure/dataflow_fix_summary.md
 >
@@ -31,8 +31,9 @@
 | 配置 | TOML 格式（config.toml） |
 
 ### Docker 构建目标
-- `docker/docker_build.sh` 支持 `1804`、`2204`、`2404` 和 `auto/current` 目标；`auto/current` 会按当前 WSL/宿主 Ubuntu 版本选择对应容器基础镜像，Ubuntu 20.04 宿主会回退到 18.04+ 兼容目标。
+- `docker/docker_build.sh` 支持 `1804/2004`、`2204`、`2404` 和 `auto/current` 目标；`auto/current` 会按当前 WSL/宿主 Ubuntu 版本选择对应容器基础镜像，Ubuntu 20.04 宿主会回退到 18.04+ 兼容目标。
 - `1804` 使用 `Dockerfile.ubuntu1804`，用于生成 Ubuntu 18.04+ 兼容产物；`2204`/`2404` 使用 `docker/Dockerfile` 的 `UBUNTU_VERSION` build arg。
+- `Dockerfile.ubuntu1804` 使用固定 Ubuntu 18.04 快照、GCC 9 和 Qt 5.15.2 WebEngine；`scripts/package_linux.sh` 会递归收集 Qt/插件依赖并捆绑 ICU、libstdc++ 和必要的 xcb 库，发布包根目录包含 `readme.txt`。开发机的 WSL + Docker 构建命令见 `docker/README.md`。
 - Dockerfile 中的 Ubuntu 版本是容器编译环境和目标运行兼容性，不要求与 WSL 宿主版本一致。Docker Hub 拉取 `ubuntu:*` 超时属于 Docker registry 网络/镜像加速器问题，不是 apt 源或 WSL 版本不匹配问题。
 
 ---
@@ -849,6 +850,12 @@ dataToScene            # RangeAzimuth坐标转换
 
 ### v5.36 (2026-07-15)
 - **Display-only array numbering**: protocol and internal array indexes remain `radarId=0..3`, while all user-facing array labels use `1..4`.
+
+### v5.37 (2026-07-15)
+- **Linux deployment package**: `docker/docker_build.sh 1804/2004` now produces one x86_64 package targeting Ubuntu 18.04+ and Ubuntu 20.04. The helper uses the Ubuntu 18.04 snapshot baseline and no longer mounts the same `deploy` directory twice, so a successful package command exits cleanly.
+- **Offline runtime dependencies and instructions**: `scripts/package_linux.sh` recursively collects executable, Qt, WebEngine, and plugin dependencies, explicitly bundles Qt ICU SONAME libraries plus the existing libstdc++/xcb runtime set, and copies `scripts/deploy_readme.txt` to package-root `readme.txt`. `docker/docker_build.sh 1804` compiles one Ubuntu 18.04-baseline binary and additionally ships version-matched `.deb` closures in `offline-deps/ubuntu1804`, `ubuntu2004`, `ubuntu2204`, and `ubuntu2404`; target operators run `sudo ./install_offline_deps.sh` once without network access. The installer preserves target-owned glibc, dynamic loader, X11 display service, and GPU driver.
+- **Offline package validation**: `docker/test_offline_deps.sh` installs each bundled closure in clean `--network none` Ubuntu 18.04/20.04/22.04/24.04 containers and checks `DispCtrl` plus `QtWebEngineProcess` with `ldd`. Ubuntu 18.04/20.04 bundles use `libssl1.1`; Ubuntu 22.04/24.04 bundles use `libssl3`. This validates package runtime-library installation; GUI/X11 and hardware-driver behavior still require validation on the real Ubuntu desktop target.
+- **Developer build instructions**: `docker/README.md` records the Windows -> WSL -> Docker -> deploy artifact workflow, exact `1804`/`2004` command behavior, artifact checks, and the distinction between bundled application libraries and target-owned graphics/system runtime dependencies.
 
 ---
 
