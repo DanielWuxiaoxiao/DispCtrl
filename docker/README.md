@@ -112,8 +112,12 @@ offline-deps/ubuntu2404/
 ```
 
 On the target machine, run `sudo ./install_offline_deps.sh` after extraction.
-The installer selects the matching bundle and uses `dpkg` only; it does not
-need a network connection.
+The installer selects the matching core runtime bundle and uses `dpkg` only;
+it does not need a network connection. Qt WebEngine may require `libasound`,
+but the installer preserves a target-provided ALSA runtime and always skips
+optional ALSA UCM/topology packages, preventing avoidable Ubuntu 24.04 package
+conflicts. It configures only packages from its release closure and does not
+attempt to repair unrelated target-machine package state.
 
 The package intentionally does not bundle glibc, the dynamic loader, X11
 display services, or OpenGL/DRM GPU drivers. Those pieces must match the

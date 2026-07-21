@@ -853,9 +853,17 @@ dataToScene            # RangeAzimuth坐标转换
 
 ### v5.37 (2026-07-15)
 - **Linux deployment package**: `docker/docker_build.sh 1804/2004` now produces one x86_64 package targeting Ubuntu 18.04+ and Ubuntu 20.04. The helper uses the Ubuntu 18.04 snapshot baseline and no longer mounts the same `deploy` directory twice, so a successful package command exits cleanly.
+
 - **Offline runtime dependencies and instructions**: `scripts/package_linux.sh` recursively collects executable, Qt, WebEngine, and plugin dependencies, explicitly bundles Qt ICU SONAME libraries plus the existing libstdc++/xcb runtime set, and copies `scripts/deploy_readme.txt` to package-root `readme.txt`. `docker/docker_build.sh 1804` compiles one Ubuntu 18.04-baseline binary and additionally ships version-matched `.deb` closures in `offline-deps/ubuntu1804`, `ubuntu2004`, `ubuntu2204`, and `ubuntu2404`; target operators run `sudo ./install_offline_deps.sh` once without network access. The installer preserves target-owned glibc, dynamic loader, X11 display service, and GPU driver.
 - **Offline package validation**: `docker/test_offline_deps.sh` installs each bundled closure in clean `--network none` Ubuntu 18.04/20.04/22.04/24.04 containers and checks `DispCtrl` plus `QtWebEngineProcess` with `ldd`. Ubuntu 18.04/20.04 bundles use `libssl1.1`; Ubuntu 22.04/24.04 bundles use `libssl3`. This validates package runtime-library installation; GUI/X11 and hardware-driver behavior still require validation on the real Ubuntu desktop target.
 - **Developer build instructions**: `docker/README.md` records the Windows -> WSL -> Docker -> deploy artifact workflow, exact `1804`/`2004` command behavior, artifact checks, and the distinction between bundled application libraries and target-owned graphics/system runtime dependencies.
+
+### v5.38 (2026-07-16)
+- **Enabled-array PPI scan coverage**: a TAS/TWS scan range is treated as a single panel-local angular range. `ScanLayer` now renders that translucent range and green afterglow once for every enabled panel, with fixed installation rotations of `0/90/180/270` degrees for panel IDs `0/1/2/3`. The sector fill/boundary and scan line use the panel color, while every panel keeps the same green afterglow. Thus a local `-15..15` range becomes `345..15`, `75..105`, `165..195`, and `255..285` as panels are enabled.
+- **Control/data separation**: `BatteryControlM` is connected directly to `ScanLayer` so the PPI immediately hides disabled panel sectors. Per-panel BIT data still determines only the color-coded real-time scan line and its displayed local/north-referenced angles; it does not move the configured sector.
+
+### v5.39 (2026-07-20)
+- **Ubuntu 24.04 offline-install compatibility**: the offline dependency builder now uses `--no-install-recommends`, so new bundles do not contain optional ALSA UCM/topology packages. The installer always skips those host-managed packages, and preserves an existing `libasound.so.2` rather than unpacking the release's `libasound2`/`libasound2t64` package over it. When ALSA is absent, the minimal ALSA runtime remains available for Qt WebEngine. It configures only the release's unpacked closure instead of invoking global `dpkg --configure -a`, so a pre-existing target package error is not retried or misreported as a deployment failure.
 
 ---
 

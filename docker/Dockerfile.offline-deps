@@ -26,8 +26,10 @@ RUN if [ "${UBUNTU_VERSION}" = "18.04" ]; then \
         apt-get install -y --no-install-recommends ca-certificates; \
     fi \
     && apt-get update \
+    # Qt WebEngine can load libasound, but ALSA UCM/topology packages are only
+    # recommendations and must not be pulled into the offline release closure.
     && { grep -vE '^[[:space:]]*(#|$)' /tmp/offline_deps_packages.txt; echo "${OPENSSL_PACKAGE}"; echo "${ALSA_PACKAGE}"; } \
-        | xargs apt-get -y --download-only --reinstall install \
+        | xargs apt-get -y --no-install-recommends --download-only --reinstall install \
     && mkdir -p /opt/offline-debs \
     && find /var/cache/apt/archives -maxdepth 1 -type f -name '*.deb' -exec cp {} /opt/offline-debs/ \; \
     && for package in /opt/offline-debs/*.deb; do \

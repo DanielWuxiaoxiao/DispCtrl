@@ -82,6 +82,11 @@ PPIScene::PPIScene(QObject *parent)
     connect(CON_INS, &Controller::bitReport,
         m_scan, &ScanLayer::onBITReport);
 
+    // The same four-array enable command sent to the radar also determines
+    // which rotated TAS scan sectors remain visible in the PPI.
+    connect(CON_INS, &Controller::sendBCParam,
+        m_scan, &ScanLayer::setPanelEnableState);
+
     // 扫描范围更新：从工作模式参数（TWS/TAS）设置的扫描范围
     connect(CON_INS, &Controller::scanRangeChanged,
         m_scan, &ScanLayer::setSweepRange);

@@ -42,11 +42,15 @@ public slots:
     // 接收BIT上报信息，更新扫描角度（实时波束指向）
     void onBITReport(BITReport report);
 
+    // 阵面开启控制决定哪些阵面的 TAS 扫描范围参与 P 显绘制。
+    void setPanelEnableState(BatteryControlM param);
+
 private slots:
     void advanceSweep();
 
 private:
     struct PanelState {
+        bool enabled = true;
         bool received = false;
         double yawDeg = 0.0;
         double scanAngleDeg = 0.0;
@@ -74,8 +78,9 @@ private:
 
     bool m_useRealTimeAngle = false; // 是否使用实时角度（来自BIT上报）
 
-    // Each panel keeps its own live BIT angle. The configured sweep range is
-    // shared in panel coordinates and rotated by the panel yaw at paint time.
+    // TAS supplies one panel-local range. Enabled panels rotate that same local
+    // range by their fixed installation headings (0/90/180/270 degrees).
+    // BIT yaw + scan angle remains the authoritative live scan-line position.
     std::array<PanelState, kPanelCount> m_panels{};
 };
 
