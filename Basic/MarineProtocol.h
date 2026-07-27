@@ -81,6 +81,24 @@ constexpr uint16_t MARINE_AZI_STEPS = 4096;
 /// Echo protocol azimuth bins: 8192 steps = 360°.
 constexpr uint16_t MARINE_ECHO_AZI_BINS = 8192;
 
+/// PS -> DispCtrl logical echo frame terminator. On-wire order is 00 6B.
+constexpr uint8_t MARINE_ECHO_FRAME_TAIL_HIGH = 0x00;
+constexpr uint8_t MARINE_ECHO_FRAME_TAIL_LOW = 0x6B;
+constexpr int MARINE_ECHO_FRAME_TAIL_SIZE = 2;
+
+/// Application-layer UDP fragment protocol for large FFT logical frames.
+constexpr uint8_t MARINE_FRAGMENT_MAGIC_0 = 0x46; // 'F'
+constexpr uint8_t MARINE_FRAGMENT_MAGIC_1 = 0x52; // 'R'
+constexpr uint8_t MARINE_FRAGMENT_VERSION = 0x01;
+constexpr uint8_t MARINE_FRAGMENT_FLAG_FIRST = 0x01;
+constexpr uint8_t MARINE_FRAGMENT_FLAG_LAST = 0x02;
+constexpr uint8_t MARINE_FRAGMENT_FLAG_MASK = MARINE_FRAGMENT_FLAG_FIRST | MARINE_FRAGMENT_FLAG_LAST;
+constexpr int MARINE_FRAGMENT_HEADER_SIZE = 24;
+constexpr int MARINE_FRAGMENT_MAX_DATA_SIZE = 1376;
+constexpr int MARINE_FRAGMENT_MAX_UDP_SIZE = MARINE_FRAGMENT_HEADER_SIZE + MARINE_FRAGMENT_MAX_DATA_SIZE;
+constexpr int MARINE_FRAGMENT_REASSEMBLY_TIMEOUT_MS = 500;
+constexpr int MARINE_FRAGMENT_MAX_INFLIGHT_FRAMES = 8;
+
 /// 量程编码表 (RangeVal → 最大量程, 单位: 米)
 /// 对应关系: index 0~14 → meters
 constexpr int MARINE_RANGE_TABLE_SIZE = 15;
@@ -130,8 +148,8 @@ inline double marineRangeMeters(uint8_t rangeVal) {
  * @brief 显控→伺服 控制帧 (16字节)
  * @details
  *  Byte 0:  HeadFlag  = 0xA5           帧头
- *  Byte 1:  CMDNum    预留
- *  Byte 2-3: Azimuth  预留 (方位信息)
+ *  Byte 1:  CMDNum    0=参数, 1=位置, 2=速度, 3=停止, 4=启动
+ *  Byte 2-3: Azimuth  位置方位，角度*100，小端
  *  Byte 4:  RangeVal  量程编码 (0~14)，默认7
  *  Byte 5:  Gain      波束锐化 (关0/低1/中2/高3)，默认0
  *  Byte 6:  GanRao    同频干扰抑制 (关0/低1/中2/高3)，默认0
@@ -147,8 +165,8 @@ inline double marineRangeMeters(uint8_t rangeVal) {
  */
 struct MarineControlFrame {
     uint8_t  headFlag;    ///< Byte 0: 0xA5
-    uint8_t  cmdNum;      ///< Byte 1: 预留
-    uint16_t azimuth;     ///< Byte 2-3: 预留 (方位信息)
+    uint8_t  cmdNum;      ///< Byte 1: 转台命令 0~4
+    uint16_t azimuth;     ///< Byte 2-3: 方位角*100，小端
     uint8_t  rangeVal;    ///< Byte 4: 量程编码 0~14
     uint8_t  gain;        ///< Byte 5: 增益/波束锐化 0~3
     uint8_t  ganRao;      ///< Byte 6: 干扰抑制 0~3
@@ -206,7 +224,7 @@ static_assert(sizeof(MarineControlFrame) == 16, "MarineControlFrame must be 16 b
 
 /**
  * @struct MarineEchoHeader
- * @brief 回波帧头部 (固定 24 字节)
+ * @brief 回波逻辑帧头部 (固定 22 字节)
  * @details
  *  Byte 0:    0x00 (前导)
  *  Byte 1:    0xA5 (帧头)
@@ -224,12 +242,13 @@ static_assert(sizeof(MarineControlFrame) == 16, "MarineControlFrame must be 16 b
  *  Byte 12:   rainVal    雨杂波
  *  Byte 13:   ganRao     干扰抑制
  *  Byte 14:   freqStatus 频率状态
- *  Byte 15:   statusChecksum (byte[7]~byte[14] XOR)
+ *  Byte 15:   statusChecksum (byte[7]~byte[14] 累加和低8位)
  *  // Data info (byte 16~21)
  *  Byte 16-17: fftDataLen  FFT模值数据长度，单位为4字节word (大端)
  *  Byte 18-19: packetNum   包序号 (大端)
  *  Byte 20-21: reserved    保留
  *  // Byte 22~(22+fftDataLen*4-1): 回波幅值数据, 1个小端uint32 word/range cell
+ *  // 紧随FFT数据: 00 6B (逻辑帧尾)
  */
 struct MarineEchoHeader {
     uint8_t  leadByte;      ///< 0x00
@@ -248,7 +267,7 @@ struct MarineEchoHeader {
     uint8_t  rainVal;       ///< 雨杂波
     uint8_t  ganRao;        ///< 干扰抑制
     uint8_t  freqStatus;    ///< 频率状态
-    uint8_t  statusChecksum;///< XOR(byte[7]~byte[14])
+    uint8_t  statusChecksum;///< SUM(byte[7]~byte[14]) low 8 bits
     // Data info
     uint8_t  fftDataLenHigh;///< FFT data length high byte, unit: 4-byte word
     uint8_t  fftDataLenLow; ///< FFT data length low byte, unit: 4-byte word
@@ -294,8 +313,7 @@ struct MarineEchoHeader {
     }
 
     bool isEchoLengthValid() const {
-        const int bytes = echoByteCount();
-        return bytes > 0 && bytes <= 8192 && (bytes % 4) == 0;
+        return fftWordCount() > 0;
     }
 
     uint16_t packetNumber() const {
@@ -318,14 +336,98 @@ struct MarineEchoHeader {
 
     /// 校验状态块
     bool isStatusValid() const {
-        uint8_t xv = 0;
+        uint8_t sum = 0;
         const auto* p = reinterpret_cast<const uint8_t*>(this);
-        for (int i = 7; i < 15; ++i) xv ^= p[i];
-        return xv == statusChecksum;
+        for (int i = 7; i < 15; ++i)
+            sum = static_cast<uint8_t>(sum + p[i]);
+        return sum == statusChecksum;
     }
 };
 
 static_assert(sizeof(MarineEchoHeader) == 22, "MarineEchoHeader must be 22 bytes");
+
+/**
+ * @struct MarineEchoFragmentHeader
+ * @brief Large logical echo frame UDP fragment header (fixed 24 bytes).
+ *
+ * The complete logical frame begins with MarineEchoHeader and ends with 00 6B.
+ * It is split into UDP packets whose payloads are described by this header.
+ * Multi-byte values in this header are big-endian.
+ */
+struct MarineEchoFragmentHeader {
+    uint8_t magic0;            ///< Byte 0: 'F' (0x46)
+    uint8_t magic1;            ///< Byte 1: 'R' (0x52)
+    uint8_t version;           ///< Byte 2: 0x01
+    uint8_t flags;             ///< Byte 3: bit0 first, bit1 last
+    uint8_t frameSeqHigh;      ///< Byte 4: frame sequence high byte
+    uint8_t frameSeqLow;       ///< Byte 5: frame sequence low byte
+    uint8_t fragmentIndexHigh; ///< Byte 6
+    uint8_t fragmentIndexLow;  ///< Byte 7
+    uint8_t fragmentCountHigh; ///< Byte 8
+    uint8_t fragmentCountLow;  ///< Byte 9
+    uint8_t totalDataLen3;     ///< Byte 10: complete logical frame length, big-endian
+    uint8_t totalDataLen2;     ///< Byte 11
+    uint8_t totalDataLen1;     ///< Byte 12
+    uint8_t totalDataLen0;     ///< Byte 13
+    uint8_t dataOffset3;       ///< Byte 14: fragment data offset, big-endian
+    uint8_t dataOffset2;       ///< Byte 15
+    uint8_t dataOffset1;       ///< Byte 16
+    uint8_t dataOffset0;       ///< Byte 17
+    uint8_t fragmentLenHigh;   ///< Byte 18
+    uint8_t fragmentLenLow;    ///< Byte 19
+    uint8_t crc32_3;           ///< Byte 20: CRC-32/ISO-HDLC, big-endian
+    uint8_t crc32_2;           ///< Byte 21
+    uint8_t crc32_1;           ///< Byte 22
+    uint8_t crc32_0;           ///< Byte 23
+
+    bool hasMagic() const {
+        return magic0 == MARINE_FRAGMENT_MAGIC_0 && magic1 == MARINE_FRAGMENT_MAGIC_1;
+    }
+
+    bool isFlagsValid() const {
+        return (flags & ~MARINE_FRAGMENT_FLAG_MASK) == 0;
+    }
+
+    uint16_t frameSequence() const {
+        return (static_cast<uint16_t>(frameSeqHigh) << 8) | frameSeqLow;
+    }
+
+    uint16_t fragmentIndex() const {
+        return (static_cast<uint16_t>(fragmentIndexHigh) << 8) | fragmentIndexLow;
+    }
+
+    uint16_t fragmentCount() const {
+        return (static_cast<uint16_t>(fragmentCountHigh) << 8) | fragmentCountLow;
+    }
+
+    uint32_t totalDataLength() const {
+        return (static_cast<uint32_t>(totalDataLen3) << 24) |
+               (static_cast<uint32_t>(totalDataLen2) << 16) |
+               (static_cast<uint32_t>(totalDataLen1) << 8) |
+               static_cast<uint32_t>(totalDataLen0);
+    }
+
+    uint32_t dataOffset() const {
+        return (static_cast<uint32_t>(dataOffset3) << 24) |
+               (static_cast<uint32_t>(dataOffset2) << 16) |
+               (static_cast<uint32_t>(dataOffset1) << 8) |
+               static_cast<uint32_t>(dataOffset0);
+    }
+
+    uint16_t fragmentLength() const {
+        return (static_cast<uint16_t>(fragmentLenHigh) << 8) | fragmentLenLow;
+    }
+
+    uint32_t crc32() const {
+        return (static_cast<uint32_t>(crc32_3) << 24) |
+               (static_cast<uint32_t>(crc32_2) << 16) |
+               (static_cast<uint32_t>(crc32_1) << 8) |
+               static_cast<uint32_t>(crc32_0);
+    }
+};
+
+static_assert(sizeof(MarineEchoFragmentHeader) == MARINE_FRAGMENT_HEADER_SIZE,
+              "MarineEchoFragmentHeader must be 24 bytes");
 
 // ============================================================================
 // 运行时数据结构 (非协议, 不需要 pack)

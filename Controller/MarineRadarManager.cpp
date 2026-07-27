@@ -16,6 +16,9 @@
 #include <QNetworkDatagram>
 #include <QElapsedTimer>
 #include <QDebug>
+#include <QStringList>
+#include <algorithm>
+#include <cstring>
 
 namespace {
 
@@ -77,6 +80,56 @@ QString cleanAddressText(QString text)
     return text;
 }
 
+constexpr uint32_t kMaxLogicalEchoFrameBytes =
+    static_cast<uint32_t>(sizeof(MarineEchoHeader)) +
+    65535U * 4U +
+    static_cast<uint32_t>(MARINE_ECHO_FRAME_TAIL_SIZE);
+
+uint32_t crc32IsoHdlcUpdate(uint32_t crc, const char* bytes, int length)
+{
+    for (int i = 0; i < length; ++i) {
+        crc ^= static_cast<uint8_t>(bytes[i]);
+        for (int bit = 0; bit < 8; ++bit) {
+            crc = (crc & 1U) ? ((crc >> 1U) ^ 0xEDB88320U) : (crc >> 1U);
+        }
+    }
+    return crc;
+}
+
+uint32_t fragmentCrc32(const QByteArray& datagram, int fragmentLength)
+{
+    uint32_t crc = 0xFFFFFFFFU;
+    crc = crc32IsoHdlcUpdate(crc, datagram.constData(), 20);
+    crc = crc32IsoHdlcUpdate(crc,
+                             datagram.constData() + MARINE_FRAGMENT_HEADER_SIZE,
+                             fragmentLength);
+    return crc ^ 0xFFFFFFFFU;
+}
+
+QString missingFragmentIndexes(const QBitArray& receivedFragments, int maxCount = 16)
+{
+    QStringList indexes;
+    int missingCount = 0;
+    for (int i = 0; i < receivedFragments.size(); ++i) {
+        if (receivedFragments.testBit(i)) {
+            continue;
+        }
+        ++missingCount;
+        if (indexes.size() < maxCount) {
+            indexes.append(QString::number(i));
+        }
+    }
+
+    if (missingCount == 0) {
+        return QStringLiteral("none");
+    }
+    QString result = indexes.join(QLatin1Char(','));
+    if (missingCount > indexes.size()) {
+        result += QStringLiteral("...(+%1)").arg(missingCount - indexes.size());
+    }
+    return result;
+}
+
 } // namespace
 
 MarineRadarManager::MarineRadarManager(QObject* parent)
@@ -84,16 +137,18 @@ MarineRadarManager::MarineRadarManager(QObject* parent)
 {
     qRegisterMetaType<MarineEchoLine>("MarineEchoLine");
     qRegisterMetaType<MarineRadarStatus>("MarineRadarStatus");
+    m_fragmentClock.start();
+    m_sweepAzimuthBins.fill(false, MARINE_ECHO_AZI_BINS);
 
     m_rxSocket = new QUdpSocket(this);
     m_txSocket = new QUdpSocket(this);
     m_autoSendTimer = new QTimer(this);
     auto* rxPumpTimer = new QTimer(this);
-    m_rxSocket->setSocketOption(QAbstractSocket::ReceiveBufferSizeSocketOption, 4 * 1024 * 1024);
 
     connect(m_rxSocket, &QUdpSocket::readyRead, this, &MarineRadarManager::onReadyRead);
     connect(m_autoSendTimer, &QTimer::timeout, this, &MarineRadarManager::onAutoSend);
     connect(rxPumpTimer, &QTimer::timeout, this, [this]() {
+        cleanupExpiredFragments();
         if (m_rxSocket && m_rxSocket->hasPendingDatagrams()) {
             onReadyRead();
         }
@@ -118,6 +173,10 @@ MarineRadarManager::MarineRadarManager(QObject* parent)
                   .arg(m_rxSocket->errorString()));
     });
     rxDebugTimer->start(5000);
+
+    auto* fragmentStatsTimer = new QTimer(this);
+    connect(fragmentStatsTimer, &QTimer::timeout, this, &MarineRadarManager::logFragmentStats);
+    fragmentStatsTimer->start(5000);
     LOG_INFO("[MarineRadar] manager created");
 }
 
@@ -131,6 +190,9 @@ void MarineRadarManager::init(const QString& localIp, uint16_t localPort,
 {
     const QString cleanLocalIp = cleanAddressText(localIp);
     const QString cleanServoIp = cleanAddressText(servoIp);
+    const int configuredFragmentTimeoutMs =
+        CF_INS.marineNetworkInt("fragment_timeout_ms", MARINE_FRAGMENT_REASSEMBLY_TIMEOUT_MS);
+    m_fragmentReassemblyTimeoutMs = std::clamp(configuredFragmentTimeoutMs, 100, 5000);
 
     m_servoAddr = QHostAddress(cleanServoIp);
     m_servoPort = servoPort;
@@ -139,9 +201,10 @@ void MarineRadarManager::init(const QString& localIp, uint16_t localPort,
              .arg(localPort)
              .arg(cleanServoIp)
              .arg(servoPort));
-    LOG_INFO(QString("[MarineRadar][INIT] echo_debug=%1 sweep_history_rounds=%2")
+    LOG_INFO(QString("[MarineRadar][INIT] echo_debug=%1 sweep_history_rounds=%2 fragment_timeout_ms=%3")
              .arg(CF_INS.marineDisplayBool("echo_debug", false) ? 1 : 0)
-             .arg(CF_INS.marineDisplayInt("sweep_history_rounds", 1)));
+             .arg(CF_INS.marineDisplayInt("sweep_history_rounds", 1))
+             .arg(m_fragmentReassemblyTimeoutMs));
     if (m_servoAddr.isNull()) {
         QString msg = QString("[MarineRadar][INIT] invalid servo_ip='%1'; UDP control send target is not usable")
                           .arg(cleanServoIp);
@@ -167,11 +230,19 @@ void MarineRadarManager::init(const QString& localIp, uint16_t localPort,
         LOG_ERROR(msg);
         emit logMessage(msg);
     } else {
+        constexpr int kRequestedReceiveBufferBytes = 4 * 1024 * 1024;
+        m_rxSocket->setSocketOption(QAbstractSocket::ReceiveBufferSizeSocketOption,
+                                    kRequestedReceiveBufferBytes);
+        const qint64 effectiveReceiveBufferBytes =
+            m_rxSocket->socketOption(QAbstractSocket::ReceiveBufferSizeSocketOption).toLongLong();
         QString msg = QString("[MarineRadar][INIT] listening on %1:%2")
                           .arg(cleanLocalIp.isEmpty() ? QStringLiteral("0.0.0.0") : cleanLocalIp)
                           .arg(localPort);
         LOG_INFO(msg);
         emit logMessage(msg);
+        LOG_INFO(QString("[MarineRadar][INIT] UDP receive buffer requested=%1 effective=%2")
+                 .arg(kRequestedReceiveBufferBytes)
+                 .arg(effectiveReceiveBufferBytes));
     }
 }
 
@@ -323,13 +394,16 @@ void MarineRadarManager::logRxSnapshot(const QString& reason) const
 {
     const bool hasPending = m_rxSocket && m_rxSocket->hasPendingDatagrams();
     const qint64 pendingSize = hasPending ? m_rxSocket->pendingDatagramSize() : 0;
-    LOG_DEBUG(QString("[MarineRadar][RX-SNAPSHOT] %1 state=%2 boundLocal=%3:%4 rx=%5 echo=%6 invalid=%7 pending=%8 pendingSize=%9 drainScheduled=%10 error=%11")
+    LOG_DEBUG(QString("[MarineRadar][RX-SNAPSHOT] %1 state=%2 boundLocal=%3:%4 rx=%5 echo=%6 fragments=%7 reassembled=%8 inflight=%9 invalid=%10 pending=%11 pendingSize=%12 drainScheduled=%13 error=%14")
               .arg(reason)
               .arg(m_rxSocket ? static_cast<int>(m_rxSocket->state()) : -1)
               .arg(m_rxSocket ? m_rxSocket->localAddress().toString() : QStringLiteral("<null>"))
               .arg(m_rxSocket ? m_rxSocket->localPort() : 0)
               .arg(m_rxDatagramCount)
               .arg(m_rxEchoCount)
+              .arg(m_rxFragmentCount)
+              .arg(m_rxReassembledCount)
+              .arg(m_fragmentAssemblies.size())
               .arg(m_rxInvalidCount)
               .arg(hasPending ? 1 : 0)
               .arg(pendingSize)
@@ -392,18 +466,360 @@ void MarineRadarManager::onReadyRead()
 
 void MarineRadarManager::parseEchoDatagram(const QByteArray& data)
 {
-    constexpr int HEADER_SIZE = static_cast<int>(sizeof(MarineEchoHeader));
+    cleanupExpiredFragments();
+    if (data.size() >= 2 &&
+        static_cast<uint8_t>(data[0]) == MARINE_FRAGMENT_MAGIC_0 &&
+        static_cast<uint8_t>(data[1]) == MARINE_FRAGMENT_MAGIC_1) {
+        parseFragmentDatagram(data);
+        return;
+    }
 
-    if (data.size() < HEADER_SIZE) {
+    parseLogicalEchoFrame(data);
+}
+
+void MarineRadarManager::parseFragmentDatagram(const QByteArray& data)
+{
+    if (data.size() < MARINE_FRAGMENT_HEADER_SIZE) {
         ++m_rxInvalidCount;
         if (shouldLogSample(m_rxInvalidCount, 5, 100)) {
-            LOG_WARNING(QString("[MarineRadar][RX] short frame invalidCount=%1 bytes=%2 expectedHeader=%3 head=%4")
+            LOG_WARNING(QString("[MarineRadar][FRAGMENT] short header invalidCount=%1 bytes=%2")
+                        .arg(m_rxInvalidCount)
+                        .arg(data.size()));
+        }
+        return;
+    }
+
+    const auto* hdr = reinterpret_cast<const MarineEchoFragmentHeader*>(data.constData());
+    const uint16_t frameSeq = hdr->frameSequence();
+    const uint16_t fragmentIndex = hdr->fragmentIndex();
+    const uint16_t fragmentCount = hdr->fragmentCount();
+    const uint32_t totalDataLen = hdr->totalDataLength();
+    const uint32_t dataOffset = hdr->dataOffset();
+    const uint16_t fragmentLen = hdr->fragmentLength();
+    const bool isFirst = (hdr->flags & MARINE_FRAGMENT_FLAG_FIRST) != 0;
+    const bool isLast = (hdr->flags & MARINE_FRAGMENT_FLAG_LAST) != 0;
+
+    const bool basicValid = hdr->hasMagic() &&
+                            hdr->version == MARINE_FRAGMENT_VERSION &&
+                            hdr->isFlagsValid() &&
+                            fragmentCount > 0 &&
+                            fragmentIndex < fragmentCount &&
+                            fragmentLen <= MARINE_FRAGMENT_MAX_DATA_SIZE &&
+                            totalDataLen >= sizeof(MarineEchoHeader) + MARINE_ECHO_FRAME_TAIL_SIZE &&
+                            totalDataLen <= kMaxLogicalEchoFrameBytes &&
+                            dataOffset <= totalDataLen &&
+                            fragmentLen <= totalDataLen - dataOffset &&
+                            data.size() == MARINE_FRAGMENT_HEADER_SIZE + fragmentLen &&
+                            ((fragmentIndex == 0) == isFirst) &&
+                            ((fragmentIndex + 1 == fragmentCount) == isLast);
+    if (!basicValid) {
+        ++m_rxInvalidCount;
+        if (shouldLogSample(m_rxInvalidCount, 5, 100)) {
+            LOG_WARNING(QString("[MarineRadar][FRAGMENT] invalid metadata invalidCount=%1 bytes=%2 seq=%3 index=%4/%5 total=%6 offset=%7 len=%8 flags=0x%9")
                         .arg(m_rxInvalidCount)
                         .arg(data.size())
-                        .arg(HEADER_SIZE)
+                        .arg(frameSeq)
+                        .arg(fragmentIndex)
+                        .arg(fragmentCount)
+                        .arg(totalDataLen)
+                        .arg(dataOffset)
+                        .arg(fragmentLen)
+                        .arg(hdr->flags, 2, 16, QLatin1Char('0')));
+        }
+        return;
+    }
+
+    const uint32_t calculatedCrc = fragmentCrc32(data, fragmentLen);
+    if (calculatedCrc != hdr->crc32()) {
+        ++m_rxInvalidCount;
+        if (shouldLogSample(m_rxInvalidCount, 5, 100)) {
+            LOG_WARNING(QString("[MarineRadar][FRAGMENT] CRC mismatch invalidCount=%1 seq=%2 index=%3 expected=0x%4 actual=0x%5")
+                        .arg(m_rxInvalidCount)
+                        .arg(frameSeq)
+                        .arg(fragmentIndex)
+                        .arg(hdr->crc32(), 8, 16, QLatin1Char('0'))
+                        .arg(calculatedCrc, 8, 16, QLatin1Char('0')));
+        }
+        return;
+    }
+
+    ++m_rxFragmentCount;
+    const qint64 nowMs = m_fragmentClock.elapsed();
+    auto it = m_fragmentAssemblies.find(frameSeq);
+    if (it == m_fragmentAssemblies.end()) {
+        if (m_fragmentAssemblies.size() >= MARINE_FRAGMENT_MAX_INFLIGHT_FRAMES) {
+            auto oldestIt = m_fragmentAssemblies.begin();
+            for (auto candidate = m_fragmentAssemblies.begin(); candidate != m_fragmentAssemblies.end(); ++candidate) {
+                if (candidate->lastUpdateMs < oldestIt->lastUpdateMs) {
+                    oldestIt = candidate;
+                }
+            }
+            discardFragmentAssembly(oldestIt.key(), QStringLiteral("in-flight limit"));
+        }
+
+        FragmentAssembly assembly;
+        assembly.totalDataLen = totalDataLen;
+        assembly.fragmentCount = fragmentCount;
+        assembly.data.resize(static_cast<int>(totalDataLen));
+        assembly.receivedFragments.fill(false, fragmentCount);
+        assembly.receivedBytes.fill(false, static_cast<int>(totalDataLen));
+        assembly.lastUpdateMs = nowMs;
+        it = m_fragmentAssemblies.insert(frameSeq, assembly);
+        ++m_fragmentFramesStarted;
+    } else if (it->totalDataLen != totalDataLen || it->fragmentCount != fragmentCount) {
+        discardFragmentAssembly(frameSeq, QStringLiteral("inconsistent totalDataLen or fragmentCount"));
+        ++m_rxInvalidCount;
+        return;
+    }
+
+    FragmentAssembly& assembly = it.value();
+    assembly.lastUpdateMs = nowMs;
+    if (assembly.receivedFragments.testBit(fragmentIndex)) {
+        return; // Duplicate fragment: keep the first verified copy.
+    }
+
+    const int offset = static_cast<int>(dataOffset);
+    for (int i = 0; i < fragmentLen; ++i) {
+        if (assembly.receivedBytes.testBit(offset + i)) {
+            discardFragmentAssembly(frameSeq, QStringLiteral("overlapping fragment data"));
+            ++m_rxInvalidCount;
+            return;
+        }
+    }
+
+    if (fragmentLen > 0) {
+        std::memcpy(assembly.data.data() + offset,
+                    data.constData() + MARINE_FRAGMENT_HEADER_SIZE,
+                    fragmentLen);
+        for (int i = 0; i < fragmentLen; ++i) {
+            assembly.receivedBytes.setBit(offset + i, true);
+        }
+    }
+    assembly.receivedFragments.setBit(fragmentIndex, true);
+    ++assembly.receivedFragmentCount;
+    assembly.receivedByteCount += fragmentLen;
+
+    const bool echoDebug = CF_INS.marineDisplayBool("echo_debug", false);
+    if (echoDebug && shouldLogSample(m_rxFragmentCount, 20, 256)) {
+        LOG_DEBUG(QString("[MarineRadar][FRAGMENT] seq=%1 index=%2/%3 offset=%4 len=%5 received=%6/%7 bytes=%8/%9")
+                  .arg(frameSeq)
+                  .arg(fragmentIndex)
+                  .arg(fragmentCount)
+                  .arg(dataOffset)
+                  .arg(fragmentLen)
+                  .arg(assembly.receivedFragmentCount)
+                  .arg(assembly.fragmentCount)
+                  .arg(assembly.receivedByteCount)
+                  .arg(assembly.totalDataLen));
+    }
+
+    if (assembly.receivedFragmentCount != assembly.fragmentCount) {
+        return;
+    }
+    if (assembly.receivedByteCount != static_cast<int>(assembly.totalDataLen)) {
+        discardFragmentAssembly(frameSeq, QStringLiteral("fragments complete but logical data has gaps"));
+        ++m_rxInvalidCount;
+        return;
+    }
+
+    QByteArray logicalFrame = assembly.data;
+    m_fragmentAssemblies.erase(it);
+    ++m_rxReassembledCount;
+    ++m_fragmentFramesCompleted;
+    m_fragmentExpectedSettled += fragmentCount;
+    m_fragmentReceivedSettled += fragmentCount;
+    if (echoDebug) {
+        LOG_DEBUG(QString("[MarineRadar][FRAGMENT] reassembled seq=%1 bytes=%2 fragments=%3")
+                  .arg(frameSeq)
+                  .arg(logicalFrame.size())
+                  .arg(fragmentCount));
+    }
+    parseLogicalEchoFrame(logicalFrame);
+}
+
+void MarineRadarManager::cleanupExpiredFragments()
+{
+    if (!m_fragmentClock.isValid() || m_fragmentAssemblies.isEmpty()) {
+        return;
+    }
+
+    const qint64 nowMs = m_fragmentClock.elapsed();
+    for (auto it = m_fragmentAssemblies.begin(); it != m_fragmentAssemblies.end();) {
+        if (nowMs - it->lastUpdateMs > m_fragmentReassemblyTimeoutMs) {
+            const uint16_t frameSeq = it.key();
+            const int received = it->receivedFragmentCount;
+            const int total = it->fragmentCount;
+            const int bytes = it->receivedByteCount;
+            const int expected = static_cast<int>(it->totalDataLen);
+            const int expectedFragments = it->fragmentCount;
+            const QString missingIndexes = missingFragmentIndexes(it->receivedFragments);
+            m_fragmentExpectedSettled += static_cast<uint64_t>(expectedFragments);
+            m_fragmentReceivedSettled += static_cast<uint64_t>(received);
+            ++m_fragmentFramesTimedOut;
+            noteDroppedEchoForSweep();
+            it = m_fragmentAssemblies.erase(it);
+            ++m_rxInvalidCount;
+            LOG_WARNING(QString("[MarineRadar][FRAGMENT] timeout seq=%1 received=%2/%3 bytes=%4/%5 missingIndexes=%6")
+                        .arg(frameSeq)
+                        .arg(received)
+                        .arg(total)
+                        .arg(bytes)
+                        .arg(expected)
+                        .arg(missingIndexes));
+        } else {
+            ++it;
+        }
+    }
+}
+
+void MarineRadarManager::discardFragmentAssembly(uint16_t frameSeq, const QString& reason)
+{
+    auto it = m_fragmentAssemblies.find(frameSeq);
+    if (it == m_fragmentAssemblies.end()) {
+        return;
+    }
+
+    LOG_WARNING(QString("[MarineRadar][FRAGMENT] discard seq=%1 reason=%2 received=%3/%4 bytes=%5/%6")
+                .arg(frameSeq)
+                .arg(reason)
+                .arg(it->receivedFragmentCount)
+                .arg(it->fragmentCount)
+                .arg(it->receivedByteCount)
+                .arg(it->totalDataLen));
+    m_fragmentExpectedSettled += static_cast<uint64_t>(it->fragmentCount);
+    m_fragmentReceivedSettled += static_cast<uint64_t>(it->receivedFragmentCount);
+    ++m_fragmentFramesDiscarded;
+    noteDroppedEchoForSweep();
+    m_fragmentAssemblies.erase(it);
+}
+
+void MarineRadarManager::logFragmentStats() const
+{
+    const uint64_t settledFrames = m_fragmentFramesCompleted +
+                                   m_fragmentFramesTimedOut +
+                                   m_fragmentFramesDiscarded;
+    if (m_fragmentFramesStarted == 0 && settledFrames == 0) {
+        return;
+    }
+
+    const uint64_t missingFragments = m_fragmentExpectedSettled - m_fragmentReceivedSettled;
+    const double frameCompleteRate = settledFrames > 0
+        ? (100.0 * static_cast<double>(m_fragmentFramesCompleted) / static_cast<double>(settledFrames))
+        : 0.0;
+    const double fragmentMissingRate = m_fragmentExpectedSettled > 0
+        ? (100.0 * static_cast<double>(missingFragments) / static_cast<double>(m_fragmentExpectedSettled))
+        : 0.0;
+
+    LOG_INFO(QString("[MarineRadar][FRAGMENT-STATS] started=%1 settled=%2 completed=%3 timeout=%4 discarded=%5 completeRate=%6%% expectedFragments=%7 receivedFragments=%8 missingFragments=%9 missingRate=%10%% inflight=%11 rxFragments=%12")
+             .arg(m_fragmentFramesStarted)
+             .arg(settledFrames)
+             .arg(m_fragmentFramesCompleted)
+             .arg(m_fragmentFramesTimedOut)
+             .arg(m_fragmentFramesDiscarded)
+             .arg(frameCompleteRate, 0, 'f', 2)
+             .arg(m_fragmentExpectedSettled)
+             .arg(m_fragmentReceivedSettled)
+             .arg(missingFragments)
+             .arg(fragmentMissingRate, 0, 'f', 2)
+             .arg(m_fragmentAssemblies.size())
+             .arg(m_rxFragmentCount));
+}
+
+void MarineRadarManager::noteValidEchoForSweep(uint16_t azimuthBin)
+{
+    const uint16_t normalizedBin = static_cast<uint16_t>(azimuthBin % MARINE_ECHO_AZI_BINS);
+    if (!m_sweepActive) {
+        m_sweepActive = true;
+        m_sweepNumber = 1;
+        resetSweepStats();
+    } else {
+        const int signedDelta = static_cast<int>(normalizedBin) - static_cast<int>(m_lastSweepAzimuth);
+        if (signedDelta < -static_cast<int>(MARINE_ECHO_AZI_BINS / 2)) {
+            logSweepStats(QStringLiteral("increasing"));
+            ++m_sweepNumber;
+            m_sweepSynchronized = true;
+            resetSweepStats();
+        } else if (signedDelta > static_cast<int>(MARINE_ECHO_AZI_BINS / 2)) {
+            logSweepStats(QStringLiteral("decreasing"));
+            ++m_sweepNumber;
+            m_sweepSynchronized = true;
+            resetSweepStats();
+        }
+    }
+
+    ++m_sweepValidLines;
+    m_sweepAzimuthBins.setBit(normalizedBin, true);
+    m_lastSweepAzimuth = normalizedBin;
+}
+
+void MarineRadarManager::noteDroppedEchoForSweep()
+{
+    if (m_sweepActive) {
+        ++m_sweepDroppedLines;
+    } else {
+        ++m_pendingDroppedLines;
+    }
+}
+
+void MarineRadarManager::logSweepStats(const QString& direction)
+{
+    int uniqueAzimuthBins = 0;
+    for (int i = 0; i < m_sweepAzimuthBins.size(); ++i) {
+        if (m_sweepAzimuthBins.testBit(i)) {
+            ++uniqueAzimuthBins;
+        }
+    }
+
+    const uint32_t observedLines = m_sweepValidLines + m_sweepDroppedLines;
+    const double completeRate = observedLines > 0
+        ? (100.0 * static_cast<double>(m_sweepValidLines) / static_cast<double>(observedLines))
+        : 0.0;
+    const double azimuthCoverage = 100.0 * static_cast<double>(uniqueAzimuthBins) /
+                                   static_cast<double>(MARINE_ECHO_AZI_BINS);
+    const qint64 durationMs = m_sweepClock.isValid() ? m_sweepClock.elapsed() : 0;
+    const double lineRateHz = durationMs > 0
+        ? (1000.0 * static_cast<double>(observedLines) / static_cast<double>(durationMs))
+        : 0.0;
+
+    // 8192 is the azimuth-number address space, not a protocol promise of 8192 FFT lines per turn.
+    LOG_INFO(QString("[MarineRadar][SWEEP-STATS] sweep=%1 direction=%2 partial=%3 durationMs=%4 sourceExpectedLines=not-declared validLines=%5 droppedLines=%6 observedLines=%7 lineRateHz=%8 completeRate=%9%% uniqueAzimuthBins=%10 azimuthBinCapacity=%11 azimuthCoverage=%12%%")
+             .arg(m_sweepNumber)
+             .arg(direction)
+             .arg(m_sweepSynchronized ? 0 : 1)
+             .arg(durationMs)
+             .arg(m_sweepValidLines)
+             .arg(m_sweepDroppedLines)
+             .arg(observedLines)
+             .arg(lineRateHz, 0, 'f', 2)
+             .arg(completeRate, 0, 'f', 2)
+             .arg(uniqueAzimuthBins)
+             .arg(MARINE_ECHO_AZI_BINS)
+             .arg(azimuthCoverage, 0, 'f', 2));
+}
+
+void MarineRadarManager::resetSweepStats()
+{
+    m_sweepValidLines = 0;
+    m_sweepDroppedLines = m_pendingDroppedLines;
+    m_pendingDroppedLines = 0;
+    m_sweepAzimuthBins.fill(false, MARINE_ECHO_AZI_BINS);
+    m_sweepClock.restart();
+}
+
+void MarineRadarManager::parseLogicalEchoFrame(const QByteArray& data)
+{
+    constexpr int HEADER_SIZE = static_cast<int>(sizeof(MarineEchoHeader));
+
+    if (data.size() < HEADER_SIZE + MARINE_ECHO_FRAME_TAIL_SIZE) {
+        ++m_rxInvalidCount;
+        if (shouldLogSample(m_rxInvalidCount, 5, 100)) {
+            LOG_WARNING(QString("[MarineRadar][RX] short logical frame invalidCount=%1 bytes=%2 expectedAtLeast=%3 head=%4")
+                        .arg(m_rxInvalidCount)
+                        .arg(data.size())
+                        .arg(HEADER_SIZE + MARINE_ECHO_FRAME_TAIL_SIZE)
                         .arg(firstBytesHex(data, 16)));
         }
-        return; // 数据太短
+        return;
     }
 
     const auto* hdr = reinterpret_cast<const MarineEchoHeader*>(data.constData());
@@ -420,8 +836,14 @@ void MarineRadarManager::parseEchoDatagram(const QByteArray& data)
         return;
     }
 
-    if (!hdr->isStatusValid() && shouldLogSample(m_rxDatagramCount, 5, 512)) {
-        LOG_WARNING(QString("[MarineRadar][RX] status checksum mismatch %1").arg(echoSummary(*hdr)));
+    if (!hdr->isStatusValid()) {
+        ++m_rxInvalidCount;
+        if (shouldLogSample(m_rxInvalidCount, 5, 100)) {
+            LOG_WARNING(QString("[MarineRadar][RX] status checksum mismatch invalidCount=%1 %2")
+                        .arg(m_rxInvalidCount)
+                        .arg(echoSummary(*hdr)));
+        }
+        return;
     }
 
     if (!hdr->isStyleValid() || !hdr->isRangeValid() || !hdr->isEchoLengthValid()) {
@@ -435,7 +857,27 @@ void MarineRadarManager::parseEchoDatagram(const QByteArray& data)
         return;
     }
 
-    // 提取状态
+    const int echoBytes = hdr->echoByteCount();
+    const int expectedSize = HEADER_SIZE + echoBytes + MARINE_ECHO_FRAME_TAIL_SIZE;
+    const bool hasFrameTail = data.size() >= MARINE_ECHO_FRAME_TAIL_SIZE &&
+                              static_cast<uint8_t>(data[data.size() - 2]) == MARINE_ECHO_FRAME_TAIL_HIGH &&
+                              static_cast<uint8_t>(data[data.size() - 1]) == MARINE_ECHO_FRAME_TAIL_LOW;
+    if (data.size() != expectedSize || !hasFrameTail) {
+        ++m_rxInvalidCount;
+        if (shouldLogSample(m_rxInvalidCount, 5, 100)) {
+            LOG_WARNING(QString("[MarineRadar][RX] invalid logical frame length/tail invalidCount=%1 bytes=%2 expected=%3 tail=%4 %5")
+                        .arg(m_rxInvalidCount)
+                        .arg(data.size())
+                        .arg(expectedSize)
+                        .arg(data.size() >= 2 ? firstBytesHex(data.right(2), 2) : QStringLiteral("<short>"))
+                        .arg(echoSummary(*hdr)));
+        }
+        return;
+    }
+
+    noteValidEchoForSweep(hdr->azimuthRaw());
+
+    // Only publish device state after the complete logical frame is verified.
     MarineRadarStatus st;
     st.rangeCode  = hdr->rangeCode;
     st.txOn       = (hdr->txState != 0);
@@ -446,14 +888,14 @@ void MarineRadarManager::parseEchoDatagram(const QByteArray& data)
     st.ganRao     = hdr->ganRao;
     st.freqStatus = hdr->freqStatus;
 
-    bool statusChanged = (st.rangeCode != m_status.rangeCode ||
-                          st.txOn      != m_status.txOn ||
-                          st.gain      != m_status.gain ||
-                          st.level     != m_status.level ||
-                          st.seaVal    != m_status.seaVal ||
-                          st.rainVal   != m_status.rainVal ||
-                          st.ganRao    != m_status.ganRao ||
-                          st.freqStatus != m_status.freqStatus);
+    const bool statusChanged = (st.rangeCode != m_status.rangeCode ||
+                                st.txOn      != m_status.txOn ||
+                                st.gain      != m_status.gain ||
+                                st.level     != m_status.level ||
+                                st.seaVal    != m_status.seaVal ||
+                                st.rainVal   != m_status.rainVal ||
+                                st.ganRao    != m_status.ganRao ||
+                                st.freqStatus != m_status.freqStatus);
     m_status = st;
     if (statusChanged) {
         LOG_INFO(QString("[MarineRadar][STATUS] updated range=%1 tx=%2 gain=%3 level=%4 sea=%5 rain=%6 interference=%7 freq=%8")
@@ -466,21 +908,6 @@ void MarineRadarManager::parseEchoDatagram(const QByteArray& data)
                  .arg(static_cast<int>(m_status.ganRao))
                  .arg(static_cast<int>(m_status.freqStatus)));
         emit radarStatusUpdated(m_status);
-    }
-
-    // 提取回波数据
-    const int echoBytes = hdr->echoByteCount();
-    int expectedSize = HEADER_SIZE + echoBytes;
-    if (data.size() < expectedSize) {
-        ++m_rxInvalidCount;
-        if (shouldLogSample(m_rxInvalidCount, 5, 100)) {
-            LOG_WARNING(QString("[MarineRadar][RX] incomplete echo invalidCount=%1 bytes=%2 expected=%3 %4")
-                        .arg(m_rxInvalidCount)
-                        .arg(data.size())
-                        .arg(expectedSize)
-                        .arg(echoSummary(*hdr)));
-        }
-        return; // 数据不完整
     }
 
     const uint16_t renderIdx = hdr->azimuthRenderIndex();

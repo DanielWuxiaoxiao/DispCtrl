@@ -21,6 +21,9 @@
 #include <QUdpSocket>
 #include <QHostAddress>
 #include <QTimer>
+#include <QBitArray>
+#include <QElapsedTimer>
+#include <QHash>
 #include "Basic/MarineProtocol.h"
 
 /**
@@ -93,7 +96,27 @@ private slots:
     void onAutoSend();
 
 private:
+    struct FragmentAssembly {
+        uint32_t totalDataLen = 0;
+        uint16_t fragmentCount = 0;
+        QByteArray data;
+        QBitArray receivedFragments;
+        QBitArray receivedBytes;
+        int receivedFragmentCount = 0;
+        int receivedByteCount = 0;
+        qint64 lastUpdateMs = 0;
+    };
+
     void parseEchoDatagram(const QByteArray& data);
+    void parseFragmentDatagram(const QByteArray& data);
+    void parseLogicalEchoFrame(const QByteArray& data);
+    void cleanupExpiredFragments();
+    void discardFragmentAssembly(uint16_t frameSeq, const QString& reason);
+    void logFragmentStats() const;
+    void noteValidEchoForSweep(uint16_t azimuthBin);
+    void noteDroppedEchoForSweep();
+    void logSweepStats(const QString& direction);
+    void resetSweepStats();
 
     QUdpSocket* m_rxSocket = nullptr;   ///< 接收回波用
     QUdpSocket* m_txSocket = nullptr;   ///< 发送控制用
@@ -108,7 +131,27 @@ private:
     uint32_t m_rxDatagramCount = 0;     ///< 接收UDP包计数
     uint32_t m_rxEchoCount = 0;         ///< 有效回波帧计数
     uint32_t m_rxInvalidCount = 0;      ///< 无效/不完整帧计数
+    uint32_t m_rxFragmentCount = 0;     ///< 收到的有效分片计数
+    uint32_t m_rxReassembledCount = 0;  ///< 完整重组逻辑帧计数
+    uint64_t m_fragmentFramesStarted = 0;
+    uint64_t m_fragmentFramesCompleted = 0;
+    uint64_t m_fragmentFramesTimedOut = 0;
+    uint64_t m_fragmentFramesDiscarded = 0;
+    uint64_t m_fragmentExpectedSettled = 0;
+    uint64_t m_fragmentReceivedSettled = 0;
     bool m_rxDrainScheduled = false;    ///< 接收积压分片处理标记
+    QElapsedTimer m_fragmentClock;
+    QHash<uint16_t, FragmentAssembly> m_fragmentAssemblies;
+    int m_fragmentReassemblyTimeoutMs = MARINE_FRAGMENT_REASSEMBLY_TIMEOUT_MS;
+    bool m_sweepActive = false;
+    bool m_sweepSynchronized = false;
+    uint16_t m_lastSweepAzimuth = 0;
+    uint64_t m_sweepNumber = 0;
+    uint32_t m_sweepValidLines = 0;
+    uint32_t m_sweepDroppedLines = 0;
+    uint32_t m_pendingDroppedLines = 0;
+    QBitArray m_sweepAzimuthBins;
+    QElapsedTimer m_sweepClock;
     uint16_t m_lastDebugRenderIdx = 0xffff;
     uint32_t m_debugAziChangeCount = 0;
 };
