@@ -1,198 +1,39 @@
-/*
- * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
- * @Date: 2025-09-17 09:54:43
- * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-25 16:20:18
- * @Description: 
- */
-/**
- * @file main.cpp
- * @brief DispCtrl雷达显示控制系统主程序入口
- * @details 程序初始化流程：
- *          1. Qt应用程序属性配置（高DPI、OpenGL等）
- *          2. 错误处理框架初始化
- *          3. 系统配置加载和验证
- *          4. 用户界面初始化（字体、样式、主窗口）
- *          5. 日志系统和控制器启动
- * @author DispCtrl Team
- * @date 2024
- */
-
 #include <QApplication>
 #include <QDir>
+#include <QFile>
 #include <QFont>
-#include <QStringList>
-#include <QSurfaceFormat>
-#include <QOpenGLContext>
-#include <QOffscreenSurface>
-#include <QOpenGLFunctions>
-#include <QAbstractSocket>
-#include "mainwindow.h"
-#include "Basic/bindThread.h"
+
+#include "Basic/ConfigManager.h"
 #include "Basic/DispBasci.h"
 #include "Basic/log.h"
-#include "Basic/ConfigManager.h"
-#include "Basic/Protocol.h"
-#include "Controller/ErrorHandler.h"
-#include <QLoggingCategory>
 #include "Controller/controller.h"
-#include "Basic/authmanager.h"
+#include "mainwindow.h"
 
-#ifdef Q_OS_WIN
-// Force the high-performance GPU on dual-GPU Windows laptops. This avoids
-// WebEngine GL context loss during focus/software/map switches.
-extern "C" {
-    __declspec(dllexport) unsigned long NvOptimusEnablement = 0x00000001;
-    __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
-}
-#endif
+namespace {
 
-// 登录对话框已移除，开机即启动
-
-/**
- * @brief 设置OpenGL渲染格式
- * @details 配置OpenGL上下文：
- *          - 使用Core Profile（核心配置文件）
- *          - OpenGL 3.3版本
- *          - 确保图形渲染的兼容性和性能
- */
-void setupOpenGL() {
-    QSurfaceFormat format;
-    format.setRenderableType(QSurfaceFormat::OpenGL);
-    format.setProfile(QSurfaceFormat::CoreProfile);
-    format.setVersion(3, 3);
-    QSurfaceFormat::setDefaultFormat(format);
-}
-
-/**
- * @brief 设置应用程序字体
- * @param app Qt应用程序实例
- * @details 配置全局字体：
- *          - 使用微软雅黑字体，确保中文显示效果
- *          - 字体大小使用MAIN_FONT_SIZE常量
- *          - 提供一致的用户界面体验
- */
-void setupFont(QApplication& app) {
+void setupFont(QApplication& app)
+{
     QFont font("Microsoft YaHei", MAIN_FONT_SIZE);
     font.setPointSizeF(MAIN_FONT_SIZE * ScaleHelper::uiScale());
     app.setFont(font);
 }
 
-/**
- * @brief 设置应用程序样式
- * @param app Qt应用程序实例
- * @details 加载并应用深色主题样式：
- *          - 从资源文件加载QSS样式表
- *          - 提供专业的雷达显示界面外观
- *          - 深色主题有助于减少眼疲劳
- */
-void setupStyle(QApplication& app) {
+void setupStyle(QApplication& app)
+{
     QFile file(":/resources/style/darkstyle.qss");
     if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QString style = QString::fromUtf8(file.readAll());
-
-        // 统一右下角两个信息窗字体大小（鼠标信息窗 + 视觉设置窗）
-        // 放入全局QSS，避免在各自widget中硬编码导致大小不一致
-        // 注意：字体由 AA_EnableHighDpiScaling 自动处理，此处保持固定px即可
-        style += QString(R"(
-
-/* --- Unified overlay panel fonts --- */
-#MousePositionInfo QLabel,
-#MousePositionInfo QCheckBox,
-#MousePositionInfo QDoubleSpinBox {
-    font-size: %1px;
-}
-
-#PPIVisualSettings QLabel,
-#PPIVisualSettings QLineEdit,
-#PPIVisualSettings QComboBox,
-#PPIVisualSettings QPushButton {
-    font-size: %1px;
-}
-
-)").arg(ScaleHelper::uiScaled(12));
-
-        app.setStyleSheet(style);
-        file.close();
+        app.setStyleSheet(QString::fromUtf8(file.readAll()));
     }
 }
 
-/**
- * @brief 绑定主线程到指定CPU核心（Linux平台）
- * @details 性能优化功能：
- *          - 在Linux系统上将主线程绑定到CPU核心0
- *          - 提高实时性和性能稳定性
- *          - 适用于高性能雷达数据处理需求
- */
-void bindMainThread() {
-#ifdef Q_OS_LINUX
-    if (bindThreadToCpu(0))
-        qDebug() << "Main thread bound to CPU 0.";
-    else
-        qWarning() << "Failed to bind main thread to CPU 0.";
-#endif
-}
+} // namespace
 
-/**
- * @brief 返回深色绿色对话框样式表
- */
-/**
- * @brief 程序主入口函数
- * @param argc 命令行参数个数
- * @param argv 命令行参数数组
- * @return 程序退出代码（0表示正常退出）
- * @details 完整的应用程序初始化流程：
- *          1. Qt应用程序属性配置（必须在QApplication创建前）
- *          2. 创建QApplication实例
- *          3. 初始化错误处理框架
- *          4. 控制器系统初始化
- *          5. UI配置（字体、OpenGL、样式）
- *          6. 日志系统配置
- *          7. 配置文件加载和验证
- *          8. 主窗口创建和显示
- *          9. 进入事件循环
- */
-int main(int argc, char *argv[]) {
-    // =============================================================================
-    // 第零步：注册Qt元类型（必须在任何线程操作之前）
-    // =============================================================================
-    qRegisterMetaType<QAbstractSocket::SocketState>("QAbstractSocket::SocketState");
-    qRegisterMetaType<MonitorParam>("MonitorParam");
-
-    // 注册数据存储管理相关类型（用于跨线程信号传递）
-    qRegisterMetaType<DataSaveOK>("DataSaveOK");
-    qRegisterMetaType<DataDelOK>("DataDelOK");
-    qRegisterMetaType<OfflineStat>("OfflineStat");
-
-    // 注册BIT上报和伺服控制相关类型（用于跨线程信号传递）
-    qRegisterMetaType<BITReport>("BITReport");
-    qRegisterMetaType<ServoCtrlRet>("ServoCtrlRet");
-
-    // =============================================================================
-    // 第一步：Qt应用程序属性配置（必须在QApplication实例化之前）
-    // =============================================================================
-
-    // 启用高DPI缩放，确保在4K显示器上正常显示
+int main(int argc, char* argv[])
+{
     const bool configLoaded = ConfigManager::instance().load("config.toml");
-
-    QStringList chromiumFlags;
-    if (ConfigManager::instance().webEngineDisableGpu(false)) {
-        chromiumFlags << "--disable-gpu" << "--disable-gpu-compositing";
-    }
-    const QString extraFlags = ConfigManager::instance().webEngineExtraChromiumFlags("").trimmed();
-    if (!extraFlags.isEmpty()) {
-        chromiumFlags << extraFlags;
-    }
-    if (!chromiumFlags.isEmpty()) {
-        qputenv("QTWEBENGINE_CHROMIUM_FLAGS", chromiumFlags.join(' ').toUtf8());
-    }
-
-    // UI DPI策略：
-    // fixed：禁用Qt高DPI缩放，使显控固定按自身布局比例显示，不跟随Windows 125/150/175%缩放。
-    // system：保留Qt高DPI缩放，作为高DPI/地图现场兼容回退。
     const QString dpiPolicy = ConfigManager::instance().uiDpiPolicy("fixed").trimmed().toLower();
-    const bool fixedDpi = (dpiPolicy != "system");
+    const bool fixedDpi = dpiPolicy != "system";
+
     if (fixedDpi) {
         qputenv("QT_ENABLE_HIGHDPI_SCALING", "0");
         qputenv("QT_AUTO_SCREEN_SCALE_FACTOR", "0");
@@ -204,130 +45,22 @@ int main(int argc, char *argv[]) {
         QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     }
 
-    // WebEngine backend: angle/gles is the default because ANGLE(D3D)
-    // is more stable than Desktop OpenGL on dual-GPU Windows machines.
-    const QString glBackend = ConfigManager::instance().webEngineGlBackend("angle").toLower();
-    if (glBackend == "software") {
-        QApplication::setAttribute(Qt::AA_UseSoftwareOpenGL);
-    } else if (glBackend == "angle" || glBackend == "gles") {
-        QApplication::setAttribute(Qt::AA_UseOpenGLES);
-    } else {
-        QApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
-        setupOpenGL();
-    }
-
-    // 启用OpenGL上下文共享，提高多窗口渲染性能
-    // QWebEngineView依赖独立进程，此设置增强稳定性
-    QApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
-
-    // =============================================================================
-    // 第二步：创建Qt应用程序实例
-    // =============================================================================
     QApplication app(argc, argv);
     qInstallMessageHandler(enhancedLog);
 
-    // =============================================================================
-    // 第二.五步：初始化屏幕缩放因子（必须在 QApplication 之后、setupFont 之前）
-    // =============================================================================
-    const double configuredUiScale = ConfigManager::instance().uiScale(1.0);
-    ScaleHelper::init(fixedDpi ? QStringLiteral("fixed") : QStringLiteral("system"), configuredUiScale);
-    qInfo() << "ScaleHelper initialized:"
-            << "dpiPolicy=" << ScaleHelper::dpiPolicy()
-            << "configuredUiScale=" << configuredUiScale
-            << "appliedUiScale=" << ScaleHelper::uiScale()
-            << "logical=" << QString("%1x%2").arg(ScaleHelper::logicalWidth()).arg(ScaleHelper::logicalHeight())
-            << "physical≈" << QString("%1x%2").arg(ScaleHelper::physicalWidth()).arg(ScaleHelper::physicalHeight())
-            << "dpr=" << ScaleHelper::devicePixelRatio()
-            << "factor=" << ScaleHelper::factor()
-            << "rightPanel=" << ScaleHelper::rightPanelWidth();
-
-    qInfo() << "[Render] gl_backend=" << glBackend
-            << "disable_gpu=" << ConfigManager::instance().webEngineDisableGpu(false)
-            << "dpi_policy=" << ScaleHelper::dpiPolicy()
-            << "AA_HighDpi=" << QApplication::testAttribute(Qt::AA_EnableHighDpiScaling)
-            << "AA_DisableHighDpi=" << QApplication::testAttribute(Qt::AA_DisableHighDpiScaling)
-            << "AA_Use96Dpi=" << QApplication::testAttribute(Qt::AA_Use96Dpi)
-            << "AA_GLES=" << QApplication::testAttribute(Qt::AA_UseOpenGLES)
-            << "AA_Desktop=" << QApplication::testAttribute(Qt::AA_UseDesktopOpenGL)
-            << "AA_Software=" << QApplication::testAttribute(Qt::AA_UseSoftwareOpenGL)
-            << "platform=" << QApplication::platformName()
-            << "chromium_flags=" << QString::fromUtf8(qgetenv("QTWEBENGINE_CHROMIUM_FLAGS"))
-            << "font_dpi=" << QString::fromUtf8(qgetenv("QT_FONT_DPI"));
-
-    QOffscreenSurface diagSurface;
-    diagSurface.create();
-    QOpenGLContext diagCtx;
-    if (diagSurface.isValid() && diagCtx.create() && diagCtx.makeCurrent(&diagSurface)) {
-        QOpenGLFunctions* f = diagCtx.functions();
-        auto glStr = [f](GLenum name) -> QString {
-            const GLubyte* s = f->glGetString(name);
-            return s ? QString::fromLatin1(reinterpret_cast<const char*>(s)) : QStringLiteral("?");
-        };
-        qInfo() << "[Render] GL_VENDOR=" << glStr(GL_VENDOR)
-                << "GL_RENDERER=" << glStr(GL_RENDERER)
-                << "GL_VERSION=" << glStr(GL_VERSION);
-        diagCtx.doneCurrent();
-    } else {
-        qWarning() << "[Render] Failed to create diagnostic OpenGL context";
-    }
-
-    // =============================================================================
-    // 第三步：初始化错误处理框架
-    // =============================================================================
-    ErrorHandler& errorHandler = ErrorHandler::instance();
-    Q_UNUSED(errorHandler); // 标记为已使用，避免编译器警告
-    qInfo() << "Error handler initialized";
-
+    ScaleHelper::init(fixedDpi ? QStringLiteral("fixed") : QStringLiteral("system"),
+                      ConfigManager::instance().uiScale(1.0));
+    setupFont(app);
+    setupStyle(app);
 
     if (!configLoaded) {
-        LOG_ERROR("Failed to load config.toml, using default configuration");
-    } else {
-        LOG_INFO(QString("Configuration loaded before Controller init; echo_debug=%1 sweep_history_rounds=%2")
-                 .arg(ConfigManager::instance().marineDisplayBool("echo_debug", false) ? 1 : 0)
-                 .arg(ConfigManager::instance().marineDisplayInt("sweep_history_rounds", 1)));
+        LOG_WARNING("config.toml was not loaded; using ship-radar defaults");
     }
 
-    // =============================================================================
-    // 第四步：控制器系统初始化
-    // =============================================================================
     CON_INS->init();
+    LOG_INFO(QString("Ship-radar startup, log file: %1/disp_ctrl_log.txt")
+                 .arg(QDir::currentPath()));
 
-    // =============================================================================
-    // 第五步：用户界面配置
-    // =============================================================================
-    setupFont(app);      // 设置全局字体
-    setupStyle(app);     // 应用深色主题样式
-
-    // =============================================================================
-    // 第五.五步：管理者模式 — 已移除登录对话框，默认管理者模式
-    // =============================================================================
-
-    // =============================================================================
-    // 第六步：日志系统配置
-    // =============================================================================
-    // 输出日志文件位置信息（确保能看到日志文件路径）
-    QString logPath = QDir::currentPath() + "/disp_ctrl_log.txt";
-    qInfo() << "Log file path:" << logPath;
-    LOG_INFO(QString("Application starting, log file: %1").arg(logPath));
-
-    // =============================================================================
-    // 第七步：配置文件加载和验证
-    // =============================================================================
-    if (!configLoaded) {
-        LOG_ERROR("Failed to load config.toml, using default configuration");
-        // 不返回错误，继续运行，使用默认配置
-    } else {
-        LOG_INFO("Configuration already loaded from config.toml");
-    }
-    // =============================================================================
-    // 第八步：主窗口创建和显示
-    // =============================================================================
-    LOG_INFO("Application starting...");
     FramelessMainWindow window;
-    LOG_INFO("Main window created successfully");
-
-    // =============================================================================
-    // 第九步：进入Qt事件循环
-    // =============================================================================
-    return app.exec();  // 程序主循环，直到用户退出
+    return app.exec();
 }

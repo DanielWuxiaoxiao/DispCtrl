@@ -1,258 +1,37 @@
-# =============================================================================
-# 雷达系统配置文件 Radar System Configuration
-# =============================================================================
-
-# =============================================================================
-# 网络通信配置 Network Communication Configuration
-# =============================================================================
-
-[network.ips]
-# IP地址配置（与config.json保持一致）
-DISP_CTRL_IP = "192.168.64.4"        # 显控主机IP地址
-DATA_PRO_IP = "192.168.64.3"         # 数据处理主机IP地址
-SIG_PRO_IP = "192.168.64.3"          # 信号处理主机IP地址
-RES_DIS_IP = "192.168.64.3"          # 资源分配主机IP地址
-PHOTO_ELE_IP = "192.168.101.10"      # 光电主机IP地址
-MONITOR_IP = "192.168.64.3"          # 监控主机IP地址
-DISP_CTRL_IP_FOR_PHOTO = "192.168.101.14"  # 显控对光电IP地址
-
-[network.ports]
-# 端口配置（与config.json保持一致）
-DISP_2_RES_PORT = 6012               # 显控->资源分配端口
-RES_GET_DISP_PORT = 8012             # 资源分配接收显控端口
-DISP_2_SIG_PORT = 6002               # 显控->信号处理端口
-SIG_GET_DISP_PORT = 8002             # 信号处理接收显控端口
-SIG_2_DISP_PORT1 = 6003              # 信号处理->显控端口1
-SIG_2_DISP_PORT2 = 6004              # 信号处理->显控端口2
-DISP_GET_SIG_PORT1 = 8003            # 显控接收信号端口1
-DISP_GET_SIG_PORT2 = 8004            # 显控接收信号端口2
-DATA_PRO_2_DISP = 6006               # 数据处理->显控端口
-DISP_GET_DATA_PORT = 8006            # 显控接收数据端口
-DISP_2_DATA = 6008                   # 显控->数据处理端口
-DATA_GET_DISP = 8008                 # 数据处理接收显控端口
-DATA_PRO_2_DISP2 = 6010              # 数据处理->显控端口2
-DISP_GET_DATA_PORT2 = 8010           # 显控接收数据端口2
-TARGET_2_DISP = 6017                 # 目标分类->显控端口
-DISP_GET_TARGET_PORT = 8017          # 显控接收目标端口
-DISP_2_MONITOR = 6018                # 显控->监控端口
-MONITOR_GET_DISP_PORT = 8018         # 监控接收显控端口
-MONITOR_2_DISP = 6019                # 监控->显控端口
-DISP_GET_MONITOR_PORT = 8019         # 显控接收监控端口
-DISP_2_PHOTO_PORT = 10100            # 显控->光电端口
-PHOTO_GET_DISP_PORT = 21001          # 光电接收显控端口
-
-[network.ids]
-# 系统ID配置（与config.json保持一致）
-RES_DIS_ID = 47873                   # 资源分配系统ID
-SIG_PRO_ID = 47874                   # 信号处理系统ID
-DATA_PRO_ID = 47875                  # 数据处理系统ID
-DISP_CTRL_ID = 47876                 # 显示控制系统ID
-TAR_CLA_ID = 47877                   # 目标分类系统ID
-MONITOR_ID = 47878                   # 监控系统ID
-
 [ui]
-# DPI policy:
-# fixed  = 不跟随 Windows 显示/文本缩放，适合固定布局显控界面
-# system = 跟随系统 DPI 缩放，作为高DPI现场兼容回退
 dpi_policy = "fixed"
-# 显控内部UI缩放系数，叠加在分辨率自适应之上。支持范围 0.70~1.60
 ui_scale = 1.0
 
-# =============================================================================
-# 雷达系统参数配置 Radar System Parameters Configuration
-# =============================================================================
-
 [radar]
-# 雷达位置配置（基于index.html中的默认值）
-longitude = 109.123922221                 # 雷达中心经度（西电99号楼）
-latitude = 34.225249343                   # 雷达中心纬度（西电99号楼）
-altitude = 781.48                     # 雷达海拔高度（米）
-azimuth = 0.0                        # 阵面指北角（度）
-pitch = 15.0                         # 俯仰角/倾角（度）
-roll = 0.0                           # 横滚角（度）
+longitude = 109.123922221
+latitude = 34.225249343
 
 [polarDisp.range]
-# 极坐标显示距离范围配置（与config.json保持一致）
-min = 0                              # 最小显示距离（千米）
-max = 5                              # 最大显示距离（千米）
+min = 0
+max = 5
 
-# =============================================================================
-# 地图显示配置 Map Display Configuration
-# =============================================================================
-
-[map]
-# 地图基本配置
-default_type = 1                     # 默认地图类型：0=无地图，1=路网图，2=标准图，3=卫星图
-
-# =============================================================================
-# 扇形显示配置 Sector Display Configuration
-# =============================================================================
-
-[sectorDisp.angle]
-# 扇形角度范围配置（单位：度）
-min = -30                            # 默认最小角度
-max = 30                             # 默认最大角度
-
-[sectorDisp.range]
-# 扇形距离范围配置（单位：公里）
-min = 0                              # 默认最小距离
-max = 5                              # 默认最大距离（与全局最大距离一致）
-
-# =============================================================================
-# 雷达扫描角度范围配置 Radar Scan Angle Range Configuration
-# =============================================================================
-
-[polarDisp.azimuthRange]
-# 方位角范围配置（单位：度）
-min = 30                             # 默认最小方位角
-max = 120                            # 默认最大方位角
-
-[polarDisp.elevationRange]
-# 俯仰角范围配置（单位：度）
-min = -10                            # 默认最小俯仰角
-max = 45                             # 默认最大俯仰角
-
-# =============================================================================
-# 系统运行配置 System Runtime Configuration
-# =============================================================================
-
-[system]
-# 系统运行参数
-log_level = "INFO"                   # 日志级别：DEBUG/INFO/WARNING/ERROR
-auto_save_interval = 300             # 自动保存间隔（秒）
-
-[webengine]
-# WebEngine调试配置
-enable_debug = true                  # 是否启用WebEngine远程调试
-debug_port = 9222                    # 调试端口
-gl_backend = "angle"                 # angle(D3D, recommended) | desktop(OpenGL) | software
-disable_gpu = false                  # true adds --disable-gpu; keep false for WebGL maps unless troubleshooting
-extra_chromium_flags = ""            # extra Chromium flags, space-separated
-
-# =============================================================================
-# 参数配置（运行时保存） Parameter Configuration (Runtime Save)
-# =============================================================================
-
-[params.servo]
-# 伺服控制参数 Servo Control Parameters
-cmd = 0                              # 指令：0=停转,1=转动,2=寻位,3=归北
-speed = 3                            # 转速（秒/转）
-az = 0                               # 方位角（0.01度）
-
-[params.scanrange]
-# 扫描范围参数 Scan Range Parameters
-workMode = 0                         # 工作模式：0=TWS,1=TAS
-
-[params.beamcontrol]
-# 波形控制参数 Beam Control Parameters
-freqID = 4                           # 频率ID
-type = 2                             # 类型
-aziStart = -1500                     # 方位起始（0.01度）= -15°
-aziEnd = 1500                        # 方位终止（0.01度）= 15°
-aziStep = 400                        # 方位步进（0.01度）
-pulseNum = 128                       # 积累脉冲数
-flagNum = 2                          # 波形使能数量
-beam1Flag = 1                        # 波形1使能
-beam1Code = 6                        # 波形1编码
-sampleStart1 = 0                     # 波形1采样起始
-sampleEnd1 = 0                       # 波形1采样终止
-elestart1 = 0                        # 波形1俯仰起始（0.01度）
-eleend1 = 3000                       # 波形1俯仰终止（0.01度）
-elestep1 = 400                       # 波形1俯仰步进（0.01度）
-beam2Flag = 1                        # 波形2使能
-beam2Code = 9                        # 波形2编码
-sampleStart2 = 0                     # 波形2采样起始
-sampleEnd2 = 0                       # 波形2采样终止
-elestart2 = 0                        # 波形2俯仰起始（0.01度）
-eleend2 = 1500                       # 波形2俯仰终止（0.01度）
-elestep2 = 400                       # 波形2俯仰步进（0.01度）
-beam3Flag = 0                        # 波形3使能
-beam3Code = 11                       # 波形3编码
-sampleStart3 = 0                     # 波形3采样起始
-sampleEnd3 = 0                       # 波形3采样终止
-elestart3 = 0                        # 波形3俯仰起始（0.01度）
-eleend3 = 400                        # 波形3俯仰终止（0.01度）
-elestep3 = 400                       # 波形3俯仰步进（0.01度）
-
-[params.sigpro]
-# 信号处理参数 Signal Processing Parameters
-noise = 1000                         # 噪声门限
-thresh1 = 0                          # 门限1
-thresh2 = 0                          # 门限2
-clutterThresh = 0                    # 杂波门限
-clutterMapFlaseRate = 0              # 杂波图虚警率
-CFARType = 0                         # CFAR类型
-disProWin = 0                        # 距离保护窗
-disRefWin = 0                        # 距离参考窗
-dopProWin = 0                        # 多普勒保护窗
-dopRefWin = 0                        # 多普勒参考窗
-MTDWinType = 0                       # MTD窗类型
-clutterMode = 0                      # 杂波模式
-clutterChannelWidth = 0              # 杂波通道宽度
-clutterUnitWin = 0                   # 杂波单元窗
-clutterIter = 0                      # 杂波迭代
-algorithmSwitch = 0                  # 算法开关
-
-[params.datapro]
-# 数据处理参数 Data Processing Parameters
-startWinLen = 3                      # 起始窗长
-startPoint = 0                       # 起始点
-endWinLen = 0                        # 终止窗长
-endPoint = 0                         # 终止点
-noiseVar = 0                         # 噪声方差
-trackDisLower = 0                    # 航迹距离下限
-trackDisUpper = 0                    # 航迹距离上限
-trackAziThresh = 0                   # 航迹方位门限
-trackEleThresh = 0                   # 航迹俯仰门限
-trackVelThresh = 0                   # 航迹速度门限
-trackStatThresh = 0                  # 航迹统计门限
-accuDisGate = 0                      # 累积距离门
-accuAziGate = 0                      # 累积方位门
-accuEleGate = 0                      # 累积俯仰门
-accuVelGate = 0                      # 累积速度门
-
-[params.datasave]
-# 数据保存参数 Data Save Parameters
-saveSwitch = 0                       # 保存开关
-dataID = 0                           # 数据ID
-
-# =============================================================================
-# 显示配置 Display Configuration
-# =============================================================================
-
-[displayConfig]
-# 检测点显示配置 Detection Point Display Configuration
-max_points = 1000                    # 最大检测点数量
-
-# =============================================================================
-# 船用雷达通信配置 Marine Radar Communication
-# =============================================================================
 [marine.network]
 local_ip = "192.168.1.100"
 echo_port = 9000
 servo_ip = "192.168.1.30"
 servo_port = 9000
 auto_send_ms = 0
-# 可选：大帧 FFT 分片重组超时；范围 100~5000 ms，默认 500 ms
 fragment_timeout_ms = 500
 
 [marine.control]
-# 默认控制参数
-cmd_num = 0                           # 控制命令: 0=仅参数, 1=位置, 2=速度, 3=停止, 4=启动
-azimuth_deg = 0.0                     # 位置模式方位角(度), 协议下发为角度*100小端
-range = 7                            # 量程编码 (0~14, 7=4km)
-gain = 0                             # 增益 (0=自动)
-interference = 0                     # 干扰抑制 (0=关)
-level = 0                            # 灵敏度 (0=自动)
-sea_clutter = 0                      # 海杂波 (0=自动)
-rain_clutter = 0                     # 雨杂波 (0=自动)
-tx_on = false                        # 发射开关 (默认关闭)
-servo_gear = 0                       # 速度档位 0~8, 转速=档位*6.00 rpm
-servo_speed = 8                      # 兼容旧配置键；新界面优先读取 servo_gear
+cmd_num = 0
+azimuth_deg = 0.0
+range = 7
+gain = 0
+interference = 0
+level = 0
+sea_clutter = 0
+rain_clutter = 0
+tx_on = false
+servo_gear = 0
 
 [marine.display]
-# 扫描回波显示参数
-echo_decay_ms = 10000                # 回波衰减时间(ms) — 余辉持续时长
-colormap = "simrad"                  # 色彩映射方案: simrad / rainbow / green
-sweep_history_rounds = 1             # 同一方位保留的扫描圈数，范围1~8，默认1圈
-echo_debug = false                  # 回波/历史圈调试日志，定位绘图残留时临时打开
+echo_decay_ms = 10000
+colormap = "simrad"
+sweep_history_rounds = 1
+echo_debug = false

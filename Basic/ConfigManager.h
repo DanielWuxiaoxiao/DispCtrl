@@ -143,14 +143,6 @@ public:
         return getValue("ui.window." + key, def).toInt();
     }
 
-    double mapCenter(const QString& key, double def = 0.0) const {
-        return getValue("mapDisplay.center_" + key, def).toDouble();
-    }
-
-    QString mapProperty(const QString& key, const QString& def = "") const {
-        return getValue("mapDisplay." + key, def).toString();
-    }
-
     int systemProperty(const QString& key, int def = 0) const {
         return getValue("system." + key, def).toInt();
     }
@@ -161,27 +153,6 @@ public:
 
     unsigned int protocolCode(const QString& key, unsigned int def = 0) const {
         return getValue("network.protocol." + key, def).toUInt();
-    }
-
-    // WebEngine调试配置
-    bool webEngineDebugEnabled(bool def = false) const {
-        return getValue("webengine.enable_debug", def).toBool();
-    }
-
-    int webEngineDebugPort(int def = 6669) const {
-        return getValue("webengine.debug_port", def).toInt();
-    }
-
-    QString webEngineGlBackend(const QString& def = "angle") const {
-        return getValue("webengine.gl_backend", def).toString();
-    }
-
-    bool webEngineDisableGpu(bool def = false) const {
-        return getValue("webengine.disable_gpu", def).toBool();
-    }
-
-    QString webEngineExtraChromiumFlags(const QString& def = "") const {
-        return getValue("webengine.extra_chromium_flags", def).toString();
     }
 
     // 显示配置相关
