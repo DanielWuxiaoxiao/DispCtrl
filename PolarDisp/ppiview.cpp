@@ -52,6 +52,22 @@
 #include <QMainWindow>
 #include <QCoreApplication>
 #include <QFile>
+#include <QStringList>
+
+#include <algorithm>
+
+QString PPIView::activeGcsTargetBatchSummary() const
+{
+    QList<int> batchIds = m_activeGcsTargetBatches.values();
+    std::sort(batchIds.begin(), batchIds.end());
+
+    QStringList labels;
+    labels.reserve(batchIds.size());
+    for (const int batchId : batchIds) {
+        labels.append(QString::number(batchId));
+    }
+    return labels.join(QStringLiteral(","));
+}
 
 bool PPIView::sendTrackTargetAssignment(int batchID)
 {
@@ -515,7 +531,7 @@ void PPIView::setPPIScene(PPIScene* scene) {
                 }
 
                 if (m_gcsTargetReportEnabled
-                    && m_autoSendTrackBatches.contains(static_cast<int>(info.batch))) {
+                    && m_activeGcsTargetBatches.contains(static_cast<int>(info.batch))) {
                     sendTrackTargetAssignment(static_cast<int>(info.batch));
                 }
             });
@@ -531,7 +547,12 @@ void PPIView::setPPIScene(PPIScene* scene) {
                 if (m_totalControlMqttClient) {
                     m_totalControlMqttClient->removeTrack(static_cast<unsigned int>(batchID));
                 }
-                m_autoSendTrackBatches.remove(batchID);
+                if (m_activeGcsTargetBatches.remove(batchID) > 0) {
+                    LOG_INFO(QString("[GCS][TARGET_UNSUBSCRIBE] batch=%1 reason=statMethod==2 activeCount=%2 activeBatches=[%3]")
+                                 .arg(batchID)
+                                 .arg(m_activeGcsTargetBatches.size())
+                                 .arg(activeGcsTargetBatchSummary()));
+                }
             });
         }
     }
@@ -1067,7 +1088,13 @@ void PPIView::onClearDisplayRequested()
         return;
     }
 
-    m_autoSendTrackBatches.clear();
+    // “显清”只清理本地显示缓存，不应结束手动下发的外部目标跟踪。
+    // 外部跟踪仅在该批次收到 statMethod==2 消批时停止。
+    if (!m_activeGcsTargetBatches.isEmpty()) {
+        LOG_INFO(QString("[GCS][TARGET_SUBSCRIPTIONS] retained after local display clear: activeCount=%1 activeBatches=[%2]")
+                     .arg(m_activeGcsTargetBatches.size())
+                     .arg(activeGcsTargetBatchSummary()));
+    }
 
     // 通过 RadarDataManager 统一清除数据
     // 这会触发 dataCleared 信号，通知所有注册的视图（包括 RangeAzimuthWidget）
@@ -1336,7 +1363,7 @@ void PPIView::setGCSManager(GCSManager* mgr)
     m_gcsMgr = mgr;
     m_gcsTargetReportEnabled = CF_INS.gcsTargetReportEnabled(false);
     if (!m_gcsTargetReportEnabled) {
-        m_autoSendTrackBatches.clear();
+        m_activeGcsTargetBatches.clear();
     }
 }
 
@@ -1431,6 +1458,12 @@ void PPIView::onTrackLabelRightClicked(int batchID)
     if (chosen != sendAction) return;
 
     if (sendTrackTargetAssignment(batchID)) {
-        m_autoSendTrackBatches.insert(batchID);
+        const bool alreadyActive = m_activeGcsTargetBatches.contains(batchID);
+        m_activeGcsTargetBatches.insert(batchID);
+        LOG_INFO(QString("[GCS][TARGET_SUBSCRIBE] batch=%1 action=%2 activeCount=%3 activeBatches=[%4]")
+                     .arg(batchID)
+                     .arg(alreadyActive ? QStringLiteral("refresh") : QStringLiteral("add"))
+                     .arg(m_activeGcsTargetBatches.size())
+                     .arg(activeGcsTargetBatchSummary()));
     }
 }

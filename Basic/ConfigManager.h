@@ -358,6 +358,18 @@ public:
         return getValue("displayConfig." + key, def).toInt();
     }
 
+    int defaultPanelCount() const {
+        const QVariant value = getValue("displayConfig.default_panel_count", 1);
+        bool ok = false;
+        const int count = value.toInt(&ok);
+        if (!ok || count < 1 || count > 4) {
+            LOG_WARNING(QString("Invalid displayConfig.default_panel_count=%1; using panel 1 only")
+                        .arg(value.toString()));
+            return 1;
+        }
+        return count;
+    }
+
     bool displayFlag(const QString& key, bool def = false) const {
         return getValue("displayConfig." + key, def).toBool();
     }

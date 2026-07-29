@@ -77,8 +77,8 @@ PPIScene::PPIScene(QObject *parent)
     m_scan->setSweepRange(-30, 30);    // 默认扫描范围（-30°~30°），后续会根据工作模式更新
     m_scan->setScanMode(ScanLayer::Loop);
 
-    // BIT carries per-array yaw and scan angle; ScanLayer renders each array
-    // in the common north-referenced PPI coordinate system.
+    // BIT carries per-array yaw and scan angle. ScanLayer keeps the values
+    // separate so scan-line coordinate semantics can follow the agreed protocol.
     connect(CON_INS, &Controller::bitReport,
         m_scan, &ScanLayer::onBITReport);
 

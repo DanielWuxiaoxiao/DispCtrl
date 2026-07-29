@@ -8,6 +8,7 @@
  */
 #include "scanlayer.h"
 #include "polaraxis.h"
+#include "../Basic/ConfigManager.h"
 #include "../Basic/log.h"
 #include <QColor>
 #include <QConicalGradient>
@@ -59,6 +60,14 @@ ScanLayer::ScanLayer(PolarAxis* axis, QGraphicsItem* parent)
       m_angle(0), m_fixedStart(0), m_fixedEnd(360),
       m_direction(1), m_mode(Loop)
 {
+    const int defaultPanelCount = CF_INS.defaultPanelCount();
+    for (int panelId = 0; panelId < kPanelCount; ++panelId) {
+        m_panels[panelId].enabled = panelId < defaultPanelCount;
+    }
+
+    LOG_INFO(QString("[ScanLayer] initial enabled panels: count=%1 (panel1..panel%1)")
+                 .arg(defaultPanelCount));
+
     m_timer = new QTimer(this);
     connect(m_timer, &QTimer::timeout, this, &ScanLayer::advanceSweep);
 }
@@ -147,7 +156,7 @@ void ScanLayer::paint(QPainter* painter,
             continue;
         }
 
-        const double globalScan = normalizeAngle(panel.yawDeg + panel.scanAngleDeg);
+        const double globalScan = normalizeAngle(panel.scanAngleDeg);
         drawAfterglow(scanAreaPath, globalScan);
 
         QPen scanPen(color, 4.0, Qt::SolidLine);

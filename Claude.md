@@ -865,6 +865,12 @@ dataToScene            # RangeAzimuth坐标转换
 ### v5.39 (2026-07-20)
 - **Ubuntu 24.04 offline-install compatibility**: the offline dependency builder now uses `--no-install-recommends`, so new bundles do not contain optional ALSA UCM/topology packages. The installer always skips those host-managed packages, and preserves an existing `libasound.so.2` rather than unpacking the release's `libasound2`/`libasound2t64` package over it. When ALSA is absent, the minimal ALSA runtime remains available for Qt WebEngine. It configures only the release's unpacked closure instead of invoking global `dpkg --configure -a`, so a pre-existing target package error is not retried or misreported as a deployment failure.
 
+### v5.40 (2026-07-26)
+- **Legacy GCS multi-track reporting**: with `network.gcs.target_report_enabled=true`, each PPI right-click `目标下发` adds (or refreshes) that batch in the active `0x52` reporting set. It no longer replaces previously selected batches, so several manually selected tracks continue sending their latest points concurrently. A batch is removed only when its own `statMethod==2` cancellation reaches `TrackManager`; a local display clear retains the active GCS subscription set. Subscription, refresh, retention, and cancellation logs include the active batch list for field verification.
+
+### v5.41 (2026-07-28)
+- **Default panel count**: `displayConfig.default_panel_count` selects the first contiguous `1..4` panels enabled when the display starts; the default is `1`, so only panel 1 has an initial PPI scan sector. Missing, unreadable, non-numeric, or out-of-range configuration falls back to `1` and records a warning. The same value initializes the panel-enable dialog checkboxes. It is an operator-interface default only and does not automatically send an `AA01` panel power command at startup.
+
 ---
 
 **文档结束**

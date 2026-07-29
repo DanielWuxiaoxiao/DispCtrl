@@ -311,6 +311,8 @@ interpolation_step = 30
 # 检测点显示配置 Detection Point Display Configuration
 max_points = 1000                    # 最大检测点数量
 max_track_points = 200               # 单批航迹最大点数
+# P显和阵面开启控制的初始阵面数量（1~4，默认仅阵面1；不自动下发阵面开关命令）
+default_panel_count = 1
 iftbd = false                        # 是否启用TBD航迹接收与显示
 ifxietong = false                    # 是否启用协同航迹接收与显示
 sector_display_enabled = false       # Create the sector display widget

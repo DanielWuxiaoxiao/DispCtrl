@@ -80,7 +80,8 @@ private:
 
     // TAS supplies one panel-local range. Enabled panels rotate that same local
     // range by their fixed installation headings (0/90/180/270 degrees).
-    // BIT yaw + scan angle remains the authoritative live scan-line position.
+    // BIT yaw is retained independently; scan-line coordinate semantics remain
+    // an explicit renderer policy rather than being inferred here.
     std::array<PanelState, kPanelCount> m_panels{};
 };
 

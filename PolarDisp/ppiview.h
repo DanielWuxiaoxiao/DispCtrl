@@ -22,6 +22,7 @@
 #include <QGraphicsView>
 #include <QRubberBand>
 #include <QSet>
+#include <QString>
 
 class EdgeRadarReporter;
 class TotalControlMqttClient;
@@ -378,6 +379,7 @@ protected:
 
 private:
     bool sendTrackTargetAssignment(int batchID);
+    QString activeGcsTargetBatchSummary() const;
 
     // 核心组件
     PPIScene* m_scene;                ///< PPI场景对象指针
@@ -418,7 +420,8 @@ private:
     TotalControlMqttClient* m_totalControlMqttClient = nullptr; ///< 总控MQTT上报器（由外部注入，不拥有所有权）
     LaserReportManager* m_laserReportManager = nullptr; ///< 激光侦察上报器（由外部注入，不拥有所有权）
     bool m_laserReportEnabled = false;       ///< 是否启用激光上报（关闭则右键菜单无此项）
-    QSet<int> m_autoSendTrackBatches;        ///< 已订阅自动下发的航迹批次
+    // 手动下发过的批次集合。新批次加入集合而不替换旧批次；仅对应批次消批后移除。
+    QSet<int> m_activeGcsTargetBatches;
     bool m_gcsTargetReportEnabled = false;   ///< 是否启用旧GCS 0x52航迹点上报
 
     // 道路点下发状态跟踪（用于浮点容差判断）

@@ -116,6 +116,13 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     // 扫描范围参数
     m_scanRange.workMode = CF_INS.scanRangeWorkMode(0);
 
+    // 仅作为阵面开启控制弹窗的初始显示状态；程序启动不自动下发 AA01。
+    const int defaultPanelCount = CF_INS.defaultPanelCount();
+    m_batteryControlM.quadrant1 = defaultPanelCount >= 1;
+    m_batteryControlM.quadrant2 = defaultPanelCount >= 2;
+    m_batteryControlM.quadrant3 = defaultPanelCount >= 3;
+    m_batteryControlM.quadrant4 = defaultPanelCount >= 4;
+
     // 波束控制参数 - 完整初始化所有字段
     m_beamControl.freqID = CF_INS.beamFreqID(5);
     m_beamControl.type = CF_INS.beamType(2);
