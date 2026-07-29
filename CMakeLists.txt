@@ -50,6 +50,8 @@ add_executable(DispCtrl
     resource.qrc
 )
 
+target_include_directories(DispCtrl PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
 target_link_libraries(DispCtrl PRIVATE Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Network)
 
 set_target_properties(DispCtrl PROPERTIES
