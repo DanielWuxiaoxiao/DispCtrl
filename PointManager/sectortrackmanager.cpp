@@ -27,6 +27,16 @@
 #include <QtMath>
 #include <QDebug>
 
+namespace {
+
+quint64 makeTrackKey(PointType type, int batch)
+{
+    return (static_cast<quint64>(type) << 32)
+         | static_cast<quint32>(batch);
+}
+
+}
+
 // ==================== SectorDraggableLabel 扇形可拖拽标签实现 ====================
 
 /**
@@ -122,7 +132,7 @@ void SectorTrackManager::addTrackPoint(const PointInfo& info)
     if (info.statMethod == 2) {
         LOG_DEBUG(QString("[SectorTrackManager::addTrackPoint] statMethod==2, removing batch %1")
                   .arg(info.batch));
-        removeBatch(info.batch);
+        removeSeries(makeTrackKey(static_cast<PointType>(info.type), info.batch));
         // 发出信号通知其他组件删除对应航迹
         emit trackRemoved(info.batch);
         return;
@@ -134,8 +144,9 @@ void SectorTrackManager::addTrackPoint(const PointInfo& info)
     } else if (info.type == PointType::CooperativeTrackPointType) {
         type = PointType::CooperativeTrackPointType;
     }
+    const quint64 trackKey = makeTrackKey(type, info.batch);
     ensureSeries(info.batch, type);
-    SectorTrackSeries& series = m_series[info.batch];
+    SectorTrackSeries& series = m_series[trackKey];
     const bool firstPointInBatch = series.nodes.isEmpty();
 
     // 创建航迹点
@@ -191,7 +202,7 @@ void SectorTrackManager::addTrackPoint(const PointInfo& info)
     limitBatchPoints(series);
 
     // 更新最新点标签
-    updateLatestLabel(info.batch);
+    updateLatestLabel(trackKey);
 }
 
 void SectorTrackManager::limitBatchPoints(SectorTrackSeries& series)
@@ -279,11 +290,12 @@ void SectorTrackManager::refreshAll()
 
 void SectorTrackManager::setBatchVisible(int batchID, bool visible)
 {
-    auto it = m_series.find(batchID);
+    const quint64 trackKey = makeTrackKey(PointType::Track, batchID);
+    auto it = m_series.find(trackKey);
     if (it == m_series.end()) return;
 
     it->visible = visible;
-    updateBatchVisibility(batchID);
+    updateBatchVisibility(trackKey);
 }
 
 void SectorTrackManager::setAllVisible(bool visible)
@@ -334,10 +346,11 @@ void SectorTrackManager::setPointSizeRatio(float ratio)
 
 void SectorTrackManager::setBatchColor(int batchID, const QColor& color)
 {
-    if (!m_series.contains(batchID)) {
+    const quint64 trackKey = makeTrackKey(PointType::Track, batchID);
+    if (!m_series.contains(trackKey)) {
         ensureSeries(batchID);
     }
-    SectorTrackSeries& series = m_series[batchID];
+    SectorTrackSeries& series = m_series[trackKey];
     series.color = color;
 
     // 更新所有点和线的颜色
@@ -370,10 +383,16 @@ void SectorTrackManager::setAngleRange(float minAngle, float maxAngle)
 
 void SectorTrackManager::removeBatch(int batchID)
 {
+    removeSeries(makeTrackKey(PointType::Track, batchID));
+}
+
+void SectorTrackManager::removeSeries(quint64 trackKey)
+{
+    const int batchID = static_cast<int>(trackKey & 0xffffffffULL);
     LOG_DEBUG(QString("[SectorTrackManager::removeBatch] ===== CALLED with batchID: %1 =====")
                   .arg(batchID));
 
-    auto it = m_series.find(batchID);
+    auto it = m_series.find(trackKey);
     if (it == m_series.end()) {
         LOG_DEBUG(QString("[SectorTrackManager::removeBatch] Batch %1 not found in series")
                       .arg(batchID));
@@ -418,20 +437,21 @@ void SectorTrackManager::removeBatch(int batchID)
 
 void SectorTrackManager::clear()
 {
-    QList<int> keys = m_series.keys();
-    for (int batchID : keys) {
-        removeBatch(batchID);
+    QList<quint64> keys = m_series.keys();
+    for (quint64 trackKey : keys) {
+        removeSeries(trackKey);
     }
 }
 
 void SectorTrackManager::ensureSeries(int batchID, PointType type)
 {
-    if (!m_series.contains(batchID)) {
+    const quint64 trackKey = makeTrackKey(type, batchID);
+    if (!m_series.contains(trackKey)) {
         SectorTrackSeries series;
         series.type = type;
         series.color = trackTypeColor(type);
         series.visible = true;
-        m_series.insert(batchID, series);
+        m_series.insert(trackKey, series);
 
         LOG_DEBUG(QString("[SectorTrackManager] Created %1 display series: batch=%2 totalSeries=%3")
               .arg(trackTypeLabel(type))
@@ -440,38 +460,11 @@ void SectorTrackManager::ensureSeries(int batchID, PointType type)
         return;
     }
 
-    auto& series = m_series[batchID];
-    if (series.type != type) {
-        const QString oldType = trackTypeLabel(series.type);
-        series.type = type;
-        QColor newColor = trackTypeColor(type);
-        series.color = newColor;
-
-        LOG_DEBUG(QString("[SectorTrackManager] Series type changed: batch=%1 %2 -> %3")
-              .arg(batchID)
-              .arg(oldType)
-              .arg(trackTypeLabel(type)));
-
-        // 更新已有节点和连线颜色
-        for (auto& node : series.nodes) {
-            if (node.point) node.point->setColor(newColor);
-            if (node.lineFromPrev) {
-                QPen pen(newColor);
-                pen.setWidth(1);
-                node.lineFromPrev->setPen(pen);
-            }
-        }
-        if (series.labelLine) {
-            QPen pen(newColor);
-            pen.setStyle(Qt::DashLine);
-            series.labelLine->setPen(pen);
-        }
-    }
 }
 
-void SectorTrackManager::updateLatestLabel(int batchID)
+void SectorTrackManager::updateLatestLabel(quint64 trackKey)
 {
-    auto it = m_series.find(batchID);
+    auto it = m_series.find(trackKey);
     if (it == m_series.end() || it->nodes.isEmpty()) return;
 
     SectorTrackSeries& series = it.value();
@@ -517,9 +510,9 @@ void SectorTrackManager::updateLatestLabel(int batchID)
     setItemSceneVisible(series.labelLine, visible);
 }
 
-void SectorTrackManager::updateBatchVisibility(int batchID)
+void SectorTrackManager::updateBatchVisibility(quint64 trackKey)
 {
-    auto it = m_series.find(batchID);
+    auto it = m_series.find(trackKey);
     if (it == m_series.end()) return;
 
     SectorTrackSeries& series = it.value();

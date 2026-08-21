@@ -45,6 +45,12 @@ constexpr qreal kFocusedLabelZ = INFO_Z + 21;
 constexpr qreal kFocusedLabelFontScale = 1.2;
 constexpr int kPpiRefreshIntervalMs = 16; // ~60 FPS when the GUI thread keeps up.
 
+quint64 makeTrackKey(PointType type, int batch)
+{
+    return (static_cast<quint64>(type) << 32)
+         | static_cast<quint32>(batch);
+}
+
 QColor displayTrackColor(const PointInfo& info)
 {
     if (OfflineRae::isOffline(info)) {
@@ -476,10 +482,10 @@ TrackManager::TrackManager(QGraphicsScene* scene, PolarAxis* axis, QObject* pare
     m_batchRepaintTimer.setSingleShot(true);
     m_batchRepaintTimer.setInterval(kPpiRefreshIntervalMs);
     connect(&m_batchRepaintTimer, &QTimer::timeout, this, [this]() {
-        const QSet<int> pending = m_pendingBatchRepaints;
+        const QSet<quint64> pending = m_pendingBatchRepaints;
         m_pendingBatchRepaints.clear();
-        for (int batchID : pending) {
-            auto it = mSeries.find(batchID);
+        for (quint64 trackKey : pending) {
+            auto it = mSeries.find(trackKey);
             if (it == mSeries.end() || !it->batchItem) {
                 continue;
             }
@@ -552,10 +558,11 @@ void TrackManager::setPointSizeRatio(float ratio)
  */
 void TrackManager::setBatchColor(int batchID, const QColor& c)
 {
-    if (!mSeries.contains(batchID)) {
+    const quint64 trackKey = makeTrackKey(PointType::Track, batchID);
+    if (!mSeries.contains(trackKey)) {
         ensureSeries(batchID);  // 默认使用DBT颜色
     }
-    auto& s = mSeries[batchID]; // 获取航迹序列引用
+    auto& s = mSeries[trackKey]; // 获取航迹序列引用
     s.color = c;
 
     if (s.latestPoint) {
@@ -583,12 +590,13 @@ void TrackManager::setBatchColor(int batchID, const QColor& c)
  */
 void TrackManager::ensureSeries(int batchID, PointType type)
 {
-    if (!mSeries.contains(batchID)) {
+    const quint64 trackKey = makeTrackKey(type, batchID);
+    if (!mSeries.contains(trackKey)) {
         TrackSeries s;
         s.type = type;
         s.color = trackTypeColor(type);
         // s.visible 默认值是 true（在结构体定义中）
-        mSeries.insert(batchID, s);
+        mSeries.insert(trackKey, s);
 
         LOG_DEBUG(QString("[TrackManager] Created %1 display series: batch=%2 visible=%3 totalSeries=%4")
                   .arg(trackTypeLabel(type))
@@ -598,24 +606,11 @@ void TrackManager::ensureSeries(int batchID, PointType type)
         return;
     }
 
-    // 如果已存在但类型发生变化，更新颜色并同步所有节点
-    auto& s = mSeries[batchID];
-    if (s.type != type) {
-        const QString oldType = trackTypeLabel(s.type);
-        s.type = type;
-        QColor newColor = trackTypeColor(type);
-        s.color = newColor;
-        setBatchColor(batchID, newColor);
-        LOG_DEBUG(QString("[TrackManager] Series type changed: batch=%1 %2 -> %3")
-              .arg(batchID)
-              .arg(oldType)
-              .arg(trackTypeLabel(type)));
-    }
 }
 
-void TrackManager::ensureBatchGraphics(int batchID)
+void TrackManager::ensureBatchGraphics(quint64 trackKey)
 {
-    auto it = mSeries.find(batchID);
+    auto it = mSeries.find(trackKey);
     if (it == mSeries.end()) {
         return;
     }
@@ -635,7 +630,8 @@ void TrackManager::scheduleBatchRepaint(TrackSeries& series)
     }
 
     if (!series.nodes.isEmpty()) {
-        m_pendingBatchRepaints.insert(series.nodes.last().info.batch);
+        const PointInfo& info = series.nodes.last().info;
+        m_pendingBatchRepaints.insert(makeTrackKey(static_cast<PointType>(info.type), info.batch));
     }
     if (!m_batchRepaintTimer.isActive()) {
         m_batchRepaintTimer.start();
@@ -704,7 +700,7 @@ void TrackManager::addTrackPoint(const PointInfo& info)
     if (info.statMethod == 2) {
         LOG_INFO(QString("[TrackManager::addTrackPoint] statMethod==2: removing batch=%1, series count before=%2")
                  .arg(info.batch).arg(mSeries.size()));
-        removeBatch(info.batch);
+        removeSeries(makeTrackKey(static_cast<PointType>(info.type), info.batch));
         LOG_INFO(QString("[TrackManager::addTrackPoint] statMethod==2: batch=%1 removed, series count after=%2, emitting trackRemoved")
                  .arg(info.batch).arg(mSeries.size()));
         // 发出信号通知其他组件删除对应航迹
@@ -719,9 +715,10 @@ void TrackManager::addTrackPoint(const PointInfo& info)
     } else if (info.type == PointType::CooperativeTrackPointType) {
         type = PointType::CooperativeTrackPointType;
     }
+    const quint64 trackKey = makeTrackKey(type, info.batch);
     ensureSeries(info.batch, type);
-    ensureBatchGraphics(info.batch);
-    auto& s = mSeries[info.batch];  // 获取航迹序列引用
+    ensureBatchGraphics(trackKey);
+    auto& s = mSeries[trackKey];  // 获取航迹序列引用
     const QColor color = displayTrackColor(info);
     s.color = color;
     const bool firstPointInBatch = s.nodes.isEmpty();
@@ -774,9 +771,9 @@ void TrackManager::addTrackPoint(const PointInfo& info)
     }
 
     // 更新最新点的动态标签显示
-    updateLatestInteractivePoint(info.batch);
-    updateLatestLabel(info.batch, firstPointInBatch);
-    updateBatchFocusStyle(info.batch);
+    updateLatestInteractivePoint(trackKey);
+    updateLatestLabel(trackKey, firstPointInBatch);
+    updateBatchFocusStyle(trackKey);
 
     scheduleBatchRepaint(s);
 
@@ -794,9 +791,9 @@ void TrackManager::limitBatchPoints(TrackSeries& series)
     }
 }
 
-void TrackManager::updateLatestInteractivePoint(int batchID)
+void TrackManager::updateLatestInteractivePoint(quint64 trackKey)
 {
-    auto it = mSeries.find(batchID);
+    auto it = mSeries.find(trackKey);
     if (it == mSeries.end()) {
         return;
     }
@@ -821,7 +818,7 @@ void TrackManager::updateLatestInteractivePoint(int batchID)
 
     s.latestPoint->setColor(color);
     s.latestPoint->resize(mPointSizeRatio);
-    s.latestPoint->setFocused(m_focusedBatches.contains(batchID));
+    s.latestPoint->setFocused(m_focusedBatches.contains(trackKey));
     s.latestPoint->updatePosition(latest.scenePos.x(), latest.scenePos.y());
     s.latestPoint->setVisible(latest.pointVisible);
 }
@@ -849,9 +846,9 @@ void TrackManager::updateNodeLineVisibility(TrackSeries& series)
     }
 }
 
-void TrackManager::updateLatestLabel(int batchID, bool force)
+void TrackManager::updateLatestLabel(quint64 trackKey, bool force)
 {
-    auto it = mSeries.find(batchID);
+    auto it = mSeries.find(trackKey);
     if (it == mSeries.end()) return;
 
     auto& s = it.value();
@@ -859,7 +856,7 @@ void TrackManager::updateLatestLabel(int batchID, bool force)
 
     TrackNode& latest = s.nodes.last();
     if (!s.latestPoint) {
-        updateLatestInteractivePoint(batchID);
+        updateLatestInteractivePoint(trackKey);
     }
     if (!s.latestPoint) return;
     const auto& pi = latest.info;
@@ -881,7 +878,7 @@ void TrackManager::updateLatestLabel(int batchID, bool force)
         s.label = new DraggableLabel();
         s.label->setDefaultTextColor(labelColor);
         s.label->setZValue(INFO_Z);
-        s.label->setBatchID(batchID);
+        s.label->setBatchID(pi.batch);
         connect(s.label, &DraggableLabel::rightClicked,
                 this,    &TrackManager::labelRightClicked);
         s.labelLine = new QGraphicsLineItem();
@@ -899,7 +896,7 @@ void TrackManager::updateLatestLabel(int batchID, bool force)
     const bool shouldThrottle = labelExists
                              && !force
                              && m_labelRefreshIntervalMs > 0
-                             && !m_focusedBatches.contains(batchID)
+                             && !m_focusedBatches.contains(trackKey)
                              && (nowMs - s.lastLabelRefreshMs) < m_labelRefreshIntervalMs;
     if (shouldThrottle) {
         bool vis = s.visible && isSeriesRecognitionVisible(s) && inRange(pi.range);
@@ -938,7 +935,7 @@ void TrackManager::updateLatestLabel(int batchID, bool force)
 
     // 更新标签连线
     updateLineGeometry(s.labelLine, s.label->mapToScene(s.label->boundingRect().center()), anchor);
-    updateBatchFocusStyle(batchID);
+    updateBatchFocusStyle(trackKey);
     s.lastLabelRefreshMs = nowMs;
 
     // 可见性跟随最新点 & series
@@ -1037,26 +1034,27 @@ bool TrackManager::inAngle(float azimuthDeg) const
 
 void TrackManager::setBatchVisible(int batchID, bool vis)
 {
-    auto it = mSeries.find(batchID);
+    const quint64 trackKey = makeTrackKey(PointType::Track, batchID);
+    auto it = mSeries.find(trackKey);
     if (it == mSeries.end()) return;
     it->visible = vis;
-    updateBatchVisibility(batchID);
+    updateBatchVisibility(trackKey);
 }
 
 void TrackManager::setBatchFocused(int batchID, bool focused)
 {
     if (focused) {
-        m_focusedBatches.insert(batchID);
+        m_focusedBatches.insert(makeTrackKey(PointType::Track, batchID));
     } else {
-        m_focusedBatches.remove(batchID);
+        m_focusedBatches.remove(makeTrackKey(PointType::Track, batchID));
     }
 
-    updateBatchFocusStyle(batchID);
+    updateBatchFocusStyle(makeTrackKey(PointType::Track, batchID));
 }
 
 bool TrackManager::isBatchFocused(int batchID) const
 {
-    return m_focusedBatches.contains(batchID);
+    return m_focusedBatches.contains(makeTrackKey(PointType::Track, batchID));
 }
 
 void TrackManager::setAllVisible(bool vis)
@@ -1106,9 +1104,9 @@ void TrackManager::setOnlyRecognizedDroneTracksVisible(bool enabled)
 }
 
 //更新航迹批的可见性
-void TrackManager::updateBatchVisibility(int batchID)
+void TrackManager::updateBatchVisibility(quint64 trackKey)
 {
-    auto it = mSeries.find(batchID);
+    auto it = mSeries.find(trackKey);
     if (it == mSeries.end()) return;
 
     auto& s = it.value();
@@ -1116,7 +1114,7 @@ void TrackManager::updateBatchVisibility(int batchID)
     if (s.batchItem) {
         s.batchItem->rebuildBounds();
     }
-    updateLatestInteractivePoint(batchID);
+    updateLatestInteractivePoint(trackKey);
     scheduleBatchRepaint(s);
 
     // 最新点的标签与连线
@@ -1131,12 +1129,12 @@ void TrackManager::updateBatchVisibility(int batchID)
     }
 }
 
-void TrackManager::updateBatchFocusStyle(int batchID)
+void TrackManager::updateBatchFocusStyle(quint64 trackKey)
 {
-    auto it = mSeries.find(batchID);
+    auto it = mSeries.find(trackKey);
     if (it == mSeries.end()) return;
 
-    const bool focused = m_focusedBatches.contains(batchID);
+    const bool focused = m_focusedBatches.contains(trackKey);
     auto& s = it.value();
     s.focused = focused;
 
@@ -1176,11 +1174,16 @@ bool TrackManager::isSeriesRecognitionVisible(const TrackSeries& series) const
 
 void TrackManager::removeBatch(int batchID)
 {
-    auto it = mSeries.find(batchID);
+    removeSeries(makeTrackKey(PointType::Track, batchID));
+}
+
+void TrackManager::removeSeries(quint64 trackKey)
+{
+    auto it = mSeries.find(trackKey);
     if (it == mSeries.end()) return;
 
-    m_focusedBatches.remove(batchID);
-    m_pendingBatchRepaints.remove(batchID);
+    m_focusedBatches.remove(trackKey);
+    m_pendingBatchRepaints.remove(trackKey);
 
     auto& s = it.value();
     s.nodes.clear();
@@ -1195,8 +1198,8 @@ void TrackManager::removeBatch(int batchID)
 
 void TrackManager::clear()
 {
-    QList<int> keys = mSeries.keys();
-    for (int id : keys) removeBatch(id);
+    QList<quint64> keys = mSeries.keys();
+    for (quint64 trackKey : keys) removeSeries(trackKey);
     mSeries.clear();
     m_focusedBatches.clear();
 }
@@ -1210,7 +1213,7 @@ void TrackManager::updateLineGeometry(QGraphicsLineItem* line, const QPointF& a,
 
 bool TrackManager::latestPointInfo(int batchID, PointInfo& out) const
 {
-    auto it = mSeries.constFind(batchID);
+    auto it = mSeries.constFind(makeTrackKey(PointType::Track, batchID));
     if (it == mSeries.constEnd()) return false;
     const TrackSeries& series = it.value();
     if (series.nodes.isEmpty()) return false;

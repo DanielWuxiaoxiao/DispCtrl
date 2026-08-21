@@ -253,7 +253,14 @@ public:
      * @return 当前扇形区域内所有批次ID的列表
      * @details 用于遍历和管理所有航迹批次
      */
-    QList<int> batchIDs() const { return m_series.keys(); }
+    QList<int> batchIDs() const {
+        QList<int> ids;
+        ids.reserve(m_series.size());
+        for (auto it = m_series.cbegin(); it != m_series.cend(); ++it) {
+            ids.append(static_cast<int>(it.key() & 0xffffffffULL));
+        }
+        return ids;
+    }
 
 signals:
     /**
@@ -276,14 +283,16 @@ private:
      * @param batchID 批次ID
      * @details 更新指定扇形航迹的动态标签显示和连线
      */
-    void updateLatestLabel(int batchID);
+    void updateLatestLabel(quint64 trackKey);
 
     /**
      * @brief 更新批次可见性
      * @param batchID 批次ID
      * @details 批量更新指定扇形航迹的所有元素可见性
      */
-    void updateBatchVisibility(int batchID);
+    void updateBatchVisibility(quint64 trackKey);
+
+    void removeSeries(quint64 trackKey);
 
     void limitBatchPoints(SectorTrackSeries& series);
 
@@ -337,7 +346,7 @@ private:
     PolarAxis* m_axis;                         ///< 极坐标轴指针
 
     // 扇形航迹管理
-    QMap<int, SectorTrackSeries> m_series;     ///< 批次ID到扇形航迹序列的映射
+    QMap<quint64, SectorTrackSeries> m_series; ///< 航迹类型+批次ID到扇形航迹序列的映射
 
     // 显示控制参数
     float m_pointSizeRatio = 1.0f;             ///< 点尺寸缩放比例

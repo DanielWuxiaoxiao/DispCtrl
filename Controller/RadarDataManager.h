@@ -268,7 +268,7 @@ private:
 
     // === 数据存储 ===
     QList<PointInfo> m_detections;               ///< 检测点数据列表
-    QMap<int, QList<PointInfo>> m_tracks;        ///< 航迹数据：batchId -> track points
+    QMap<quint64, QList<PointInfo>> m_tracks;    ///< 航迹数据：(type,batchId) -> track points
 
     // === 视图管理 ===
     QMap<QString, QObject*> m_registeredViews;   ///< 注册的视图组件映射

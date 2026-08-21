@@ -353,9 +353,9 @@ private:
      */
     void ensureSeries(int batchID, PointType type = PointType::Track);
 
-    void ensureBatchGraphics(int batchID);
+    void ensureBatchGraphics(quint64 trackKey);
 
-    void updateLatestInteractivePoint(int batchID);
+    void updateLatestInteractivePoint(quint64 trackKey);
 
     void updateNodeLineVisibility(TrackSeries& series);
 
@@ -368,7 +368,7 @@ private:
      * @param batchID 批次ID
      * @details 更新指定航迹的动态标签显示和连线
      */
-    void updateLatestLabel(int batchID, bool force = false);
+    void updateLatestLabel(quint64 trackKey, bool force = false);
 
     /**
      * @brief 更新节点可见性
@@ -382,11 +382,13 @@ private:
      * @param batchID 批次ID
      * @details 批量更新指定航迹的所有元素可见性
      */
-    void updateBatchVisibility(int batchID);
+    void updateBatchVisibility(quint64 trackKey);
 
     void limitBatchPoints(TrackSeries& series);
 
-    void updateBatchFocusStyle(int batchID);
+    void updateBatchFocusStyle(quint64 trackKey);
+
+    void removeSeries(quint64 trackKey);
 
     /**
      * @brief 更新连线几何形状
@@ -420,15 +422,15 @@ private:
     PolarAxis* mAxis = nullptr;                ///< 极坐标轴指针
 
     // 航迹管理
-    QMap<int, TrackSeries> mSeries;            ///< 批次ID到航迹序列的映射
-    QSet<int> m_focusedBatches;                ///< 已关注批次集合
+    QMap<quint64, TrackSeries> mSeries;        ///< 航迹类型+批次ID到航迹序列的映射
+    QSet<quint64> m_focusedBatches;            ///< 已关注航迹集合（类型+批次ID）
 
     // 显示控制参数
     float mPointSizeRatio = 1.f;               ///< 点尺寸缩放比例
     int m_maxPointsPerBatch = 200;             ///< 单批航迹最大点数
     int m_labelRefreshIntervalMs = 200;        ///< 标签最小刷新间隔
     QTimer m_batchRepaintTimer;                ///< 历史轨迹批量绘制刷新限速
-    QSet<int> m_pendingBatchRepaints;          ///< 待刷新批次
+    QSet<quint64> m_pendingBatchRepaints;      ///< 待刷新航迹（类型+批次ID）
 
     // 角度过滤参数
     double m_angleStart = 0.0;                 ///< 起始角度(度)

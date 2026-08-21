@@ -28,6 +28,15 @@
 #include <QtMath>
 #include <QDateTime>
 
+namespace {
+
+quint64 makeTrackKey(unsigned type, unsigned int batch)
+{
+    return (static_cast<quint64>(type) << 32) | static_cast<quint64>(batch);
+}
+
+}
+
 /**
  * @brief RadarDataManager构造函数
  * @param parent 父对象指针，用于Qt对象树管理
@@ -117,7 +126,7 @@ void RadarDataManager::processTrack(const PointInfo& info)
         if (info.statMethod == 2) {
             // 线程安全地从内存中删除该批次
             QMutexLocker locker(&m_dataMutex);
-            m_tracks.remove(info.batch);
+            m_tracks.remove(makeTrackKey(info.type, info.batch));
             locker.unlock();
 
             LOG_INFO(QString("[RadarDataManager::processTrack] statMethod==2: batch=%1 removed, emitting trackBatchRemoved").arg(info.batch));
@@ -138,18 +147,19 @@ void RadarDataManager::processTrack(const PointInfo& info)
 
         // 第三步：线程安全的数据操作
         QMutexLocker locker(&m_dataMutex);
+        const quint64 trackKey = makeTrackKey(info.type, info.batch);
 
-        // 第三步：按批次号组织航迹数据
-        if (!m_tracks.contains(info.batch)) {
-            m_tracks[info.batch] = QList<PointInfo>();  // 为新批次创建航迹列表
+        // 第三步：按航迹类型和批次号组织航迹数据，允许不同来源使用相同批号。
+        if (!m_tracks.contains(trackKey)) {
+            m_tracks[trackKey] = QList<PointInfo>();
         }
 
         // 第四步：添加航迹点到对应批次
-        m_tracks[info.batch].append(info);
+        m_tracks[trackKey].append(info);
 
         // 第五步：航迹历史管理 - 限制每个批次的航迹点数量
-        if (m_tracks[info.batch].size() > kMaxCachedTrackPointsPerBatch) {
-            m_tracks[info.batch].removeFirst();  // 移除最旧的航迹点
+        if (m_tracks[trackKey].size() > kMaxCachedTrackPointsPerBatch) {
+            m_tracks[trackKey].removeFirst();  // 移除最旧的航迹点
         }
 
         locker.unlock();
@@ -236,9 +246,12 @@ QList<PointInfo> RadarDataManager::getTracksInRange(float minRange, float maxRan
     QList<PointInfo> result;
 
     if (batchId >= 0) {
-        // 查询特定批次
-        if (m_tracks.contains(batchId)) {
-            for (const auto& track : m_tracks[batchId]) {
+        // 查询特定批次的全部航迹类型。
+        for (auto it = m_tracks.cbegin(); it != m_tracks.cend(); ++it) {
+            for (const auto& track : it.value()) {
+                if (track.batch != static_cast<unsigned int>(batchId)) {
+                    continue;
+                }
                 if (isInRange(track, minRange, maxRange, minAngle, maxAngle)) {
                     result.append(track);
                 }

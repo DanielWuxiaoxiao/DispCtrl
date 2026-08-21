@@ -313,8 +313,8 @@ max_points = 1000                    # 最大检测点数量
 max_track_points = 200               # 单批航迹最大点数
 # P显和阵面开启控制的初始阵面数量（1~4，默认仅阵面1；不自动下发阵面开关命令）
 default_panel_count = 1
-iftbd = false                        # 是否启用TBD航迹接收与显示
-ifxietong = false                    # 是否启用协同航迹接收与显示
+iftbd = true                        # 是否启用TBD航迹接收与显示
+ifxietong = true                    # 是否启用协同航迹接收与显示
 sector_display_enabled = false       # Create the sector display widget
 sector_display_data_enabled = false  # Feed live points/tracks into sector display; keep false for benchmark
 track_label_refresh_ms = 200         # 主P显航迹标签最小刷新间隔，0=每点刷新

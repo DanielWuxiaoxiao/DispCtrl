@@ -871,6 +871,10 @@ dataToScene            # RangeAzimuth坐标转换
 ### v5.41 (2026-07-28)
 - **Default panel count**: `displayConfig.default_panel_count` selects the first contiguous `1..4` panels enabled when the display starts; the default is `1`, so only panel 1 has an initial PPI scan sector. Missing, unreadable, non-numeric, or out-of-range configuration falls back to `1` and records a warning. The same value initializes the panel-enable dialog checkboxes. It is an operator-interface default only and does not automatically send an `AA01` panel power command at startup.
 
+### v5.42 (2026-08-20)
+- **TBD/协同同批号隔离**：P显 `TrackManager`、扇区 `SectorTrackManager` 与 `RadarDataManager` 的航迹历史缓存统一以 `(PointInfo.type, PointInfo.batch)` 作为唯一键。TBD (`type=3`) 与协同 (`type=4`) 即使使用相同批号并交替到达，也分别维护历史点、最新点、标签和连线；任一路 `statMethod==2` 消批只清理本类型的同批航迹，不影响另一路。B显/H显/3D显原本已按该组合键管理。
+- **运行开关**：`[displayConfig].iftbd` 和 `ifxietong` 分别决定 TBD/协同接收管理器、端口监听、P/B/H/3D 显示连接及对应 UI 是否启用；当前默认配置均为 `true`，压测场景可按需关闭。
+
 ---
 
 **文档结束**
