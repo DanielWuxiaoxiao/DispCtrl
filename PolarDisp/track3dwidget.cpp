@@ -319,6 +319,14 @@ void Track3DWidget::setTrackSizeRatio(double ratio)
     sendSceneState();
 }
 
+void Track3DWidget::setDisplayActive(bool active)
+{
+    setRendererActive(active);
+    if (active && m_pageReady) {
+        sendSnapshot();
+    }
+}
+
 void Track3DWidget::resetView()
 {
     if (m_pageReady && m_rendererActive) {
@@ -329,16 +337,13 @@ void Track3DWidget::resetView()
 void Track3DWidget::showEvent(QShowEvent* event)
 {
     QWidget::showEvent(event);
-    setRendererActive(true);
-    if (m_pageReady) {
-        sendSnapshot();
-    }
+    setDisplayActive(true);
 }
 
 void Track3DWidget::hideEvent(QHideEvent* event)
 {
     QWidget::hideEvent(event);
-    setRendererActive(false);
+    setDisplayActive(false);
     m_snapshotRequired = true;
     m_pendingUpserts.clear();
     m_pendingRemovals.clear();
@@ -426,6 +431,10 @@ void Track3DWidget::setRendererActive(bool active)
         return;
     }
     m_rendererActive = active;
+    LOG_INFO(QString("[Track3DWidget] Renderer active=%1 pageReady=%2 cachedTracks=%3")
+                 .arg(active)
+                 .arg(m_pageReady)
+                 .arg(m_latestTracks.size()));
     if (m_pageReady) {
         emit m_bridge->activeChanged(active);
     }

@@ -871,6 +871,10 @@ dataToScene            # RangeAzimuth坐标转换
 ### v5.41 (2026-07-28)
 - **Default panel count**: `displayConfig.default_panel_count` selects the first contiguous `1..4` panels enabled when the display starts; the default is `1`, so only panel 1 has an initial PPI scan sector. Missing, unreadable, non-numeric, or out-of-range configuration falls back to `1` and records a warning. The same value initializes the panel-enable dialog checkboxes. It is an operator-interface default only and does not automatically send an `AA01` panel power command at startup.
 
+### v5.43 (2026-08-23)
+- **3D显页签激活同步**：`Track3DWidget` 除自身 show/hide 外，额外接收 `DisplayTabWidget::currentChanged` 的显式激活状态。这样在 `QTabWidget + DetachableWidget` 的嵌套下，3D WebChannel 页面即使已经就绪，也会在切入 3D 页时恢复 Three.js 渲染并发送最新快照；切离页签仍停止增量推送和重绘。日志记录 `Renderer active/pageReady/cachedTracks`，便于现场核对“航迹计数有、画布空”的状态。
+- **隐藏页画布恢复**：网页端的单帧绘制不再受 C++ `active` 状态阻断；切回 3D 页时立即并在 Qt 页签布局完成后（0ms、120ms）重新量取 WebGL 画布尺寸。这样即使页面先在隐藏状态以 1×1 初始化，也能恢复坐标轴和航迹绘制；隐藏页仍由 C++ 停止数据跨进程增量推送。
+
 ### v5.42 (2026-08-20)
 - **TBD/协同同批号隔离**：P显 `TrackManager`、扇区 `SectorTrackManager` 与 `RadarDataManager` 的航迹历史缓存统一以 `(PointInfo.type, PointInfo.batch)` 作为唯一键。TBD (`type=3`) 与协同 (`type=4`) 即使使用相同批号并交替到达，也分别维护历史点、最新点、标签和连线；任一路 `statMethod==2` 消批只清理本类型的同批航迹，不影响另一路。B显/H显/3D显原本已按该组合键管理。
 - **运行开关**：`[displayConfig].iftbd` 和 `ifxietong` 分别决定 TBD/协同接收管理器、端口监听、P/B/H/3D 显示连接及对应 UI 是否启用；当前默认配置均为 `true`，压测场景可按需关闭。

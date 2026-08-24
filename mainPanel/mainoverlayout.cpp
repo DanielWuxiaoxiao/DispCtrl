@@ -683,6 +683,19 @@ void MainOverLayOut::mainPView() {
     displayTabWidget->addTab(rangeHeightDetachable, "H显");
     displayTabWidget->addTab(track3DDetachable, "3D显");
 
+    // QTabWidget 切页不会在所有嵌套/可分离窗口场景下可靠地下发子控件 show/hide。
+    // 显式同步 3D WebGL 的激活状态，避免页面已就绪但仍处于 inactive 而没有任何渲染。
+    connect(displayTabWidget, &QTabWidget::currentChanged, this,
+            [this, displayTabWidget, track3DDetachable](int index) {
+        if (!m_track3DWidget) {
+            return;
+        }
+        const bool tabActive = displayTabWidget->widget(index) == track3DDetachable;
+        m_track3DWidget->setDisplayActive(tabActive || m_track3DWidget->isVisible());
+    });
+    m_track3DWidget->setDisplayActive(
+        displayTabWidget->currentWidget() == track3DDetachable);
+
     // 将TabWidget添加到布局
     QVBoxLayout* layout2 = new QVBoxLayout(ui->pviewSectorW);
     layout2->setContentsMargins(0, 0, 0, 0);

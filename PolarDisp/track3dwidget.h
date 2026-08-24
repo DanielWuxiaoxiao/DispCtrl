@@ -62,6 +62,7 @@ public slots:
     void setCooperativeTrackVisible(bool visible);
     void setOnlyRecognizedDroneTracksVisible(bool enabled);
     void setTrackSizeRatio(double ratio);
+    void setDisplayActive(bool active);
     void resetView();
 
 protected:

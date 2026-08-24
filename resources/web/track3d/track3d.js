@@ -51,16 +51,32 @@
     }
 
     function requestRender() {
-        if (!active || renderPending || !renderer) {
+        if (renderPending || !renderer) {
             return;
         }
         renderPending = true;
         window.requestAnimationFrame(function () {
             renderPending = false;
-            if (active && renderer) {
+            if (renderer) {
                 renderer.render(scene, camera);
             }
         });
+    }
+
+    function refreshRendererAfterActivation() {
+        // QWebEngineView may receive the tab signal before its final visible size.
+        // Resize once immediately and once after Qt has completed the tab layout.
+        resizeRenderer();
+        window.setTimeout(function () {
+            if (active && renderer) {
+                resizeRenderer();
+            }
+        }, 0);
+        window.setTimeout(function () {
+            if (active && renderer) {
+                resizeRenderer();
+            }
+        }, 120);
     }
 
     function resetCamera() {
@@ -436,8 +452,7 @@
                 if (!active) {
                     hideTooltip();
                 } else {
-                    resizeRenderer();
-                    requestRender();
+                    refreshRendererAfterActivation();
                 }
             });
 
