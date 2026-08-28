@@ -517,7 +517,7 @@
               <bool>true</bool>
              </attribute>
              <attribute name="horizontalHeaderShowSortIndicator" stdset="0">
-              <bool>true</bool>
+              <bool>false</bool>
              </attribute>
              <attribute name="verticalHeaderVisible">
               <bool>false</bool>
@@ -571,7 +571,7 @@
               <bool>false</bool>
              </attribute>
              <attribute name="horizontalHeaderShowSortIndicator" stdset="0">
-              <bool>true</bool>
+              <bool>false</bool>
              </attribute>
              <attribute name="verticalHeaderVisible">
               <bool>false</bool>

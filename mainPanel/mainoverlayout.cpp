@@ -81,6 +81,16 @@ constexpr int kTrackTableRefreshIntervalMs = 50;
 constexpr int kLogFlushIntervalMs = 50;
 constexpr bool kDefaultEnableSectorDisplay = false;
 
+constexpr int kTrackTableIdColumn = 0;
+constexpr int kTrackTableAzimuthColumn = 1;
+constexpr int kTrackTableAltitudeColumn = 2;
+constexpr int kTrackTableRangeKmColumn = 3;
+constexpr int kTrackTableSnrColumn = 4;
+constexpr int kTrackTableTypeColumn = 5;
+constexpr int kTrackTableElevationColumn = 6;
+constexpr int kTrackTableSpeedColumn = 7;
+constexpr int kTrackTablePrimaryColumnCount = 6;
+
 quint64 makeTrackTableUpdateKey(unsigned type, unsigned int batch)
 {
     return (static_cast<quint64>(type) << 32) | static_cast<quint64>(batch);
@@ -1088,7 +1098,7 @@ void MainOverLayOut::setupTrackTable(QTableWidget* tableWidget, FrozenColumnHelp
     if (!tableWidget) return;
 
     QStringList headers;
-    headers << "批次号" << "方位" << "俯仰" << "高度" << "距离" << "速度" << "SNR" << "类型";
+    headers << "ID" << "方位" << "高度" << "距离(km)" << "SNR" << "类型" << "俯仰" << "速度";
 
     tableWidget->setColumnCount(headers.size());
     tableWidget->setHorizontalHeaderLabels(headers);
@@ -1102,8 +1112,9 @@ void MainOverLayOut::setupTrackTable(QTableWidget* tableWidget, FrozenColumnHelp
     tableWidget->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
 
     QHeaderView* headerView = tableWidget->horizontalHeader();
-    // 初始列宽由 fitTrackTableColumnsToViewport 均匀分配；各列仍可手动调整。
+    // 首屏优先显示 ID、方位、高度、距离、SNR、类型；俯仰和速度保留在右侧供横向查看。
     headerView->setStretchLastSection(false);
+    headerView->setSortIndicatorShown(false);
     headerView->setMinimumSectionSize(48);
     for (int i = 0; i < headers.size(); ++i) {
         headerView->setSectionResizeMode(i, QHeaderView::Interactive);
@@ -1136,7 +1147,8 @@ void MainOverLayOut::fitTrackTableColumnsToViewport(QTableWidget* tableWidget)
 
     const int minColumnWidth = tableWidget->horizontalHeader()->minimumSectionSize();
     const int columnCount = tableWidget->columnCount();
-    const int minTotal = columnCount * minColumnWidth;
+    const int primaryColumnCount = qMin(kTrackTablePrimaryColumnCount, columnCount);
+    const int minTotal = primaryColumnCount * minColumnWidth;
 
     const int viewportWidth = tableWidget->viewport()->width();
     const int targetWidth = qMax(viewportWidth, minTotal);
@@ -1144,15 +1156,18 @@ void MainOverLayOut::fitTrackTableColumnsToViewport(QTableWidget* tableWidget)
         return;
     }
 
-    int assignedWidth = 0;
+    int assignedPrimaryWidth = 0;
     tableWidget->setProperty("trackColumnsFitting", true);
     for (int i = 0; i < columnCount; ++i) {
-        int width = qMax(minColumnWidth, targetWidth / columnCount);
-        if (i == columnCount - 1) {
-            width = qMax(minColumnWidth, targetWidth - assignedWidth);
+        int width = minColumnWidth;
+        if (i < primaryColumnCount) {
+            width = qMax(minColumnWidth, targetWidth / primaryColumnCount);
+            if (i == primaryColumnCount - 1) {
+                width = qMax(minColumnWidth, targetWidth - assignedPrimaryWidth);
+            }
+            assignedPrimaryWidth += width;
         }
         tableWidget->setColumnWidth(i, width);
-        assignedWidth += width;
     }
     tableWidget->setProperty("trackColumnsFitting", false);
 }
@@ -1314,7 +1329,7 @@ void MainOverLayOut::updateTargetClassification(unsigned int batchID, int target
 
     int ordinaryTrackRow = -1;
     for (int row = 0; row < trackTable->rowCount(); ++row) {
-        QTableWidgetItem* batchItem = trackTable->item(row, 0);
+        QTableWidgetItem* batchItem = trackTable->item(row, kTrackTableIdColumn);
         if (!batchItem) {
             continue;
         }
@@ -1327,10 +1342,10 @@ void MainOverLayOut::updateTargetClassification(unsigned int batchID, int target
 
     if (ordinaryTrackRow >= 0) {
         QString recResultStr = (targetType == 1) ? tr("无人机") : tr("其它");
-        QTableWidgetItem* typeItem = trackTable->item(ordinaryTrackRow, 7);
+        QTableWidgetItem* typeItem = trackTable->item(ordinaryTrackRow, kTrackTableTypeColumn);
         if (!typeItem) {
             typeItem = new QTableWidgetItem();
-            trackTable->setItem(ordinaryTrackRow, 7, typeItem);
+            trackTable->setItem(ordinaryTrackRow, kTrackTableTypeColumn, typeItem);
         }
         typeItem->setText(recResultStr);
         typeItem->setFlags(typeItem->flags() & ~Qt::ItemIsEditable);
@@ -1339,12 +1354,12 @@ void MainOverLayOut::updateTargetClassification(unsigned int batchID, int target
     if (targetType == 1 && ordinaryTrackRow >= 0) {
         PointInfo info;
         info.batch = batchID;
-        info.azimuth = trackTable->item(ordinaryTrackRow, 1)->text().toFloat();
-        info.elevation = trackTable->item(ordinaryTrackRow, 2)->text().toFloat();
-        info.altitute = trackTable->item(ordinaryTrackRow, 3)->text().toFloat();
-        info.range = trackTable->item(ordinaryTrackRow, 4)->text().toFloat();
-        info.speed = trackTable->item(ordinaryTrackRow, 5)->text().toFloat();
-        info.SNR = trackTable->item(ordinaryTrackRow, 6)->text().toFloat();
+        info.azimuth = trackTable->item(ordinaryTrackRow, kTrackTableAzimuthColumn)->text().toFloat();
+        info.elevation = trackTable->item(ordinaryTrackRow, kTrackTableElevationColumn)->text().toFloat();
+        info.altitute = trackTable->item(ordinaryTrackRow, kTrackTableAltitudeColumn)->text().toFloat();
+        info.range = trackTable->item(ordinaryTrackRow, kTrackTableRangeKmColumn)->text().toFloat() * 1000.0f;
+        info.speed = trackTable->item(ordinaryTrackRow, kTrackTableSpeedColumn)->text().toFloat();
+        info.SNR = trackTable->item(ordinaryTrackRow, kTrackTableSnrColumn)->text().toFloat();
         info.type = PointType::Track;
         info.targetRecResult = 1;
 
@@ -1434,8 +1449,8 @@ void MainOverLayOut::onTrackRemoved(int batchID) {
     QTableWidget* trackTable = ui->tableWidget;
 
     for (int row = trackTable->rowCount() - 1; row >= 0; --row) {
-        if (trackTable->item(row, 0)) {
-            int rowBatchID = trackTable->item(row, 0)->text().toInt();
+        if (trackTable->item(row, kTrackTableIdColumn)) {
+            int rowBatchID = trackTable->item(row, kTrackTableIdColumn)->text().toInt();
 
             if (rowBatchID == batchID) {
                 trackTable->removeRow(row);
@@ -1524,9 +1539,9 @@ int MainOverLayOut::addOrUpdateTrackRow(QTableWidget* tableWidget, const PointIn
 
     // 查找是否已存在该批次
     for (int i = 0; i < tableWidget->rowCount(); ++i) {
-        if (!tableWidget->item(i, 0)) continue;
-        if (tableWidget->item(i, 0)->text().toUInt() == info.batch &&
-            tableWidget->item(i, 0)->data(Qt::UserRole).toUInt() == info.type) {
+        if (!tableWidget->item(i, kTrackTableIdColumn)) continue;
+        if (tableWidget->item(i, kTrackTableIdColumn)->text().toUInt() == info.batch &&
+            tableWidget->item(i, kTrackTableIdColumn)->data(Qt::UserRole).toUInt() == info.type) {
             row = i;
             break;
         }
@@ -1550,23 +1565,22 @@ int MainOverLayOut::addOrUpdateTrackRow(QTableWidget* tableWidget, const PointIn
         return item;
     };
 
-    QTableWidgetItem* batchItem = ensureItem(0);
+    QTableWidgetItem* batchItem = ensureItem(kTrackTableIdColumn);
     batchItem->setData(Qt::UserRole, info.type);
     batchItem->setText(QString::number(info.batch));
 
-    ensureItem(1)->setText(QString::number(info.azimuth, 'f', 1));
-    ensureItem(2)->setText(QString::number(info.elevation, 'f', 1));
-    ensureItem(3)->setText(QString::number(info.altitute, 'f', 1));
-    ensureItem(4)->setText(QString::number(info.range, 'f', 1));
-    ensureItem(5)->setText(QString::number(info.speed, 'f', 1));
-    ensureItem(6)->setText(QString::number(info.SNR, 'f', 1));
+    ensureItem(kTrackTableAzimuthColumn)->setText(QString::number(info.azimuth, 'f', 1));
+    ensureItem(kTrackTableAltitudeColumn)->setText(QString::number(info.altitute, 'f', 1));
+    ensureItem(kTrackTableRangeKmColumn)->setText(QString::number(info.range / 1000.0, 'f', 1));
+    ensureItem(kTrackTableSnrColumn)->setText(QString::number(info.SNR, 'f', 1));
     // 目标识别结果（来自数据处理上报）
     QString recResultStr = targetType;
     if (info.type == PointType::Track) {
         recResultStr = (info.targetRecResult == 1) ? QStringLiteral("无人机") : QStringLiteral("其它");
     }
-    // 显示识别结果在"类型"列（列索引7），不使用额外列
-    ensureItem(7)->setText(recResultStr);
+    ensureItem(kTrackTableTypeColumn)->setText(recResultStr);
+    ensureItem(kTrackTableElevationColumn)->setText(QString::number(info.elevation, 'f', 1));
+    ensureItem(kTrackTableSpeedColumn)->setText(QString::number(info.speed, 'f', 1));
 
     // 设置所有项为不可编辑
     for (int col = 0; col < tableWidget->columnCount(); ++col) {
@@ -1592,7 +1606,7 @@ void MainOverLayOut::removeTrackRow(QTableWidget* tableWidget, unsigned type, un
     if (!tableWidget) return;
 
     for (int row = tableWidget->rowCount() - 1; row >= 0; --row) {
-        QTableWidgetItem* batchItem = tableWidget->item(row, 0);
+        QTableWidgetItem* batchItem = tableWidget->item(row, kTrackTableIdColumn);
         if (!batchItem) continue;
         if (batchItem->text().toUInt() == batch && batchItem->data(Qt::UserRole).toUInt() == type) {
             tableWidget->removeRow(row);

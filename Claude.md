@@ -875,6 +875,9 @@ dataToScene            # RangeAzimuth坐标转换
 - **3D显页签激活同步**：`Track3DWidget` 除自身 show/hide 外，额外接收 `DisplayTabWidget::currentChanged` 的显式激活状态。这样在 `QTabWidget + DetachableWidget` 的嵌套下，3D WebChannel 页面即使已经就绪，也会在切入 3D 页时恢复 Three.js 渲染并发送最新快照；切离页签仍停止增量推送和重绘。日志记录 `Renderer active/pageReady/cachedTracks`，便于现场核对“航迹计数有、画布空”的状态。
 - **隐藏页画布恢复**：网页端的单帧绘制不再受 C++ `active` 状态阻断；切回 3D 页时立即并在 Qt 页签布局完成后（0ms、120ms）重新量取 WebGL 画布尺寸。这样即使页面先在隐藏状态以 1×1 初始化，也能恢复坐标轴和航迹绘制；隐藏页仍由 C++ 停止数据跨进程增量推送。
 
+### v5.44 (2026-08-28)
+- **航迹表首屏精简**：普通、无人机、TBD、协同航迹表统一将“批次号”命名为“ID”，距离以 `km` 显示。首屏按 `ID、方位、高度、距离(km)、SNR、类型` 布局；“俯仰”和“速度”置于最右侧，通过横向滚动查看。分类更新由表格重建无人机行时会将显示 km 转回内部 m，保持数据语义不变。
+
 ### v5.42 (2026-08-20)
 - **TBD/协同同批号隔离**：P显 `TrackManager`、扇区 `SectorTrackManager` 与 `RadarDataManager` 的航迹历史缓存统一以 `(PointInfo.type, PointInfo.batch)` 作为唯一键。TBD (`type=3`) 与协同 (`type=4`) 即使使用相同批号并交替到达，也分别维护历史点、最新点、标签和连线；任一路 `statMethod==2` 消批只清理本类型的同批航迹，不影响另一路。B显/H显/3D显原本已按该组合键管理。
 - **运行开关**：`[displayConfig].iftbd` 和 `ifxietong` 分别决定 TBD/协同接收管理器、端口监听、P/B/H/3D 显示连接及对应 UI 是否启用；当前默认配置均为 `true`，压测场景可按需关闭。

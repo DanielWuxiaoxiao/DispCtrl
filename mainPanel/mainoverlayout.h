@@ -427,7 +427,7 @@ private:
     void setupTrackTable(QTableWidget* tableWidget, FrozenColumnHelper*& frozenHelper);
 
     /**
-     * @brief 初始化时按可视宽度铺满航迹表列宽，之后仍允许用户手动拖拽
+     * @brief 初始化时铺满首屏关键列，俯仰和速度保留在右侧横向滚动区域
      */
     void fitTrackTableColumnsToViewport(QTableWidget* tableWidget);
 
