@@ -361,6 +361,37 @@ public:
         return getValue("health_network.radar_peer_ip", def).toString();
     }
 
+    // 指控无人机目标上报：独立TCP/UDP占位模块配置。
+    bool commandTargetReportEnabled(bool def = true) const {
+        return getValue("command_target_report.enabled", def).toBool();
+    }
+    QString commandTargetReportTransport(const QString& def = "udp") const {
+        return getValue("command_target_report.transport", def).toString();
+    }
+    QString commandTargetReportPayload(const QString& def = "json") const {
+        return getValue("command_target_report.payload", def).toString();
+    }
+    QString commandTargetReportByteOrder(const QString& def = "little") const {
+        return getValue("command_target_report.byte_order", def).toString();
+    }
+    QString commandTargetReportLocalIp(const QString& def = "0.0.0.0") const {
+        return getValue("command_target_report.local_ip", def).toString();
+    }
+    quint16 commandTargetReportLocalPort(quint16 def = 0) const {
+        const uint value = getValue("command_target_report.local_port", def).toUInt();
+        return value <= 65535U ? static_cast<quint16>(value) : def;
+    }
+    QString commandTargetReportRemoteIp(const QString& def = "127.0.0.1") const {
+        return getValue("command_target_report.remote_ip", def).toString();
+    }
+    quint16 commandTargetReportRemotePort(quint16 def = 21002) const {
+        const uint value = getValue("command_target_report.remote_port", def).toUInt();
+        return value <= 65535U ? static_cast<quint16>(value) : def;
+    }
+    int commandTargetReportTcpReconnectMs(int def = 3000) const {
+        return getValue("command_target_report.tcp_reconnect_interval_ms", def).toInt();
+    }
+
     // 显示配置相关
     int displayConfig(const QString& key, int def = 1000) const {
         return getValue("displayConfig." + key, def).toInt();

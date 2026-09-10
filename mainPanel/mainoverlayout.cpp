@@ -14,6 +14,7 @@
 #include "Basic/offlinerae.h"
 #include "Controller/RadarDataManager.h"
 #include "Controller/controller.h"
+#include "Controller/commandtargetreporter.h"
 #include "Controller/raedatasetreader.h"
 #include "Controller/subsystemnetworkmonitor.h"
 #include "PointManager/detmanager.h"
@@ -45,6 +46,7 @@
 #include <QLayout>
 #include <QLineEdit>
 #include <QScrollBar>
+#include <QSignalBlocker>
 #include <QSizePolicy>
 #include <QSplitter>
 #include <QTableWidget>
@@ -236,6 +238,7 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     m_targetRecBtn = nullptr;
     m_networkHealthOk.fill(false);
     m_networkHealthText.fill(QStringLiteral("网络状态检查中..."));
+    m_commandTargetNetworkText = QStringLiteral("指控无人机上报状态检查中...");
 
     // 初始化数据存储管理窗口指针
     m_dataStorageWindow = nullptr;
@@ -273,6 +276,29 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     connect(m_subsystemNetworkMonitor, &SubsystemNetworkMonitor::statusChanged, this,
             &MainOverLayOut::updateNetworkHealthStatus);
     m_subsystemNetworkMonitor->start();
+
+    // This reporter is self-contained: it observes only regular tracks and
+    // target-classification results, then reports identified drones externally.
+    m_commandTargetReporter = new CommandTargetReporter(this);
+    connect(m_commandTargetReporter, &CommandTargetReporter::networkStatusChanged, this,
+            &MainOverLayOut::updateCommandTargetReportNetworkStatus);
+    connect(m_commandTargetReporter, &CommandTargetReporter::logMessage, this,
+            &MainOverLayOut::appendExternalLog);
+    connect(CON_INS, &Controller::traInfoProcess, m_commandTargetReporter,
+            &CommandTargetReporter::processTrackPoint);
+    connect(CON_INS, &Controller::targetClaRes, m_commandTargetReporter,
+            &CommandTargetReporter::processTargetClassification);
+    updateCommandTargetReportNetworkStatus(m_commandTargetReporter->isNetworkReady(),
+                                           m_commandTargetReporter->networkStatusText());
+
+    m_commandTargetReportButton = new QPushButton(ui->btnDataProcess->parentWidget());
+    m_commandTargetReportButton->setCheckable(true);
+    m_commandTargetReportButton->setToolTip(QStringLiteral("切换指控无人机目标上报；重启后恢复 config.toml 默认值"));
+    updateCommandTargetReportButton(m_commandTargetReporter->isRuntimeEnabled());
+    connect(m_commandTargetReportButton, &QPushButton::toggled, m_commandTargetReporter,
+            &CommandTargetReporter::setRuntimeEnabled);
+    connect(m_commandTargetReporter, &CommandTargetReporter::runtimeEnabledChanged, this,
+            &MainOverLayOut::updateCommandTargetReportButton);
 
     // 连接雷达控制按钮
     connect(ui->btnBatteryControl, &QPushButton::clicked, this,
@@ -1993,6 +2019,42 @@ void MainOverLayOut::applyNetworkHealthStatus(int index)
     button->setStyleSheet(style);
 }
 
+void MainOverLayOut::updateCommandTargetReportNetworkStatus(bool ok, const QString& text)
+{
+    m_commandTargetNetworkOk = ok;
+    m_commandTargetNetworkText = text;
+    applyCommandTargetReportNetworkStatus();
+}
+
+void MainOverLayOut::applyCommandTargetReportNetworkStatus()
+{
+    if (!m_commandTargetNetworkBtn) {
+        return;
+    }
+    const QString style = m_commandTargetNetworkOk
+        ? QStringLiteral("QPushButton { background:#00aa55; color:#ffffff; border:1px solid #66ffcc; border-radius:5px; padding:7px; font-size:13px; }")
+        : QStringLiteral("QPushButton { background:#a02a2a; color:#ffffff; border:1px solid #ff6666; border-radius:5px; padding:7px; font-size:13px; }");
+    m_commandTargetNetworkBtn->setText(m_commandTargetNetworkText);
+    m_commandTargetNetworkBtn->setToolTip(m_commandTargetNetworkText);
+    m_commandTargetNetworkBtn->setStyleSheet(style);
+}
+
+void MainOverLayOut::updateCommandTargetReportButton(bool enabled)
+{
+    if (!m_commandTargetReportButton) {
+        return;
+    }
+    const QSignalBlocker blocker(m_commandTargetReportButton);
+    m_commandTargetReportButton->setChecked(enabled);
+    m_commandTargetReportButton->setText(enabled
+        ? QStringLiteral("指控无人机上报：开")
+        : QStringLiteral("指控无人机上报：关"));
+    m_commandTargetReportButton->setStyleSheet(enabled
+        ? QStringLiteral("QPushButton { background-color:#007f55; color:#ffffff; border:1px solid #66ffcc; border-radius:6px; }")
+        : QStringLiteral("QPushButton { background-color:#6b3030; color:#ffffff; border:1px solid #cc6666; border-radius:6px; }")
+    );
+}
+
 /**
  * @brief 打开处理软件关闭对话框
  * @details 发送系统关闭命令，依次关闭各处理软件
@@ -2814,7 +2876,7 @@ void MainOverLayOut::onRadarSystemClicked() {
     m_healthWindow =
         new CusWindow("雷达系统健康管理", QIcon(":/resources/icon/radararray.png"), this);
     m_healthWindow->setAttribute(Qt::WA_DeleteOnClose);
-    m_healthWindow->setMinimumSize(500, 1000);
+    m_healthWindow->setMinimumSize(500, 1040);
 
     // 连接窗口关闭信号，清空指针
     connect(m_healthWindow, &QObject::destroyed, this, [this]() {
@@ -2829,6 +2891,7 @@ void MainOverLayOut::onRadarSystemClicked() {
         m_radarPeerNetworkBtn = nullptr;
         m_laserLocalNetworkBtn = nullptr;
         m_laserPeerNetworkBtn = nullptr;
+        m_commandTargetNetworkBtn = nullptr;
         m_btnTxOpen = nullptr;
         m_btnDutyCycle = nullptr;
         m_btnPulseWidth = nullptr;
@@ -2895,12 +2958,14 @@ void MainOverLayOut::onRadarSystemClicked() {
     m_radarPeerNetworkBtn = makeNetworkButton();
     m_laserLocalNetworkBtn = makeNetworkButton();
     m_laserPeerNetworkBtn = makeNetworkButton();
+    m_commandTargetNetworkBtn = makeNetworkButton();
     QGridLayout* networkGrid = new QGridLayout();
     networkGrid->setSpacing(8);
     networkGrid->addWidget(m_radarLocalNetworkBtn, 0, 0);
     networkGrid->addWidget(m_radarPeerNetworkBtn, 0, 1);
     networkGrid->addWidget(m_laserLocalNetworkBtn, 1, 0);
     networkGrid->addWidget(m_laserPeerNetworkBtn, 1, 1);
+    networkGrid->addWidget(m_commandTargetNetworkBtn, 2, 0, 1, 2);
     mainLayout->addLayout(networkGrid);
     for (int index = 0; index < 4; ++index) {
         applyNetworkHealthStatus(index);
@@ -2985,6 +3050,7 @@ void MainOverLayOut::onRadarSystemClicked() {
         updateHealthWindow();
     });
     bindHealthPanel(0);
+    applyCommandTargetReportNetworkStatus();
 
     mainLayout->addStretch();
 
@@ -3094,7 +3160,8 @@ void MainOverLayOut::arrangeParamSettingsButtons()
         ui->btnServoControl,
         ui->btnScanRange,
         ui->btnFreqControl,
-        ui->btnBatteryControl
+        ui->btnBatteryControl,
+        m_commandTargetReportButton
     };
 
     for (auto* btn : managedButtons) {
@@ -3113,6 +3180,7 @@ void MainOverLayOut::arrangeParamSettingsButtons()
         visibleButtons.append(ui->btnFreqControl);
     }
     visibleButtons.append(ui->btnBatteryControl);
+    visibleButtons.append(m_commandTargetReportButton);
 
     for (int i = 0; i < visibleButtons.size(); ++i) {
         auto* btn = visibleButtons.at(i);

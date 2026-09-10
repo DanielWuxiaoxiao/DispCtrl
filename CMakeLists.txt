@@ -168,6 +168,7 @@ set(SRC_FILES
     Controller/totalcontrolmqttclient.cpp       # 总控MQTT识别结果上报
     Controller/laserreportmanager.cpp           # 激光侦察上报（独立模块）
     Controller/subsystemnetworkmonitor.cpp     # 健康管理分系统网络状态
+    Controller/commandtargetreporter.cpp       # 指控无人机目标上报（独立模块）
     Controller/RadarDataManager.cpp            # 雷达数据统一管理器
     Controller/ErrorHandler.cpp                # 错误处理框架
     Controller/disp2sigmanager.cpp             # 显示到信号管理
@@ -256,6 +257,8 @@ set(HDR_FILES
     Controller/edgeradarresultreceiver.h        # 边缘终端识别结果回传接收
     Controller/totalcontrolmqttclient.h         # 总控MQTT识别结果上报
     Controller/subsystemnetworkmonitor.h        # 健康管理分系统网络状态
+    Controller/commandtargetreporter.h          # 指控无人机目标上报（独立模块）
+    Controller/commandtargetreportprotocol.h    # 指控无人机目标占位协议
     Controller/ascanmanager.h                  # A显数据UDP接收管理器
     Controller/beamschedulemanager.h           # 波束调度报告UDP接收管理器
     Controller/geofencemanager.h               # 电子围栏检测管理器

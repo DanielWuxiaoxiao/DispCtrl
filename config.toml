@@ -215,6 +215,24 @@ poll_interval_ms = 5000
 radar_peer_ip = ""                  # 现场填写阵面对端IP，例如 "192.168.64.x"
 
 # =============================================================================
+# 指控无人机目标上报 Command-and-control UAV Target Report (placeholder)
+# 每个被识别为无人机的普通航迹点均上报一次。对端协议未定时可修改本段，重启生效。
+# transport: udp | tcp；payload: json | binary；byte_order 仅影响 binary。
+# TCP JSON 以换行分帧；TCP binary 为连续的固定52字节记录。
+# enabled 是启动默认值；显控参数区“指控上报”按钮可临时开关，重启后恢复这里的值。
+# =============================================================================
+[command_target_report]
+enabled = true
+transport = "udp"
+payload = "json"
+byte_order = "little"
+local_ip = "0.0.0.0"
+local_port = 0
+remote_ip = "127.0.0.1"
+remote_port = 21002
+tcp_reconnect_interval_ms = 3000
+
+# =============================================================================
 # 参数配置（运行时保存） Parameter Configuration (Runtime Save)
 # =============================================================================
 
