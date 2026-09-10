@@ -4,11 +4,12 @@
 # 用法: ./scripts/build_linux.sh [Release|Debug]
 # 说明: 在 WSL 或 Linux 系统中使用 cmake 编译项目
 ##############################################################################
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 BUILD_TYPE="${1:-Release}"
+case "$BUILD_TYPE" in Release|Debug) ;; *) echo 'Expected Release or Debug' >&2; exit 2 ;; esac
 BUILD_DIR="${PROJECT_DIR}/build/linux-${BUILD_TYPE,,}"
 
 echo "============================================"
@@ -47,10 +48,8 @@ echo ""
 
 # ---- 选择生成器 ----
 GENERATOR="Unix Makefiles"
-BUILD_PARALLEL="-j$(nproc)"
 if command -v ninja &>/dev/null; then
     GENERATOR="Ninja"
-    BUILD_PARALLEL=""  # Ninja 默认并行
     echo "使用 Ninja 生成器"
 else
     echo "使用 Make 生成器 (安装 ninja-build 可加速编译)"
@@ -67,7 +66,7 @@ cmake -S "${PROJECT_DIR}" \
 # ---- Build ----
 echo ""
 echo "[2/2] CMake Build..."
-cmake --build "${BUILD_DIR}" --config "${BUILD_TYPE}" -- ${BUILD_PARALLEL}
+cmake --build "${BUILD_DIR}" --config "${BUILD_TYPE}" --parallel "${DISPCTRL_BUILD_JOBS:-4}"
 
 # ---- 查找编译产物 ----
 BINARY=""
@@ -93,5 +92,6 @@ if [ -n "$BINARY" ]; then
 else
     echo "  编译完成，但未找到可执行文件"
     echo "  请检查 ${BUILD_DIR}/bin/ 目录"
+    exit 1
 fi
 echo "============================================"

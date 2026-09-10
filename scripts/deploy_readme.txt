@@ -1,28 +1,29 @@
-DispCtrl Linux 安装说明
-========================
+DispCtrl Linux installation
+===========================
 
-适用系统：Ubuntu 18.04 / 20.04 / 22.04 / 24.04 x86_64。
-
-1. 解压安装包：
-
+1. Verify and unpack
+   sha256sum -c DispCtrl-linux-x64.tar.gz.sha256
    tar -xzf DispCtrl-linux-x64.tar.gz
    cd DispCtrl-linux-x64
 
-2. 首次安装：
-
-   chmod +x install_offline_deps.sh run.sh install_desktop.sh
+2. Install offline runtime dependencies (only when offline-deps/ exists)
    sudo ./install_offline_deps.sh
 
-   此步骤不需要联网，只需执行一次。
+3. Verify packaged resources and libraries
+   ./check_package.sh
 
-3. 启动软件：
-
+4. Start in an Ubuntu graphical desktop session
    ./run.sh
 
-4. 可选：创建桌面和应用菜单快捷方式：
-
+5. Optional application-menu, desktop and login-session autostart entry
    ./install_desktop.sh
 
-   之后可在应用菜单中搜索 DispCtrl，或双击桌面图标启动。
+Do not run install_desktop.sh with sudo. The autostart option begins the
+application after this user logs into the graphical desktop; it is not a
+system service. Keep the extracted directory in a fixed location after
+installing the desktop entry. To remove those entries:
+   ./install_desktop.sh --uninstall
 
-请在 Ubuntu 图形桌面登录后运行软件。
+The package checks file/resource and dynamic-library availability only. Final
+acceptance still requires desktop launch, GPU/WebEngine map and radar-network
+verification on the target machine.

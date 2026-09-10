@@ -1,8 +1,15 @@
 build/
 deploy/
 .git/
+.vs/
+.codex/
+.agents/
 *.bak
 *.o
 *.obj
 *.exe
+*.dll
 *.user
+**
+!docker/
+!docker/**

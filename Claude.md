@@ -884,6 +884,11 @@ dataToScene            # RangeAzimuth坐标转换
 - **指控无人机目标上报占位模块**：新增独立 `CommandTargetReporter` 和 `commandtargetreportprotocol.h`。它仅监听普通航迹及其分类结果；每个已识别无人机的航迹点立即上报，TBD/协同航迹不参与。分类结果晚到时会补发该批次缓存的最新点。
 - **可配置传输与协议**：`[command_target_report]` 提供启动默认开关、TCP/UDP、本地/对端 IP 端口、JSON/固定 52 字节 binary 载荷及 binary 大小端配置。TCP 自动重连且保留有限待发队列；UDP 状态只表示本机 bind/发送成功，不宣称对端已收到。对端接口确认后优先只调整协议头中的序列化函数，详情见 `docs/command_target_report_placeholder.md`。
 - **显控状态**：参数设置区新增本次运行有效的“指控无人机上报：开/关”按钮，不改写配置文件；健康管理窗口增加该链路的即时状态。经纬高沿用 PPI 北向方位的局部切平面换算，不重复叠加阵面偏航。当前 `PointInfo` 没有源航迹时间，故上报中的航迹时间为显控接收时间。
+
+### v5.45 (2026-09-10)
+- **Ubuntu 发布工作流同步**：`docker/build_ubuntu.ps1` 为 Windows 入口，调用 WSL/Docker；`docker/docker_build.sh` 支持 `1804/2004/2204/2404` 和 `--check`。源码以只读方式挂载到 Docker，容器内部复制到私有 `/src` 再构建，输出写入 `deploy/ubuntu<目标>/`，避免混用 Windows CMake 缓存或旧发布产物。
+- **发布包自检与可追溯性**：新增 `check_linux_package.sh`、`BUILD-INFO.txt`、tarball SHA-256 和 `qt.conf`；打包缺失 WebEngineProcess、地图资源或未解析动态库时失败。检查仅覆盖文件/依赖，仍需目标机图形桌面、GPU、地图和雷达网络联调。
+- **直接安装步骤**：发布包提供“校验→解压→（兼容包）离线依赖安装→包检查→启动→桌面/登录会话自启动”的清晰流程。桌面安装器按 XDG 目录创建当前用户入口，并可选择图形桌面登录后的自启动；不以 sudo 运行，不创建系统服务。X576 原有 Ubuntu 18.04+ 多版本离线 `.deb` 安装与 ALSA 保护逻辑保留。
 - **健康管理网络状态**：新增 `SubsystemNetworkMonitor`，健康窗口显示本机阵面IP、阵面连接、本机激光IP、激光连接。前两项分别检查本机网卡状态和经指定本机IP发起的ICMP可达性（连续三次失败才置不可达）；激光端地址继承 `[laser]`，阵面对端必须在 `[health_network].radar_peer_ip` 明确配置，绝不从 `DATA_PRO_IP` 等处理节点地址猜测。
 
 ---

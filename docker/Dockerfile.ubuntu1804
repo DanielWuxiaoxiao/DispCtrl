@@ -9,9 +9,8 @@
 #     上编译，glibc ≥2.17 即可运行，自带 WebEngine + .pak + QtWebEngineProcess)
 #   - 打包时捆绑 libstdc++.so.6 (GCC 9 版本 > 18.04 系统自带)
 #
-# 用法 (由 docker_build.sh 1804 自动调用):
-#   docker build -f docker/Dockerfile.ubuntu1804 -t dispctrl-builder-1804 .
-#   docker run --rm -v $(pwd):/src:rw -v $(pwd)/deploy:/output:rw dispctrl-builder-1804
+# Use docker/build_ubuntu.ps1 or docker/docker_build.sh to mount read-only
+# source at /input and target-specific output at /output.
 ##############################################################################
 
 FROM ubuntu:18.04
@@ -79,7 +78,7 @@ RUN pip install --no-cache-dir --upgrade pip setuptools \
 #   Qt Company 官方 Linux 包基于 CentOS 7 (glibc 2.17) 编译
 #   包含: qtbase, qtwebengine, qtwebchannel, QtWebEngineProcess, .pak, ICU 等
 RUN aqt install-qt linux desktop 5.15.2 gcc_64 \
-        -m qtwebengine \
+        -m qtwebengine qtcharts qtconnectivity qtserialport qt3d \
         --outputdir /opt/Qt
 
 # ---- 5) Qt 环境变量 ----
@@ -94,20 +93,6 @@ ENV LD_LIBRARY_PATH="${QT_ROOT}/lib"
 ENV DISPCTRL_BUNDLE_STDCPP=1
 
 WORKDIR /src
-
-# ---- 编译 + 打包入口 ----
-CMD ["/bin/bash", "-c", "\
-    echo '=== Docker Build: DispCtrl (Ubuntu 18.04+ target) ===' && \
-    echo \"Qt version: $(qmake -query QT_VERSION 2>/dev/null || echo UNKNOWN)\" && \
-    echo \"GCC: $(g++ --version | head -1)\" && \
-    echo \"glibc: $(ldd --version | head -1)\" && \
-    echo '' && \
-    cd /src && \
-    bash scripts/build_linux.sh Release && \
-    bash scripts/package_linux.sh Release && \
-    echo '' && \
-    if [ -d /output ]; then \
-        cp deploy/DispCtrl-linux-x64.tar.gz /output/ && \
-        echo '=== 已复制到 /output/DispCtrl-linux-x64.tar.gz ===' ; \
-    fi \
-"]
+COPY docker/container_build.sh /usr/local/bin/dispctrl-build
+RUN sed -i 's/\r$//' /usr/local/bin/dispctrl-build
+ENTRYPOINT ["/bin/bash", "/usr/local/bin/dispctrl-build"]

@@ -14,6 +14,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 BUILD_TYPE="${1:-Release}"
+case "$BUILD_TYPE" in Release|Debug) ;; *) echo 'Expected Release or Debug' >&2; exit 2 ;; esac
 BUILD_DIR="${PROJECT_DIR}/build/linux-${BUILD_TYPE,,}"
 DEPLOY_DIR="${PROJECT_DIR}/deploy/DispCtrl-linux-x64"
 APP_NAME="DispCtrl"
@@ -83,7 +84,16 @@ echo "============================================"
 echo ""
 
 # ---- 清理并创建目录结构 ----
-rm -rf "${DEPLOY_DIR}"
+# Keep deletion constrained to the known deploy child even when invoked from Docker/WSL.
+EXPECTED_DEPLOY_DIR="$(realpath -m "${PROJECT_DIR}")/deploy/DispCtrl-linux-x64"
+if [[ "$(realpath -m "${DEPLOY_DIR}")" != "${EXPECTED_DEPLOY_DIR}" || -L "${DEPLOY_DIR}" ]]; then
+    echo "Refusing unexpected deployment output path: ${DEPLOY_DIR}" >&2
+    exit 1
+fi
+if [[ -d "${DEPLOY_DIR}" ]]; then
+    chmod -R u+w "${DEPLOY_DIR}" 2>/dev/null || true
+    rm -rf "${DEPLOY_DIR}"
+fi
 mkdir -p "${DEPLOY_DIR}"/{bin,lib,plugins/{platforms,imageformats,xcbglintegrations},resources,translations}
 
 ##############################################################################
@@ -101,11 +111,16 @@ echo "[2/8] 复制项目资源..."
 # config.toml
 cp "${PROJECT_DIR}/config.toml" "${DEPLOY_DIR}/bin/"
 
-# HTML 地图文件
-if [ -d "${PROJECT_DIR}/htmls" ]; then
-    cp -r "${PROJECT_DIR}/htmls/"* "${DEPLOY_DIR}/bin/" 2>/dev/null || true
-    echo "  ✓ htmls/"
-fi
+# HTML 地图文件。缺失其中任意一个会导致对应地图页空白，打包时直接失败。
+for web_asset in index.html indexNoL.html indexS.html index3d.html qwebchannel.js; do
+    if [[ ! -f "${PROJECT_DIR}/htmls/${web_asset}" ]]; then
+        echo "Missing required map asset: htmls/${web_asset}" >&2
+        exit 1
+    fi
+done
+[[ -d "${PROJECT_DIR}/htmls/amap" ]] || { echo "Missing required map asset directory: htmls/amap" >&2; exit 1; }
+cp -r "${PROJECT_DIR}/htmls/"* "${DEPLOY_DIR}/bin/"
+echo "  ✓ htmls/"
 
 # QSS 样式表
 if [ -d "${PROJECT_DIR}/resources/style" ]; then
@@ -230,7 +245,8 @@ if [ -f "${QT_LIBEXECS}/QtWebEngineProcess" ]; then
     chmod +x "${DEPLOY_DIR}/bin/QtWebEngineProcess"
     echo "  ✓ QtWebEngineProcess"
 else
-    echo "  ⚠ QtWebEngineProcess 未找到 (${QT_LIBEXECS}/)"
+    echo "Missing QtWebEngineProcess: ${QT_LIBEXECS}" >&2
+    exit 1
 fi
 
 # .pak 资源文件和 ICU 数据
@@ -299,6 +315,13 @@ SKIP_PATTERN+="|libpulse|libasound)"
 
 collect_deps() {
     local binary="$1"
+    local dependencies
+    dependencies=$(ldd "$binary") || { echo "ldd failed: ${binary}" >&2; return 1; }
+    if [[ "$dependencies" == *"not found"* ]]; then
+        echo "Unresolved dependencies: ${binary}" >&2
+        echo "$dependencies" >&2
+        return 1
+    fi
     while IFS= read -r lib; do
         local bn
         bn=$(basename "$lib")
@@ -309,7 +332,7 @@ collect_deps() {
             cp -L "$lib" "${DEPLOY_DIR}/lib/"
             echo "    + ${bn}"
         fi
-    done < <(ldd "$binary" 2>/dev/null | awk '/=> \/[[:alnum:]_.+\/-]+/ {print $3}' | sort -u)
+    done < <(printf '%s\n' "$dependencies" | awk '/=> \/[[:alnum:]_.+\/-]+/ {print $3}' | sort -u)
 }
 
 # 收集主程序、WebEngine 子进程、Qt 库和插件的递归依赖。
@@ -407,6 +430,14 @@ fi
 # 将部署说明放入发布目录根部，便于用户解压后直接查看。
 cp "${PROJECT_DIR}/scripts/deploy_readme.txt" "${DEPLOY_DIR}/readme.txt"
 echo "  ✓ readme.txt"
+cp "${PROJECT_DIR}/scripts/check_linux_package.sh" "${DEPLOY_DIR}/check_package.sh"
+chmod +x "${DEPLOY_DIR}/check_package.sh"
+if [[ -f "${PROJECT_DIR}/docs/Ubuntu发布说明.md" ]]; then
+    cp "${PROJECT_DIR}/docs/Ubuntu发布说明.md" "${DEPLOY_DIR}/README.md"
+fi
+APP_VERSION=$(sed -n 's/^#define APP_VERSION_STR "\([^"]*\)"/\1/p' "${PROJECT_DIR}/Basic/DispBasci.h")
+[[ "$APP_VERSION" =~ ^V?[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || { echo "Cannot read APP_VERSION_STR" >&2; exit 1; }
+printf '%s\n' "$APP_VERSION" > "${DEPLOY_DIR}/VERSION"
 cp "${PROJECT_DIR}/scripts/install_offline_deps.sh" "${DEPLOY_DIR}/"
 chmod +x "${DEPLOY_DIR}/install_offline_deps.sh"
 echo "  ✓ install_offline_deps.sh"
@@ -425,7 +456,7 @@ cat > "${DEPLOY_DIR}/run.sh" << 'EOF'
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # 动态库搜索路径
-export LD_LIBRARY_PATH="${SCRIPT_DIR}/lib:${LD_LIBRARY_PATH}"
+export LD_LIBRARY_PATH="${SCRIPT_DIR}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 
 # Qt 插件路径
 export QT_PLUGIN_PATH="${SCRIPT_DIR}/plugins"
@@ -436,9 +467,12 @@ export QTWEBENGINE_RESOURCES_PATH="${SCRIPT_DIR}/resources"
 export QTWEBENGINE_LOCALES_PATH="${SCRIPT_DIR}/translations/qtwebengine_locales"
 
 # ---------- WebEngine Sandbox (Linux 必需) ----------
-# Chromium sandbox 在非 root 用户下需要 user namespace 支持
-# 大多数 Linux 部署环境都需要禁用 sandbox，否则页面一片空白
-SANDBOX_FLAGS="--no-sandbox --disable-gpu-sandbox"
+# Keep Chromium sandbox enabled by default. Set DISPCTRL_DISABLE_SANDBOX=1 only
+# when the target desktop has explicitly been verified not to support it.
+SANDBOX_FLAGS=""
+if [ "${DISPCTRL_DISABLE_SANDBOX:-0}" = 1 ]; then
+    SANDBOX_FLAGS="--no-sandbox --disable-gpu-sandbox"
+fi
 
 # ---------- WebEngine GPU 兼容性 ----------
 # 如果目标机器没有独立显卡或显卡驱动不完整，WebGL 可能被禁用。
@@ -456,7 +490,8 @@ GPU_FLAGS="--ignore-gpu-blocklist --enable-gpu-rasterization"
 # export LIBGL_ALWAYS_SOFTWARE=1
 # ------------------------------------------
 
-export QTWEBENGINE_CHROMIUM_FLAGS="${SANDBOX_FLAGS} ${GPU_FLAGS}"
+export QTWEBENGINE_CHROMIUM_FLAGS="${QTWEBENGINE_CHROMIUM_FLAGS:-} ${SANDBOX_FLAGS} ${GPU_FLAGS}"
+export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb}"
 
 # 切换到 bin 目录（确保 config.toml 和 html 资源的相对路径正确）
 cd "${SCRIPT_DIR}/bin"
@@ -464,12 +499,24 @@ exec ./DispCtrl "$@"
 EOF
 chmod +x "${DEPLOY_DIR}/run.sh"
 
+cat > "${DEPLOY_DIR}/bin/qt.conf" << 'EOF'
+[Paths]
+Prefix=..
+Libraries=lib
+Plugins=plugins
+Translations=translations
+LibraryExecutables=bin
+Data=.
+EOF
+
 # ---- install_desktop.sh (桌面快捷方式安装脚本) ----
 if [ -f "${PROJECT_DIR}/scripts/install_desktop.sh" ]; then
     cp "${PROJECT_DIR}/scripts/install_desktop.sh" "${DEPLOY_DIR}/"
     chmod +x "${DEPLOY_DIR}/install_desktop.sh"
     echo "  ✓ install_desktop.sh"
 fi
+
+bash "${DEPLOY_DIR}/check_package.sh"
 
 # ---- 统计 ----
 TOTAL_SIZE=$(du -sh "${DEPLOY_DIR}" | cut -f1)
@@ -491,6 +538,7 @@ TARBALL="${PROJECT_DIR}/deploy/DispCtrl-linux-x64.tar.gz"
 echo "创建压缩包: ${TARBALL}"
 cd "${PROJECT_DIR}/deploy"
 tar czf "DispCtrl-linux-x64.tar.gz" "DispCtrl-linux-x64/"
+sha256sum "DispCtrl-linux-x64.tar.gz" > "DispCtrl-linux-x64.tar.gz.sha256"
 TARBALL_SIZE=$(du -h "${TARBALL}" | cut -f1)
 
 echo ""

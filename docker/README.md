@@ -8,14 +8,15 @@ target machine operator.
 
 The source tree remains on Windows at `D:\X576`. WSL accesses it at
 `/mnt/d/X576`. Docker runs the compiler, Qt 5.15.2, and packaging tools inside
-a clean Ubuntu container. The project directory is bind-mounted into the
-container, so build and deployment output is written back to the local tree:
+a clean Ubuntu container. Source is mounted read-only, copied to the
+container's private filesystem for compilation, and only final deployment
+output is written back to the local tree:
 
 ```text
 Windows D:\X576
   -> WSL /mnt/d/X576
-  -> Docker Ubuntu 18.04 build container
-  -> D:\X576\deploy\DispCtrl-linux-x64.tar.gz
+  -> Docker Ubuntu build container (/src is disposable)
+  -> D:\X576\deploy\ubuntu1804\DispCtrl-linux-x64.tar.gz
 ```
 
 This is the preferred workflow: target compatibility is controlled by the
@@ -54,11 +55,11 @@ cd /mnt/d/X576
 ./docker/docker_build.sh 1804
 ```
 
-From Windows PowerShell, replace `Ubuntu-24.04` with the name shown by
-`wsl -l -v`:
+From Windows PowerShell:
 
 ```powershell
-wsl -d Ubuntu-24.04 -- bash -lc 'cd /mnt/d/X576 && ./docker/docker_build.sh 1804'
+.\docker\build_ubuntu.ps1 -Target 1804 -CheckOnly
+.\docker\build_ubuntu.ps1 -Target 1804 -Jobs 4
 ```
 
 `1804` is the recommended target for one package that supports both Ubuntu
@@ -71,7 +72,7 @@ Other targets:
 ```bash
 ./docker/docker_build.sh 2204
 ./docker/docker_build.sh 2404
-./docker/docker_build.sh --help
+./docker/docker_build.sh 1804 --check
 ```
 
 ## Output and Checks
@@ -79,21 +80,21 @@ Other targets:
 The successful build generates:
 
 ```text
-deploy/DispCtrl-linux-x64/
-deploy/DispCtrl-linux-x64.tar.gz
+deploy/ubuntu1804/DispCtrl-linux-x64/
+deploy/ubuntu1804/DispCtrl-linux-x64.tar.gz
+deploy/ubuntu1804/DispCtrl-linux-x64.tar.gz.sha256
 ```
 
 Useful local checks:
 
 ```bash
-tar -tzf deploy/DispCtrl-linux-x64.tar.gz | head
-ldd deploy/DispCtrl-linux-x64/bin/DispCtrl | grep 'not found'
-ldd deploy/DispCtrl-linux-x64/bin/QtWebEngineProcess | grep 'not found'
-bash docker/test_offline_deps.sh
+sha256sum -c deploy/ubuntu1804/DispCtrl-linux-x64.tar.gz.sha256
+bash deploy/ubuntu1804/DispCtrl-linux-x64/check_package.sh
+bash docker/test_offline_deps.sh deploy/ubuntu1804/DispCtrl-linux-x64
 ```
 
-No output from either `grep 'not found'` command means the package's bundled
-runtime library references are resolved in the build environment.
+`check_package.sh` checks package resources and dynamic libraries without
+launching the GUI or sending packets.
 
 `docker/test_offline_deps.sh` starts clean Ubuntu 18.04, 20.04, 22.04, and 24.04 containers
 without a network, installs the matching bundled `.deb` closure, then checks
@@ -123,9 +124,11 @@ The package intentionally does not bundle glibc, the dynamic loader, X11
 display services, or OpenGL/DRM GPU drivers. Those pieces must match the
 target operating system and graphics hardware.
 
-The package-root `readme.txt` contains the target-side install and launch
-instructions. The `apt` command there is only a fallback for targets that are
-not Ubuntu 18.04/20.04 or for a package created without offline bundles.
+The package-root `README.md` and `readme.txt` contain the target-side sequence:
+verify checksum, extract, optionally install offline dependencies, check the
+package, start it, then optionally install application-menu/desktop/autostart
+entries. The desktop installer is current-user only and must not be run with
+`sudo`.
 
 ## Notes
 

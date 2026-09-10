@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-PACKAGE_DIR="${PROJECT_DIR}/deploy/DispCtrl-linux-x64"
+PACKAGE_DIR="${1:-${PROJECT_DIR}/deploy/ubuntu1804/DispCtrl-linux-x64}"
 
 if [ ! -x "${PACKAGE_DIR}/install_offline_deps.sh" ]; then
     echo "Package is missing install_offline_deps.sh: ${PACKAGE_DIR}" >&2
