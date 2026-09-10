@@ -1,9 +1,10 @@
 /*
  * @Description: 激光侦察上报（独立模块，仅“激光终端”功能）
- *  - 右键航迹“激光上报”→ 对该单一目标按周期(默认1s)持续发送侦察帧给激光控制终端；
- *  - 再次右键“关闭激光上报”或目标消批 → 停止（消批时补发一帧 cancelFlag=1）；
+ *  - 右键航迹“引导光电跟踪(持续)”→ 对该单一目标按周期(默认1s)持续发送侦察帧给激光控制终端；
+ *  - 再次右键关闭或目标消批 → 停止（消批时补发一帧 cancelFlag=1）；
  *  - 每次“下发一个新目标”时把当时信息追加保存到本地 txt；
  *  - 由 config.toml [laser].enabled 控制；关闭时不创建、右键菜单也不出现该项；
+ *  - 仅执行雷达→激光端的9009出站上报，不接收激光端控制指令；
  *  - 与其它上报/下发功能互不关联。协议见 docs/光电跟踪与激光上报协议.md 第4节。
  */
 #ifndef LASERREPORTMANAGER_H
@@ -37,7 +38,7 @@ public:
 public slots:
     void reportTrackPoint(const PointInfo& info);   ///< 缓存各批号最新航迹点（数据源）
     void removeTrackPoint(int batch);               ///< 消批：若为当前目标则补发消批帧并停止
-    void startReport(int batch);                     ///< 右键开启：切到该目标持续上报，并存一条txt
+    void startReport(int batch);                     ///< 右键开启：引导光电持续跟踪，并存一条txt
     void stopReport();                              ///< 右键关闭：停止单目标持续上报
     void setAutoReport(bool on);                     ///< 开/关 自动上报（模式1，全部目标）
 
@@ -87,8 +88,8 @@ private:
     unsigned int  m_statusSeq = 0;     ///< 状态序号递增
     unsigned char m_workState = 0x0F;  ///< 工作状态（受激光端0x0201更新，反映到状态帧）
     unsigned char m_faultState = 0x0F; ///< 故障状态（全部正常）
-    unsigned char m_workMode = 0;      ///< 工作模式 0搜索/1跟踪
-    QVector<LaserScanRangeInfo> m_scanRanges; ///< 扫描范围（受激光端0x0104更新，反映到状态帧）
+    unsigned char m_workMode = 1;      ///< 与 RadarAPP 保持一致：跟踪模式
+    QVector<LaserScanRangeInfo> m_scanRanges; ///< 当前状态帧的默认扫描范围
     QHash<int, PointInfo> m_latest;    ///< 各批号最新航迹点缓存
 };
 

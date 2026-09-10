@@ -244,25 +244,7 @@ void FramelessMainWindow::setupOverlayUI()
                 });
         connect(laserReporter, &LaserReportManager::logMessage, m_overlayWidget,
                 &MainOverLayOut::appendExternalLog);
-        // 激光端“工作状态(0x0201)”控制指令真正驱动雷达：Bit0 → 发射开关(TranRecControl)
-        // 受 [laser].apply_control 门控（默认true，但整体仍受 [laser].enabled 约束）。
-        // 授时(0x0101)：雷达时间来自北斗，无外部授时下发通道，仅回响应+日志，不驱动。
-        // 搜索范围(0x0104)/波形下发：按需求暂不驱动。
-        connect(laserReporter, &LaserReportManager::laserWorkStateCommand, this,
-                [](unsigned char workState) {
-                    if (!CF_INS.laserApplyControl(true)) {
-                        LOG_INFO(QString("[LASER][APPLY] apply_control=false，工作状态0x%1 仅记录不驱动")
-                                     .arg(workState, 2, 16, QChar('0')));
-                        return;
-                    }
-                    TranRecControl p;
-                    p.recv = 1;                                    // 接收保持开启
-                    p.tran = (workState & 0x01) ? 1 : 0;           // Bit0 控制发射开关
-                    CON_INS->sendTRParam(p);
-                    LOG_INFO(QString("[LASER][APPLY] 激光端工作状态0x%1 → 发射%2(接收开)")
-                                 .arg(workState, 2, 16, QChar('0'))
-                                 .arg(p.tran ? "开" : "关"));
-                });
+        // 当前需求仅允许显控向激光端发送9009状态/侦察帧；不接入激光端反向雷达控制。
         if (laserReporter->init()) {
             ppiView->setLaserReportManager(laserReporter);
         }

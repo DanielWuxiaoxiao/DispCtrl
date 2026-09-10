@@ -347,10 +347,18 @@ public:
     QString laserSaveDir(const QString& def = "LaserReportLog") const {
         return getValue("laser.save_dir", def).toString();
     }
-    // 激光端控制指令是否真正驱动雷达（true=工作状态Bit0驱动发射开关；false=仅回响应+日志）
-    // 注意：仍受 laser.enabled 总开关约束；波形下发(搜索范围)始终不驱动。
-    bool laserApplyControl(bool def = true) const {
-        return getValue("laser.apply_control", def).toBool();
+    // 阵面对端地址不能由数据处理IP推断，必须由现场配置明确给出。
+    bool healthNetworkEnabled(bool def = true) const {
+        return getValue("health_network.enabled", def).toBool();
+    }
+    int healthNetworkPollIntervalMs(int def = 5000) const {
+        return getValue("health_network.poll_interval_ms", def).toInt();
+    }
+    QString healthRadarLocalIp(const QString& def = "192.168.64.4") const {
+        return getValue("health_network.radar_local_ip", ip("DISP_CTRL_IP", def)).toString();
+    }
+    QString healthRadarPeerIp(const QString& def = QString()) const {
+        return getValue("health_network.radar_peer_ip", def).toString();
     }
 
     // 显示配置相关

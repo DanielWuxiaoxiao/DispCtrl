@@ -1127,8 +1127,10 @@ constexpr unsigned char LASER_FRAME_HEAD0 = 0xEB;
 constexpr unsigned char LASER_FRAME_HEAD1 = 0x90;
 constexpr unsigned char LASER_FRAME_TAIL0 = 0x4C;
 constexpr unsigned char LASER_FRAME_TAIL1 = 0x5A;
-constexpr unsigned short LASER_FT_RECON   = 0x0300;  // 侦察帧类型（雷达→激光端）
-constexpr unsigned short LASER_FT_STATUS  = 0x0200;  // 状态帧类型（雷达→激光端，隐含心跳）
+// 现场协议按小端发送，线上帧类型字节必须为 02 00 / 03 00。
+// 旧实现的 0x0200 / 0x0300 会发出 00 02 / 00 03，不能与当前 RadarAPP 对端互通。
+constexpr unsigned short LASER_FT_RECON   = 0x0003;  // 侦察帧类型（雷达→激光端）
+constexpr unsigned short LASER_FT_STATUS  = 0x0002;  // 状态帧类型（雷达→激光端，隐含心跳）
 constexpr unsigned short LASER_FT_CONTROL   = 0x0100; // 控制数据帧（激光端→雷达）
 constexpr unsigned short LASER_FT_CTRL_RESP = 0x0101; // 控制响应帧（雷达→激光端）
 // 控制类别(controlType)
@@ -1151,10 +1153,10 @@ typedef struct _LaserDataTime {
     unsigned short msecond;  // [0,999]
 } LaserDataTime;
 
-// 帧头(20字节)
+// 帧头(18字节)
 typedef struct _LaserFrameHeader {
     unsigned char  frameHead[2]; // 0xEB 0x90
-    unsigned short frameType;    // 0x0300 侦察帧
+    unsigned short frameType;    // 0x0003侦察 / 0x0002状态（小端在线字节03 00 / 02 00）
     unsigned short senderID;     // 2100
     unsigned short receiverID;   // 5100
     LaserDataTime  timeStamp;    // 发送时刻
@@ -1246,5 +1248,12 @@ typedef struct _LaserTargetInfo {
 } LaserTargetInfo;
 
 #pragma pack(pop)
+
+static_assert(sizeof(LaserDataTime) == 8, "LaserDataTime must remain 8 bytes");
+static_assert(sizeof(LaserFrameHeader) == 18, "LaserFrameHeader must remain 18 bytes");
+static_assert(sizeof(LaserFrameTail) == 4, "LaserFrameTail must remain 4 bytes");
+static_assert(sizeof(LaserReconData) == 12, "LaserReconData must remain 12 bytes");
+static_assert(sizeof(LaserTargetInfo) == 64, "LaserTargetInfo must remain 64 bytes");
+static_assert(sizeof(LaserStatusData) == 13, "LaserStatusData must remain 13 bytes");
 
 #endif // PROTOCOL_H

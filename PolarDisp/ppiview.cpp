@@ -1421,8 +1421,8 @@ void PPIView::onTrackLabelRightClicked(int batchID)
     if (m_laserReportEnabled && m_laserReportManager) {
         const bool reporting = m_laserReportManager->isReporting(batchID);
         laserAction = menu.addAction(reporting
-            ? tr("关闭激光上报 [批次: %1]").arg(batchID)
-            : tr("激光上报 [批次: %1]").arg(batchID));
+            ? tr("关闭引导光电跟踪 [批次: %1]").arg(batchID)
+            : tr("引导光电跟踪(持续) [批次: %1]").arg(batchID));
 
         const bool autoOn = m_laserReportManager->isAutoReport();
         laserAutoAction = menu.addAction(autoOn

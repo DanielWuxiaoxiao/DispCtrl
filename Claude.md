@@ -792,6 +792,7 @@ dataToScene            # RangeAzimuth坐标转换
     - `apply_control=false` 时：控制指令仍正常接收+回响应+日志，但不改变雷达状态。
   - **协议结构补充**：`Basic/Protocol.h` 新增 `LaserControlHeader/LaserTimeSync/LaserWorkStateSet/LaserSearchRange/LaserControlResponse` 及常量 `LASER_FT_CONTROL=0x0100 / LASER_FT_CTRL_RESP=0x0101 / LASER_CT_TIME_SYNC=0x0101 / LASER_CT_SEARCH_RANGE=0x0104 / LASER_CT_WORK_STATE=0x0201`。均对照 RadarAPP `parseLaserFrame`/`sendLaserControlResponse` 校准。
   - **独立性**：全部仍受 `[laser].enabled` 控制，关闭时不接收/不发送/右键无项；自动上报默认关(右键手动开)；驱动雷达额外受 `[laser].apply_control` 门控。
+  - **历史说明**：上述入站控制/反向驱动描述已由 v5.43 的“仅9009出站”范围取代；现行代码不连接激光端入站控制，也不存在 `apply_control` 配置。
 
 ### v5.26 (2026-07-05)
 - **固定DPI策略**：新增 `ui.dpi_policy`，默认 `fixed`。fixed 模式在 `QApplication` 创建前禁用 Qt 高DPI缩放、固定 `QT_SCALE_FACTOR=1`，并通过 `AA_Use96Dpi`/`QT_FONT_DPI=96` 固定字体DPI，使显控界面不跟随 Windows 125/150/175% 显示缩放和分辨率切换后的系统DPI变化，避免固定布局在高文本缩放下挤压重叠。
@@ -874,6 +875,11 @@ dataToScene            # RangeAzimuth坐标转换
 ### v5.42 (2026-08-20)
 - **TBD/协同同批号隔离**：P显 `TrackManager`、扇区 `SectorTrackManager` 与 `RadarDataManager` 的航迹历史缓存统一以 `(PointInfo.type, PointInfo.batch)` 作为唯一键。TBD (`type=3`) 与协同 (`type=4`) 即使使用相同批号并交替到达，也分别维护历史点、最新点、标签和连线；任一路 `statMethod==2` 消批只清理本类型的同批航迹，不影响另一路。B显/H显/3D显原本已按该组合键管理。
 - **运行开关**：`[displayConfig].iftbd` 和 `ifxietong` 分别决定 TBD/协同接收管理器、端口监听、P/B/H/3D 显示连接及对应 UI 是否启用；当前默认配置均为 `true`，压测场景可按需关闭。
+
+### v5.43 (2026-09-09)
+- **引导光电跟踪（持续，9009出站）**：P显航迹右键入口改为「引导光电跟踪(持续)」。启用 `[laser].enabled=true` 后，对选中普通航迹每秒发送状态心跳和该航迹的侦察帧；切换目标只保留新目标，消批补一帧 `cancelFlag=1` 后停止。只使用 `192.168.101.9:9009 → 192.168.101.10:9009`（均可由 `[laser]` 配置覆盖），不接入光电转台引导或其它端口。
+- **与当前 RadarAPP 的9009字节协议对齐**：出站状态/侦察 `frameType` 分别为 `0x0002` / `0x0003`（小端在线字节 `02 00` / `03 00`）；默认状态为跟踪模式，携带范围ID=1的 `45..135° / 0..60°` 扫描区域。该版本不连接9009入站处理，因此激光端报文不会反向控制阵面。
+- **健康管理网络状态**：新增 `SubsystemNetworkMonitor`，健康窗口显示本机阵面IP、阵面连接、本机激光IP、激光连接。前两项分别检查本机网卡状态和经指定本机IP发起的ICMP可达性（连续三次失败才置不可达）；激光端地址继承 `[laser]`，阵面对端必须在 `[health_network].radar_peer_ip` 明确配置，绝不从 `DATA_PRO_IP` 等处理节点地址猜测。
 
 ---
 

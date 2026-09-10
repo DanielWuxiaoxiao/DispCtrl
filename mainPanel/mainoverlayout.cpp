@@ -15,6 +15,7 @@
 #include "Controller/RadarDataManager.h"
 #include "Controller/controller.h"
 #include "Controller/raedatasetreader.h"
+#include "Controller/subsystemnetworkmonitor.h"
 #include "PointManager/detmanager.h"
 #include "PointManager/trackmanager.h"
 #include "PolarDisp/mousepositioninfo.h"
@@ -233,6 +234,8 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     m_dataProBtn = nullptr;
     m_beamConBtn = nullptr;
     m_targetRecBtn = nullptr;
+    m_networkHealthOk.fill(false);
+    m_networkHealthText.fill(QStringLiteral("网络状态检查中..."));
 
     // 初始化数据存储管理窗口指针
     m_dataStorageWindow = nullptr;
@@ -265,6 +268,11 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     // 连接伺服回送与BIT上报
     connect(CON_INS, &Controller::servoCtrlRet, this, &MainOverLayOut::onServoCtrlRet);
     connect(CON_INS, &Controller::bitReport, this, &MainOverLayOut::onBITReport);
+
+    m_subsystemNetworkMonitor = new SubsystemNetworkMonitor(this);
+    connect(m_subsystemNetworkMonitor, &SubsystemNetworkMonitor::statusChanged, this,
+            &MainOverLayOut::updateNetworkHealthStatus);
+    m_subsystemNetworkMonitor->start();
 
     // 连接雷达控制按钮
     connect(ui->btnBatteryControl, &QPushButton::clicked, this,
@@ -1720,6 +1728,10 @@ void MainOverLayOut::updateHealthWindow()
         return;
     }
 
+    for (int index = 0; index < 4; ++index) {
+        applyNetworkHealthStatus(index);
+    }
+
     // 定义按钮样式
     QString greenStyle =
         "QPushButton { "
@@ -1946,6 +1958,39 @@ void MainOverLayOut::updateHealthWindow()
                                      .arg(m_activeHealthPanel + 1));
         }
     }
+}
+
+void MainOverLayOut::updateNetworkHealthStatus(int index, bool ok, const QString& text)
+{
+    if (index < 0 || index >= static_cast<int>(m_networkHealthText.size())) {
+        return;
+    }
+    m_networkHealthOk[static_cast<size_t>(index)] = ok;
+    m_networkHealthText[static_cast<size_t>(index)] = text;
+    applyNetworkHealthStatus(index);
+}
+
+void MainOverLayOut::applyNetworkHealthStatus(int index)
+{
+    QPushButton* button = nullptr;
+    switch (index) {
+    case SubsystemNetworkMonitor::RadarLocal: button = m_radarLocalNetworkBtn; break;
+    case SubsystemNetworkMonitor::LaserLocal: button = m_laserLocalNetworkBtn; break;
+    case SubsystemNetworkMonitor::RadarPeer: button = m_radarPeerNetworkBtn; break;
+    case SubsystemNetworkMonitor::LaserPeer: button = m_laserPeerNetworkBtn; break;
+    default: return;
+    }
+    if (!button) {
+        return;
+    }
+
+    const bool ok = m_networkHealthOk[static_cast<size_t>(index)];
+    const QString style = ok
+        ? QStringLiteral("QPushButton { background:#00aa55; color:#ffffff; border:1px solid #66ffcc; border-radius:5px; padding:7px; font-size:13px; }")
+        : QStringLiteral("QPushButton { background:#a02a2a; color:#ffffff; border:1px solid #ff6666; border-radius:5px; padding:7px; font-size:13px; }");
+    button->setText(m_networkHealthText[static_cast<size_t>(index)]);
+    button->setToolTip(m_networkHealthText[static_cast<size_t>(index)]);
+    button->setStyleSheet(style);
 }
 
 /**
@@ -2769,7 +2814,7 @@ void MainOverLayOut::onRadarSystemClicked() {
     m_healthWindow =
         new CusWindow("雷达系统健康管理", QIcon(":/resources/icon/radararray.png"), this);
     m_healthWindow->setAttribute(Qt::WA_DeleteOnClose);
-    m_healthWindow->setMinimumSize(500, 900);
+    m_healthWindow->setMinimumSize(500, 1000);
 
     // 连接窗口关闭信号，清空指针
     connect(m_healthWindow, &QObject::destroyed, this, [this]() {
@@ -2780,6 +2825,10 @@ void MainOverLayOut::onRadarSystemClicked() {
         m_dataProBtn = nullptr;
         m_beamConBtn = nullptr;
         m_targetRecBtn = nullptr;
+        m_radarLocalNetworkBtn = nullptr;
+        m_radarPeerNetworkBtn = nullptr;
+        m_laserLocalNetworkBtn = nullptr;
+        m_laserPeerNetworkBtn = nullptr;
         m_btnTxOpen = nullptr;
         m_btnDutyCycle = nullptr;
         m_btnPulseWidth = nullptr;
@@ -2829,6 +2878,33 @@ void MainOverLayOut::onRadarSystemClicked() {
     mainLayout->addWidget(m_dataProBtn);
     mainLayout->addWidget(m_beamConBtn);
     mainLayout->addWidget(m_targetRecBtn);
+
+    // ===== 分系统网络状态 =====
+    mainLayout->addSpacing(4);
+    QLabel* networkLabel = new QLabel("分系统网络状态", contentWidget);
+    networkLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #66ffcc;");
+    mainLayout->addWidget(networkLabel);
+
+    auto makeNetworkButton = [contentWidget]() {
+        auto* button = new QPushButton(contentWidget);
+        button->setEnabled(false);
+        button->setMinimumHeight(38);
+        return button;
+    };
+    m_radarLocalNetworkBtn = makeNetworkButton();
+    m_radarPeerNetworkBtn = makeNetworkButton();
+    m_laserLocalNetworkBtn = makeNetworkButton();
+    m_laserPeerNetworkBtn = makeNetworkButton();
+    QGridLayout* networkGrid = new QGridLayout();
+    networkGrid->setSpacing(8);
+    networkGrid->addWidget(m_radarLocalNetworkBtn, 0, 0);
+    networkGrid->addWidget(m_radarPeerNetworkBtn, 0, 1);
+    networkGrid->addWidget(m_laserLocalNetworkBtn, 1, 0);
+    networkGrid->addWidget(m_laserPeerNetworkBtn, 1, 1);
+    mainLayout->addLayout(networkGrid);
+    for (int index = 0; index < 4; ++index) {
+        applyNetworkHealthStatus(index);
+    }
 
     // ===== 四个阵面 BIT 状态页 =====
     mainLayout->addSpacing(20);

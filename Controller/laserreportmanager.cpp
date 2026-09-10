@@ -52,28 +52,37 @@ bool LaserReportManager::init()
                         .arg(m_saveTxt)
                         .arg(m_saveDir));
 
-    if (m_laserHost.isNull() || m_udpPort == 0) {
-        emit logMessage(QString("[LASER][INIT][ERROR] invalid laser endpoint %1:%2")
-                            .arg(m_laserHost.toString()).arg(m_udpPort));
+    if (m_radarHost.isNull() || m_laserHost.isNull() || m_udpPort == 0) {
+        emit logMessage(QString("[LASER][INIT][ERROR] invalid 9009 endpoint local=%1 peer=%2:%3")
+                            .arg(m_radarHost.toString()).arg(m_laserHost.toString()).arg(m_udpPort));
         m_enabled = false;
         return false;
     }
 
     m_socket = new QUdpSocket(this);
-    // 雷达端本地绑定（收发共用单端口）。绑定失败不致命：仍可用OS选端口发送。
-    if (!m_radarHost.isNull()) {
-        if (!m_socket->bind(m_radarHost, m_udpPort, QUdpSocket::ShareAddress)) {
-            emit logMessage(QString("[LASER][INIT][WARN] bind %1:%2 failed: %3 （改用OS分配源地址继续）")
-                                .arg(m_radarHost.toString()).arg(m_udpPort)
-                                .arg(m_socket->errorString()));
-        } else {
-            emit logMessage(QString("[LASER][INIT] bind local=%1:%2 ok")
-                                .arg(m_radarHost.toString()).arg(m_udpPort));
-        }
+    // 严格使用雷达端9009作为源端口；绑定失败不能退化为系统随机端口发送。
+    if (!m_socket->bind(m_radarHost, m_udpPort, QUdpSocket::ShareAddress)) {
+        emit logMessage(QString("[LASER][INIT][ERROR] bind %1:%2 failed: %3；9009上报未启动")
+                            .arg(m_radarHost.toString()).arg(m_udpPort)
+                            .arg(m_socket->errorString()));
+        m_socket->deleteLater();
+        m_socket = nullptr;
+        m_enabled = false;
+        return false;
     }
+    emit logMessage(QString("[LASER][INIT] bind local=%1:%2 ok")
+                        .arg(m_radarHost.toString()).arg(m_udpPort));
 
-    // 接收激光端控制帧（单端口双向）：授时/搜索范围/工作状态 → 解析+回响应
-    connect(m_socket, &QUdpSocket::readyRead, this, &LaserReportManager::onIncomingDatagram);
+    // 本版本只要求雷达→激光端9009出站，不连接 readyRead，激光端不能反向控制本机雷达。
+
+    // RadarAPP当前状态帧默认携带一个扫描范围，并以跟踪模式上报。
+    LaserScanRangeInfo defaultRange{};
+    defaultRange.rangeID = 1;
+    defaultRange.startAzimuth = 45.0f;
+    defaultRange.endAzimuth = 135.0f;
+    defaultRange.startElevation = 0.0f;
+    defaultRange.endElevation = 60.0f;
+    m_scanRanges = {defaultRange};
 
     // 1s 周期定时器：启用后常驻运行，每拍发状态帧(心跳)；有活动目标时附带侦察帧。
     m_timer = new QTimer(this);
@@ -82,7 +91,7 @@ bool LaserReportManager::init()
     m_timer->start(m_intervalMs);
     onReportTick();  // 立即发一拍状态帧，建立心跳
 
-    emit logMessage(QStringLiteral("[LASER][INIT] ready (周期状态帧心跳已启动，待右键开启目标后附带侦察帧)"));
+    emit logMessage(QStringLiteral("[LASER][INIT] ready (9009状态心跳已启动，待右键引导光电跟踪后附带侦察帧)"));
     return true;
 }
 
@@ -137,7 +146,7 @@ void LaserReportManager::startReport(int batch)
     if (prev >= 0) {
         emit logMessage(QString("[LASER][SWITCH] 由 batch=%1 切换到 batch=%2").arg(prev).arg(batch));
     } else {
-        emit logMessage(QString("[LASER][START] 开启对 batch=%1 的持续激光上报").arg(batch));
+        emit logMessage(QString("[LASER][START] 开启对 batch=%1 的引导光电持续跟踪(9009)").arg(batch));
     }
 
     // 每次“下发一个新目标”保存一条 txt（用当前缓存的最新点）
@@ -154,7 +163,7 @@ void LaserReportManager::startReport(int batch)
 void LaserReportManager::stopReport()
 {
     if (m_activeBatch < 0) return;
-    emit logMessage(QString("[LASER][STOP] 停止 batch=%1 的激光上报（状态帧心跳继续）").arg(m_activeBatch));
+    emit logMessage(QString("[LASER][STOP] 停止 batch=%1 的引导光电持续跟踪（状态帧心跳继续）").arg(m_activeBatch));
     m_activeBatch = -1;
     // 注意：不停止定时器——状态帧心跳在模块启用期间始终保持
 }
@@ -382,8 +391,16 @@ LaserDataTime LaserReportManager::nowLaserTime()
 
 unsigned short LaserReportManager::mapTargetType(const PointInfo& info)
 {
-    // 雷达侧仅有 targetRecResult(0其它/1无人机)；映射到激光协议类型 0普通/1无人机
-    return (info.targetRecResult == 1) ? 1 : 0;
+    // 与 RadarAPP 的分类映射保持一致；当前X576常规来源通常只给出0/1，
+    // 但若后续识别链路提供行人/车辆/鸟/其它，也不应被错误降成普通目标。
+    switch (info.targetRecResult) {
+    case 1: return 1; // 无人机
+    case 4: return 3; // 鸟
+    case 2:            // 行人
+    case 3:            // 车辆
+    case 5: return 4; // 其它
+    default: return 0; // 未知/普通
+    }
 }
 
 unsigned short LaserReportManager::mapTrackQuality(const PointInfo& info)

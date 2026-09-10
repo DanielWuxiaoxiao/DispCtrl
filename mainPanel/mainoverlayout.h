@@ -68,6 +68,7 @@ class ScreenRecorderWidget; ///< 屏幕录制与回放组件
 class QTabWidget;      ///< Qt标签页控件
 class QSplitter;
 class QToolButton;
+class SubsystemNetworkMonitor;
 
 
 namespace Ui {
@@ -532,6 +533,9 @@ private:
     int m_dataProSta;                    ///< 数据处理软件状态
     int m_beamConSta;                    ///< 波束调度软件状态
     int m_targetRecSta;                  ///< 目标识别软件状态
+    SubsystemNetworkMonitor* m_subsystemNetworkMonitor = nullptr;
+    std::array<bool, 4> m_networkHealthOk{};
+    std::array<QString, 4> m_networkHealthText{};
     static constexpr int kRadarPanelCount = 4;
     BITReport m_lastBITReport;           ///< 当前选中阵面的BIT上报信息
     std::array<BITReport, kRadarPanelCount> m_bitReports{};
@@ -545,6 +549,11 @@ private:
     QPushButton* m_dataProBtn;           ///< 数据处理状态按钮
     QPushButton* m_beamConBtn;           ///< 波束调度状态按钮
     QPushButton* m_targetRecBtn;         ///< 目标识别状态按钮
+
+    QPushButton* m_radarLocalNetworkBtn = nullptr;
+    QPushButton* m_radarPeerNetworkBtn = nullptr;
+    QPushButton* m_laserLocalNetworkBtn = nullptr;
+    QPushButton* m_laserPeerNetworkBtn = nullptr;
 
     // 数据存储管理窗口相关
     CusWindow* m_dataStorageWindow;      ///< 数据存储管理窗口指针
@@ -599,6 +608,8 @@ private:
      */
     void updateHealthWindow();
     void bindHealthPanel(int panelId);
+    void updateNetworkHealthStatus(int index, bool ok, const QString& text);
+    void applyNetworkHealthStatus(int index);
 
     // 雷达控制状态成员
     bool m_isTransmitting;               ///< 发射状态（true=发射开启，false=发射关闭）
