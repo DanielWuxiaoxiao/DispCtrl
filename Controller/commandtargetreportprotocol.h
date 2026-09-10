@@ -1,4 +1,12 @@
 /*
+ * @Author: wuxiaoxiao
+ * @Email: wuxiaoxiao@gmail.com
+ * @Date: 2026-09-10 00:07:19 -0700
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2026-09-10 16:40:44
+ * @Description: 
+ */
+/*
  * Placeholder command-and-control target report wire format.
  *
  * This is intentionally self-contained.  When the peer publishes its formal
@@ -59,7 +67,7 @@ inline QByteArray serializeJson(const BinaryTargetReport& report, bool tcpFramin
     object.insert(QStringLiteral("version"), report.version);
     object.insert(QStringLiteral("report_timestamp_utc_ms"), static_cast<double>(report.reportTimestampUtcMs));
     object.insert(QStringLiteral("track_timestamp_utc_ms"), static_cast<double>(report.trackTimestampUtcMs));
-    object.insert(QStringLiteral("target_id"), report.targetId);
+    object.insert(QStringLiteral("target_id"), static_cast<double>(report.targetId));
     object.insert(QStringLiteral("longitude_deg"), report.longitudeDeg);
     object.insert(QStringLiteral("latitude_deg"), report.latitudeDeg);
     object.insert(QStringLiteral("altitude_m"), report.altitudeM);
