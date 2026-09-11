@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-29 09:49:42
+ * @LastEditTime: 2026-09-11 22:04:55
  * @Description: 
  */
 /**
@@ -30,12 +30,14 @@
 #include "../PointManager/trackmanager.h"
 #include "../Controller/controller.h"
 #include "../Basic/ConfigManager.h"
+#include "../Basic/wgs84coordinate.h"
 #include "../Controller/RadarDataManager.h"
 #include "../mainPanel/mainoverlayout.h"
 #include "../Controller/gcsmanager.h"
 #include "../Controller/totalcontrolmqttclient.h"
 #include "../Controller/edgeradarreporter.h"
 #include "../Controller/laserreportmanager.h"
+#include "../CommandControl/commandcontrolmodule.h"
 
 #include <QMouseEvent>
 #include <QMenu>
@@ -77,9 +79,6 @@ bool PPIView::sendTrackTargetAssignment(int batchID)
     PointInfo info;
     if (!m_scene->track()->latestPointInfo(batchID, info)) return false;
 
-    const double DEG2RAD = M_PI / 180.0;
-    const double R = 6378137.0;
-
     double radarLat = m_radarLatitude;
     double radarLon = m_radarLongitude;
     double radarAlt = 0.0;
@@ -92,24 +91,25 @@ bool PPIView::sendTrackTargetAssignment(int batchID)
     const double azDeg = static_cast<double>(info.azimuth);
     const double elDeg = static_cast<double>(info.elevation);
 
-    const double elRad = elDeg * DEG2RAD;
-    const double horizontalDistance = rangeM * qCos(elRad);
-    const double dz = rangeM * qSin(elRad);
+    double eastM = 0.0;
+    double northM = 0.0;
+    double upM = 0.0;
+    if (!Wgs84Coordinate::polarToEnu(rangeM, azDeg, elDeg, eastM, northM, upM)) {
+        LOG_WARNING(QString("[GCS][TARGET_SEND] 航迹批号=%1 的 RAE 参数无效").arg(batchID));
+        return false;
+    }
 
-    const double trueAzRad = azDeg * DEG2RAD;
-    const double dx = horizontalDistance * qSin(trueAzRad);
-    const double dy = horizontalDistance * qCos(trueAzRad);
-
-    const double latRad = radarLat * DEG2RAD;
-    const double targetLat = radarLat + dy / (R * DEG2RAD);
-    const double targetLon = radarLon + dx / (R * qCos(latRad) * DEG2RAD);
-    const double targetAlt = radarAlt + dz;
+    Wgs84Coordinate::Lla target;
+    if (!Wgs84Coordinate::enuToLla({radarLon, radarLat, radarAlt}, eastM, northM, upM, target)) {
+        LOG_WARNING(QString("[GCS][TARGET_SEND] 航迹批号=%1 的 WGS84 换算失败").arg(batchID));
+        return false;
+    }
 
     GcsTargetParams params;
     params.targetId = static_cast<quint32>(batchID);
-    params.longitude = targetLon;
-    params.latitude = targetLat;
-    params.altitude = static_cast<float>(targetAlt);
+    params.longitude = target.longitudeDeg;
+    params.latitude = target.latitudeDeg;
+    params.altitude = static_cast<float>(target.altitudeM);
     params.speed = static_cast<float>(info.speed);
 
     double heading = std::fmod(azDeg, 360.0);
@@ -1383,6 +1383,18 @@ void PPIView::setLaserReportManager(LaserReportManager* mgr)
     m_laserReportEnabled = CF_INS.laserReportEnabled(false);
 }
 
+void PPIView::setCommandControlModule(CommandControlModule* module)
+{
+    m_commandControlModule = module;
+}
+
+void PPIView::replayCommandControlTrack(const PointInfo& info)
+{
+    if (m_scene && m_scene->track()) {
+        m_scene->track()->addTrackPoint(info);
+    }
+}
+
 void PPIView::setOnlyRecognizedDroneTracksVisible(bool enabled)
 {
     if (!m_scene || !m_scene->track()) return;
@@ -1430,6 +1442,14 @@ void PPIView::onTrackLabelRightClicked(int batchID)
             : tr("开启激光自动上报(全部目标)"));
     }
 
+    QAction* commandControlAction = nullptr;
+    if (m_commandControlModule) {
+        const bool reporting = m_commandControlModule->isManualReportActive(batchID);
+        commandControlAction = menu.addAction(reporting
+            ? tr("关闭总控手动上报 [批次: %1]").arg(batchID)
+            : tr("开启总控手动上报 [批次: %1]").arg(batchID));
+    }
+
     const bool focused = m_scene->track()->isBatchFocused(batchID);
     QAction* focusAction = menu.addAction(focused ? tr("取消关注") : tr("关注"));
     QAction* chosen = menu.exec(QCursor::pos());
@@ -1452,6 +1472,11 @@ void PPIView::onTrackLabelRightClicked(int batchID)
 
     if (laserAutoAction && chosen == laserAutoAction) {
         m_laserReportManager->setAutoReport(!m_laserReportManager->isAutoReport());
+        return;
+    }
+
+    if (commandControlAction && chosen == commandControlAction) {
+        m_commandControlModule->toggleManualReport(static_cast<quint32>(batchID));
         return;
     }
 

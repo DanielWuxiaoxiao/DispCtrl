@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-29 09:49:42
+ * @LastEditTime: 2026-09-11 22:04:55
  * @Description: 
  */
 /**
@@ -19,6 +19,8 @@
 #ifndef PPIVIEW_H
 #define PPIVIEW_H
 #pragma once
+#include "../Basic/Protocol.h"
+
 #include <QGraphicsView>
 #include <QRubberBand>
 #include <QSet>
@@ -27,6 +29,7 @@
 class EdgeRadarReporter;
 class TotalControlMqttClient;
 class LaserReportManager;   ///< 激光侦察上报管理器（独立模块）
+class CommandControlModule;
 
 // 前向声明 - 避免头文件循环依赖
 class PPIScene;           ///< PPI场景管理器
@@ -157,6 +160,8 @@ public:
     void setEdgeRadarReporter(EdgeRadarReporter* reporter);
     void setTotalControlMqttClient(TotalControlMqttClient* client);
     void setLaserReportManager(LaserReportManager* mgr);
+    void setCommandControlModule(CommandControlModule* module);
+    void replayCommandControlTrack(const PointInfo& info);
 
     /**
      * @brief 设置是否仅显示识别为无人机的普通航迹
@@ -419,6 +424,7 @@ private:
     EdgeRadarReporter* m_edgeRadarReporter = nullptr; ///< JSON雷达数据上报器（由外部注入，不拥有所有权）
     TotalControlMqttClient* m_totalControlMqttClient = nullptr; ///< 总控MQTT上报器（由外部注入，不拥有所有权）
     LaserReportManager* m_laserReportManager = nullptr; ///< 激光侦察上报器（由外部注入，不拥有所有权）
+    CommandControlModule* m_commandControlModule = nullptr; ///< 总控通信模块（由外部注入，不拥有所有权）
     bool m_laserReportEnabled = false;       ///< 是否启用激光上报（关闭则右键菜单无此项）
     // 手动下发过的批次集合。新批次加入集合而不替换旧批次；仅对应批次消批后移除。
     QSet<int> m_activeGcsTargetBatches;

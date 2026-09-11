@@ -100,7 +100,13 @@ SOURCES += \
     Controller/totalcontrolmqttclient.cpp \
     Controller/laserreportmanager.cpp \
     Controller/subsystemnetworkmonitor.cpp \
-    Controller/commandtargetreporter.cpp \
+    CommandControl/commandcontrolprotocol.cpp \
+    CommandControl/commandcontrolconfig.cpp \
+    CommandControl/commandcontrolrecordstore.cpp \
+    CommandControl/commandcontrolrecordwriter.cpp \
+    CommandControl/commandcontroltransport.cpp \
+    CommandControl/commandcontrolmodule.cpp \
+    CommandControl/commandcontrolwindow.cpp \
     Controller/RadarDataManager.cpp \
     Controller/ErrorHandler.cpp \
     \
@@ -177,6 +183,7 @@ HEADERS += \
     Basic/ConfigManager.h \
     Basic/DispBasci.h \
     Basic/Protocol.h \
+    Basic/wgs84coordinate.h \
     Basic/bindThread.h \
     Basic/log.h \
     Basic/mathUtil.h \
@@ -202,8 +209,13 @@ HEADERS += \
     Controller/edgeradarresultreceiver.h \
     Controller/laserreportmanager.h \
     Controller/subsystemnetworkmonitor.h \
-    Controller/commandtargetreporter.h \
-    Controller/commandtargetreportprotocol.h \
+    CommandControl/commandcontrolprotocol.h \
+    CommandControl/commandcontrolconfig.h \
+    CommandControl/commandcontrolrecordstore.h \
+    CommandControl/commandcontrolrecordwriter.h \
+    CommandControl/commandcontroltransport.h \
+    CommandControl/commandcontrolmodule.h \
+    CommandControl/commandcontrolwindow.h \
     Controller/totalcontrolmqttclient.h \
     Controller/RadarDataManager.h \
     Controller/ErrorHandler.h \

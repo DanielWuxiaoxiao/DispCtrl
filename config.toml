@@ -215,22 +215,106 @@ poll_interval_ms = 5000
 radar_peer_ip = ""                  # 现场填写阵面对端IP，例如 "192.168.64.x"
 
 # =============================================================================
-# 指控无人机目标上报 Command-and-control UAV Target Report (placeholder)
-# 每个被识别为无人机的普通航迹点均上报一次。对端协议未定时可修改本段，重启生效。
-# transport: udp | tcp；payload: json | binary；byte_order 仅影响 binary。
-# TCP JSON 以换行分帧；TCP binary 为连续的固定52字节记录。
-# enabled 是启动默认值；显控参数区“指控上报”按钮可临时开关，重启后恢复这里的值。
+# 总控通信 Command-control UDP Protocol
+# 本模块自行剥离被错误嵌套的引号，并对端口/数值作范围校验，以规避历史 TOML
+# 字符串引号解析问题。变更配置后重启生效。
 # =============================================================================
-[command_target_report]
+[command_control]
+# 是否启用总控 UDP 通信模块；false 时不创建组播、单播、记录和控制窗口。
 enabled = true
-transport = "udp"
-payload = "json"
-byte_order = "little"
-local_ip = "0.0.0.0"
-local_port = 0
-remote_ip = "127.0.0.1"
-remote_port = 21002
-tcp_reconnect_interval_ms = 3000
+# 雷达/显控端本机 IPv4；用于绑定 UDP 套接字及写入 DD33 登录请求，需与总控同网段可达。
+local_ip = "192.30.105.13"
+# 本机 UDP 绑定端口；DD33 中同时上报该端口，合法范围 1～65535。
+local_port = 21505
+# DD25、DDA1、DDA4 和 DD31 使用的 IPv4 组播地址。
+multicast_group = "224.0.1.2"
+# 组播收发端口；应与总控和其它设备配置一致，合法范围 1～65535。
+multicast_port = 21505
+# 期望总控来源 IP；仅用于收到 DD31 时的告警核对，不会阻止有效 DD31 更新实际单播端点。
+expected_control_ip = "192.30.105.10"
+# 本机雷达/显控端用户 ID；写入公共报头、DD33、DDA4，必须非 0，支持十进制或 0x 十六进制。
+device_id = "0x11474202"
+# DDA4 自动上报开关；true 时识别为无人机的普通航迹自动组播，窗口可在本次运行中切换。
+auto_report_enabled = true
+# DD25 链路检测组播周期，单位毫秒；建议保持 3000，5 个周期未收到对端 DD25 判定其离线。
+link_interval_ms = 3000
+# DDA1 雷达装备状态组播周期，单位毫秒；建议保持 3000。
+equipment_status_interval_ms = 3000
+# DD33 登录未收到 DD34 回复时的额外重发次数；0 表示不重发，最大 10。
+login_retry_count = 3
+# DD33 登录自动重发间隔，单位毫秒；合法范围 250～60000。
+login_retry_interval_ms = 1000
+# 是否为本机上报和组播接收的每条 DDA4 创建 JSONL 会话记录；关闭后回放读取功能也关闭。
+record_enabled = true
+# JSONL 会话记录目录；相对路径以程序当前工作目录为基准，每次启动创建一个新文件。
+record_directory = "CommandControlRecords"
+# 回放 DDA4 到 PPI 的投递周期，单位毫秒；数值越小回放越快，合法范围 10～10000。
+replay_interval_ms = 200
+# 控制窗口内存中最多展示的 DDA4 条数；只限制界面缓存，不影响 JSONL 完整落盘，范围 10～10000。
+visible_record_limit = 1000
+
+# DD25 协同参与状态字段；当前协议默认 0x00，范围 0～255。
+dd25_cooperation_status = 0
+
+# DDA4 目标综合批号；当前协议默认 0，范围 0～4294967295。
+dda4_comprehensive_batch = 0
+# DDA4 设备类型；当前默认 2，范围 0～255。
+dda4_device_type = 2
+# DDA4 同类型设备编号；当前默认 1，范围 0～255。
+dda4_device_number = 1
+# DDA4 数据率编码，单位 0.01Hz；200 表示 2Hz，范围 0～65535。
+dda4_rate_centi_hz = 200
+# DDA4 目标属性字节；当前默认 0x00，范围 0～255。
+dda4_target_attribute = 0
+# DDA4 目标类型字节；当前默认 0x00，范围 0～255。
+dda4_target_type = 0
+# DDA4 航迹质量字节；当前默认 0xFF（十进制 255），范围 0～255。
+dda4_track_quality = 255
+# DDA4 RCS 默认编码，单位 0.001 平方米；无 RCS 数据时填该值，当前为 0。
+dda4_rcs_milli_square_m = 0
+# DDA4 干扰状态字节；当前默认 0x00，范围 0～255。
+dda4_interference_status = 0
+# DDA4 更新方式高半字节：普通航迹 statMethod=1（外推）时使用，范围 0～15。
+dda4_update_state_extrapolated = 1
+# DDA4 更新方式高半字节：普通航迹 statMethod 非 1（更新滤波）时使用，范围 0～15。
+dda4_update_state_filtered = 2
+# DDA4 更新方式低半字节：自动上报使用，范围 0～15。
+dda4_update_mode_auto = 1
+# DDA4 更新方式低半字节：手动上报使用，范围 0～15。
+dda4_update_mode_manual = 2
+# DDA4 相对延时，单位毫秒；当前默认 0，范围 0～65535。
+dda4_relative_delay_ms = 0
+
+# DDA1 工作状态字节；低 4 位 1 表示战斗，当前默认 0x01，范围 0～255。
+dda1_work_status = 1
+# DDA1 健康状态字节；0x03 表示正常，当前默认 3，范围 0～255。
+dda1_health_status = 3
+# DDA1 本报文携带的设备数量；当前实现仅上报一个搜索雷达，默认 1。
+dda1_device_count = 1
+# DDA1 搜索雷达设备类型；定版值为 0x02，TOML 使用十进制 2，范围 0～255。
+dda1_device_type = 2
+# DDA1 搜索雷达设备编号；当前默认 1，范围 0～255。
+dda1_device_number = 1
+# DDA1 搜索雷达设备状态；0x03 表示正常，当前默认 3，范围 0～255。
+dda1_device_status = 3
+# DDA1 搜索雷达工作模式；0x22 表示常规，TOML 使用十进制 34，范围 0～255。
+dda1_work_mode = 34
+# DDA1 方位范围起始角，单位度；正北为 0，范围 0～360。
+dda1_azimuth_start_deg = 0
+# DDA1 方位范围终止角，单位度；正北为 0，范围 0～360。
+dda1_azimuth_end_deg = 360
+# DDA1 俯仰范围起始角，单位度；水平为 0，范围 -10～70。
+dda1_elevation_start_deg = -10
+# DDA1 俯仰范围终止角，单位度；水平为 0，范围 -10～70。
+dda1_elevation_end_deg = 70
+# DDA1 对应的阵面 ID；仅接收该 ID 的 BIT 偏航角，取值 0～3，默认阵面 0。
+dda1_radar_id = 0
+# DDA1 初始辐射状态；0 表示关、1 表示开；运行期间会跟随显控发射开关更新。
+radiation_status = 0
+# DDA4 摘要写入项目日志的周期，单位毫秒；0 表示每条均写日志。完整逐条原始报文始终写入 JSONL。
+dda4_log_interval_ms = 1000
+# 是否额外输出所有已接收/已投递发送报文的十六进制字节；仅在字节级联调时开启，高频 DDA4 会产生大量日志。
+packet_hex_log_enabled = false
 
 # =============================================================================
 # 参数配置（运行时保存） Parameter Configuration (Runtime Save)

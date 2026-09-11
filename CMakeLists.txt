@@ -168,7 +168,13 @@ set(SRC_FILES
     Controller/totalcontrolmqttclient.cpp       # 总控MQTT识别结果上报
     Controller/laserreportmanager.cpp           # 激光侦察上报（独立模块）
     Controller/subsystemnetworkmonitor.cpp     # 健康管理分系统网络状态
-    Controller/commandtargetreporter.cpp       # 指控无人机目标上报（独立模块）
+    CommandControl/commandcontrolprotocol.cpp  # 总控 UDP 协议编解码
+    CommandControl/commandcontrolconfig.cpp    # 总控通信独立配置
+      CommandControl/commandcontrolrecordstore.cpp # DDA4 会话记录
+      CommandControl/commandcontrolrecordwriter.cpp # DDA4 独立记录线程
+    CommandControl/commandcontroltransport.cpp # UDP 工作线程
+    CommandControl/commandcontrolmodule.cpp    # 总控通信核心模块
+    CommandControl/commandcontrolwindow.cpp    # 总控通信独立窗口
     Controller/RadarDataManager.cpp            # 雷达数据统一管理器
     Controller/ErrorHandler.cpp                # 错误处理框架
     Controller/disp2sigmanager.cpp             # 显示到信号管理
@@ -257,8 +263,13 @@ set(HDR_FILES
     Controller/edgeradarresultreceiver.h        # 边缘终端识别结果回传接收
     Controller/totalcontrolmqttclient.h         # 总控MQTT识别结果上报
     Controller/subsystemnetworkmonitor.h        # 健康管理分系统网络状态
-    Controller/commandtargetreporter.h          # 指控无人机目标上报（独立模块）
-    Controller/commandtargetreportprotocol.h    # 指控无人机目标占位协议
+    CommandControl/commandcontrolprotocol.h     # 总控 UDP 协议编解码
+    CommandControl/commandcontrolconfig.h       # 总控通信独立配置
+      CommandControl/commandcontrolrecordstore.h  # DDA4 会话记录
+      CommandControl/commandcontrolrecordwriter.h # DDA4 独立记录线程
+    CommandControl/commandcontroltransport.h    # UDP 工作线程
+    CommandControl/commandcontrolmodule.h       # 总控通信核心模块
+    CommandControl/commandcontrolwindow.h       # 总控通信独立窗口
     Controller/ascanmanager.h                  # A显数据UDP接收管理器
     Controller/beamschedulemanager.h           # 波束调度报告UDP接收管理器
     Controller/geofencemanager.h               # 电子围栏检测管理器
@@ -289,6 +300,7 @@ set(HDR_FILES
     # 基础模块头文件 - 系统基础功能
     Basic/bindThread.h                         # 线程绑定工具
     Basic/Protocol.h                           # 通信协议定义
+    Basic/wgs84coordinate.h                    # WGS84 与 ENU 坐标换算
     Basic/mathUtil.h                           # 数学工具函数
     Basic/log.h                               # 日志系统
     Basic/DispBasci.h                         # 显示基础定义

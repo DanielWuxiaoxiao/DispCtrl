@@ -1870,6 +1870,225 @@ PhotoElectricParam QLineEdit {
 /* QDialogButtonBox buttons use the global QPushButton style so all dialogs stay consistent. */
 
 /* =============================================================================
+ * 总控通信窗口样式
+ * =============================================================================
+ *
+ * 该窗口使用对象名隔离样式：复用系统的深色背景、青绿色状态色和圆角控件，
+ * 不改变其他 QDialog、表格或按钮的视觉效果。
+ */
+#CommandControlWindow {
+    background-color: #101818;
+    border: 1px solid #176b5a;
+}
+
+#CommandControlTitleBar {
+    background-color: #0b1514;
+    border-bottom: 1px solid #246354;
+}
+
+#CommandControlWindow #CommandControlTitleLabel {
+    color: #65f5c0;
+    font-size: 15px;
+    font-weight: bold;
+}
+
+#CommandControlWindow #CommandControlTitleCloseButton {
+    min-width: 28px;
+    min-height: 28px;
+    max-width: 28px;
+    max-height: 28px;
+    padding: 0;
+    color: #d0ebe2;
+    font-size: 20px;
+    font-weight: normal;
+    background-color: transparent;
+    border: none;
+    border-radius: 5px;
+}
+
+#CommandControlWindow #CommandControlTitleCloseButton:hover {
+    color: #ffffff;
+    background-color: #c43e3e;
+    border: none;
+}
+
+#CommandControlWindow QLabel {
+    color: #d9f7ee;
+    background: transparent;
+    font-family: "Microsoft YaHei";
+    font-size: 13px;
+}
+
+#CommandControlControlPage,
+#CommandControlPeerPage,
+#CommandControlRecordPage {
+    background-color: #111f1d;
+}
+
+#CommandControlStatusLabel {
+    color: #bfffe6;
+    background-color: rgba(11, 35, 31, 0.92);
+    border: 1px solid rgba(0, 255, 136, 0.48);
+    border-radius: 7px;
+    padding: 10px 12px;
+    min-height: 40px;
+}
+
+#CommandControlTabs::pane {
+    background-color: #111f1d;
+    border: 1px solid #245a4d;
+    border-radius: 8px;
+    top: -1px;
+}
+
+#CommandControlTabs QTabBar::tab {
+    min-width: 108px;
+    color: #8fb9ac;
+    background-color: #172724;
+    border: 1px solid #2b5249;
+    border-radius: 6px;
+    padding: 8px 16px;
+    margin: 0 5px 7px 0;
+}
+
+#CommandControlTabs QTabBar::tab:hover {
+    color: #d8fff0;
+    border-color: #00cc88;
+    background-color: #1d3833;
+}
+
+#CommandControlTabs QTabBar::tab:selected {
+    color: #071713;
+    font-weight: bold;
+    border: 1px solid #00ff9a;
+    background-color: #00c982;
+}
+
+#CommandControlWindow QCheckBox {
+    color: #c9f8e7;
+    font-size: 14px;
+    spacing: 8px;
+    padding: 3px 0;
+}
+
+#CommandControlWindow QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #38ca91;
+    border-radius: 4px;
+    background-color: #0d1c1a;
+}
+
+#CommandControlWindow QCheckBox::indicator:checked {
+    background-color: #00c982;
+    border-color: #70ffd0;
+}
+
+#CommandControlWindow QPushButton {
+    min-height: 28px;
+    padding: 6px 18px;
+    color: #caffeb;
+    background-color: #17342e;
+    border: 1px solid #2fb886;
+    border-radius: 6px;
+}
+
+#CommandControlWindow QPushButton:hover {
+    color: #ffffff;
+    background-color: #21604f;
+    border: 1px solid #72ffd1;
+}
+
+#CommandControlWindow QPushButton:pressed {
+    background-color: #0e211d;
+    border-color: #00ff9a;
+}
+
+#CommandControlLoginButton,
+#CommandControlReplayButton {
+    color: #061b14;
+    font-weight: bold;
+    background-color: #00c982;
+    border-color: #5cffc3;
+}
+
+#CommandControlLoginButton:hover,
+#CommandControlReplayButton:hover {
+    color: #03120d;
+    background-color: #54efb3;
+    border-color: #b0ffe0;
+}
+
+#CommandControlLogoutButton,
+#CommandControlStopReplayButton {
+    color: #ffded9;
+    background-color: #4a2a2a;
+    border-color: #bf6464;
+}
+
+#CommandControlLogoutButton:hover,
+#CommandControlStopReplayButton:hover {
+    color: #ffffff;
+    background-color: #7a3737;
+    border-color: #ff9494;
+}
+
+#CommandControlCloseButton {
+    min-width: 82px;
+    color: #d3eee6;
+    background-color: #1a2c29;
+    border-color: #42766a;
+}
+
+#CommandControlWindow QTableWidget {
+    color: #d4f1e8;
+    background-color: #0d1917;
+    alternate-background-color: #132521;
+    border: 1px solid #28594d;
+    border-radius: 6px;
+    gridline-color: #24453e;
+    selection-background-color: #176b55;
+    selection-color: #ffffff;
+    outline: none;
+}
+
+#CommandControlWindow QHeaderView::section {
+    color: #84f7c7;
+    background-color: #172d29;
+    border: none;
+    border-right: 1px solid #315d52;
+    border-bottom: 1px solid #315d52;
+    padding: 7px 8px;
+    font-weight: bold;
+}
+
+#CommandControlWindow QTableWidget::item {
+    border-bottom: 1px solid rgba(49, 93, 82, 0.55);
+    padding: 5px 8px;
+}
+
+#CommandControlWindow QScrollBar:vertical {
+    width: 10px;
+    margin: 3px;
+    background: #0a1413;
+}
+
+#CommandControlWindow QScrollBar::handle:vertical {
+    min-height: 24px;
+    border-radius: 5px;
+    background: #2c8f73;
+}
+
+#CommandControlWindow QScrollBar::handle:vertical:hover {
+    background: #52d6ad;
+}
+
+#CommandControlWindow QScrollBar::add-line:vertical,
+#CommandControlWindow QScrollBar::sub-line:vertical {
+    height: 0;
+}
+
+/* =============================================================================
  * 距离-方位图表组件样式 - Range-Azimuth Chart Widget
  * =============================================================================
  */

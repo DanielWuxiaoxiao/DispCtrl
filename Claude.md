@@ -885,6 +885,13 @@ dataToScene            # RangeAzimuth坐标转换
 - **可配置传输与协议**：`[command_target_report]` 提供启动默认开关、TCP/UDP、本地/对端 IP 端口、JSON/固定 52 字节 binary 载荷及 binary 大小端配置。TCP 自动重连且保留有限待发队列；UDP 状态只表示本机 bind/发送成功，不宣称对端已收到。对端接口确认后优先只调整协议头中的序列化函数，详情见 `docs/command_target_report_placeholder.md`。
 - **显控状态**：参数设置区新增本次运行有效的“指控无人机上报：开/关”按钮，不改写配置文件；健康管理窗口增加该链路的即时状态。经纬高沿用 PPI 北向方位的局部切平面换算，不重复叠加阵面偏航。当前 `PointInfo` 没有源航迹时间，故上报中的航迹时间为显控接收时间。
 
+### v5.46 (2026-09-11)
+- **总控 UDP 定版协议替换占位实现**：移除 `CommandTargetReporter`、其 TCP/JSON/52 字节占位协议及 `[command_target_report]` 配置，新增独立 `CommandControl/` 目录。目录内按职责拆分小端字节级编解码、鲁棒配置读取、DDA4 JSONL 会话记录、UDP 状态机和独立三页控制窗口；详见 `docs/command_control_protocol.md`。
+- **协议与网络**：所有报文使用 18 字节 `0x5AA5`/`0x10` 报头，组播 `224.0.1.2:21505`。专用 `CommandControlTransport` 在工作线程独占 UDP 套接字，GUI 线程只处理已转发的协议状态和 UI。启动即周期发送 DD25、DDA1；DD31 发现/更新总控单播端点，驱动 DD33 登录或退出，DD34 完成结果确认。DD31、DD33、DD34、DD25、DDA4、DDA1 均严格校验报头和固定长度。`CommandControlRecordWriter` 在第二条工作线程处理 JSONL 的序列化、flush 和回放读取，禁止磁盘 I/O 占用 PPI 线程。
+- **DDA4/UI**：普通航迹的识别无人机可自动上报；PPI 航迹右键可逐批开启/关闭手动上报，消批自动清理。总控通信窗口提供登录状态与自动开关、组播设备 DD25 在线状态、DDA4 会话记录和 PPI 回放。窗口通过 `CommandControlWindow` 专属 QSS 复用深色雷达主题，主操作为青绿色、停止/退出为红色，样式不影响其它对话框。DDA4 缓存表和设备表均合并为最多每 200 ms 更新一次，防止打开窗口后高频数据触发整表重绘。RAE 与 WGS84/ENU 转换只放在该模块，避免影响现有 GCS、激光或 MQTT 链路。
+- **配置与风险**：`[command_control]` 单独剥离嵌套引号并校验数值，默认本机 `192.30.105.13`、总控 `192.30.105.10`、设备 ID `0x11474202`。DD25 协同状态、DDA4 的设备/数据率/目标属性/质量/RCS/干扰/更新方式/相对延时，以及 DDA1 的工作、健康、设备、扫描范围和初始辐射状态均从该节读取，并在启动日志输出最终生效值。DDA1 经纬高和 DDA4 局地坐标换算只使用 DD05 阵面真值；GCS 下发、DDA4 上报和 DDA4 回放共同调用 `Basic/wgs84coordinate.h` 的已验证局地 ENU→WGS84 公式，目标高固定为“雷达高 + ENU 上向分量”，避免两份实现分歧且不改变既有 GCS 语义。未收到 DD05 时不发送 DDA1/DDA4。`dda1_radar_id` 选择提供 BIT 偏航角的阵面，TAS/TWS 的 AA05 波束参数只在配套 AA03 收到 DE01 成功回送后，才与该 BIT 偏航角组合为正北参考的 DDA1 扫描范围。DDA1“搜索雷达”使用 `dda1_device_type = 2`（`0x02`）。`dda4_log_interval_ms=1000` 使项目日志只记录 DDA4 摘要，完整原始 DDA4 仍在 JSONL；设为 `0` 可短时逐条输出。`packet_hex_log_enabled` 默认关闭，只有字节级联调时开启；它只额外打印本机与当前总控间五类控制报文的原始字节，DDA4 原始字节仍只保存到 JSONL。
+- **总控字段级调试日志**：DD31、DD33、DD34、DD25、DDA1、DDA4 六类报文均在收发后按字节级解析为结构体字段再写入项目 `LOG_INFO`，每项含 UDP 对端、完整公共报头和完整负载（DD31/DDA1/DDA4 备份字段也保留）。仅本机发出或当前 DD31 确认总控发出的报文进入这组调试日志；其余组播设备仍可更新在线状态或写 DDA4 JSONL，但不污染总控联调日志。主界面日志栏仅显示 DD31 端点变化、DD33/DD34 登录状态及本机 DDA1 经纬高/扫描范围，周期 DD25/DDA4 只落项目日志，避免刷屏；DDA4 的完整项目日志受 `dda4_log_interval_ms` 限速，设为 `0` 可逐条输出，JSONL 始终逐条保存；任何报头、长度、字段或主控 ID 校验失败均写 `LOG_WARNING`。
+
 ### v5.45 (2026-09-10)
 - **Ubuntu 发布工作流同步**：`docker/build_ubuntu.ps1` 为 Windows 入口，调用 WSL/Docker；`docker/docker_build.sh` 支持 `1804/2004/2204/2404` 和 `--check`。源码以只读方式挂载到 Docker，容器内部复制到私有 `/src` 再构建，输出写入 `deploy/ubuntu<目标>/`，避免混用 Windows CMake 缓存或旧发布产物。
 - **发布包自检与可追溯性**：新增 `check_linux_package.sh`、`BUILD-INFO.txt`、tarball SHA-256 和 `qt.conf`；打包缺失 WebEngineProcess、地图资源或未解析动态库时失败。检查仅覆盖文件/依赖，仍需目标机图形桌面、GPU、地图和雷达网络联调。

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-29 09:49:43
+ * @LastEditTime: 2026-09-11 22:04:55
  * @Description: 
  */
 /**
@@ -50,6 +50,7 @@
 #include "Controller/edgeradarresultreceiver.h"
 #include "Controller/laserreportmanager.h"
 #include "Controller/totalcontrolmqttclient.h"
+#include "CommandControl/commandcontrolmodule.h"
 
 /**
  * @brief FramelessMainWindow构造函数实现
@@ -248,6 +249,43 @@ void FramelessMainWindow::setupOverlayUI()
         if (laserReporter->init()) {
             ppiView->setLaserReportManager(laserReporter);
         }
+
+        // 总控通信遵循 DD31/DD33/DD34/DD25/DDA4/DDA1 定版 UDP 协议；模块独立
+        // 管理网络、记录和回放，仅通过 Controller 信号观察普通航迹。
+        CommandControlModule* commandControl = new CommandControlModule(this);
+        connect(CON_INS, &Controller::traInfoProcess, commandControl,
+                &CommandControlModule::processTrackPoint);
+        connect(CON_INS, &Controller::targetClaRes, commandControl,
+                &CommandControlModule::processTargetClassification);
+        // DD05 是阵面回传的经纬高真值；DDA1 与 DDA4 必须和既有 GCS/PPI 使用同一来源。
+        connect(CON_INS, &Controller::geoLocationUpdated, commandControl,
+                &CommandControlModule::updateRadarPosition);
+        // TAS/TWS 的 AA05 + AA03 序列由 DE01 成功回送确认，BIT 给出所选阵面的真实偏航角。
+        connect(m_overlayWidget, &MainOverLayOut::sig_SetBeamControlParam, commandControl,
+                &CommandControlModule::setPendingBeamControl);
+        connect(m_overlayWidget, &MainOverLayOut::sig_SetServoControlParam, commandControl,
+                &CommandControlModule::setPendingServoControl);
+        connect(CON_INS, &Controller::bitReport, commandControl,
+                &CommandControlModule::processBitReport);
+        connect(CON_INS, &Controller::servoCtrlRet, commandControl,
+                &CommandControlModule::processServoControlReply);
+        connect(commandControl, &CommandControlModule::statusChanged, m_overlayWidget,
+                [this](const QString& text) {
+                    m_overlayWidget->appendExternalLog(QStringLiteral("[总控通信] %1").arg(text));
+                });
+        // 协议字段的完整值写项目日志；这里只显示本机/总控交互中的登录、端点和装备状态要点。
+        connect(commandControl, &CommandControlModule::diagnosticLog, m_overlayWidget,
+                [this](const QString& text) {
+                    m_overlayWidget->appendExternalLog(QStringLiteral("[总控协议] %1").arg(text));
+                });
+        connect(commandControl, &CommandControlModule::replayPointReady, ppiView,
+                &PPIView::replayCommandControlTrack);
+        connect(commandControl, &CommandControlModule::readyChanged, this,
+                [this, ppiView, commandControl](bool ready) {
+                    ppiView->setCommandControlModule(ready ? commandControl : nullptr);
+                    m_overlayWidget->setCommandControlModule(ready ? commandControl : nullptr);
+                });
+        commandControl->init();
 
         TotalControlMqttClient* totalMqtt = new TotalControlMqttClient(this);
         connect(totalMqtt, &TotalControlMqttClient::logMessage, this,

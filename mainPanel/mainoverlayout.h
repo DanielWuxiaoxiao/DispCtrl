@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@gmail.com
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-28 13:44:06
+ * @LastEditTime: 2026-09-11 22:04:55
  * @Description: 
  */
 /**
@@ -69,7 +69,7 @@ class QTabWidget;      ///< Qt标签页控件
 class QSplitter;
 class QToolButton;
 class SubsystemNetworkMonitor;
-class CommandTargetReporter;
+class CommandControlModule;
 
 
 namespace Ui {
@@ -179,6 +179,7 @@ public:
      * @details 提供对内部PPI视图组件的访问接口，支持信号连接等操作
      */
     PPIView* getPPIView() const { return mView; }
+    void setCommandControlModule(CommandControlModule* module);
 
 public slots:
     /**
@@ -535,11 +536,9 @@ private:
     int m_beamConSta;                    ///< 波束调度软件状态
     int m_targetRecSta;                  ///< 目标识别软件状态
     SubsystemNetworkMonitor* m_subsystemNetworkMonitor = nullptr;
-    CommandTargetReporter* m_commandTargetReporter = nullptr;
+    CommandControlModule* m_commandControlModule = nullptr;
     std::array<bool, 4> m_networkHealthOk{};
     std::array<QString, 4> m_networkHealthText{};
-    bool m_commandTargetNetworkOk = false;
-    QString m_commandTargetNetworkText;
     static constexpr int kRadarPanelCount = 4;
     BITReport m_lastBITReport;           ///< 当前选中阵面的BIT上报信息
     std::array<BITReport, kRadarPanelCount> m_bitReports{};
@@ -558,8 +557,7 @@ private:
     QPushButton* m_radarPeerNetworkBtn = nullptr;
     QPushButton* m_laserLocalNetworkBtn = nullptr;
     QPushButton* m_laserPeerNetworkBtn = nullptr;
-    QPushButton* m_commandTargetNetworkBtn = nullptr;
-    QPushButton* m_commandTargetReportButton = nullptr;
+    QPushButton* m_commandControlButton = nullptr;
 
     // 数据存储管理窗口相关
     CusWindow* m_dataStorageWindow;      ///< 数据存储管理窗口指针
@@ -616,10 +614,6 @@ private:
     void bindHealthPanel(int panelId);
     void updateNetworkHealthStatus(int index, bool ok, const QString& text);
     void applyNetworkHealthStatus(int index);
-    void updateCommandTargetReportNetworkStatus(bool ok, const QString& text);
-    void applyCommandTargetReportNetworkStatus();
-    void updateCommandTargetReportButton(bool enabled);
-
     // 雷达控制状态成员
     bool m_isTransmitting;               ///< 发射状态（true=发射开启，false=发射关闭）
     bool m_isStandby;                    ///< 待机状态（true=待机模式，false=工作模式）
