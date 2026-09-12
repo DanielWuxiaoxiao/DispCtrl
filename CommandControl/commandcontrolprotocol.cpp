@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-09-11 19:13:20
+ * @Email: wuxiaoxiao@xidian.edu.cn
+ * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-11 22:04:54
+ * @LastEditTime: 2026-09-12 12:22:45
  * @Description: 
  */
 #include "commandcontrolprotocol.h"
@@ -152,6 +152,40 @@ bool parseHeader(const QByteArray& packet, Header& header)
     return header.magic == kMagic && header.version == kVersion;
 }
 
+bool isValidMonthDayTime(const MonthDayTime& value)
+{
+    return value.day >= 1 && value.day <= 31
+        && value.hour <= 23
+        && value.minute <= 59
+        && value.second <= 59
+        && value.millisecond <= 999;
+}
+
+quint32 packMonthDayTime(const MonthDayTime& value)
+{
+    // bit 0..9=ms，10..15=sec，16..21=min，22..26=h，27..31=day。
+    return static_cast<quint32>(value.millisecond)
+        | (static_cast<quint32>(value.second) << 10)
+        | (static_cast<quint32>(value.minute) << 16)
+        | (static_cast<quint32>(value.hour) << 22)
+        | (static_cast<quint32>(value.day) << 27);
+}
+
+bool unpackMonthDayTime(quint32 packedValue, MonthDayTime& value)
+{
+    MonthDayTime parsed;
+    parsed.millisecond = static_cast<quint16>(packedValue & 0x3FFU);
+    parsed.second = static_cast<quint8>((packedValue >> 10) & 0x3FU);
+    parsed.minute = static_cast<quint8>((packedValue >> 16) & 0x3FU);
+    parsed.hour = static_cast<quint8>((packedValue >> 22) & 0x1FU);
+    parsed.day = static_cast<quint8>((packedValue >> 27) & 0x1FU);
+    if (!isValidMonthDayTime(parsed)) {
+        return false;
+    }
+    value = parsed;
+    return true;
+}
+
 bool parseManagementNode(const QByteArray& packet, ManagementNode& node)
 {
     Header header;
@@ -231,8 +265,13 @@ bool parseLinkCheck(const QByteArray& packet, LinkCheckPayload& linkCheck)
     }
 
     int offset = kHeaderSize;
-    return readU32(packet, offset, linkCheck.monthTimestampMs)
-        && readU8(packet, offset, linkCheck.cooperationStatus);
+    quint32 packedTimestamp = 0;
+    if (!readU32(packet, offset, packedTimestamp)
+        || !unpackMonthDayTime(packedTimestamp, linkCheck.timestamp)
+        || !readU8(packet, offset, linkCheck.cooperationStatus)) {
+        return false;
+    }
+    return true;
 }
 
 bool parseDda4Track(const QByteArray& packet, Dda4Track& track)
@@ -263,11 +302,12 @@ bool parseDda4Track(const QByteArray& packet, Dda4Track& track)
         || !readU16(packet, offset, track.rcsMilliSquareM)
         || !readU8(packet, offset, track.interferenceStatus)
         || !readU8(packet, offset, track.updateMethod)
-        || !readU16(packet, offset, track.relativeDelayMs)
-        || !readU32(packet, offset, track.monthTimestampMs)) {
+        || !readU16(packet, offset, track.relativeDelayMs)) {
         return false;
     }
-    return true;
+    quint32 packedTimestamp = 0;
+    return readU32(packet, offset, packedTimestamp)
+        && unpackMonthDayTime(packedTimestamp, track.timestamp);
 }
 
 bool parseDda1Status(const QByteArray& packet, Dda1Status& status)
@@ -283,7 +323,7 @@ bool parseDda1Status(const QByteArray& packet, Dda1Status& status)
     quint8 elevationEnd = 0;
     if (!readI32(packet, offset, status.longitudeE7)
         || !readI32(packet, offset, status.latitudeE7)
-        || !readI32(packet, offset, status.altitudeM)
+        || !readI16(packet, offset, status.altitudeM)
         || !readU8(packet, offset, status.workStatus)
         || !readU8(packet, offset, status.healthStatus)
         || !readU8(packet, offset, status.deviceCount)
@@ -323,11 +363,11 @@ QByteArray makeLoginRequest(const Header& header, quint32 userId, quint32 ipv4Lo
     return makePacket(header, payload);
 }
 
-QByteArray makeLinkCheck(const Header& header, quint32 monthTimestampMs, quint8 cooperationStatus)
+QByteArray makeLinkCheck(const Header& header, const MonthDayTime& timestamp, quint8 cooperationStatus)
 {
     QByteArray payload;
     payload.reserve(5);
-    appendU32(payload, monthTimestampMs); // DD25 字段 1：本月首日零点以来的毫秒数。
+    appendU32(payload, packMonthDayTime(timestamp)); // DD25 字段 1：本月压缩时间位域。
     appendU8(payload, cooperationStatus); // 字段 2：协同参与状态，定版默认 0x00。
     return makePacket(header, payload);
 }
@@ -356,17 +396,17 @@ QByteArray makeDda4Track(const Header& header, const Dda4Track& track)
     appendU8(payload, track.interferenceStatus);
     appendU8(payload, track.updateMethod);
     appendU16(payload, track.relativeDelayMs);
-    appendU32(payload, track.monthTimestampMs);
+    appendU32(payload, packMonthDayTime(track.timestamp));
     return makePacket(header, payload);
 }
 
 QByteArray makeDda1Status(const Header& header, const Dda1Status& status)
 {
     QByteArray payload;
-    payload.reserve(28);
+    payload.reserve(26);
     appendI32(payload, status.longitudeE7);
     appendI32(payload, status.latitudeE7);
-    appendI32(payload, status.altitudeM);
+    appendI16(payload, status.altitudeM);
     appendU8(payload, status.workStatus);
     appendU8(payload, status.healthStatus);
     appendU8(payload, status.deviceCount);
@@ -404,7 +444,7 @@ int expectedPacketSize(quint16 type)
     case LoginReply: return kHeaderSize + 6;
     case LinkCheck: return kHeaderSize + 5;
     case SituationIntelligence: return kHeaderSize + 49;
-    case EquipmentStatus: return kHeaderSize + 28;
+    case EquipmentStatus: return kHeaderSize + 26;
     default: return -1;
     }
 }

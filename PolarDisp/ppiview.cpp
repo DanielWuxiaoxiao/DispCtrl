@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
+ * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-11 22:04:55
+ * @LastEditTime: 2026-09-12 12:22:52
  * @Description: 
  */
 /**
@@ -78,6 +78,12 @@ bool PPIView::sendTrackTargetAssignment(int batchID)
 
     PointInfo info;
     if (!m_scene->track()->latestPointInfo(batchID, info)) return false;
+    if (info.type != PointType::Track) {
+        LOG_WARNING(QString("[GCS][TARGET_SEND] 拒绝非普通航迹下发: batch=%1 type=%2")
+                    .arg(batchID)
+                    .arg(static_cast<int>(info.type)));
+        return false;
+    }
 
     double radarLat = m_radarLatitude;
     double radarLon = m_radarLongitude;
@@ -520,24 +526,27 @@ void PPIView::setPPIScene(PPIScene* scene) {
                     pointInfo->updatePointInfo(info);
                 }
 
-                if (m_edgeRadarReporter) {
-                    m_edgeRadarReporter->reportTrackPoint(info);
-                }
-                if (m_laserReportManager) {
-                    m_laserReportManager->reportTrackPoint(info);
-                }
-                if (m_totalControlMqttClient) {
-                    m_totalControlMqttClient->updateOwnTrack(info);
-                }
+                // TBD/协同航迹仅参与显控；所有外部链路从源头只接收普通 DBT 航迹。
+                if (info.type == PointType::Track) {
+                    if (m_edgeRadarReporter) {
+                        m_edgeRadarReporter->reportTrackPoint(info);
+                    }
+                    if (m_laserReportManager) {
+                        m_laserReportManager->reportTrackPoint(info);
+                    }
+                    if (m_totalControlMqttClient) {
+                        m_totalControlMqttClient->updateOwnTrack(info);
+                    }
 
-                if (m_gcsTargetReportEnabled
-                    && m_activeGcsTargetBatches.contains(static_cast<int>(info.batch))) {
-                    sendTrackTargetAssignment(static_cast<int>(info.batch));
+                    if (m_gcsTargetReportEnabled
+                        && m_activeGcsTargetBatches.contains(static_cast<int>(info.batch))) {
+                        sendTrackTargetAssignment(static_cast<int>(info.batch));
+                    }
                 }
             });
             LOG_INFO("Connected TrackManager::trackPointAdded for continuous update");
 
-            connect(m_scene->track(), &TrackManager::trackRemoved, this, [this](int batchID) {
+            connect(m_scene->track(), &TrackManager::normalTrackRemoved, this, [this](int batchID) {
                 if (m_edgeRadarReporter) {
                     m_edgeRadarReporter->removeTrackPoint(static_cast<unsigned int>(batchID));
                 }
@@ -1416,13 +1425,14 @@ void PPIView::setOnlyRecognizedDroneTracksVisible(bool enabled)
  *  - 目标经度 = radar_lon + dx/(R*cos(lat_r)*π/180) [度]
  *  - 目标高度 = radar_alt + dz                 [m]
  */
-void PPIView::onTrackLabelRightClicked(int batchID)
+void PPIView::onTrackLabelRightClicked(int batchID, PointType type)
 {
     if (!m_scene || !m_scene->track()) return;
 
     QMenu menu(this);
     QAction* sendAction = nullptr;
-    if (m_gcsTargetReportEnabled && m_gcsMgr) {
+    const bool canReportExternally = (type == PointType::Track);
+    if (canReportExternally && m_gcsTargetReportEnabled && m_gcsMgr) {
         sendAction = menu.addAction(
             tr("目标下发 [批次: %1]").arg(batchID));
     }
@@ -1430,7 +1440,7 @@ void PPIView::onTrackLabelRightClicked(int batchID)
     // 激光上报菜单项：仅在 [laser].enabled 时出现
     QAction* laserAction = nullptr;      // 单目标持续上报开关
     QAction* laserAutoAction = nullptr;  // 自动上报(全部目标)开关
-    if (m_laserReportEnabled && m_laserReportManager) {
+    if (canReportExternally && m_laserReportEnabled && m_laserReportManager) {
         const bool reporting = m_laserReportManager->isReporting(batchID);
         laserAction = menu.addAction(reporting
             ? tr("关闭引导光电跟踪 [批次: %1]").arg(batchID)
@@ -1443,7 +1453,7 @@ void PPIView::onTrackLabelRightClicked(int batchID)
     }
 
     QAction* commandControlAction = nullptr;
-    if (m_commandControlModule) {
+    if (canReportExternally && m_commandControlModule) {
         const bool reporting = m_commandControlModule->isManualReportActive(batchID);
         commandControlAction = menu.addAction(reporting
             ? tr("关闭总控手动上报 [批次: %1]").arg(batchID)

@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
+ * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-04-29 10:48:05
+ * @LastEditTime: 2026-09-12 12:22:52
  * @Description: 
  */
 /**
@@ -143,9 +143,11 @@ signals:
     /**
      * @brief 右键点击航迹标签信号
      * @param batchID 被右键标签对应的批次ID
-     * @details 由 TrackManager::labelRightClicked 转发，供 PPIView 处理目标下发菜单
+     * @param type 被右键标签所属的航迹类型
+     * @details 由 TrackManager::labelRightClicked 转发，供 PPIView 按航迹类型
+     *          限制目标下发菜单。
      */
-    void trackLabelRightClicked(int batchID);
+    void trackLabelRightClicked(int batchID, PointType type);
 
 protected:
     /**

@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-09-11 19:14:44
+ * @Email: wuxiaoxiao@xidian.edu.cn
+ * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-11 22:04:54
+ * @LastEditTime: 2026-09-12 12:22:45
  * @Description: 
  */
 #include "commandcontrolrecordstore.h"
@@ -12,6 +12,8 @@
 #include <QDir>
 #include <QJsonDocument>
 #include <QJsonObject>
+
+#include <cmath>
 
 namespace {
 
@@ -22,6 +24,10 @@ QJsonObject toJson(const CommandControlRecord& record)
     object.insert(QStringLiteral("direction"), record.outbound ? QStringLiteral("outbound") : QStringLiteral("inbound"));
     object.insert(QStringLiteral("observed_utc_ms"), static_cast<double>(record.observedUtcMs));
     object.insert(QStringLiteral("packet_hex"), QString::fromLatin1(record.packet.toHex()));
+    object.insert(QStringLiteral("replay_radar_origin_valid"), record.hasReplayRadarOrigin);
+    object.insert(QStringLiteral("replay_radar_longitude_deg"), record.replayRadarLongitudeDeg);
+    object.insert(QStringLiteral("replay_radar_latitude_deg"), record.replayRadarLatitudeDeg);
+    object.insert(QStringLiteral("replay_radar_altitude_m"), record.replayRadarAltitudeM);
     object.insert(QStringLiteral("comprehensive_batch"), static_cast<double>(track.comprehensiveBatch));
     object.insert(QStringLiteral("local_batch"), static_cast<double>(track.localBatch));
     object.insert(QStringLiteral("device_id"), static_cast<double>(track.deviceId));
@@ -41,7 +47,13 @@ QJsonObject toJson(const CommandControlRecord& record)
     object.insert(QStringLiteral("interference_status"), track.interferenceStatus);
     object.insert(QStringLiteral("update_method"), track.updateMethod);
     object.insert(QStringLiteral("relative_delay_ms"), track.relativeDelayMs);
-    object.insert(QStringLiteral("month_timestamp_ms"), static_cast<double>(track.monthTimestampMs));
+    object.insert(QStringLiteral("month_timestamp_packed"),
+                  static_cast<double>(CommandControlProtocol::packMonthDayTime(track.timestamp)));
+    object.insert(QStringLiteral("month_day"), track.timestamp.day);
+    object.insert(QStringLiteral("month_hour"), track.timestamp.hour);
+    object.insert(QStringLiteral("month_minute"), track.timestamp.minute);
+    object.insert(QStringLiteral("month_second"), track.timestamp.second);
+    object.insert(QStringLiteral("month_millisecond"), track.timestamp.millisecond);
     return object;
 }
 
@@ -51,10 +63,30 @@ bool fromJson(const QJsonObject& object, CommandControlRecord& record)
         const QJsonValue value = object.value(QLatin1String(key));
         return value.isDouble() ? static_cast<qint64>(value.toDouble()) : fallback;
     };
+    auto decimal = [&object](const char* key) {
+        return object.value(QLatin1String(key)).toDouble();
+    };
 
     record.outbound = object.value(QStringLiteral("direction")).toString() == QStringLiteral("outbound");
     record.observedUtcMs = number("observed_utc_ms");
     record.packet = QByteArray::fromHex(object.value(QStringLiteral("packet_hex")).toString().toLatin1());
+    record.hasReplayRadarOrigin = object.value(QStringLiteral("replay_radar_origin_valid")).toBool(false);
+    if (record.hasReplayRadarOrigin) {
+        if (!object.contains(QStringLiteral("replay_radar_longitude_deg"))
+            || !object.contains(QStringLiteral("replay_radar_latitude_deg"))
+            || !object.contains(QStringLiteral("replay_radar_altitude_m"))) {
+            return false;
+        }
+        record.replayRadarLongitudeDeg = decimal("replay_radar_longitude_deg");
+        record.replayRadarLatitudeDeg = decimal("replay_radar_latitude_deg");
+        record.replayRadarAltitudeM = decimal("replay_radar_altitude_m");
+        if (!std::isfinite(record.replayRadarLongitudeDeg) || !std::isfinite(record.replayRadarLatitudeDeg)
+            || !std::isfinite(record.replayRadarAltitudeM)
+            || record.replayRadarLongitudeDeg < -180.0 || record.replayRadarLongitudeDeg > 180.0
+            || record.replayRadarLatitudeDeg < -90.0 || record.replayRadarLatitudeDeg > 90.0) {
+            return false;
+        }
+    }
     auto& track = record.track;
     track.comprehensiveBatch = static_cast<quint32>(number("comprehensive_batch"));
     track.localBatch = static_cast<quint32>(number("local_batch"));
@@ -75,7 +107,47 @@ bool fromJson(const QJsonObject& object, CommandControlRecord& record)
     track.interferenceStatus = static_cast<quint8>(number("interference_status"));
     track.updateMethod = static_cast<quint8>(number("update_method"));
     track.relativeDelayMs = static_cast<quint16>(number("relative_delay_ms"));
-    track.monthTimestampMs = static_cast<quint32>(number("month_timestamp_ms"));
+    const bool hasTimestampComponents = object.contains(QStringLiteral("month_day"));
+    if (hasTimestampComponents) {
+        const qint64 day = number("month_day");
+        const qint64 hour = number("month_hour");
+        const qint64 minute = number("month_minute");
+        const qint64 second = number("month_second");
+        const qint64 millisecond = number("month_millisecond");
+        if (day < 1 || day > 31 || hour < 0 || hour > 23
+            || minute < 0 || minute > 59 || second < 0 || second > 59
+            || millisecond < 0 || millisecond > 999) {
+            return false;
+        }
+        track.timestamp.day = static_cast<quint8>(day);
+        track.timestamp.hour = static_cast<quint8>(hour);
+        track.timestamp.minute = static_cast<quint8>(minute);
+        track.timestamp.second = static_cast<quint8>(second);
+        track.timestamp.millisecond = static_cast<quint16>(millisecond);
+    } else if (object.contains(QStringLiteral("month_timestamp_packed"))) {
+        if (!CommandControlProtocol::unpackMonthDayTime(
+                static_cast<quint32>(number("month_timestamp_packed")), track.timestamp)) {
+            return false;
+        }
+    } else if (object.contains(QStringLiteral("month_timestamp_ms"))) {
+        // 兼容修正前 JSONL：旧版本错误记录的是本月首日以来累计毫秒，
+        // 仅在读取历史文件时转换为当前的 day/h/min/sec/ms 表达。
+        const qint64 legacyElapsedMs = number("month_timestamp_ms");
+        constexpr qint64 kDayMs = 24LL * 60LL * 60LL * 1000LL;
+        constexpr qint64 kMaxMonthMs = 31LL * kDayMs;
+        if (legacyElapsedMs < 0 || legacyElapsedMs >= kMaxMonthMs) {
+            return false;
+        }
+        qint64 remainingMs = legacyElapsedMs;
+        track.timestamp.day = static_cast<quint8>(remainingMs / kDayMs + 1);
+        remainingMs %= kDayMs;
+        track.timestamp.hour = static_cast<quint8>(remainingMs / (60LL * 60LL * 1000LL));
+        remainingMs %= 60LL * 60LL * 1000LL;
+        track.timestamp.minute = static_cast<quint8>(remainingMs / (60LL * 1000LL));
+        remainingMs %= 60LL * 1000LL;
+        track.timestamp.second = static_cast<quint8>(remainingMs / 1000LL);
+        track.timestamp.millisecond = static_cast<quint16>(remainingMs % 1000LL);
+    }
     return record.observedUtcMs > 0 && track.localBatch != 0;
 }
 

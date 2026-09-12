@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
+ * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-03-30 10:09:00
+ * @LastEditTime: 2026-09-12 12:23:00
  * @Description: 
  */
 #include "waveandsample.h"

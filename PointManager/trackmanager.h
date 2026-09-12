@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
+ * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-18 15:26:20
+ * @LastEditTime: 2026-09-12 12:22:51
  * @Description: 
  */
 /**
@@ -81,12 +81,17 @@ public:
     void setBatchID(int id) { m_batchID = id; }
     int  batchID() const    { return m_batchID; }
 
+    /** @brief 绑定所属航迹类型，右键菜单据此限制外部下发 */
+    void setTrackType(PointType type) { m_trackType = type; }
+    PointType trackType() const { return m_trackType; }
+
 signals:
     /**
      * @brief 右键点击标签时发出
      * @param batchID 该标签对应的批次ID
+     * @param type 该标签所属的航迹类型
      */
-    void rightClicked(int batchID);
+    void rightClicked(int batchID, PointType type);
 
 protected:
     /**
@@ -107,6 +112,7 @@ private:
     QGraphicsItem* anchor = nullptr;        ///< 锚点图形项指针
     QGraphicsLineItem* tether = nullptr;    ///< 连接线图形项指针
     int m_batchID = -1;                     ///< 所属批次ID
+    PointType m_trackType = PointType::Track; ///< 所属航迹类型
     QFont m_baseFont;                       ///< 默认字体
     bool m_focused = false;                 ///< 是否处于关注高亮态
 };
@@ -332,6 +338,14 @@ signals:
     void trackRemoved(int batchID);
 
     /**
+     * @brief 普通 DBT 航迹消批信号
+     * @param batchID 被删除的普通航迹批次ID
+     * @details 仅供 GCS、激光和指控等外部链路清理状态，避免 TBD/协同
+     *          航迹消批误清理同批次普通航迹的外发状态。
+     */
+    void normalTrackRemoved(int batchID);
+
+    /**
      * @brief 航迹点添加信号
      * @param info 新添加的航迹点信息
      * @details 当新航迹点被添加时发出此信号，用于更新选中航迹的信息显示
@@ -341,9 +355,10 @@ signals:
     /**
      * @brief 右键点击航迹标签时发出
      * @param batchID 被右键的标签对应批次ID
+     * @param type 被右键标签所属的航迹类型
      * @details 由 DraggableLabel::rightClicked 转发而来
      */
-    void labelRightClicked(int batchID);
+    void labelRightClicked(int batchID, PointType type);
 
 private:
     /**

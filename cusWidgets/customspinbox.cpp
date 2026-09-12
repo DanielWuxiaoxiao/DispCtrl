@@ -1,14 +1,14 @@
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-01-12 11:17:14
+ * @Email: wuxiaoxiao@xidian.edu.cn
+ * @Date: 2026-01-15 14:23:10
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:13
+ * @LastEditTime: 2026-09-12 12:22:55
  * @Description: 
  */
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
+ * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-01-12
  * @Description: Custom SpinBox implementation with styled arrows
  */

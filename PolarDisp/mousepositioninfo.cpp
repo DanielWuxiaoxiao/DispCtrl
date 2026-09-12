@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
+ * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-23 09:44:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-18 15:26:20
+ * @LastEditTime: 2026-09-12 12:22:51
  * @Description: 
  */
 #include "mousepositioninfo.h"

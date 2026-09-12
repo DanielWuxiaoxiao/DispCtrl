@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-09-11 21:10:30
+ * @Email: wuxiaoxiao@xidian.edu.cn
+ * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-11 22:04:53
+ * @LastEditTime: 2026-09-12 12:22:44
  * @Description: 
  */
 /* 雷达局地东-北-天（ENU）与 WGS84 经纬高的共享换算。 */

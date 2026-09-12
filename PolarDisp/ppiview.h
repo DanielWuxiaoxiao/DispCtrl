@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
+ * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-11 22:04:55
+ * @LastEditTime: 2026-09-12 12:22:52
  * @Description: 
  */
 /**
@@ -262,9 +262,11 @@ public slots:
     /**
      * @brief 目标标签被右键：弹出目标下发菜单
      * @param batchID 被右键标签对应的批次ID
-     * @details 连接自 PPIScene::trackLabelRightClicked，获取最新点数据并通过GCSManager下发
+     * @param type 被右键标签所属的航迹类型
+     * @details 连接自 PPIScene::trackLabelRightClicked；仅普通 DBT 航迹可显示
+     *          GCS、激光和指控下发操作。
      */
-    void onTrackLabelRightClicked(int batchID);
+    void onTrackLabelRightClicked(int batchID, PointType type);
 
     /**
      * @brief 处理地图类型变化

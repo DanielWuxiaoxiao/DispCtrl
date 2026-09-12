@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
+ * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-10-24 21:06:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:48
+ * @LastEditTime: 2026-09-12 12:22:59
  * @Description: 
  */
 #ifndef SCANRANGEUI_H

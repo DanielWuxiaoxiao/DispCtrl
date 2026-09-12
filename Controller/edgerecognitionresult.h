@@ -1,8 +1,10 @@
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-06-17
- * @Description: Shared edge terminal optical recognition result data
+ * @Email: wuxiaoxiao@xidian.edu.cn
+ * @Date: 2026-06-24 00:30:34 -0700
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2026-09-12 12:22:48
+ * @Description: 
  */
 #ifndef EDGERECOGNITIONRESULT_H
 #define EDGERECOGNITIONRESULT_H

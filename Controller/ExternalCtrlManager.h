@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
+ * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-12-25 16:19:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-15 14:23:11
+ * @LastEditTime: 2026-09-12 12:22:46
  * @Description: 
  */
 #ifndef EXTERNALCTRLMANAGER_H

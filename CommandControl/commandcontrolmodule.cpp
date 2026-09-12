@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-09-11 19:18:30
+ * @Email: wuxiaoxiao@xidian.edu.cn
+ * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-11 22:04:54
+ * @LastEditTime: 2026-09-12 12:22:44
  * @Description: 
  */
 #include "commandcontrolmodule.h"
@@ -43,11 +43,25 @@ quint32 headerDayTicks10Ms(const QDateTime& now)
     return static_cast<quint32>(start.msecsTo(now) / 10);
 }
 
-quint32 monthTimestampMs(const QDateTime& now)
+CommandControlProtocol::MonthDayTime monthDayTime(const QDateTime& now)
 {
-    const QDate startDate(now.date().year(), now.date().month(), 1);
-    const QDateTime start(startDate, QTime(0, 0), now.timeZone());
-    return static_cast<quint32>(start.msecsTo(now));
+    CommandControlProtocol::MonthDayTime value;
+    value.day = static_cast<quint8>(now.date().day());
+    value.hour = static_cast<quint8>(now.time().hour());
+    value.minute = static_cast<quint8>(now.time().minute());
+    value.second = static_cast<quint8>(now.time().second());
+    value.millisecond = static_cast<quint16>(now.time().msec());
+    return value;
+}
+
+QString monthDayTimeText(const CommandControlProtocol::MonthDayTime& value)
+{
+    return QStringLiteral("day=%1 %2:%3:%4.%5")
+        .arg(value.day)
+        .arg(value.hour, 2, 10, QLatin1Char('0'))
+        .arg(value.minute, 2, 10, QLatin1Char('0'))
+        .arg(value.second, 2, 10, QLatin1Char('0'))
+        .arg(value.millisecond, 3, 10, QLatin1Char('0'));
 }
 
 QString ipv4ToString(quint32 lowFirst)
@@ -176,14 +190,14 @@ QString loginReplyFields(const CommandControlProtocol::LoginReplyPayload& reply)
 
 QString linkCheckFields(const CommandControlProtocol::LinkCheckPayload& linkCheck)
 {
-    return QStringLiteral("负载{本月毫秒时间戳=%1,协同参与状态=%2}")
-        .arg(linkCheck.monthTimestampMs)
+    return QStringLiteral("负载{月内压缩时间=%1,协同参与状态=%2}")
+        .arg(monthDayTimeText(linkCheck.timestamp))
         .arg(hexValue(linkCheck.cooperationStatus, 2));
 }
 
 QString dda4Fields(const CommandControlProtocol::Dda4Track& track)
 {
-    return QStringLiteral("负载{目标综合批号=%1,本机设置批号=%2,本机ID=%3,设备类型=%4,设备编号=%5,数据率厘Hz=%6,目标属性=%7,目标类型=%8,备份=%9,航迹质量=%10,经度E7=%11,纬度E7=%12,高度m=%13,X东向速率原始=%14,Y北向速率原始=%15,Z天向速率原始=%16,RCS毫平方米=%17,干扰状态=%18,更新方式=%19,相对延时ms=%20,本月毫秒时间戳=%21}")
+    return QStringLiteral("负载{目标综合批号=%1,本机设置批号=%2,本机ID=%3,设备类型=%4,设备编号=%5,数据率厘Hz=%6,目标属性=%7,目标类型=%8,备份=%9,航迹质量=%10,经度E7=%11,纬度E7=%12,高度m=%13,X东向速率原始=%14,Y北向速率原始=%15,Z天向速率原始=%16,RCS毫平方米=%17,干扰状态=%18,更新方式=%19,相对延时ms=%20,月内压缩时间=%21}")
         .arg(track.comprehensiveBatch).arg(track.localBatch).arg(hexValue(track.deviceId, 8))
         .arg(hexValue(track.deviceType, 2)).arg(track.deviceNumber).arg(track.rateCentiHz)
         .arg(hexValue(track.targetAttribute, 2)).arg(hexValue(track.targetType, 2))
@@ -191,7 +205,7 @@ QString dda4Fields(const CommandControlProtocol::Dda4Track& track)
         .arg(track.longitudeE7).arg(track.latitudeE7).arg(track.altitudeM)
         .arg(track.velocityEast).arg(track.velocityNorth).arg(track.velocityUp)
         .arg(track.rcsMilliSquareM).arg(hexValue(track.interferenceStatus, 2))
-        .arg(hexValue(track.updateMethod, 2)).arg(track.relativeDelayMs).arg(track.monthTimestampMs);
+        .arg(hexValue(track.updateMethod, 2)).arg(track.relativeDelayMs).arg(monthDayTimeText(track.timestamp));
 }
 
 QString dda1Fields(const CommandControlProtocol::Dda1Status& status)
@@ -360,11 +374,24 @@ void CommandControlModule::onRecordWriteFailed(const QString& detail)
 void CommandControlModule::onReplayRecordsLoaded(const QVector<CommandControlRecord>& records,
                                                   const QString& detail)
 {
-    if (records.isEmpty()) {
-        setStatus(detail.isEmpty() ? QStringLiteral("未加载到可回放记录") : detail);
+    QVector<CommandControlRecord> replayableRecords;
+    replayableRecords.reserve(records.size());
+    for (const CommandControlRecord& record : records) {
+        if (record.hasReplayRadarOrigin) {
+            replayableRecords.append(record);
+        }
+    }
+    if (replayableRecords.isEmpty()) {
+        setStatus(detail.isEmpty()
+                      ? QStringLiteral("记录不含当时本机 DD05 经纬高，不能按真实原点回放")
+                      : detail);
         return;
     }
-    m_replayRecords = records;
+    if (replayableRecords.size() != records.size()) {
+        LOG_WARNING(QString("[CommandControl][REPLAY] 已跳过 %1 条缺少记录时雷达经纬高的历史 DDA4")
+                    .arg(records.size() - replayableRecords.size()));
+    }
+    m_replayRecords = replayableRecords;
     m_replayIndex = 0;
     m_replayBatches.clear();
     m_nextReplayBatch = 0x80000000U;
@@ -790,7 +817,7 @@ void CommandControlModule::sendLinkCheck()
     }
     const QDateTime now = beijingNow();
     const auto header = nextHeader(CommandControlProtocol::LinkCheck, 0, false, 0x01);
-    const QByteArray packet = CommandControlProtocol::makeLinkCheck(header, monthTimestampMs(now),
+    const QByteArray packet = CommandControlProtocol::makeLinkCheck(header, monthDayTime(now),
                                                                        m_settings.dd25CooperationStatus);
     CommandControlProtocol::LinkCheckPayload linkCheck;
     if (CommandControlProtocol::parseLinkCheck(packet, linkCheck)) {
@@ -819,7 +846,20 @@ void CommandControlModule::sendEquipmentStatus()
     CommandControlProtocol::Dda1Status status;
     status.longitudeE7 = static_cast<qint32>(qRound64(longitude * 1e7));
     status.latitudeE7 = static_cast<qint32>(qRound64(latitude * 1e7));
-    status.altitudeM = static_cast<qint32>(qRound64(altitude));
+    const qint64 altitudeMeters = qRound64(altitude);
+    if (altitudeMeters < std::numeric_limits<qint16>::min()
+        || altitudeMeters > std::numeric_limits<qint16>::max()) {
+        if (!m_invalidDda1AltitudeLogged) {
+            LOG_WARNING(QString("[CommandControl][DDA1] DD05 高度=%1m 超出协议 short 范围 [%2,%3]，暂停发送装备状态")
+                        .arg(altitudeMeters)
+                        .arg(std::numeric_limits<qint16>::min())
+                        .arg(std::numeric_limits<qint16>::max()));
+            m_invalidDda1AltitudeLogged = true;
+        }
+        return;
+    }
+    m_invalidDda1AltitudeLogged = false;
+    status.altitudeM = static_cast<qint16>(altitudeMeters);
     status.workStatus = m_settings.dda1WorkStatus;
     status.healthStatus = m_settings.dda1HealthStatus;
     status.deviceCount = m_settings.dda1DeviceCount;
@@ -843,7 +883,7 @@ void CommandControlModule::sendEquipmentStatus()
                          QStringLiteral("%1:%2").arg(m_settings.multicastGroup).arg(m_settings.multicastPort),
                          dda1Fields(loggedStatus),
                          QStringLiteral("DDA1 经纬高=%1,%2,%3；扫描=%4~%5/%6~%7（%8）")
-                             .arg(longitude, 0, 'f', 7).arg(latitude, 0, 'f', 7).arg(altitude, 0, 'f', 1)
+                             .arg(longitude, 0, 'f', 7).arg(latitude, 0, 'f', 7).arg(loggedStatus.altitudeM)
                              .arg(status.azimuthStartDeg).arg(status.azimuthEndDeg)
                              .arg(status.elevationStartDeg).arg(status.elevationEndDeg)
                              .arg(usesConfirmedScan ? QStringLiteral("DE01+BIT") : QStringLiteral("配置默认")));
@@ -1087,7 +1127,7 @@ CommandControlProtocol::Dda4Track CommandControlModule::makeDda4Track(const Poin
                                               : m_settings.dda4UpdateStateFiltered;
     const quint8 mode = manualMode ? m_settings.dda4UpdateModeManual : m_settings.dda4UpdateModeAuto;
     track.updateMethod = static_cast<quint8>((state << 4) | mode);
-    track.monthTimestampMs = monthTimestampMs(beijingNow());
+    track.timestamp = monthDayTime(beijingNow());
     return track;
 }
 
@@ -1132,6 +1172,9 @@ void CommandControlModule::storeDda4(bool outbound, const CommandControlProtocol
     CommandControlRecord record;
     record.outbound = outbound;
     record.observedUtcMs = QDateTime::currentMSecsSinceEpoch();
+    record.hasReplayRadarOrigin = currentRadarPosition(record.replayRadarLongitudeDeg,
+                                                        record.replayRadarLatitudeDeg,
+                                                        record.replayRadarAltitudeM);
     record.track = track;
     record.packet = packet;
     if (m_recordWriter) {
@@ -1199,28 +1242,27 @@ void CommandControlModule::updatePeerLiveness()
     }
 }
 
-PointInfo CommandControlModule::replayPointFor(const CommandControlRecord& record)
+bool CommandControlModule::replayPointFor(const CommandControlRecord& record, PointInfo& point)
 {
     const auto& track = record.track;
-    double radarLongitude = 0.0;
-    double radarLatitude = 0.0;
-    double radarAltitude = 0.0;
-    if (!currentRadarPosition(radarLongitude, radarLatitude, radarAltitude)) {
-        return PointInfo{};
+    if (!record.hasReplayRadarOrigin) {
+        return false;
     }
     const double longitude = static_cast<double>(track.longitudeE7) / 1e7;
     const double latitude = static_cast<double>(track.latitudeE7) / 1e7;
-    const Wgs84Coordinate::Lla radar{radarLongitude, radarLatitude, radarAltitude};
+    const Wgs84Coordinate::Lla radar{record.replayRadarLongitudeDeg,
+                                     record.replayRadarLatitudeDeg,
+                                     record.replayRadarAltitudeM};
     const Wgs84Coordinate::Lla target{longitude, latitude, static_cast<double>(track.altitudeM)};
     double east = 0.0;
     double north = 0.0;
     double up = 0.0;
     if (!Wgs84Coordinate::llaToEnu(radar, target, east, north, up)) {
-        return PointInfo{};
+        return false;
     }
     const double horizontal = std::hypot(east, north);
 
-    PointInfo point;
+    point = PointInfo{};
     point.type = PointType::Track;
     const quint64 sourceKey = (static_cast<quint64>(track.deviceId) << 32) | track.localBatch;
     quint32 replayBatch = m_replayBatches.value(sourceKey);
@@ -1245,20 +1287,13 @@ PointInfo CommandControlModule::replayPointFor(const CommandControlRecord& recor
         point.speed = static_cast<float>(std::sqrt(eastMps * eastMps + northMps * northMps + upMps * upMps));
     }
     point.statMethod = 0;
-    return point;
+    return true;
 }
 
 void CommandControlModule::startReplay(const QString& recordFilePath)
 {
     if (!m_recordWriter) {
         setStatus(QStringLiteral("DDA4 记录功能未开启，不能读取回放文件"));
-        return;
-    }
-    double longitude = 0.0;
-    double latitude = 0.0;
-    double altitude = 0.0;
-    if (!currentRadarPosition(longitude, latitude, altitude)) {
-        setStatus(QStringLiteral("等待 DD05 阵面经纬高真值，暂不启动 DDA4 回放"));
         return;
     }
     CommandControlRecordWriter* writer = m_recordWriter;
@@ -1310,7 +1345,13 @@ void CommandControlModule::emitNextReplayPoint()
         stopReplay();
         return;
     }
-    emit replayPointReady(replayPointFor(m_replayRecords.at(m_replayIndex++)));
+    const CommandControlRecord& record = m_replayRecords.at(m_replayIndex++);
+    PointInfo point;
+    if (!replayPointFor(record, point)) {
+        LOG_WARNING(QStringLiteral("[CommandControl][REPLAY] 跳过坐标反算失败的 DDA4 记录"));
+        return;
+    }
+    emit replayPointReady(point);
 }
 
 void CommandControlModule::setRadiationStatus(bool transmitting)

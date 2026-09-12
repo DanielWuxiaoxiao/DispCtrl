@@ -1,8 +1,10 @@
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-06-17
- * @Description: MQTT publisher for total-control terminal recognition results
+ * @Email: wuxiaoxiao@xidian.edu.cn
+ * @Date: 2026-06-24 00:30:34 -0700
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2026-09-12 12:22:50
+ * @Description: 
  */
 #ifndef TOTALCONTROLMQTTCLIENT_H
 #define TOTALCONTROLMQTTCLIENT_H

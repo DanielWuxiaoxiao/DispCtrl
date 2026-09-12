@@ -21,7 +21,7 @@ import argparse
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TARGET_EXTS = {'.cpp', '.h', '.hpp'}  # adjust if needed
 AUTHOR = 'wuxiaoxiao'
-EMAIL = 'wuxiaoxiao@gmail.com'
+EMAIL = 'wuxiaoxiao@xidian.edu.cn'
 DATE_FMT = '%Y-%m-%d %H:%M:%S'
 
 # Skip folders we shouldn't touch

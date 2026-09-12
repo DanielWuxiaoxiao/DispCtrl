@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-09-11 19:13:20
+ * @Email: wuxiaoxiao@xidian.edu.cn
+ * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-11 22:04:54
+ * @LastEditTime: 2026-09-12 12:22:45
  * @Description: 
  */
 /*
@@ -86,8 +86,21 @@ struct LoginReplyPayload {
     quint32 controlId = 0;   // 偏移 20：回复方主控 ID，必须与当前 DD31 一致。
 };
 
+/**
+ * @brief DD25/DDA4 共用的月内压缩时间
+ * @details 4 字节按小端位序连续编码：毫秒 bit0-9、秒 bit10-15、分 bit16-21、
+ *          时 bit22-26、自然日号 bit27-31。每月 1 日的 day 为 1，不使用 0。
+ */
+struct MonthDayTime {
+    quint8 day = 1;
+    quint8 hour = 0;
+    quint8 minute = 0;
+    quint8 second = 0;
+    quint16 millisecond = 0;
+};
+
 struct LinkCheckPayload {
-    quint32 monthTimestampMs = 0; // DD25 偏移 18：北京时间本月首日零点起的毫秒数。
+    MonthDayTime timestamp; // DD25 偏移 18：北京时间月内压缩时间，day 为自然日号。
     quint8 cooperationStatus = 0; // 偏移 22：协同参与状态，定版默认 0x00。
 };
 
@@ -112,30 +125,36 @@ struct Dda4Track {
     quint8 interferenceStatus = 0; // 偏移 59：干扰状态，当前默认 0。
     quint8 updateMethod = 0; // 偏移 60：高半字节更新状态、低半字节自动/手动上报方式。
     quint16 relativeDelayMs = 0; // 偏移 61：相对延时，单位 ms，当前默认 0。
-    quint32 monthTimestampMs = 0; // 偏移 63：本月 1 日零点起的航迹生成/接收毫秒数。
+    MonthDayTime timestamp; // 偏移 63：与 DD25 相同的北京时间月内压缩生成时间。
 };
 
 struct Dda1Status {
     qint32 longitudeE7 = 0; // 偏移 18：雷达经度，1e-7 度，东为正。
     qint32 latitudeE7 = 0; // 偏移 22：雷达纬度，1e-7 度，北为正。
-    qint32 altitudeM = 0; // 偏移 26：雷达高度，单位 m。
-    quint8 workStatus = 1; // 偏移 30：工作状态低 4 位，1 表示战斗。
-    quint8 healthStatus = 3; // 偏移 31：健康状态，0x03 表示正常。
-    quint8 deviceCount = 1; // 偏移 32：本报文携带的设备数量，当前为 1。
-    quint8 deviceType = 0x02; // 偏移 33：搜索雷达类型，定版为 0x02。
-    quint8 deviceNumber = 1; // 偏移 34：搜索雷达设备编号。
-    quint8 deviceStatus = 3; // 偏移 35：设备状态，0x03 表示正常。
-    quint8 workMode = 0x22; // 偏移 36：工作模式，0x22 表示常规。
-    quint8 radiationStatus = 0; // 偏移 37：辐射状态，0 关、1 开。
-    quint16 azimuthStartDeg = 0; // 偏移 38：方位范围起始，正北为 0 度。
-    quint16 azimuthEndDeg = 360; // 偏移 40：方位范围终止，单位度。
-    qint8 elevationStartDeg = -10; // 偏移 42：俯仰范围起始，单位度，负值二补码。
-    qint8 elevationEndDeg = 70; // 偏移 43：俯仰范围终止，单位度，负值二补码。
-    quint16 reserve = 0; // 偏移 44：2 字节备份字段；发送填 0，接收保留用于联调日志。
+    qint16 altitudeM = 0; // 偏移 26：雷达高度，单位 m，带符号 short、二补码。
+    quint8 workStatus = 1; // 偏移 28：工作状态低 4 位，1 表示战斗。
+    quint8 healthStatus = 3; // 偏移 29：健康状态，0x03 表示正常。
+    quint8 deviceCount = 1; // 偏移 30：本报文携带的设备数量，当前为 1。
+    quint8 deviceType = 0x02; // 偏移 31：搜索雷达类型，定版为 0x02。
+    quint8 deviceNumber = 1; // 偏移 32：搜索雷达设备编号。
+    quint8 deviceStatus = 3; // 偏移 33：设备状态，0x03 表示正常。
+    quint8 workMode = 0x22; // 偏移 34：工作模式，0x22 表示常规。
+    quint8 radiationStatus = 0; // 偏移 35：辐射状态，0 关、1 开。
+    quint16 azimuthStartDeg = 0; // 偏移 36：方位范围起始，正北为 0 度。
+    quint16 azimuthEndDeg = 360; // 偏移 38：方位范围终止，单位度。
+    qint8 elevationStartDeg = -10; // 偏移 40：俯仰范围起始，单位度，负值二补码。
+    qint8 elevationEndDeg = 70; // 偏移 41：俯仰范围终止，单位度，负值二补码。
+    quint16 reserve = 0; // 偏移 42：2 字节备份字段；发送填 0，接收保留用于联调日志。
 };
 
 // 解析并校验 18 字节公共报头；标识字或版本不匹配即失败。
 bool parseHeader(const QByteArray& packet, Header& header);
+// 校验 DD25/DDA4 月内压缩时间的每个分量范围。
+bool isValidMonthDayTime(const MonthDayTime& value);
+// 将月内压缩时间按协议位域打包为小端 4 字节对应的无符号 32 位值。
+quint32 packMonthDayTime(const MonthDayTime& value);
+// 从小端 4 字节对应的无符号 32 位值恢复月内压缩时间；字段越界返回 false。
+bool unpackMonthDayTime(quint32 packedValue, MonthDayTime& value);
 // 解析 DD31，同时校验类型和完整报文长度；备份字段仅占位。
 bool parseManagementNode(const QByteArray& packet, ManagementNode& node);
 // 解析 DD33，同时校验类型、完整报文长度和登录类型。
@@ -152,8 +171,8 @@ bool parseDda1Status(const QByteArray& packet, Dda1Status& status);
 // 生成 DD33：userId、ipv4LowFirst、port 分别为本机身份、本机 IPv4、小端 UDP 端口。
 QByteArray makeLoginRequest(const Header& header, quint32 userId, quint32 ipv4LowFirst,
                             quint16 port, LoginRequestType type, const QDateTime& beijingNow);
-// 生成 DD25：monthTimestampMs 为本月首日以来毫秒数，cooperationStatus 当前固定 0x00。
-QByteArray makeLinkCheck(const Header& header, quint32 monthTimestampMs,
+// 生成 DD25：timestamp 使用 DD25 定版月内位域，cooperationStatus 当前固定 0x00。
+QByteArray makeLinkCheck(const Header& header, const MonthDayTime& timestamp,
                          quint8 cooperationStatus = 0x00);
 // 生成 DDA4：所有业务字段来自 Dda4Track，两个备份字节固定填 0。
 QByteArray makeDda4Track(const Header& header, const Dda4Track& track);

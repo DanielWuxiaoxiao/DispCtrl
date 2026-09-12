@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
+ * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-12-25 16:19:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-18 15:26:19
+ * @LastEditTime: 2026-09-12 12:22:50
  * @Description: 
  */
 #include "tbd2dispmanager.h"

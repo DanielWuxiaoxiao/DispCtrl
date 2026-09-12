@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-09-11 19:18:30
+ * @Email: wuxiaoxiao@xidian.edu.cn
+ * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-11 22:04:54
+ * @LastEditTime: 2026-09-12 12:22:45
  * @Description: 
  */
 /*
@@ -144,7 +144,7 @@ private:
     quint32 localBatchFor(quint32 sourceBatch);
     CommandControlProtocol::Dda4Track makeDda4Track(const PointInfo& info, bool manualMode) const;
     bool targetLla(const PointInfo& info, double& longitudeDeg, double& latitudeDeg, double& altitudeM) const;
-    PointInfo replayPointFor(const CommandControlRecord& record);
+    bool replayPointFor(const CommandControlRecord& record, PointInfo& point);
     void storeDda4(bool outbound, const CommandControlProtocol::Dda4Track& track, const QByteArray& packet);
     void updatePeer(quint32 deviceId, const QHostAddress& sender, quint16 senderPort,
                     const QString& role, bool managementNotice);
@@ -209,6 +209,7 @@ private:
     bool m_waitingForServoReply = false;
     bool m_hasConfirmedBeamControl = false;
     bool m_missingPositionLogged = false;
+    bool m_invalidDda1AltitudeLogged = false;
     qint64 m_lastDda4TxLogMs = 0;
     qint64 m_lastDda4RxLogMs = 0;
     int m_replayIndex = 0;

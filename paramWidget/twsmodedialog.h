@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-01-21 11:04:27
+ * @Email: wuxiaoxiao@xidian.edu.cn
+ * @Date: 2026-01-30 11:45:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-01-30 11:45:49
+ * @LastEditTime: 2026-09-12 12:23:00
  * @Description: 
  */
 #ifndef TWSMODEDIALOG_H

@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
+ * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-05-18 15:26:20
+ * @LastEditTime: 2026-09-12 12:22:51
  * @Description: 
  */
 /**
@@ -438,7 +438,7 @@ QVariant DraggableLabel::itemChange(GraphicsItemChange change, const QVariant &v
  */
 void DraggableLabel::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
 {
-    emit rightClicked(m_batchID);
+    emit rightClicked(m_batchID, m_trackType);
     event->accept();
 }
 
@@ -705,6 +705,9 @@ void TrackManager::addTrackPoint(const PointInfo& info)
                  .arg(info.batch).arg(mSeries.size()));
         // 发出信号通知其他组件删除对应航迹
         emit trackRemoved(info.batch);
+        if (info.type == PointType::Track) {
+            emit normalTrackRemoved(info.batch);
+        }
         return;
     }
 
@@ -879,6 +882,7 @@ void TrackManager::updateLatestLabel(quint64 trackKey, bool force)
         s.label->setDefaultTextColor(labelColor);
         s.label->setZValue(INFO_Z);
         s.label->setBatchID(pi.batch);
+        s.label->setTrackType(s.type);
         connect(s.label, &DraggableLabel::rightClicked,
                 this,    &TrackManager::labelRightClicked);
         s.labelLine = new QGraphicsLineItem();

@@ -1,14 +1,14 @@
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
- * @Date: 2026-02-05 16:52:55
+ * @Email: wuxiaoxiao@xidian.edu.cn
+ * @Date: 2026-02-28 16:46:29
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-02-28 16:46:33
+ * @LastEditTime: 2026-09-12 12:22:56
  * @Description: 
  */
 /*
  * @Author: wuxiaoxiao
- * @Email: wuxiaoxiao@gmail.com
+ * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-02-05
  * @Description: 表格首列冻结辅助类
  */
