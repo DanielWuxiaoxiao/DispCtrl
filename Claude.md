@@ -895,6 +895,9 @@ dataToScene            # RangeAzimuth坐标转换
 - **DD25/DDA4 月内时间位域**：4 字节时间字段不是本月累计毫秒数。按小端 32 位位域依次存放 `ms[0..9]`、`sec[10..15]`、`min[16..21]`、`hour[22..26]`、`day[27..31]`；`day` 使用本月自然日号，月初 1 日必须写 `1`，收到 `day=0`、超范围时分秒毫秒即丢弃报文并记录解析失败。`CommandControlProtocol::MonthDayTime` 是 DD25 与 DDA4 唯一共用编解码实现；DDA4 JSONL 同时保存原始压缩值和拆分后的时间分量，便于联调。
 - **DDA1 高度与 DDA4 回放原点**：DDA1 高度定版为 2 字节有符号 `short`（二补码，`-32768..32767 m`），故 DDA1 总长度为 44 字节；DD05 高度超范围时拒绝发送而不截断。DDA4 与 GCS 均使用 `Controller::traInfoProcess` 的普通 DBT `PointInfo` 及同一 WGS84/ENU 公式。每条 DDA4 JSONL 记录额外保存写入时的本机 DD05 雷达经纬高，回放严格使用该历史原点反算 PPI RAE，绝不改用回放时当前 DD05；旧记录没有历史原点时跳过并告警。
 
+### v5.47 (2026-09-12)
+- **子阵电源可视化**：健康管理窗口的四个阵面页均新增 6×6 子阵电源状态图。数据复用既有 `BITReport (0xDE02)::subArrayPower[5]`，其上游电源状态来自基础雷达/显控 BB01 链路；不新增 UDP 解析或线程。未收到该阵面 BIT 时 36 格均显示黄色“未上报”，收到后 bit0..bit35 分别映射按行编号的 1..36 号电源（1 绿色正常、0 红色故障），且右上角为 1 号、向左递增、下一行右侧从 7 号开始，左下角为 36 号。第 5 字节 D4..D7 始终忽略。
+
 ### v5.45 (2026-09-10)
 - **Ubuntu 发布工作流同步**：`docker/build_ubuntu.ps1` 为 Windows 入口，调用 WSL/Docker；`docker/docker_build.sh` 支持 `1804/2004/2204/2404` 和 `--check`。源码以只读方式挂载到 Docker，容器内部复制到私有 `/src` 再构建，输出写入 `deploy/ubuntu<目标>/`，避免混用 Windows CMake 缓存或旧发布产物。
 - **发布包自检与可追溯性**：新增 `check_linux_package.sh`、`BUILD-INFO.txt`、tarball SHA-256 和 `qt.conf`；打包缺失 WebEngineProcess、地图资源或未解析动态库时失败。检查仅覆盖文件/依赖，仍需目标机图形桌面、GPU、地图和雷达网络联调。

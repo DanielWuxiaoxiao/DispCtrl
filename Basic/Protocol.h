@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:44
+ * @LastEditTime: 2026-09-12 12:38:00
  * @Description: 
  */
 #ifndef PROTOCOL_H
@@ -842,7 +842,11 @@ typedef struct _BITReport
     unsigned short fpgaTemp;    // BIT状态信息2：数字收发板FPGA温度，0.1°量化
     unsigned short panelTemp;   // BIT状态信息3：阵面温度，0.1°量化
     unsigned short yaw;         // 阵面偏航角度 [0,360]，0.01°量化
-    unsigned char subArrayPower[5];  // 子阵电源BIT信息（36bit，5字节）
+    // 子阵电源 BIT 信息（上游 BB01 电源状态在显控侧 BIT 上报中携带）：
+    // 共 5 字节、40 bit；bit0..bit35 分别对应按行编号的 1..36 号子阵电源，1=正常、0=故障。
+    // bit0 是 subArrayPower[0] 的 D0（最低字节最低位），bit35 是 subArrayPower[4] 的 D3；
+    // subArrayPower[4] 的 D4..D7 为保留位。健康管理界面按物理位置从右上角 1 号开始向左递增。
+    unsigned char subArrayPower[5];
     unsigned short scanAngle;   // 扫描角度 [0,360]，0.01°量化（用于显控扫描线绘制）
     unsigned char radarId;
     unsigned char reserve[21];  // 预留21字节

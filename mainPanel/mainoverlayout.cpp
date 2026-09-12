@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:57
+ * @LastEditTime: 2026-09-12 12:38:00
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -1879,6 +1879,16 @@ void MainOverLayOut::updateHealthWindow()
         "font-size: 13px; "
         "}";
 
+    QString smallYellowStyle =
+        "QPushButton { "
+        "background-color: #ffff00; "
+        "color: #101818; "
+        "border: 1px solid #ffcc66; "
+        "border-radius: 5px; "
+        "padding: 8px; "
+        "font-size: 13px; "
+        "}";
+
     // 解析BIT状态位
     unsigned char bitGroup = m_lastBITReport.bitGroup;
     unsigned char powerState = m_lastBITReport.powerState;
@@ -1951,6 +1961,47 @@ void MainOverLayOut::updateHealthWindow()
         bool isNormal = powerState & 0x01;
         m_btnPowerBoard->setText(isNormal ? "波控板电源正常" : "波控板电源异常");
         m_btnPowerBoard->setStyleSheet(isNormal ? smallGreenStyle : smallRedStyle);
+    }
+
+    // ===== 更新 36 路子阵电源状态 =====
+    // 协议 bit0 是 1 号电源；界面右上角放 1 号，向左递增，下一行右侧从 7 号开始。
+    const bool hasBitReport = m_bitReportTimes[m_activeHealthPanel].isValid();
+    HealthPanelWidgets& activeWidgets = m_healthPanelWidgets[m_activeHealthPanel];
+    int normalPowerCount = 0;
+    int faultyPowerCount = 0;
+    for (int powerIndex = 0; powerIndex < 36; ++powerIndex) {
+        QPushButton* powerCell = activeWidgets.subArrayPowerCells[powerIndex];
+        if (!powerCell) {
+            continue;
+        }
+
+        if (!hasBitReport) {
+            powerCell->setText(QString("电源%1\n未上报").arg(powerIndex + 1));
+            powerCell->setStyleSheet(smallYellowStyle);
+            continue;
+        }
+
+        const int byteIndex = powerIndex / 8;
+        const int bitIndex = powerIndex % 8;
+        const bool isNormal = (m_lastBITReport.subArrayPower[byteIndex] & (1U << bitIndex)) != 0;
+        powerCell->setText(QString("电源%1\n%2").arg(powerIndex + 1).arg(isNormal ? "正常" : "故障"));
+        powerCell->setStyleSheet(isNormal ? smallGreenStyle : smallRedStyle);
+        if (isNormal) {
+            ++normalPowerCount;
+        } else {
+            ++faultyPowerCount;
+        }
+    }
+
+    if (activeWidgets.subArrayPowerSummaryLabel) {
+        if (!hasBitReport) {
+            activeWidgets.subArrayPowerSummaryLabel->setText("未收到子阵电源 BIT 上报");
+        } else {
+            activeWidgets.subArrayPowerSummaryLabel->setText(
+                QString("子阵电源：正常 %1 / 36，故障 %2 / 36")
+                    .arg(normalPowerCount)
+                    .arg(faultyPowerCount));
+        }
     }
 
     // ===== 更新温度和角度信息 =====
@@ -2836,7 +2887,8 @@ void MainOverLayOut::onRadarSystemClicked() {
     m_healthWindow =
         new CusWindow("雷达系统健康管理", QIcon(":/resources/icon/radararray.png"), this);
     m_healthWindow->setAttribute(Qt::WA_DeleteOnClose);
-    m_healthWindow->setMinimumSize(500, 1040);
+    // 子阵电源状态以 6×6 阵列显示，窗口加宽以保持状态文字可读。
+    m_healthWindow->setMinimumSize(850, 1040);
 
     // 连接窗口关闭信号，清空指针
     connect(m_healthWindow, &QObject::destroyed, this, [this]() {
@@ -2982,7 +3034,39 @@ void MainOverLayOut::onRadarSystemClicked() {
         bitGrid->addWidget(widgets.beidou, 3, 1);
         bitGrid->addWidget(widgets.bluetooth, 4, 0);
         bitGrid->addWidget(widgets.powerBoard, 4, 1);
-        panelLayout->addLayout(bitGrid);
+        // 子阵电源按 6×6 物理排布显示：右上角为 1 号（bit0），向左递增；
+        // 第二行右侧为 7 号，左下角为 36 号（bit35）。
+        QVBoxLayout* subArrayLayout = new QVBoxLayout();
+        subArrayLayout->setSpacing(6);
+        QLabel* subArrayTitle = new QLabel("子阵电源状态（6×6）", panelPage);
+        subArrayTitle->setStyleSheet("font-size: 14px; font-weight: bold; color: #66ffcc;");
+        subArrayLayout->addWidget(subArrayTitle);
+
+        QGridLayout* subArrayGrid = new QGridLayout();
+        subArrayGrid->setSpacing(5);
+        for (int powerIndex = 0; powerIndex < 36; ++powerIndex) {
+            auto* powerCell = new QPushButton(QString("电源%1\n未上报").arg(powerIndex + 1), panelPage);
+            powerCell->setEnabled(false);
+            powerCell->setMinimumSize(58, 42);
+            const int row = powerIndex / 6;
+            const int column = 5 - (powerIndex % 6);
+            powerCell->setToolTip(QString("子阵电源%1：协议第%2字节 D%3")
+                                      .arg(powerIndex + 1)
+                                      .arg(powerIndex / 8)
+                                      .arg(powerIndex % 8));
+            widgets.subArrayPowerCells[powerIndex] = powerCell;
+            subArrayGrid->addWidget(powerCell, row, column);
+        }
+        subArrayLayout->addLayout(subArrayGrid);
+        widgets.subArrayPowerSummaryLabel = new QLabel("未收到子阵电源 BIT 上报", panelPage);
+        widgets.subArrayPowerSummaryLabel->setStyleSheet("font-size: 12px; color: #999999;");
+        subArrayLayout->addWidget(widgets.subArrayPowerSummaryLabel);
+
+        QHBoxLayout* panelStatusLayout = new QHBoxLayout();
+        panelStatusLayout->setSpacing(18);
+        panelStatusLayout->addLayout(bitGrid, 1);
+        panelStatusLayout->addLayout(subArrayLayout, 2);
+        panelLayout->addLayout(panelStatusLayout);
 
         widgets.tempLabel = new QLabel("温度信息加载中...", panelPage);
         widgets.tempLabel->setStyleSheet("font-size: 14px; color: #ffffff; padding: 8px;");

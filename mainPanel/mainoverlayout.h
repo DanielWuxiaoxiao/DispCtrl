@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:57
+ * @LastEditTime: 2026-09-12 12:38:00
  * @Description: 
  */
 /**
@@ -580,6 +580,9 @@ private:
         QPushButton* beidou = nullptr;
         QPushButton* bluetooth = nullptr;
         QPushButton* powerBoard = nullptr;
+        // 下标 0..35 对应协议 bit0..bit35，即按行编号的 1..36 号子阵电源。
+        std::array<QPushButton*, 36> subArrayPowerCells{};
+        QLabel* subArrayPowerSummaryLabel = nullptr;
         QLabel* tempLabel = nullptr;
         QLabel* angleLabel = nullptr;
         QLabel* lastUpdateLabel = nullptr;

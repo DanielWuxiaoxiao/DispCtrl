@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:47
+ * @LastEditTime: 2026-09-12 12:38:00
  * @Description: 
  */
 /**
@@ -246,12 +246,20 @@ void Controller::onBITReport(BITReport res) {
     const double scanAngleDeg = res.scanAngle * 0.01;
     const double normalizedYawDeg = std::fmod(yawDeg + 360.0, 360.0);
     const double normalizedScanAngleDeg = std::fmod(scanAngleDeg + 360.0, 360.0);
+    int normalSubArrayPowerCount = 0;
+    for (int powerIndex = 0; powerIndex < 36; ++powerIndex) {
+        const int byteIndex = powerIndex / 8;
+        const int bitIndex = powerIndex % 8;
+        if ((res.subArrayPower[byteIndex] & (1U << bitIndex)) != 0) {
+            ++normalSubArrayPowerCount;
+        }
+    }
     LOG_INFO(QString("[Controller] BIT report: mesID=0x%1 radarId=%2 "
                      "bitGroup=0x%3 bitGroupBits=%4 powerState=0x%5 "
                      "fpgaTempRaw=%6 fpgaTempDegC=%7 panelTempRaw=%8 panelTempDegC=%9 "
                      "yawRaw=%10 yawDeg=%11 yawNormDeg=%12 "
-                     "subArrayPower=[%13] scanAngleRaw=%14 scanAngleDeg=%15 scanAngleNormDeg=%16 "
-                     "reserve=[%17]")
+                     "subArrayPower=[%13] subArrayPowerNormal=%14/36 subArrayPowerFault=%15/36 "
+                     "scanAngleRaw=%16 scanAngleDeg=%17 scanAngleNormDeg=%18 reserve=[%19]")
                  .arg(res.mesID, 4, 16, QLatin1Char('0'))
                  .arg(res.radarId)
                  .arg(static_cast<unsigned int>(res.bitGroup), 2, 16, QLatin1Char('0'))
@@ -265,6 +273,8 @@ void Controller::onBITReport(BITReport res) {
                  .arg(yawDeg, 0, 'f', 2)
                  .arg(normalizedYawDeg, 0, 'f', 2)
                  .arg(subArrayPower)
+                 .arg(normalSubArrayPowerCount)
+                 .arg(36 - normalSubArrayPowerCount)
                  .arg(res.scanAngle)
                  .arg(scanAngleDeg, 0, 'f', 2)
                  .arg(normalizedScanAngleDeg, 0, 'f', 2)
