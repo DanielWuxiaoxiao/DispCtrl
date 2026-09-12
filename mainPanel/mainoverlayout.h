@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:38:00
+ * @LastEditTime: 2026-09-12 15:58:16
  * @Description: 
  */
 /**
@@ -544,6 +544,17 @@ private:
     std::array<BITReport, kRadarPanelCount> m_bitReports{};
     std::array<QDateTime, kRadarPanelCount> m_bitReportTimes{};
 
+    struct SubArrayPowerVisualState {
+        // 已确认显示给操作员的 36 路电源状态；下标 0..35 对应协议 bit0..bit35。
+        std::array<bool, 36> normal{};
+        // 连续收到全部 36 位均为 0 的报文数；达到阈值前不覆盖已确认状态。
+        int consecutiveAllZeroReports = 0;
+        // false 表示尚未收到可用于显示的正常、部分状态或连续全零故障确认。
+        bool hasConfirmedStatus = false;
+    };
+    std::array<SubArrayPowerVisualState, kRadarPanelCount> m_subArrayPowerVisualStates{};
+    static constexpr int kSubArrayPowerZeroFaultThreshold = 100;
+
     // 健康管理窗口相关
     CusWindow* m_healthWindow;           ///< 雷达系统健康管理窗口指针
     QTabWidget* m_healthTabs = nullptr;  ///< 四个阵面健康信息页
@@ -615,6 +626,7 @@ private:
      */
     void updateHealthWindow();
     void bindHealthPanel(int panelId);
+    void updateSubArrayPowerVisualState(int panelId, const BITReport& report);
     void updateNetworkHealthStatus(int index, bool ok, const QString& text);
     void applyNetworkHealthStatus(int index);
     // 雷达控制状态成员

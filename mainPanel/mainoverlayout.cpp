@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:38:00
+ * @LastEditTime: 2026-09-12 15:58:16
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -1743,6 +1743,62 @@ void MainOverLayOut::bindHealthPanel(int panelId)
     m_lastBITReport = m_bitReports[panelId];
 }
 
+void MainOverLayOut::updateSubArrayPowerVisualState(int panelId, const BITReport& report)
+{
+    if (panelId < 0 || panelId >= kRadarPanelCount) {
+        return;
+    }
+
+    SubArrayPowerVisualState& visualState = m_subArrayPowerVisualStates[panelId];
+    bool allNormal = true;
+    bool allZero = true;
+    std::array<bool, 36> reportedState{};
+    for (int powerIndex = 0; powerIndex < 36; ++powerIndex) {
+        const int byteIndex = powerIndex / 8;
+        const int bitIndex = powerIndex % 8;
+        const bool isNormal = (report.subArrayPower[byteIndex] & (1U << bitIndex)) != 0;
+        reportedState[powerIndex] = isNormal;
+        allNormal = allNormal && isNormal;
+        allZero = allZero && !isNormal;
+    }
+
+    // 完整正常位图（FF FF FF FF 0F）立即恢复绿色，避免正常恢复被延迟。
+    if (allNormal) {
+        const bool recoveredFromConfirmedFault = visualState.hasConfirmedStatus
+            && visualState.consecutiveAllZeroReports >= kSubArrayPowerZeroFaultThreshold;
+        visualState.normal = reportedState;
+        visualState.consecutiveAllZeroReports = 0;
+        visualState.hasConfirmedStatus = true;
+        if (recoveredFromConfirmedFault) {
+            LOG_INFO(QString("[MainOverLayOut] 阵面%1 子阵电源全正常，已从全零故障状态恢复")
+                         .arg(panelId + 1));
+        }
+        return;
+    }
+
+    // 上游偶发全零报文时不立即让 36 路电源闪红；连续 100 帧才确认整体故障。
+    if (allZero) {
+        ++visualState.consecutiveAllZeroReports;
+        if (visualState.consecutiveAllZeroReports < kSubArrayPowerZeroFaultThreshold) {
+            return;
+        }
+
+        if (visualState.consecutiveAllZeroReports == kSubArrayPowerZeroFaultThreshold) {
+            visualState.normal.fill(false);
+            visualState.hasConfirmedStatus = true;
+            LOG_WARNING(QString("[MainOverLayOut] 阵面%1 连续收到%2帧子阵电源全零报文，确认36路电源故障")
+                        .arg(panelId + 1)
+                        .arg(kSubArrayPowerZeroFaultThreshold));
+        }
+        return;
+    }
+
+    // 非全零的部分位图是有效的逐路状态，立即显示并中断全零防抖计数。
+    visualState.normal = reportedState;
+    visualState.consecutiveAllZeroReports = 0;
+    visualState.hasConfirmedStatus = true;
+}
+
 void MainOverLayOut::updateHealthWindow()
 {
     // 如果窗口不存在或不可见，直接返回
@@ -1965,7 +2021,9 @@ void MainOverLayOut::updateHealthWindow()
 
     // ===== 更新 36 路子阵电源状态 =====
     // 协议 bit0 是 1 号电源；界面右上角放 1 号，向左递增，下一行右侧从 7 号开始。
-    const bool hasBitReport = m_bitReportTimes[m_activeHealthPanel].isValid();
+    const SubArrayPowerVisualState& visualState =
+        m_subArrayPowerVisualStates[m_activeHealthPanel];
+    const bool hasBitReport = visualState.hasConfirmedStatus;
     HealthPanelWidgets& activeWidgets = m_healthPanelWidgets[m_activeHealthPanel];
     int normalPowerCount = 0;
     int faultyPowerCount = 0;
@@ -1981,9 +2039,7 @@ void MainOverLayOut::updateHealthWindow()
             continue;
         }
 
-        const int byteIndex = powerIndex / 8;
-        const int bitIndex = powerIndex % 8;
-        const bool isNormal = (m_lastBITReport.subArrayPower[byteIndex] & (1U << bitIndex)) != 0;
+        const bool isNormal = visualState.normal[powerIndex];
         powerCell->setText(QString("电源%1\n%2").arg(powerIndex + 1).arg(isNormal ? "正常" : "故障"));
         powerCell->setStyleSheet(isNormal ? smallGreenStyle : smallRedStyle);
         if (isNormal) {
@@ -1995,12 +2051,24 @@ void MainOverLayOut::updateHealthWindow()
 
     if (activeWidgets.subArrayPowerSummaryLabel) {
         if (!hasBitReport) {
-            activeWidgets.subArrayPowerSummaryLabel->setText("未收到子阵电源 BIT 上报");
+            const QString pendingText = visualState.consecutiveAllZeroReports == 0
+                ? QStringLiteral("尚未收到可确认的子阵电源 BIT 上报")
+                : QString("连续全零报文 %1 / %2，暂不判定故障")
+                      .arg(visualState.consecutiveAllZeroReports)
+                      .arg(kSubArrayPowerZeroFaultThreshold);
+            activeWidgets.subArrayPowerSummaryLabel->setText(pendingText);
         } else {
-            activeWidgets.subArrayPowerSummaryLabel->setText(
+            QString summary =
                 QString("子阵电源：正常 %1 / 36，故障 %2 / 36")
                     .arg(normalPowerCount)
-                    .arg(faultyPowerCount));
+                    .arg(faultyPowerCount);
+            if (visualState.consecutiveAllZeroReports > 0
+                && visualState.consecutiveAllZeroReports < kSubArrayPowerZeroFaultThreshold) {
+                summary += QString("（已忽略连续全零 %1 / %2 帧）")
+                               .arg(visualState.consecutiveAllZeroReports)
+                               .arg(kSubArrayPowerZeroFaultThreshold);
+            }
+            activeWidgets.subArrayPowerSummaryLabel->setText(summary);
         }
     }
 
@@ -2833,6 +2901,7 @@ void MainOverLayOut::onBITReport(BITReport res) {
     // 检查是否需要更新日志和界面（1分钟更新一次）
     QDateTime currentTime = QDateTime::currentDateTime();
     m_bitReportTimes[panelId] = currentTime;
+    updateSubArrayPowerVisualState(panelId, res);
     if (panelId == m_activeHealthPanel) {
         m_lastBITReport = res;
     }
