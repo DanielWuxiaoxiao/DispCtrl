@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:44
+ * @LastEditTime: 2026-09-14 14:10:16
  * @Description: 
  */
 #include "log.h"
@@ -143,6 +143,7 @@ void enhancedLog(QtMsgType type, const QMessageLogContext &context, const QStrin
         }
 
         QTextStream out(&logFile);
+        out.setCodec("UTF-8");
         out << "\n=== Log Session Started at "
             << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss")
             << " (file " << (idx + 1) << "/" << MAX_LOG_FILE_COUNT << ") ===\n"
@@ -182,6 +183,7 @@ void enhancedLog(QtMsgType type, const QMessageLogContext &context, const QStrin
     }
 
     QTextStream out(&logFile);
+    out.setCodec("UTF-8");
     QString time = QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz");
     QString level;
     QString colorCode;

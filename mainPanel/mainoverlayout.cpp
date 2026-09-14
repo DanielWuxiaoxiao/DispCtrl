@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 15:58:16
+ * @LastEditTime: 2026-09-14 14:10:17
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -287,6 +287,28 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
             m_commandControlModule->showControlWindow();
         }
     });
+
+    if (CF_INS.testTrackEnabled(false)) {
+        m_testTrackButton = new QPushButton(ui->btnDataProcess->parentWidget());
+        m_testTrackButton->setObjectName(QStringLiteral("testTrackButton"));
+        m_testTrackButton->setText(QStringLiteral("生成测试航迹"));
+        m_testTrackButton->setToolTip(QStringLiteral("生成配置数量的本地无人机普通航迹；完成后自动消批"));
+        m_testTrackButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+        connect(m_testTrackButton, &QPushButton::clicked,
+                this, &MainOverLayOut::onGenerateTestTracksClicked);
+        connect(CON_INS, &Controller::testTrackGenerationStateChanged, this,
+                [this](bool active) {
+            if (!m_testTrackButton) {
+                return;
+            }
+            m_testTrackButton->setEnabled(!active);
+            m_testTrackButton->setText(active ? QStringLiteral("测试航迹生成中")
+                                               : QStringLiteral("生成测试航迹"));
+            if (!active) {
+                appendExternalLog(QStringLiteral("[测试航迹] 本轮已完成，所有测试批次已自动消批"));
+            }
+        });
+    }
 
     // 连接雷达控制按钮
     connect(ui->btnBatteryControl, &QPushButton::clicked, this,
@@ -1007,6 +1029,15 @@ void MainOverLayOut::setCommandControlModule(CommandControlModule* module)
     if (m_commandControlButton) {
         m_commandControlButton->setEnabled(module != nullptr);
     }
+}
+
+void MainOverLayOut::onGenerateTestTracksClicked()
+{
+    if (CON_INS->startTestTrackGeneration()) {
+        appendExternalLog(QStringLiteral("[测试航迹] 已开始生成本地无人机普通航迹；完成后会自动消批"));
+        return;
+    }
+    appendExternalLog(QStringLiteral("[测试航迹] 无法启动：功能未启用或上一轮尚未结束"));
 }
 
 void MainOverLayOut::setupTrackManagement() {
@@ -3276,7 +3307,12 @@ void MainOverLayOut::arrangeParamSettingsButtons()
         m_commandControlButton
     };
 
-    for (auto* btn : managedButtons) {
+    QList<QPushButton*> allManagedButtons = managedButtons;
+    if (m_testTrackButton) {
+        allManagedButtons.append(m_testTrackButton);
+    }
+
+    for (auto* btn : allManagedButtons) {
         ui->paramSettingsGrid->removeWidget(btn);
         btn->hide();
     }
@@ -3293,6 +3329,9 @@ void MainOverLayOut::arrangeParamSettingsButtons()
     }
     visibleButtons.append(ui->btnBatteryControl);
     visibleButtons.append(m_commandControlButton);
+    if (m_testTrackButton) {
+        visibleButtons.append(m_testTrackButton);
+    }
 
     for (int i = 0; i < visibleButtons.size(); ++i) {
         auto* btn = visibleButtons.at(i);

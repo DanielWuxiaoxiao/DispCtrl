@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:45
+ * @LastEditTime: 2026-09-14 14:10:17
  * @Description: 
  */
 /*
@@ -80,6 +80,7 @@ public slots:
     void stopReplay();
     void setRadiationStatus(bool transmitting);
     void updateRadarPosition(double latitude, double longitude, double altitude);
+    void setTestRadarPosition(double latitude, double longitude, double altitude);
     void setPendingBeamControl(BeamControl beamControl);
     void setPendingServoControl(ServoControlParam servoControl);
     void processBitReport(BITReport report);
@@ -145,7 +146,8 @@ private:
     CommandControlProtocol::Dda4Track makeDda4Track(const PointInfo& info, bool manualMode) const;
     bool targetLla(const PointInfo& info, double& longitudeDeg, double& latitudeDeg, double& altitudeM) const;
     bool replayPointFor(const CommandControlRecord& record, PointInfo& point);
-    void storeDda4(bool outbound, const CommandControlProtocol::Dda4Track& track, const QByteArray& packet);
+    void storeDda4(bool outbound, const CommandControlProtocol::Dda4Track& track, const QByteArray& packet,
+                   const PointInfo* sourcePoint = nullptr);
     void updatePeer(quint32 deviceId, const QHostAddress& sender, quint16 senderPort,
                     const QString& role, bool managementNotice);
     void schedulePeerRefresh();
@@ -204,6 +206,7 @@ private:
     BeamControl m_confirmedBeamControl;
     ServoControlParam m_pendingServoControl;
     bool m_hasRadarPosition = false;
+    bool m_hasLiveRadarPosition = false;
     bool m_hasSelectedRadarYaw = false;
     bool m_hasPendingBeamControl = false;
     bool m_waitingForServoReply = false;

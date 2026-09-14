@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 15:58:16
+ * @LastEditTime: 2026-09-14 14:10:17
  * @Description: 
  */
 /**
@@ -322,6 +322,12 @@ private slots:
     void onScanRangeClicked();
 
     /**
+     * @brief 生成本地无人机测试航迹
+     * @details 仅在 [test_track].enabled=true 时显示对应按钮。
+     */
+    void onGenerateTestTracksClicked();
+
+    /**
      * @brief 打开光电系统控制对话框
      * @details 配置光电参数
      */
@@ -569,6 +575,7 @@ private:
     QPushButton* m_laserLocalNetworkBtn = nullptr;
     QPushButton* m_laserPeerNetworkBtn = nullptr;
     QPushButton* m_commandControlButton = nullptr;
+    QPushButton* m_testTrackButton = nullptr;
 
     // 数据存储管理窗口相关
     CusWindow* m_dataStorageWindow;      ///< 数据存储管理窗口指针

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:47
+ * @LastEditTime: 2026-09-14 14:10:17
  * @Description: 
  */
 /**
@@ -60,6 +60,7 @@ class targetDispManager;  ///< 目标显示管理器
 class Disp2MonManager;    ///< 显示到监控管理器
 class Mon2DispManager;    ///< 监控到显示管理器
 class ExternalCtrlManager; ///< 外部雷控/调度链路管理器
+class TestTrackGenerator; ///< 本地测试航迹生成器
 
 // 便捷宏定义
 #define CON_INS Controller::getInstance()  ///< 控制器单例访问宏
@@ -134,6 +135,13 @@ public:
     // 外部雷控链路发送接口（空壳，调用方填充数据并确保长度正确）
     bool sendExternalSystemControl(const QByteArray& frame512);
     bool sendExternalServoControl(const QByteArray& frame32);
+
+    /**
+     * @brief 启动一次本地测试航迹生成
+     * @return 已启动返回 true；配置关闭、生成器不存在或上一次尚未结束时返回 false
+     * @details 测试点只从 Controller::traInfoProcess 注入，不模拟或占用 UDP 套接字。
+     */
+    bool startTestTrackGeneration();
 
     /**
      * @brief 将道路点经纬度分帧下发给数据处理模块
@@ -248,6 +256,18 @@ signals:
      * @param info 航迹点信息结构
      */
     void traInfoProcess(PointInfo info);
+
+    /**
+     * @brief 本地测试航迹生成状态
+     * @param active true=本轮生成中，false=已发送消批点并结束
+     */
+    void testTrackGenerationStateChanged(bool active);
+
+    /**
+     * @brief 本地测试航迹使用的预存雷达经纬高
+     * @details 仅供需要真实雷达原点的外部上报模块使用；不冒充 DD05 阵面真值。
+     */
+    void testTrackFallbackRadarPositionReady(double latitude, double longitude, double altitude);
 
     /**
      * @brief TBD 航迹信息处理信号
@@ -369,6 +389,7 @@ private:
     Disp2MonManager* monMgr;       ///< 显示到监控管理器
     Mon2DispManager* monRecvMgr;   ///< 监控到显示管理器
     ExternalCtrlManager* extCtrlMgr; ///< 外部雷控/调度链路管理器
+    TestTrackGenerator* testTrackGenerator = nullptr; ///< 可配置的本地普通航迹生成器
 };
 
 #endif // CONTROLLER_H

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 15:58:16
+ * @LastEditTime: 2026-09-14 14:10:17
  * @Description: 
  */
 /**
@@ -36,6 +36,7 @@
 #include "disp2monmanager.h"
 #include "mon2dispmanager.h"
 #include "ExternalCtrlManager.h"
+#include "testtrackgenerator.h"
 #include "Basic/log.h"
 #include <cmath>
 
@@ -127,6 +128,20 @@ void Controller::init()
     monMgr = new Disp2MonManager(this);        // 显示到监控管理器
     monRecvMgr = new Mon2DispManager(this);    // 监控到显示管理器
     extCtrlMgr = new ExternalCtrlManager(this); // 外部雷控链路
+    if (CF_INS.testTrackEnabled(false)) {
+        // 生成器运行在 Controller 所在线程；定时产生的普通航迹直接进入既有下游信号。
+        testTrackGenerator = new TestTrackGenerator(this);
+        connect(testTrackGenerator, &TestTrackGenerator::trackGenerated,
+                this, &Controller::traInfoProcess);
+        // 不把预存位置伪装成 DD05；总控模块显式识别这是测试联调原点。
+        connect(testTrackGenerator, &TestTrackGenerator::fallbackRadarPositionReady,
+                this, &Controller::testTrackFallbackRadarPositionReady);
+        connect(testTrackGenerator, &TestTrackGenerator::generationStarted,
+                this, [this](int, int) { emit testTrackGenerationStateChanged(true); });
+        connect(testTrackGenerator, &TestTrackGenerator::generationFinished,
+                this, [this]() { emit testTrackGenerationStateChanged(false); });
+        LOG_INFO("[Controller::init] 本地测试航迹功能已启用；按钮可在参数设置区启动生成");
+    }
 
     // === 建立信号槽连接 ===
 
@@ -171,6 +186,15 @@ void Controller::init()
  */
 Controller::~Controller() {
     // Qt对象树会自动清理子对象，无需手动删除
+}
+
+bool Controller::startTestTrackGeneration()
+{
+    if (!testTrackGenerator) {
+        LOG_WARNING("[TestTrack] 已请求生成，但 [test_track].enabled=false，未创建生成器");
+        return false;
+    }
+    return testTrackGenerator->start();
 }
 
 bool Controller::sendExternalSystemControl(const QByteArray& frame512) {

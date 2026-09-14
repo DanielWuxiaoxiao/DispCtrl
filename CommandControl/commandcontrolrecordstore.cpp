@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:45
+ * @LastEditTime: 2026-09-14 14:10:17
  * @Description: 
  */
 #include "commandcontrolrecordstore.h"
@@ -28,6 +28,13 @@ QJsonObject toJson(const CommandControlRecord& record)
     object.insert(QStringLiteral("replay_radar_longitude_deg"), record.replayRadarLongitudeDeg);
     object.insert(QStringLiteral("replay_radar_latitude_deg"), record.replayRadarLatitudeDeg);
     object.insert(QStringLiteral("replay_radar_altitude_m"), record.replayRadarAltitudeM);
+    object.insert(QStringLiteral("source_point_valid"), record.hasSourcePoint);
+    object.insert(QStringLiteral("source_batch"), static_cast<double>(record.sourceBatch));
+    object.insert(QStringLiteral("source_range_m"), record.sourceRangeM);
+    object.insert(QStringLiteral("source_azimuth_deg"), record.sourceAzimuthDeg);
+    object.insert(QStringLiteral("source_elevation_deg"), record.sourceElevationDeg);
+    object.insert(QStringLiteral("source_relative_altitude_m"), record.sourceRelativeAltitudeM);
+    object.insert(QStringLiteral("source_speed_mps"), record.sourceSpeedMps);
     object.insert(QStringLiteral("comprehensive_batch"), static_cast<double>(track.comprehensiveBatch));
     object.insert(QStringLiteral("local_batch"), static_cast<double>(track.localBatch));
     object.insert(QStringLiteral("device_id"), static_cast<double>(track.deviceId));
@@ -84,6 +91,20 @@ bool fromJson(const QJsonObject& object, CommandControlRecord& record)
             || !std::isfinite(record.replayRadarAltitudeM)
             || record.replayRadarLongitudeDeg < -180.0 || record.replayRadarLongitudeDeg > 180.0
             || record.replayRadarLatitudeDeg < -90.0 || record.replayRadarLatitudeDeg > 90.0) {
+            return false;
+        }
+    }
+    record.hasSourcePoint = object.value(QStringLiteral("source_point_valid")).toBool(false);
+    if (record.hasSourcePoint) {
+        record.sourceBatch = static_cast<quint32>(number("source_batch"));
+        record.sourceRangeM = decimal("source_range_m");
+        record.sourceAzimuthDeg = decimal("source_azimuth_deg");
+        record.sourceElevationDeg = decimal("source_elevation_deg");
+        record.sourceRelativeAltitudeM = decimal("source_relative_altitude_m");
+        record.sourceSpeedMps = decimal("source_speed_mps");
+        if (record.sourceBatch == 0 || !std::isfinite(record.sourceRangeM)
+            || !std::isfinite(record.sourceAzimuthDeg) || !std::isfinite(record.sourceElevationDeg)
+            || !std::isfinite(record.sourceRelativeAltitudeM) || !std::isfinite(record.sourceSpeedMps)) {
             return false;
         }
     }

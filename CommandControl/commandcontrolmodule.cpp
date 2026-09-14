@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:44
+ * @LastEditTime: 2026-09-14 14:10:17
  * @Description: 
  */
 #include "commandcontrolmodule.h"
@@ -405,7 +405,7 @@ void CommandControlModule::onTransportSendResult(quint16 messageType, bool succe
         return;
     }
     const QString message = QStringLiteral("%1 发送失败：%2")
-        .arg(QString::fromLatin1(CommandControlProtocol::messageTypeName(messageType)), detail);
+        .arg(QString::fromUtf8(CommandControlProtocol::messageTypeName(messageType)), detail);
     LOG_WARNING(QString("[CommandControl][TX] %1").arg(message));
     if (messageType == CommandControlProtocol::LoginRequest) {
         setStatus(message);
@@ -469,7 +469,7 @@ void CommandControlModule::logControlPacket(const QString& direction,
                                             const QString& endpoint, const QString& fields,
                                             const QString& uiSummary)
 {
-    const QString typeName = QString::fromLatin1(CommandControlProtocol::messageTypeName(header.messageType));
+    const QString typeName = QString::fromUtf8(CommandControlProtocol::messageTypeName(header.messageType));
     LOG_INFO(QString("[CommandControl][%1][%2] endpoint=%3 %4 %5")
              .arg(direction)
              .arg(typeName)
@@ -532,7 +532,7 @@ void CommandControlModule::handleDatagram(const QByteArray& packet, const QHostA
     const int expectedSize = CommandControlProtocol::expectedPacketSize(header.messageType);
     if (expectedSize > 0 && packet.size() != expectedSize) {
         LOG_WARNING(QString("[CommandControl][RX] 丢弃长度异常 %1：from=%2:%3 got=%4 expected=%5")
-                    .arg(QString::fromLatin1(CommandControlProtocol::messageTypeName(header.messageType)))
+                    .arg(QString::fromUtf8(CommandControlProtocol::messageTypeName(header.messageType)))
                     .arg(sender.toString()).arg(senderPort).arg(packet.size()).arg(expectedSize));
         return;
     }
@@ -557,7 +557,7 @@ void CommandControlModule::handleDatagram(const QByteArray& packet, const QHostA
         break;
     default:
         LOG_INFO(QString("[CommandControl][RX] %1 from=%2:%3 bytes=%4")
-                 .arg(QString::fromLatin1(CommandControlProtocol::messageTypeName(header.messageType)))
+                 .arg(QString::fromUtf8(CommandControlProtocol::messageTypeName(header.messageType)))
                  .arg(sender.toString()).arg(senderPort).arg(packet.size()));
         break;
     }
@@ -1155,7 +1155,7 @@ void CommandControlModule::reportTrack(const PointInfo& info, bool manualMode)
     const auto header = nextHeader(CommandControlProtocol::SituationIntelligence, 0, false, 0x03);
     const QByteArray packet = CommandControlProtocol::makeDda4Track(header, track);
     sendMulticast(packet, CommandControlProtocol::SituationIntelligence);
-    storeDda4(true, track, packet);
+    storeDda4(true, track, packet, &info);
     if (shouldLogDda4(true)) {
         CommandControlProtocol::Dda4Track loggedTrack;
         if (CommandControlProtocol::parseDda4Track(packet, loggedTrack)) {
@@ -1167,7 +1167,7 @@ void CommandControlModule::reportTrack(const PointInfo& info, bool manualMode)
 }
 
 void CommandControlModule::storeDda4(bool outbound, const CommandControlProtocol::Dda4Track& track,
-                                     const QByteArray& packet)
+                                     const QByteArray& packet, const PointInfo* sourcePoint)
 {
     CommandControlRecord record;
     record.outbound = outbound;
@@ -1177,6 +1177,15 @@ void CommandControlModule::storeDda4(bool outbound, const CommandControlProtocol
                                                         record.replayRadarAltitudeM);
     record.track = track;
     record.packet = packet;
+    if (sourcePoint) {
+        record.hasSourcePoint = true;
+        record.sourceBatch = sourcePoint->batch;
+        record.sourceRangeM = sourcePoint->range;
+        record.sourceAzimuthDeg = sourcePoint->azimuth;
+        record.sourceElevationDeg = sourcePoint->elevation;
+        record.sourceRelativeAltitudeM = sourcePoint->altitute;
+        record.sourceSpeedMps = sourcePoint->speed;
+    }
     if (m_recordWriter) {
         CommandControlRecordWriter* writer = m_recordWriter;
         // 仅投递值对象；JSON 序列化、flush 和磁盘写入全在记录线程执行。
@@ -1324,7 +1333,7 @@ void CommandControlModule::logPacketHex(const QString& direction, quint16 type, 
     }
     LOG_INFO(QString("[CommandControl][%1][HEX] %2 endpoint=%3 bytes=%4 data=%5")
              .arg(direction)
-             .arg(QString::fromLatin1(CommandControlProtocol::messageTypeName(type)))
+             .arg(QString::fromUtf8(CommandControlProtocol::messageTypeName(type)))
              .arg(endpoint)
              .arg(packet.size())
              .arg(QString::fromLatin1(packet.toHex(' '))));
@@ -1380,8 +1389,36 @@ void CommandControlModule::updateRadarPosition(double latitude, double longitude
     m_radarLatitudeDeg = latitude;
     m_radarAltitudeM = altitude;
     m_hasRadarPosition = true;
+    m_hasLiveRadarPosition = true;
     m_missingPositionLogged = false;
     LOG_INFO(QString("[CommandControl][DD05] 阵面经纬高真值已更新 lon=%1 lat=%2 alt=%3")
+             .arg(longitude, 0, 'f', 8)
+             .arg(latitude, 0, 'f', 8)
+             .arg(altitude, 0, 'f', 2));
+    sendEquipmentStatus();
+}
+
+void CommandControlModule::setTestRadarPosition(double latitude, double longitude, double altitude)
+{
+    if (m_hasLiveRadarPosition) {
+        LOG_INFO("[CommandControl][TestTrack] 已有 DD05 阵面经纬高真值，保留真值而不覆盖为预存测试原点");
+        return;
+    }
+    if (!std::isfinite(latitude) || !std::isfinite(longitude) || !std::isfinite(altitude)
+        || latitude < -90.0 || latitude > 90.0 || longitude < -180.0 || longitude > 180.0) {
+        LOG_WARNING(QString("[CommandControl][TestTrack] 丢弃无效预存经纬高 lon=%1 lat=%2 alt=%3")
+                    .arg(longitude, 0, 'f', 8)
+                    .arg(latitude, 0, 'f', 8)
+                    .arg(altitude, 0, 'f', 2));
+        return;
+    }
+
+    m_radarLongitudeDeg = longitude;
+    m_radarLatitudeDeg = latitude;
+    m_radarAltitudeM = altitude;
+    m_hasRadarPosition = true;
+    m_missingPositionLogged = false;
+    LOG_INFO(QString("[CommandControl][TestTrack] 使用 [radar] 预存联调原点 lon=%1 lat=%2 alt=%3；后续 DD05 真值会覆盖")
              .arg(longitude, 0, 'f', 8)
              .arg(latitude, 0, 'f', 8)
              .arg(altitude, 0, 'f', 2));

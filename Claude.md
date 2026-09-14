@@ -899,6 +899,11 @@ dataToScene            # RangeAzimuth坐标转换
 - **子阵电源可视化**：健康管理窗口的四个阵面页均新增 6×6 子阵电源状态图。数据复用既有 `BITReport (0xDE02)::subArrayPower[5]`，其上游电源状态来自基础雷达/显控 BB01 链路；不新增 UDP 解析或线程。未收到该阵面 BIT 时 36 格均显示黄色“未上报”，收到后 bit0..bit35 分别映射按行编号的 1..36 号电源（1 绿色正常、0 红色故障），且右上角为 1 号、向左递增、下一行右侧从 7 号开始，左下角为 36 号。第 5 字节 D4..D7 始终忽略。
 - **全零报文临时防抖**：现场日志显示正常全 1 位图与全 0 位图高频交替。子阵电源显示因此改为：完整正常位图 `FF FF FF FF 0F` 立即全绿；完整全零位图必须连续 100 帧才确认全红，1..99 帧保留最后一次确认状态（尚无确认状态时保持黄色）；含有 0/1 混合位的报文仍立即逐路显示，避免掩盖真实的单路故障。达到阈值和从已确认全零故障恢复时写项目日志。
 
+### v5.48 (2026-09-13)
+- **本地测试无人机航迹**：新增 `Controller/TestTrackGenerator`，仅在 `[test_track].enabled=true` 时创建并在参数设置区显示“生成测试航迹”。一次点击并行产生 2 或 3 条普通 DBT `PointInfo` 航迹（默认各 300 点、500 ms、15 m/s），每条均标记为无人机；所有点直接从 `Controller::traInfoProcess` 注入既有 PPI、表格、GCS、激光和总控 DDA4 下游，绝不伪造 UDP 数据或影响 TBD/协同链路。位置按 `QElapsedTimer` 的实际经过时间沿固定 RAE 视线匀速积分，`range/elevation/altitute/speed` 与 DDA4 ENU 三轴速度、经纬高换算保持同一运动模型，避免显示速度与上报速度矛盾。结束时逐批发送 `statMethod=2`，再次点击从第一个点重新开始。
+- **无阵面联调原点**：开始本地测试时，生成器仅一次读取 `[radar]` 预存经纬高，并通过专用测试信号提供给总控 DDA4；它不会伪装为 DD05 阵面真值，现场 DD05 真值到达后仍可正常覆盖临时原点。DDA4 与 GCS 均继续复用既有 WGS84/ENU 实现。生成开始、每 50 个采样点、结束及每个消批均写项目日志；出站 DDA4 JSONL 同时保存用于 PPI 的源 `batch/range/azimuth/elevation/relative altitude/speed` 与雷达原点，便于逐条核对生成值、PPI 输入和已编码的经纬高。
+- **日志 UTF-8**：统一日志文件通过 `QTextStream::setCodec("UTF-8")` 写入；总控报文类型中文通过 UTF-8 解码，避免总控窗口与日志中出现乱码。旧日志仍为历史本地编码，不自动转换。
+
 ### v5.45 (2026-09-10)
 - **Ubuntu 发布工作流同步**：`docker/build_ubuntu.ps1` 为 Windows 入口，调用 WSL/Docker；`docker/docker_build.sh` 支持 `1804/2004/2204/2404` 和 `--check`。源码以只读方式挂载到 Docker，容器内部复制到私有 `/src` 再构建，输出写入 `deploy/ubuntu<目标>/`，避免混用 Windows CMake 缓存或旧发布产物。
 - **发布包自检与可追溯性**：新增 `check_linux_package.sh`、`BUILD-INFO.txt`、tarball SHA-256 和 `qt.conf`；打包缺失 WebEngineProcess、地图资源或未解析动态库时失败。检查仅覆盖文件/依赖，仍需目标机图形桌面、GPU、地图和雷达网络联调。

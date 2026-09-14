@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:43
+ * @LastEditTime: 2026-09-14 14:10:16
  * @Description: 
  */
 #ifndef CONFIGMANAGER_H
@@ -65,6 +65,31 @@ public:
 
     quint16 gcsSrcPort() const {
         return static_cast<quint16>(getValue("network.ports.GCS_SRC_PORT", 19800).toUInt());
+    }
+
+    // 本地测试航迹：仅用于显控、GCS/激光/总控联调，默认关闭。
+    bool testTrackEnabled(bool def = false) const {
+        return getValue("test_track.enabled", def).toBool();
+    }
+
+    int testTrackCount(int def = 2) const {
+        return getValue("test_track.track_count", def).toInt();
+    }
+
+    int testTrackPointCount(int def = 300) const {
+        return getValue("test_track.point_count", def).toInt();
+    }
+
+    int testTrackIntervalMs(int def = 500) const {
+        return getValue("test_track.interval_ms", def).toInt();
+    }
+
+    double testTrackSpeedMps(double def = 15.0) const {
+        return getValue("test_track.speed_mps", def).toDouble();
+    }
+
+    quint32 testTrackFirstBatch(quint32 def = 65000) const {
+        return getValue("test_track.first_batch", def).toUInt();
     }
 
     bool gcsTargetReportEnabled(bool def = false) const {

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:45
+ * @LastEditTime: 2026-09-14 14:10:17
  * @Description: 
  */
 /* DDA4 会话记录与回放文件存储。 */
@@ -23,6 +23,14 @@ struct CommandControlRecord {
     double replayRadarLongitudeDeg = 0.0;
     double replayRadarLatitudeDeg = 0.0;
     double replayRadarAltitudeM = 0.0;
+    // 出站 DDA4 对应的 PPI 输入点，供联调直接核对 RAE 与已编码的经纬高。
+    bool hasSourcePoint = false;
+    quint32 sourceBatch = 0;
+    double sourceRangeM = 0.0;
+    double sourceAzimuthDeg = 0.0;
+    double sourceElevationDeg = 0.0;
+    double sourceRelativeAltitudeM = 0.0;
+    double sourceSpeedMps = 0.0;
     CommandControlProtocol::Dda4Track track;
     QByteArray packet;
 };

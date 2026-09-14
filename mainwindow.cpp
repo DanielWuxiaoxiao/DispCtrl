@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:57
+ * @LastEditTime: 2026-09-14 14:10:17
  * @Description: 
  */
 /**
@@ -260,6 +260,9 @@ void FramelessMainWindow::setupOverlayUI()
         // DD05 是阵面回传的经纬高真值；DDA1 与 DDA4 必须和既有 GCS/PPI 使用同一来源。
         connect(CON_INS, &Controller::geoLocationUpdated, commandControl,
                 &CommandControlModule::updateRadarPosition);
+        // 本地测试航迹没有阵面 DD05 时，才注入 [radar] 预存联调原点；该信号不冒充 DD05。
+        connect(CON_INS, &Controller::testTrackFallbackRadarPositionReady, commandControl,
+                &CommandControlModule::setTestRadarPosition);
         // TAS/TWS 的 AA05 + AA03 序列由 DE01 成功回送确认，BIT 给出所选阵面的真实偏航角。
         connect(m_overlayWidget, &MainOverLayOut::sig_SetBeamControlParam, commandControl,
                 &CommandControlModule::setPendingBeamControl);
