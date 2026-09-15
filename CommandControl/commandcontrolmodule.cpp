@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-15 19:03:34
+ * @LastEditTime: 2026-09-15 19:23:42
  * @Description: 
  */
 #include "commandcontrolmodule.h"
@@ -817,9 +817,11 @@ void CommandControlModule::handleIncomingDda1(const QByteArray& packet, const Co
         emit peersChanged();
     }
     if (isCurrentControl(header.senderId)) {
-        logControlPacket(QStringLiteral("RX"), header,
-                         QStringLiteral("%1:%2").arg(sender.toString()).arg(senderPort),
-                         dda1Fields(status));
+        if (m_settings.dda1NormalLogEnabled) {
+            logControlPacket(QStringLiteral("RX"), header,
+                             QStringLiteral("%1:%2").arg(sender.toString()).arg(senderPort),
+                             dda1Fields(status));
+        }
         logPacketHex(QStringLiteral("RX"), header.messageType, packet,
                      QStringLiteral("%1:%2").arg(sender.toString()).arg(senderPort));
     }
@@ -949,7 +951,10 @@ void CommandControlModule::sendEquipmentStatus()
     const auto header = nextHeader(CommandControlProtocol::EquipmentStatus, 0, false, 0x03);
     const QByteArray packet = CommandControlProtocol::makeDda1Status(header, status);
     CommandControlProtocol::Dda1Status loggedStatus;
-    if (CommandControlProtocol::parseDda1Status(packet, loggedStatus)) {
+    if (!CommandControlProtocol::parseDda1Status(packet, loggedStatus)) {
+        // 即使关闭正常帧日志，也必须保留本机编码结果的异常诊断。
+        LOG_WARNING(QStringLiteral("[CommandControl][DDA1] 本机已编码报文解析失败"));
+    } else if (m_settings.dda1NormalLogEnabled) {
         logControlPacket(QStringLiteral("TX"), header,
                          QStringLiteral("%1:%2").arg(m_settings.multicastGroup).arg(m_settings.multicastPort),
                          dda1Fields(loggedStatus),
@@ -1370,6 +1375,9 @@ void CommandControlModule::startReplay(const QString& recordFilePath)
 
 bool CommandControlModule::shouldLogDda4(bool outbound)
 {
+    if (!m_settings.dda4NormalLogEnabled) {
+        return false;
+    }
     if (m_settings.dda4LogIntervalMs == 0) {
         return true;
     }

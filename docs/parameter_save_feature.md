@@ -149,7 +149,8 @@ void 类名::onSaveToConfig()
 - 读取：`CF_INS.sigProNoise()` 等
 
 **UI字段**：
-- 噪声、门限、CFAR参数等（参考 `SigProParam` 结构体）
+- 噪声、门限、CFAR参数等（参考 `SigProParam` 结构体）。
+- 距离处理上限：单位 m，保存键 `params.sigpro.distanceProcessUpperLimitM`；使用 AA06 原 10 字节预留区的前 2 字节（`unsigned short`、小端、1 m 量化），默认 5200 m，剩余 8 字节保持为 0。
 
 ### 4. dataprocessui.cpp/h - 数据处理参数
 

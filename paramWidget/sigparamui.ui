@@ -7,7 +7,7 @@
         <x>0</x>
         <y>0</y>
         <width>608</width>
-        <height>379</height>
+        <height>419</height>
       </rect>
     </property>
     <property name="windowTitle">
@@ -406,6 +406,26 @@
             <widget class="QCheckBox" name="jinqubumang">
               <property name="text">
                 <string>近区补盲</string>
+              </property>
+            </widget>
+          </item>
+          <item row="9" column="0">
+            <widget class="QLabel" name="distanceProcessUpperLimitLabel">
+              <property name="text">
+                <string>距离处理上限(m)</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="9" column="1">
+            <widget class="QLineEdit" name="distanceProcessUpperLimit">
+              <property name="text">
+                <string>5200</string>
+              </property>
+              <property name="toolTip">
+                <string>AA06 原预留区前 2 字节，unsigned short，小端，量化单位 1 米。</string>
               </property>
             </widget>
           </item>

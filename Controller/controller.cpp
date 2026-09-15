@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-14 14:10:17
+ * @LastEditTime: 2026-09-15 19:23:42
  * @Description: 
  */
 /**
@@ -246,64 +246,10 @@ void Controller::updateHeadingFromCtrlTable(double headingDeg) {
 }
 
 void Controller::onBITReport(BITReport res) {
-    QString subArrayPower;
-    for (int i = 0; i < static_cast<int>(sizeof(res.subArrayPower)); ++i) {
-        if (i > 0) {
-            subArrayPower += ' ';
-        }
-        subArrayPower += QStringLiteral("0x")
-                         + QString::number(static_cast<unsigned int>(res.subArrayPower[i]), 16)
-                               .rightJustified(2, QLatin1Char('0'));
+    if (res.mesID != 0xDE02) {
+        LOG_WARNING(QString("[Controller] BIT report mesID mismatch: 0x%1")
+                    .arg(res.mesID, 4, 16, QLatin1Char('0')));
     }
-
-    QString reserve;
-    for (int i = 0; i < static_cast<int>(sizeof(res.reserve)); ++i) {
-        if (i > 0) {
-            reserve += ' ';
-        }
-        reserve += QStringLiteral("0x")
-                   + QString::number(static_cast<unsigned int>(res.reserve[i]), 16)
-                         .rightJustified(2, QLatin1Char('0'));
-    }
-
-    const double yawDeg = res.yaw * 0.01;
-    const double scanAngleDeg = res.scanAngle * 0.01;
-    const double normalizedYawDeg = std::fmod(yawDeg + 360.0, 360.0);
-    const double normalizedScanAngleDeg = std::fmod(scanAngleDeg + 360.0, 360.0);
-    int normalSubArrayPowerCount = 0;
-    for (int powerIndex = 0; powerIndex < 36; ++powerIndex) {
-        const int byteIndex = powerIndex / 8;
-        const int bitIndex = powerIndex % 8;
-        if ((res.subArrayPower[byteIndex] & (1U << bitIndex)) != 0) {
-            ++normalSubArrayPowerCount;
-        }
-    }
-    LOG_INFO(QString("[Controller] BIT report: mesID=0x%1 radarId=%2 "
-                     "bitGroup=0x%3 bitGroupBits=%4 powerState=0x%5 "
-                     "fpgaTempRaw=%6 fpgaTempDegC=%7 panelTempRaw=%8 panelTempDegC=%9 "
-                     "yawRaw=%10 yawDeg=%11 yawNormDeg=%12 "
-                     "subArrayPower=[%13] subArrayPowerNormal=%14/36 subArrayPowerFault=%15/36 "
-                     "scanAngleRaw=%16 scanAngleDeg=%17 scanAngleNormDeg=%18 reserve=[%19]")
-                 .arg(res.mesID, 4, 16, QLatin1Char('0'))
-                 .arg(res.radarId)
-                 .arg(static_cast<unsigned int>(res.bitGroup), 2, 16, QLatin1Char('0'))
-                 .arg(static_cast<unsigned int>(res.bitGroup), 8, 2, QLatin1Char('0'))
-                 .arg(static_cast<unsigned int>(res.powerState), 2, 16, QLatin1Char('0'))
-                 .arg(res.fpgaTemp)
-                 .arg(res.fpgaTemp * 0.1, 0, 'f', 1)
-                 .arg(res.panelTemp)
-                 .arg(res.panelTemp * 0.1, 0, 'f', 1)
-                 .arg(res.yaw)
-                 .arg(yawDeg, 0, 'f', 2)
-                 .arg(normalizedYawDeg, 0, 'f', 2)
-                 .arg(subArrayPower)
-                 .arg(normalSubArrayPowerCount)
-                 .arg(36 - normalSubArrayPowerCount)
-                 .arg(res.scanAngle)
-                 .arg(scanAngleDeg, 0, 'f', 2)
-                 .arg(normalizedScanAngleDeg, 0, 'f', 2)
-                 .arg(reserve));
-
     if (res.radarId < RADAR_ID_MIN || res.radarId > RADAR_ID_MAX) {
         LOG_WARNING(QString("[Controller] Invalid radarId=%1 in BIT report")
                     .arg(res.radarId));
@@ -313,6 +259,68 @@ void Controller::onBITReport(BITReport res) {
                     .arg(res.radarId)
                     .arg(res.yaw)
                     .arg(res.scanAngle));
+    }
+
+    // 完整 BIT 正常帧的 39 字节字段很多且上报频繁，默认不构造日志字符串。
+    // 协议范围错误仍在上方无条件写 WARNING，且不会影响下游健康管理和扫描线更新。
+    if (CF_INS.bitReportNormalLogEnabled(false)) {
+        QString subArrayPower;
+        for (int i = 0; i < static_cast<int>(sizeof(res.subArrayPower)); ++i) {
+            if (i > 0) {
+                subArrayPower += ' ';
+            }
+            subArrayPower += QStringLiteral("0x")
+                             + QString::number(static_cast<unsigned int>(res.subArrayPower[i]), 16)
+                                   .rightJustified(2, QLatin1Char('0'));
+        }
+
+        QString reserve;
+        for (int i = 0; i < static_cast<int>(sizeof(res.reserve)); ++i) {
+            if (i > 0) {
+                reserve += ' ';
+            }
+            reserve += QStringLiteral("0x")
+                       + QString::number(static_cast<unsigned int>(res.reserve[i]), 16)
+                             .rightJustified(2, QLatin1Char('0'));
+        }
+
+        const double yawDeg = res.yaw * 0.01;
+        const double scanAngleDeg = res.scanAngle * 0.01;
+        const double normalizedYawDeg = std::fmod(yawDeg + 360.0, 360.0);
+        const double normalizedScanAngleDeg = std::fmod(scanAngleDeg + 360.0, 360.0);
+        int normalSubArrayPowerCount = 0;
+        for (int powerIndex = 0; powerIndex < 36; ++powerIndex) {
+            const int byteIndex = powerIndex / 8;
+            const int bitIndex = powerIndex % 8;
+            if ((res.subArrayPower[byteIndex] & (1U << bitIndex)) != 0) {
+                ++normalSubArrayPowerCount;
+            }
+        }
+        LOG_INFO(QString("[Controller] BIT report: mesID=0x%1 radarId=%2 "
+                         "bitGroup=0x%3 bitGroupBits=%4 powerState=0x%5 "
+                         "fpgaTempRaw=%6 fpgaTempDegC=%7 panelTempRaw=%8 panelTempDegC=%9 "
+                         "yawRaw=%10 yawDeg=%11 yawNormDeg=%12 "
+                         "subArrayPower=[%13] subArrayPowerNormal=%14/36 subArrayPowerFault=%15/36 "
+                         "scanAngleRaw=%16 scanAngleDeg=%17 scanAngleNormDeg=%18 reserve=[%19]")
+                     .arg(res.mesID, 4, 16, QLatin1Char('0'))
+                     .arg(res.radarId)
+                     .arg(static_cast<unsigned int>(res.bitGroup), 2, 16, QLatin1Char('0'))
+                     .arg(static_cast<unsigned int>(res.bitGroup), 8, 2, QLatin1Char('0'))
+                     .arg(static_cast<unsigned int>(res.powerState), 2, 16, QLatin1Char('0'))
+                     .arg(res.fpgaTemp)
+                     .arg(res.fpgaTemp * 0.1, 0, 'f', 1)
+                     .arg(res.panelTemp)
+                     .arg(res.panelTemp * 0.1, 0, 'f', 1)
+                     .arg(res.yaw)
+                     .arg(yawDeg, 0, 'f', 2)
+                     .arg(normalizedYawDeg, 0, 'f', 2)
+                     .arg(subArrayPower)
+                     .arg(normalSubArrayPowerCount)
+                     .arg(36 - normalSubArrayPowerCount)
+                     .arg(res.scanAngle)
+                     .arg(scanAngleDeg, 0, 'f', 2)
+                     .arg(normalizedScanAngleDeg, 0, 'f', 2)
+                     .arg(reserve));
     }
 
     // qDebug() << "[Controller] onBITReport called - yaw:" << res.yaw

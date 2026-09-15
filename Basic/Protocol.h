@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:38:00
+ * @LastEditTime: 2026-09-15 19:23:42
  * @Description: 
  */
 #ifndef PROTOCOL_H
@@ -477,7 +477,10 @@ typedef struct _SigProParam
     unsigned char clutterUnitWin; // 0.1us
     unsigned char clutterIter;
     unsigned char algorithmSwitch;  //0关 1开 D0杂波感知 D1副瓣匿影 D2 近区补盲
-    unsigned char reserve[10];
+    // 原预留区的前 2 字节：距离处理上限，单位 1 m，小端；默认 5200 m。
+    // 该字段从预留区复用，后续 reserve 仍紧随其后，整个 AA06 报文保持 32 字节不变。
+    unsigned short distanceProcessUpperLimitM;
+    unsigned char reserve[8];       // 原预留区剩余 8 字节，发送时必须为 0。
 
     _SigProParam()  //default value
     {
@@ -499,8 +502,10 @@ typedef struct _SigProParam
         clutterUnitWin = 1;
         clutterIter = 19;
         algorithmSwitch = 7;
+        distanceProcessUpperLimitM = 5200;
     }
 }SigProParam;
+static_assert(sizeof(SigProParam) == 32, "AA06 signal-processing parameter layout must remain 32 bytes");
 
 typedef struct _DataProParam
 {

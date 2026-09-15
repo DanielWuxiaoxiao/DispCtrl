@@ -910,6 +910,11 @@ dataToScene            # RangeAzimuth坐标转换
 - **总控字段日志与健康网段**：公共报头版本/标志、DD25/DDA4 时间位域、DDA4 更新方式/目标属性、DDA1 工作状态和有符号俯仰在结构化日志中按 bit 段和原始值共同输出；原始十六进制打印仍仅由 `packet_hex_log_enabled` 控制。本版本健康管理雷达网络固定显示本机 `192.168.64.4`、阵面对端 `192.168.64.3`，并将对端默认值固化于 `[health_network]`。
 - **总控备用 NTP 授时**：新增独立 `CommandControl/NtpTimeSync`，以标准 UDP `192.30.105.10:123` 查询 NTP，在 GUI/PPI 线程中仅用非阻塞 `QUdpSocket` 和定时器等待应答，不阻塞航迹绘制。有效应答按 NTP 四时间戳公式估计 UTC 后调用 Windows `SetSystemTime` 或 Unix `clock_settime` 更新系统时间；NTP 无响应、应答非法或权限不足只写日志和控制窗口状态，绝不阻断总控 UDP、登录、上报或既有显控功能，便于现场继续使用操作系统的手动/自动授时。配置支持周期重校和 DD31 到达后的 60 秒限流补充校时。
 
+### v5.50 (2026-09-15)
+
+- **AA06 距离处理上限**：`SigProParam (0xAA06)` 保持 32 字节、1 字节对齐的线上布局不变。原末尾 10 字节预留区的前 2 字节定义为小端 `unsigned short distanceProcessUpperLimitM`，量化 1 m、默认 5200 m；后 8 字节继续保留并由构造函数清零。参数窗口新增“距离处理上限(m)”输入框，启动读取和“保存参数”均使用 `[params.sigpro].distanceProcessUpperLimitM`，输入限制为 `0..65535`。
+- **高频正常帧日志控制**：`[logging].bit_report_normal_log_enabled=false` 时，BIT/DE02 仍完整分发到健康管理和扫描线，但不构造并写入冗长的正常字段日志；雷达 ID、角度等协议异常无条件用 WARNING 输出。`[command_control].dda1_normal_log_enabled=false` 与 `dda4_normal_log_enabled=false` 默认抑制 DDA1/DDA4 正常字段日志，异常帧日志保留；DDA4 JSONL 记录和 PPI 回放完全不受影响。开启 DDA4 正常日志后，`dda4_log_interval_ms` 继续用于限速。
+
 ### v5.45 (2026-09-10)
 - **Ubuntu 发布工作流同步**：`docker/build_ubuntu.ps1` 为 Windows 入口，调用 WSL/Docker；`docker/docker_build.sh` 支持 `1804/2004/2204/2404` 和 `--check`。源码以只读方式挂载到 Docker，容器内部复制到私有 `/src` 再构建，输出写入 `deploy/ubuntu<目标>/`，避免混用 Windows CMake 缓存或旧发布产物。
 - **发布包自检与可追溯性**：新增 `check_linux_package.sh`、`BUILD-INFO.txt`、tarball SHA-256 和 `qt.conf`；打包缺失 WebEngineProcess、地图资源或未解析动态库时失败。检查仅覆盖文件/依赖，仍需目标机图形桌面、GPU、地图和雷达网络联调。

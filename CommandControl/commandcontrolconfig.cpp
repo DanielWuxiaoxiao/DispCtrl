@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-15 19:03:34
+ * @LastEditTime: 2026-09-15 19:23:42
  * @Description: 
  */
 #include "commandcontrolconfig.h"
@@ -198,6 +198,10 @@ CommandControlSettings CommandControlConfig::load()
     settings.dda1RadarId = static_cast<quint8>(boundedInt(
         values, QStringLiteral("dda1_radar_id"), settings.dda1RadarId, 0, 3));
     settings.radiationStatus = byteValue(values, QStringLiteral("radiation_status"), settings.radiationStatus);
+    settings.dda1NormalLogEnabled = boolValue(values, QStringLiteral("dda1_normal_log_enabled"),
+                                               settings.dda1NormalLogEnabled);
+    settings.dda4NormalLogEnabled = boolValue(values, QStringLiteral("dda4_normal_log_enabled"),
+                                               settings.dda4NormalLogEnabled);
     settings.dda4LogIntervalMs = boundedInt(values, QStringLiteral("dda4_log_interval_ms"),
                                              settings.dda4LogIntervalMs, 0, 60000);
     settings.packetHexLogEnabled = boolValue(values, QStringLiteral("packet_hex_log_enabled"),
@@ -207,7 +211,7 @@ CommandControlSettings CommandControlConfig::load()
         settings.radiationStatus = 0;
     }
 
-    LOG_INFO(QString("[CommandControl][CONFIG] enabled=%1 local=%2:%3 group=%4:%5 timeSync=%6 server=%7:%8 device=0x%9 autoReport=%10 record=%11 dda1Type=0x%12 dda4Log=%13 packetHex=%14")
+    LOG_INFO(QString("[CommandControl][CONFIG] enabled=%1 local=%2:%3 group=%4:%5 timeSync=%6 server=%7:%8 device=0x%9 autoReport=%10 record=%11 dda1Type=0x%12 dda1NormalLog=%13 dda4NormalLog=%14 dda4LogInterval=%15 packetHex=%16")
              .arg(settings.enabled)
              .arg(settings.localIp)
              .arg(settings.localPort)
@@ -220,6 +224,8 @@ CommandControlSettings CommandControlConfig::load()
              .arg(settings.autoReportEnabled)
              .arg(settings.recordEnabled)
              .arg(settings.dda1DeviceType, 2, 16, QChar('0'))
+             .arg(settings.dda1NormalLogEnabled)
+             .arg(settings.dda4NormalLogEnabled)
              .arg(settings.dda4LogIntervalMs)
              .arg(settings.packetHexLogEnabled));
     LOG_INFO(QString("[CommandControl][CONFIG][DEFAULT] dd25State=0x%1 dda4(type=%2,no=%3,rate=%4,quality=0x%5,update=%6/%7) dda1(work=0x%8,health=0x%9,type=0x%10,no=%11,mode=0x%12,radarId=%13,az=%14~%15,el=%16~%17)")

@@ -339,8 +339,12 @@ dda1_elevation_end_deg = 70
 dda1_radar_id = 0
 # DDA1 初始辐射状态；0 表示关、1 表示开；运行期间会跟随显控发射开关更新。
 radiation_status = 0
-# DDA4 摘要写入项目日志的周期，单位毫秒；0 表示每条均写日志。完整逐条原始报文始终写入 JSONL。
+# DDA4 正常帧项目日志的最小间隔，单位毫秒；仅 dda4_normal_log_enabled=true 时生效，0 表示每条均写。JSONL 始终逐条落盘。
 dda4_log_interval_ms = 1000
+# 是否打印 DDA4 正常帧的完整字段；false 时仅记录错误帧，JSONL 完整落盘不受影响。
+dda4_normal_log_enabled = false
+# 是否打印 DDA1 正常帧的完整字段；false 时仅记录错误帧。
+dda1_normal_log_enabled = false
 # 是否额外输出所有已接收/已投递发送报文的十六进制字节；仅在字节级联调时开启，高频 DDA4 会产生大量日志。
 packet_hex_log_enabled = false
 
@@ -407,6 +411,12 @@ clutterChannelWidth = 0              # 杂波通道宽度
 clutterUnitWin = 0                   # 杂波单元窗
 clutterIter = 0                      # 杂波迭代
 algorithmSwitch = 0                  # 算法开关
+# 距离处理上限（m）；AA06 原 10 字节预留区前 2 字节，unsigned short、小端、1m 量化。
+distanceProcessUpperLimitM = 5200
+
+[logging]
+# 是否打印每一帧 BIT(DE02) 的完整正常字段；false 时仅打印协议异常帧，健康管理 UI 仍实时更新。
+bit_report_normal_log_enabled = false
 
 [params.datapro]
 # 数据处理参数 Data Processing Parameters

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-15 19:03:34
+ * @LastEditTime: 2026-09-15 19:23:42
  * @Description: 
  */
 /* 指控通信模块独立配置读取。 */
@@ -66,6 +66,10 @@ struct CommandControlSettings {
     qint8 dda1ElevationEndDeg = 70;
     quint8 dda1RadarId = 0;
     quint8 radiationStatus = 0;
+    // 已完成联调时默认仅输出异常帧；打开后才写 DDA1 正常帧的完整字段。
+    bool dda1NormalLogEnabled = false;
+    // DDA4 的 JSONL 独立逐条落盘不受此项影响；本项只控制项目日志中的正常字段打印。
+    bool dda4NormalLogEnabled = false;
     int dda4LogIntervalMs = 1000;
     bool packetHexLogEnabled = false;
 };

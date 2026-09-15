@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-15 19:03:34
+ * @LastEditTime: 2026-09-15 19:23:42
  * @Description: 
  */
 #ifndef CONFIGMANAGER_H
@@ -625,7 +625,8 @@ public:
                         unsigned char CFARType, unsigned char disProWin, unsigned char disRefWin,
                         unsigned char dopProWin, unsigned char dopRefWin, unsigned char MTDWinType,
                         unsigned char clutterMode, unsigned char clutterChannelWidth,
-                        unsigned char clutterUnitWin, unsigned char clutterIter, unsigned char algorithmSwitch) {
+                        unsigned char clutterUnitWin, unsigned char clutterIter, unsigned char algorithmSwitch,
+                        unsigned short distanceProcessUpperLimitM) {
         saveValue("params.sigpro.noise", noise);
         saveValue("params.sigpro.thresh1", thresh1);
         saveValue("params.sigpro.thresh2", thresh2);
@@ -642,6 +643,7 @@ public:
         saveValue("params.sigpro.clutterUnitWin", clutterUnitWin);
         saveValue("params.sigpro.clutterIter", clutterIter);
         saveValue("params.sigpro.algorithmSwitch", algorithmSwitch);
+        saveValue("params.sigpro.distanceProcessUpperLimitM", distanceProcessUpperLimitM);
     }
 
     unsigned short sigProNoise(unsigned short def = 350) const {
@@ -691,6 +693,14 @@ public:
     }
     unsigned char sigProAlgorithmSwitch(unsigned char def = 7) const {
         return getValue("params.sigpro.algorithmSwitch", def).toUInt();
+    }
+    unsigned short sigProDistanceProcessUpperLimitM(unsigned short def = 5200) const {
+        return getValue("params.sigpro.distanceProcessUpperLimitM", def).toUInt();
+    }
+
+    // BIT 正常帧默认不打印完整字段，错误帧始终使用 WARNING 输出。
+    bool bitReportNormalLogEnabled(bool def = false) const {
+        return getValue("logging.bit_report_normal_log_enabled", def).toBool();
     }
 
     // 数据处理参数保存/读取
@@ -970,6 +980,11 @@ private:
             content += "clutterUnitWin = 0\n";
             content += "clutterIter = 0\n";
             content += "algorithmSwitch = 0\n\n";
+            content += "# 距离处理上限，单位 m；写入 AA06 原 10 字节预留区的前 2 字节，小端。\n";
+            content += "distanceProcessUpperLimitM = 5200\n\n";
+            content += "[logging]\n";
+            content += "# 是否打印每帧 BIT(DE02) 的完整正常字段；false 时仅打印异常帧。\n";
+            content += "bit_report_normal_log_enabled = false\n\n";
 
             content += "[params.datapro]\n";
             content += "# 数据处理参数 Data Processing Parameters\n";

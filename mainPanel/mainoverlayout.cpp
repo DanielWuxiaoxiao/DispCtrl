@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-14 14:10:17
+ * @LastEditTime: 2026-09-15 19:23:42
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -180,6 +180,7 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     m_sigProParam.clutterUnitWin = CF_INS.sigProClutterUnitWin(1);
     m_sigProParam.clutterIter = CF_INS.sigProClutterIter(19);
     m_sigProParam.algorithmSwitch = CF_INS.sigProAlgorithmSwitch(7);
+    m_sigProParam.distanceProcessUpperLimitM = CF_INS.sigProDistanceProcessUpperLimitM(5200);
 
     // 数据处理参数
     m_dataProParam.startWinLen = CF_INS.dataProStartWinLen(4);
@@ -2987,8 +2988,8 @@ void MainOverLayOut::onRadarSystemClicked() {
     m_healthWindow =
         new CusWindow("雷达系统健康管理", QIcon(":/resources/icon/radararray.png"), this);
     m_healthWindow->setAttribute(Qt::WA_DeleteOnClose);
-    // 子阵电源状态以 6×6 阵列显示，窗口加宽以保持状态文字可读。
-    m_healthWindow->setMinimumSize(850, 1040);
+    // 子阵电源状态以 6×6 阵列显示；固定最低 1200×1200，避免四阵面状态文字被压缩。
+    m_healthWindow->setMinimumSize(1200, 1200);
 
     // 连接窗口关闭信号，清空指针
     connect(m_healthWindow, &QObject::destroyed, this, [this]() {
