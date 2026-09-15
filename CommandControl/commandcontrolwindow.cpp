@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:46
+ * @LastEditTime: 2026-09-15 19:03:34
  * @Description: 
  */
 #include "commandcontrolwindow.h"
@@ -152,7 +152,7 @@ CommandControlWindow::CommandControlWindow(CommandControlModule* module)
     m_recordTable->setObjectName(QStringLiteral("CommandControlRecordTable"));
     m_recordTable->setColumnCount(8);
     m_recordTable->setHorizontalHeaderLabels({QStringLiteral("方向"), QStringLiteral("记录时间"),
-                                               QStringLiteral("设备 ID"), QStringLiteral("本机批号"),
+                                               QStringLiteral("设备 ID"), QStringLiteral("航迹批号"),
                                                QStringLiteral("经度"), QStringLiteral("纬度"),
                                                QStringLiteral("高度(m)"), QStringLiteral("更新方式")});
     m_recordTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -212,7 +212,9 @@ void CommandControlWindow::refreshStatus()
     if (!m_module) {
         return;
     }
-    m_statusLabel->setText(QStringLiteral("状态：%1\n会话记录：%2")
+    m_statusLabel->setText(QStringLiteral("%1\n%2\n状态：%3\n会话记录：%4")
+                           .arg(m_module->controlDiscoveryText())
+                           .arg(m_module->timeSyncText())
                            .arg(m_module->statusText())
                            .arg(m_module->sessionRecordPath()));
     m_autoReportCheckBox->blockSignals(true);

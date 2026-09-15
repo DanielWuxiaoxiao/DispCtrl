@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:44
+ * @LastEditTime: 2026-09-15 19:03:34
  * @Description: 
  */
 #include "commandcontrolconfig.h"
@@ -138,6 +138,16 @@ CommandControlSettings CommandControlConfig::load()
     settings.multicastGroup = configuredText(values, QStringLiteral("multicast_group"), settings.multicastGroup);
     settings.multicastPort = portValue(values, QStringLiteral("multicast_port"), settings.multicastPort);
     settings.expectedControlIp = configuredText(values, QStringLiteral("expected_control_ip"), settings.expectedControlIp);
+    settings.timeSyncEnabled = boolValue(values, QStringLiteral("time_sync_enabled"), settings.timeSyncEnabled);
+    settings.timeServerIp = configuredText(values, QStringLiteral("time_server_ip"), settings.timeServerIp);
+    settings.timeServerPort = portValue(values, QStringLiteral("time_server_port"), settings.timeServerPort);
+    settings.timeSyncTimeoutMs = boundedInt(values, QStringLiteral("time_sync_timeout_ms"),
+                                             settings.timeSyncTimeoutMs, 250, 60000);
+    settings.timeSyncRetryCount = boundedInt(values, QStringLiteral("time_sync_retry_count"),
+                                              settings.timeSyncRetryCount, 0, 10);
+    settings.timeSyncIntervalMs = boundedInt(values, QStringLiteral("time_sync_interval_ms"),
+                                              settings.timeSyncIntervalMs, 60000, 86400000);
+    settings.timeSyncOnDd31 = boolValue(values, QStringLiteral("time_sync_on_dd31"), settings.timeSyncOnDd31);
     settings.deviceId = unsignedValue(values, QStringLiteral("device_id"), settings.deviceId);
     if (settings.deviceId == 0) {
         LOG_WARNING(QString("[CommandControl][CONFIG] device_id 不能为 0，已回退到 0x11474202"));
@@ -197,12 +207,15 @@ CommandControlSettings CommandControlConfig::load()
         settings.radiationStatus = 0;
     }
 
-    LOG_INFO(QString("[CommandControl][CONFIG] enabled=%1 local=%2:%3 group=%4:%5 device=0x%6 autoReport=%7 record=%8 dda1Type=0x%9 dda4Log=%10 packetHex=%11")
+    LOG_INFO(QString("[CommandControl][CONFIG] enabled=%1 local=%2:%3 group=%4:%5 timeSync=%6 server=%7:%8 device=0x%9 autoReport=%10 record=%11 dda1Type=0x%12 dda4Log=%13 packetHex=%14")
              .arg(settings.enabled)
              .arg(settings.localIp)
              .arg(settings.localPort)
              .arg(settings.multicastGroup)
              .arg(settings.multicastPort)
+             .arg(settings.timeSyncEnabled)
+             .arg(settings.timeServerIp)
+             .arg(settings.timeServerPort)
              .arg(settings.deviceId, 8, 16, QChar('0'))
              .arg(settings.autoReportEnabled)
              .arg(settings.recordEnabled)

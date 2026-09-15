@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-14 14:10:17
+ * @LastEditTime: 2026-09-15 19:03:34
  * @Description: 
  */
 #include "commandcontrolmodule.h"
@@ -11,6 +11,7 @@
 #include "commandcontrolrecordwriter.h"
 #include "commandcontrolwindow.h"
 #include "commandcontroltransport.h"
+#include "ntptimesync.h"
 
 #include "Basic/ConfigManager.h"
 #include "Basic/log.h"
@@ -62,6 +63,19 @@ QString monthDayTimeText(const CommandControlProtocol::MonthDayTime& value)
         .arg(value.minute, 2, 10, QLatin1Char('0'))
         .arg(value.second, 2, 10, QLatin1Char('0'))
         .arg(value.millisecond, 3, 10, QLatin1Char('0'));
+}
+
+QString monthDayTimeBitFields(const CommandControlProtocol::MonthDayTime& value)
+{
+    return QStringLiteral("%1[原始=%2,bit0-9毫秒=%3,bit10-15秒=%4,bit16-21分=%5,bit22-26时=%6,bit27-31日=%7]")
+        .arg(monthDayTimeText(value))
+        .arg(QStringLiteral("0x%1").arg(CommandControlProtocol::packMonthDayTime(value), 8, 16,
+                                         QLatin1Char('0')))
+        .arg(value.millisecond)
+        .arg(value.second)
+        .arg(value.minute)
+        .arg(value.hour)
+        .arg(value.day);
 }
 
 QString ipv4ToString(quint32 lowFirst)
@@ -123,12 +137,22 @@ QString hexValue(quint32 value, int width)
 
 QString headerFields(const CommandControlProtocol::Header& header)
 {
-    return QStringLiteral("报头{标识=%1,版本=%2,发端ID=%3,收端ID=%4,标志=%5,类型=%6,流水=%7,当日10ms=%8}")
+    const quint8 versionHigh = static_cast<quint8>((header.version >> 4) & 0x0FU);
+    const quint8 versionLow = static_cast<quint8>(header.version & 0x0FU);
+    const quint8 receiptRequired = static_cast<quint8>((header.flags >> 7) & 0x01U);
+    const quint8 reserved = static_cast<quint8>((header.flags >> 5) & 0x03U);
+    const quint8 priority = static_cast<quint8>(header.flags & 0x1FU);
+    return QStringLiteral("报头{标识=%1,版本=%2(D7-D4=%3,D3-D0=%4),发端ID=%5,收端ID=%6,标志=%7(D7需回执=%8,D6-D5保留=%9,D4-D0优先级=%10),类型=%11,流水=%12,当日10ms=%13}")
         .arg(hexValue(header.magic, 4))
         .arg(hexValue(header.version, 2))
+        .arg(versionHigh)
+        .arg(versionLow)
         .arg(hexValue(header.senderId, 8))
         .arg(hexValue(header.receiverId, 8))
         .arg(hexValue(header.flags, 2))
+        .arg(receiptRequired)
+        .arg(reserved)
+        .arg(priority)
         .arg(hexValue(header.messageType, 4))
         .arg(header.sequence)
         .arg(header.dayTicks10Ms);
@@ -191,32 +215,38 @@ QString loginReplyFields(const CommandControlProtocol::LoginReplyPayload& reply)
 QString linkCheckFields(const CommandControlProtocol::LinkCheckPayload& linkCheck)
 {
     return QStringLiteral("负载{月内压缩时间=%1,协同参与状态=%2}")
-        .arg(monthDayTimeText(linkCheck.timestamp))
+        .arg(monthDayTimeBitFields(linkCheck.timestamp))
         .arg(hexValue(linkCheck.cooperationStatus, 2));
 }
 
 QString dda4Fields(const CommandControlProtocol::Dda4Track& track)
 {
-    return QStringLiteral("负载{目标综合批号=%1,本机设置批号=%2,本机ID=%3,设备类型=%4,设备编号=%5,数据率厘Hz=%6,目标属性=%7,目标类型=%8,备份=%9,航迹质量=%10,经度E7=%11,纬度E7=%12,高度m=%13,X东向速率原始=%14,Y北向速率原始=%15,Z天向速率原始=%16,RCS毫平方米=%17,干扰状态=%18,更新方式=%19,相对延时ms=%20,月内压缩时间=%21}")
+    const quint8 updateState = static_cast<quint8>((track.updateMethod >> 4) & 0x0FU);
+    const quint8 updateMode = static_cast<quint8>(track.updateMethod & 0x0FU);
+    const quint8 attributeReserved = static_cast<quint8>(track.targetAttribute & 0x1FU);
+    return QStringLiteral("负载{目标综合批号=%1,本机设置批号(PPI/TRAINFO批号)=%2,本机ID=%3,设备类型=%4,设备编号=%5,数据率厘Hz=%6,目标属性=%7(D7-D5=%8,D4-D0=%9),目标类型=%10,备份=%11,航迹质量=%12,经度E7=%13,纬度E7=%14,高度m=%15,X东向速率原始=%16,Y北向速率原始=%17,Z天向速率原始=%18,RCS毫平方米=%19,干扰状态=%20,更新方式=%21(D7-D4更新状态=%22,D3-D0上报方式=%23),相对延时ms=%24,月内压缩时间=%25}")
         .arg(track.comprehensiveBatch).arg(track.localBatch).arg(hexValue(track.deviceId, 8))
         .arg(hexValue(track.deviceType, 2)).arg(track.deviceNumber).arg(track.rateCentiHz)
-        .arg(hexValue(track.targetAttribute, 2)).arg(hexValue(track.targetType, 2))
-        .arg(hexValue(track.reserve, 4)).arg(hexValue(track.trackQuality, 2))
+        .arg(hexValue(track.targetAttribute, 2)).arg((track.targetAttribute >> 5) & 0x07U).arg(attributeReserved)
+        .arg(hexValue(track.targetType, 2)).arg(hexValue(track.reserve, 4)).arg(hexValue(track.trackQuality, 2))
         .arg(track.longitudeE7).arg(track.latitudeE7).arg(track.altitudeM)
         .arg(track.velocityEast).arg(track.velocityNorth).arg(track.velocityUp)
         .arg(track.rcsMilliSquareM).arg(hexValue(track.interferenceStatus, 2))
-        .arg(hexValue(track.updateMethod, 2)).arg(track.relativeDelayMs).arg(monthDayTimeText(track.timestamp));
+        .arg(hexValue(track.updateMethod, 2)).arg(updateState).arg(updateMode)
+        .arg(track.relativeDelayMs).arg(monthDayTimeBitFields(track.timestamp));
 }
 
 QString dda1Fields(const CommandControlProtocol::Dda1Status& status)
 {
-    return QStringLiteral("负载{经度E7=%1,纬度E7=%2,高度m=%3,工作状态=%4,健康状态=%5,设备个数=%6,类型=%7,设备编号=%8,设备状态=%9,工作模式=%10,辐射状态=%11,方位起始=%12,方位终止=%13,俯仰起始=%14,俯仰终止=%15,备份=%16}")
+    return QStringLiteral("负载{经度E7=%1,纬度E7=%2,高度m=%3,工作状态=%4(D3-D0=%5),健康状态=%6,设备个数=%7,类型=%8,设备编号=%9,设备状态=%10,工作模式=%11,辐射状态=%12,方位起始=%13,方位终止=%14,俯仰起始=%15(原始=%16),俯仰终止=%17(原始=%18),备份=%19}")
         .arg(status.longitudeE7).arg(status.latitudeE7).arg(status.altitudeM)
-        .arg(hexValue(status.workStatus, 2)).arg(hexValue(status.healthStatus, 2))
+        .arg(hexValue(status.workStatus, 2)).arg(status.workStatus & 0x0FU).arg(hexValue(status.healthStatus, 2))
         .arg(status.deviceCount).arg(hexValue(status.deviceType, 2)).arg(status.deviceNumber)
         .arg(hexValue(status.deviceStatus, 2)).arg(hexValue(status.workMode, 2))
         .arg(status.radiationStatus).arg(status.azimuthStartDeg).arg(status.azimuthEndDeg)
-        .arg(status.elevationStartDeg).arg(status.elevationEndDeg).arg(hexValue(status.reserve, 4));
+        .arg(status.elevationStartDeg).arg(hexValue(static_cast<quint8>(status.elevationStartDeg), 2))
+        .arg(status.elevationEndDeg).arg(hexValue(static_cast<quint8>(status.elevationEndDeg), 2))
+        .arg(hexValue(status.reserve, 4));
 }
 
 }  // namespace
@@ -264,6 +294,7 @@ bool CommandControlModule::init()
         startRecordWriter();
     }
     startNetwork();
+    startTimeSync();
     return true;
 }
 
@@ -279,6 +310,9 @@ QList<CommandControlPeer> CommandControlModule::peers() const
 
 bool CommandControlModule::startNetwork()
 {
+    if (m_transport) {
+        return true;
+    }
     m_transport = new CommandControlTransport();
     m_transport->moveToThread(&m_transportThread);
     connect(&m_transportThread, &QThread::finished, m_transport, &QObject::deleteLater);
@@ -290,6 +324,19 @@ bool CommandControlModule::startNetwork()
     const CommandControlSettings settings = m_settings;
     QMetaObject::invokeMethod(transport, [transport, settings]() { transport->start(settings); }, Qt::QueuedConnection);
     return true;
+}
+
+void CommandControlModule::startTimeSync()
+{
+    if (m_timeSync) {
+        return;
+    }
+    m_timeSync = new NtpTimeSync(this);
+    connect(m_timeSync, &NtpTimeSync::statusChanged, this, [this](const QString&) {
+        // 授时状态是控制窗口的一部分；复用既有刷新信号，不额外影响主界面日志栏。
+        emit statusChanged(m_statusText);
+    });
+    m_timeSync->start(m_settings);
 }
 
 void CommandControlModule::startRecordWriter()
@@ -445,6 +492,27 @@ void CommandControlModule::setStatus(const QString& text)
     emit statusChanged(text);
 }
 
+QString CommandControlModule::controlDiscoveryText() const
+{
+    if (!m_controlEndpoint.isValid()) {
+        return QStringLiteral("总控发现：尚未收到 DD31 组播管理节点通报");
+    }
+    const QString loginState = m_loggedIn ? QStringLiteral("已登录")
+        : (m_waitingForLoginReply ? QStringLiteral("等待 DD34 登录回复")
+                                  : QStringLiteral("未登录"));
+    return QStringLiteral("总控发现：已收到 DD31 组播；单播端点=%1:%2，主控ID=%3，%4")
+        .arg(m_controlEndpoint.address.toString())
+        .arg(m_controlEndpoint.port)
+        .arg(hexValue(m_controlEndpoint.id, 8))
+        .arg(loginState);
+}
+
+QString CommandControlModule::timeSyncText() const
+{
+    return m_timeSync ? QStringLiteral("授时状态：%1").arg(m_timeSync->statusText())
+                      : QStringLiteral("授时状态：尚未初始化");
+}
+
 CommandControlProtocol::Header CommandControlModule::nextHeader(quint16 type, quint32 receiverId,
                                                                  bool requestReceipt, quint8 priority)
 {
@@ -592,6 +660,9 @@ void CommandControlModule::handleManagementNode(const QByteArray& packet,
     if (!m_settings.expectedControlIp.isEmpty() && sender.toString() != m_settings.expectedControlIp) {
         LOG_WARNING(QString("[CommandControl][DD31] 来源 IP=%1 与配置期望总控 IP=%2 不同，已按有效报文更新")
                     .arg(sender.toString(), m_settings.expectedControlIp));
+    }
+    if (m_settings.timeSyncOnDd31 && m_timeSync) {
+        m_timeSync->requestSync(nodeAddress.toString(), QStringLiteral("收到 DD31 组播"));
     }
 
     logControlPacket(QStringLiteral("RX"), header,
@@ -757,7 +828,7 @@ void CommandControlModule::handleIncomingDda1(const QByteArray& packet, const Co
 void CommandControlModule::beginLogin(CommandControlProtocol::LoginRequestType type, bool allowRetries)
 {
     if (!m_controlEndpoint.isValid()) {
-        setStatus(QStringLiteral("尚未从 DD31 得到总控点播地址"));
+        setStatus(QStringLiteral("尚未从 DD31 组播得到总控单播地址"));
         return;
     }
     const QHostAddress localAddress(m_settings.localIp);
@@ -903,7 +974,6 @@ void CommandControlModule::processTrackPoint(const PointInfo& info)
         m_latestTracks.remove(info.batch);
         m_targetClasses.remove(info.batch);
         m_manualBatches.remove(info.batch);
-        m_localBatches.remove(info.batch);
         LOG_INFO(QString("[CommandControl][TRACK] 航迹消批 sourceBatch=%1，已停止手动上报").arg(info.batch));
         return;
     }
@@ -983,19 +1053,6 @@ void CommandControlModule::showControlWindow()
 bool CommandControlModule::isDrone(quint32 sourceBatch, const PointInfo& info) const
 {
     return info.targetRecResult == 1 || m_targetClasses.value(sourceBatch, 0) == 1;
-}
-
-quint32 CommandControlModule::localBatchFor(quint32 sourceBatch)
-{
-    if (m_localBatches.contains(sourceBatch)) {
-        return m_localBatches.value(sourceBatch);
-    }
-    if (m_nextLocalBatch == 0) {
-        ++m_nextLocalBatch;
-    }
-    const quint32 localBatch = m_nextLocalBatch++;
-    m_localBatches.insert(sourceBatch, localBatch);
-    return localBatch;
 }
 
 bool CommandControlModule::targetLla(const PointInfo& info, double& longitudeDeg,
@@ -1103,7 +1160,8 @@ CommandControlProtocol::Dda4Track CommandControlModule::makeDda4Track(const Poin
     double altitude = 0.0;
     targetLla(info, longitude, latitude, altitude);
     track.comprehensiveBatch = m_settings.dda4ComprehensiveBatch;
-    track.localBatch = m_localBatches.value(info.batch);
+    // 协议“本机设置批号”与显控航迹批号是同一业务 ID，禁止另行映射为递增流水。
+    track.localBatch = info.batch;
     track.deviceId = m_settings.deviceId;
     track.deviceType = m_settings.dda4DeviceType;
     track.deviceNumber = m_settings.dda4DeviceNumber;
@@ -1150,7 +1208,6 @@ void CommandControlModule::reportTrack(const PointInfo& info, bool manualMode)
         LOG_WARNING(QString("[CommandControl][DDA4] 跳过无效 RAE sourceBatch=%1").arg(info.batch));
         return;
     }
-    localBatchFor(info.batch);
     const auto track = makeDda4Track(info, manualMode);
     const auto header = nextHeader(CommandControlProtocol::SituationIntelligence, 0, false, 0x03);
     const QByteArray packet = CommandControlProtocol::makeDda4Track(header, track);

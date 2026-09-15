@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-14 14:10:17
+ * @LastEditTime: 2026-09-15 19:03:34
  * @Description: 
  */
 /*
@@ -38,6 +38,7 @@
 class CommandControlWindow;
 class CommandControlRecordWriter;
 class CommandControlTransport;
+class NtpTimeSync;
 
 struct CommandControlPeer {
     quint32 deviceId = 0;
@@ -64,6 +65,9 @@ public:
     bool isAutoReportEnabled() const { return m_autoReportEnabled; }
     bool isManualReportActive(quint32 sourceBatch) const;
     QString statusText() const { return m_statusText; }
+    // DD31 是组播发现报文；此文本单独描述发现结果，避免被最后一次登录状态覆盖。
+    QString controlDiscoveryText() const;
+    QString timeSyncText() const;
     QString sessionRecordPath() const { return m_sessionRecordPath; }
     const QVector<CommandControlRecord>& recentRecords() const { return m_recentRecords; }
     QList<CommandControlPeer> peers() const;
@@ -121,6 +125,7 @@ private:
     bool startNetwork();
     void startRecordWriter();
     void stopRecordWriter();
+    void startTimeSync();
     void stopNetwork();
     void setStatus(const QString& text);
     CommandControlProtocol::Header nextHeader(quint16 type, quint32 receiverId,
@@ -142,7 +147,6 @@ private:
     void beginLogin(CommandControlProtocol::LoginRequestType type, bool allowRetries);
     void reportTrack(const PointInfo& info, bool manualMode);
     bool isDrone(quint32 sourceBatch, const PointInfo& info) const;
-    quint32 localBatchFor(quint32 sourceBatch);
     CommandControlProtocol::Dda4Track makeDda4Track(const PointInfo& info, bool manualMode) const;
     bool targetLla(const PointInfo& info, double& longitudeDeg, double& latitudeDeg, double& altitudeM) const;
     bool replayPointFor(const CommandControlRecord& record, PointInfo& point);
@@ -168,6 +172,7 @@ private:
     CommandControlTransport* m_transport = nullptr;
     QThread m_recordThread;
     CommandControlRecordWriter* m_recordWriter = nullptr;
+    NtpTimeSync* m_timeSync = nullptr;
     QTimer m_linkTimer;
     QTimer m_equipmentStatusTimer;
     QTimer m_loginRetryTimer;
@@ -178,14 +183,12 @@ private:
     CommandControlWindow* m_window = nullptr;
     QHash<quint32, PointInfo> m_latestTracks;
     QHash<quint32, quint8> m_targetClasses;
-    QHash<quint32, quint32> m_localBatches;
     QSet<quint32> m_manualBatches;
     QHash<quint32, CommandControlPeer> m_peers;
     QVector<CommandControlRecord> m_recentRecords;
     QVector<CommandControlRecord> m_replayRecords;
     QHash<quint64, quint32> m_replayBatches;
     ControlEndpoint m_controlEndpoint;
-    quint32 m_nextLocalBatch = 1;
     quint32 m_nextReplayBatch = 0x80000000U;
     quint8 m_sequence = 0;
     int m_loginRetriesRemaining = 0;

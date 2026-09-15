@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-14 14:10:16
+ * @LastEditTime: 2026-09-15 19:03:34
  * @Description: 
  */
 #ifndef CONFIGMANAGER_H
@@ -382,8 +382,9 @@ public:
     QString healthRadarLocalIp(const QString& def = "192.168.64.4") const {
         return getValue("health_network.radar_local_ip", ip("DISP_CTRL_IP", def)).toString();
     }
-    QString healthRadarPeerIp(const QString& def = QString()) const {
-        return getValue("health_network.radar_peer_ip", def).toString();
+    QString healthRadarPeerIp(const QString& def = "192.168.64.3") const {
+        const QString configured = getValue("health_network.radar_peer_ip", def).toString().trimmed();
+        return configured.isEmpty() ? def : configured;
     }
 
     // 显示配置相关

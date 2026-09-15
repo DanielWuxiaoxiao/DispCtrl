@@ -171,6 +171,7 @@ set(SRC_FILES
     Controller/subsystemnetworkmonitor.cpp     # 健康管理分系统网络状态
     CommandControl/commandcontrolprotocol.cpp  # 总控 UDP 协议编解码
     CommandControl/commandcontrolconfig.cpp    # 总控通信独立配置
+    CommandControl/ntptimesync.cpp             # NTP 授时与系统时间更新
       CommandControl/commandcontrolrecordstore.cpp # DDA4 会话记录
       CommandControl/commandcontrolrecordwriter.cpp # DDA4 独立记录线程
     CommandControl/commandcontroltransport.cpp # UDP 工作线程
@@ -267,6 +268,7 @@ set(HDR_FILES
     Controller/subsystemnetworkmonitor.h        # 健康管理分系统网络状态
     CommandControl/commandcontrolprotocol.h     # 总控 UDP 协议编解码
     CommandControl/commandcontrolconfig.h       # 总控通信独立配置
+    CommandControl/ntptimesync.h                # NTP 授时与系统时间更新
       CommandControl/commandcontrolrecordstore.h  # DDA4 会话记录
       CommandControl/commandcontrolrecordwriter.h # DDA4 独立记录线程
     CommandControl/commandcontroltransport.h    # UDP 工作线程
@@ -401,6 +403,11 @@ add_executable(DispCtrl
 
 # 链接Qt库到DispCtrl目标
 target_link_libraries(DispCtrl PRIVATE ${QT_LIBS})
+
+# Windows 修改系统时间时需要调整 SeSystemtimePrivilege。
+if(WIN32)
+    target_link_libraries(DispCtrl PRIVATE advapi32)
+endif()
 
 option(DISPCTRL_BUILD_TESTS "Build focused DispCtrl QTest targets" OFF)
 if(DISPCTRL_BUILD_TESTS)

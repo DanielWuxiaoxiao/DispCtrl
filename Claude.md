@@ -904,6 +904,12 @@ dataToScene            # RangeAzimuth坐标转换
 - **无阵面联调原点**：开始本地测试时，生成器仅一次读取 `[radar]` 预存经纬高，并通过专用测试信号提供给总控 DDA4；它不会伪装为 DD05 阵面真值，现场 DD05 真值到达后仍可正常覆盖临时原点。DDA4 与 GCS 均继续复用既有 WGS84/ENU 实现。生成开始、每 50 个采样点、结束及每个消批均写项目日志；出站 DDA4 JSONL 同时保存用于 PPI 的源 `batch/range/azimuth/elevation/relative altitude/speed` 与雷达原点，便于逐条核对生成值、PPI 输入和已编码的经纬高。
 - **日志 UTF-8**：统一日志文件通过 `QTextStream::setCodec("UTF-8")` 写入；总控报文类型中文通过 UTF-8 解码，避免总控窗口与日志中出现乱码。旧日志仍为历史本地编码，不自动转换。
 
+### v5.49 (2026-09-15)
+
+- **总控 DD31 与 DDA4 批号纠正**：DD31 明确为 `224.0.1.2:21505` 组播发现报文；总控通信窗口持续显示“已收到 DD31 组播”及其提供的 DD33/DD34 单播端点，避免将发现报文误称为单播。DDA4“本机设置批号”不再二次分配 `1,2,...`，而是严格透传普通 `TRAINFO/PPI PointInfo.batch`，因此真实 DBT 航迹和测试航迹使用完全相同的总控上报路径与业务批号。
+- **总控字段日志与健康网段**：公共报头版本/标志、DD25/DDA4 时间位域、DDA4 更新方式/目标属性、DDA1 工作状态和有符号俯仰在结构化日志中按 bit 段和原始值共同输出；原始十六进制打印仍仅由 `packet_hex_log_enabled` 控制。本版本健康管理雷达网络固定显示本机 `192.168.64.4`、阵面对端 `192.168.64.3`，并将对端默认值固化于 `[health_network]`。
+- **总控备用 NTP 授时**：新增独立 `CommandControl/NtpTimeSync`，以标准 UDP `192.30.105.10:123` 查询 NTP，在 GUI/PPI 线程中仅用非阻塞 `QUdpSocket` 和定时器等待应答，不阻塞航迹绘制。有效应答按 NTP 四时间戳公式估计 UTC 后调用 Windows `SetSystemTime` 或 Unix `clock_settime` 更新系统时间；NTP 无响应、应答非法或权限不足只写日志和控制窗口状态，绝不阻断总控 UDP、登录、上报或既有显控功能，便于现场继续使用操作系统的手动/自动授时。配置支持周期重校和 DD31 到达后的 60 秒限流补充校时。
+
 ### v5.45 (2026-09-10)
 - **Ubuntu 发布工作流同步**：`docker/build_ubuntu.ps1` 为 Windows 入口，调用 WSL/Docker；`docker/docker_build.sh` 支持 `1804/2004/2204/2404` 和 `--check`。源码以只读方式挂载到 Docker，容器内部复制到私有 `/src` 再构建，输出写入 `deploy/ubuntu<目标>/`，避免混用 Windows CMake 缓存或旧发布产物。
 - **发布包自检与可追溯性**：新增 `check_linux_package.sh`、`BUILD-INFO.txt`、tarball SHA-256 和 `qt.conf`；打包缺失 WebEngineProcess、地图资源或未解析动态库时失败。检查仅覆盖文件/依赖，仍需目标机图形桌面、GPU、地图和雷达网络联调。

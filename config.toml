@@ -205,14 +205,14 @@ save_dir = "LaserReportLog"          # txt保存目录（相对程序运行目�
 
 # =============================================================================
 # 健康管理网络状态 Network Health
-# radar_peer_ip 必须填写X576现场阵面对端IP；不能误用DATA_PRO_IP等处理软件地址。
+# radar_peer_ip 为本版本阵面对端IP；不能误用其它网段或处理软件地址。
 # 本机阵面IP未单独配置时继承network.ips.DISP_CTRL_IP；激光IP/对端则继承[laser]配置。
 # =============================================================================
 [health_network]
 enabled = true
 poll_interval_ms = 5000
 # radar_local_ip = "192.168.64.4"   # 可选：仅当阵面网卡IP与DISP_CTRL_IP不同才覆盖
-radar_peer_ip = ""                  # 现场填写阵面对端IP，例如 "192.168.64.x"
+radar_peer_ip = "192.168.64.3"      # 阵面对端IP；本版本固定为 192.168.64.3，本机显控为 192.168.64.4
 
 # =============================================================================
 # 本地测试航迹 Test Tracks
@@ -246,6 +246,20 @@ multicast_group = "224.0.1.2"
 multicast_port = 21505
 # 期望总控来源 IP；仅用于收到 DD31 时的告警核对，不会阻止有效 DD31 更新实际单播端点。
 expected_control_ip = "192.30.105.10"
+# 是否启用标准 NTP/SNTP 备用授时；总控通信会立即启动，授时结果不会阻断既有功能。
+time_sync_enabled = true
+# NTP 时间服务器 IPv4；默认使用总控 192.30.105.10。
+time_server_ip = "192.30.105.10"
+# 标准 NTP/SNTP UDP 端口。
+time_server_port = 123
+# 单次 NTP 请求超时，单位毫秒，范围 250～60000。
+time_sync_timeout_ms = 2000
+# 单次授时失败后的额外重试次数，范围 0～10。
+time_sync_retry_count = 2
+# 周期重校间隔，单位毫秒，范围 60000～86400000；默认每小时一次。
+time_sync_interval_ms = 3600000
+# 收到有效 DD31 组播后是否补充向其通报 IP 进行一次授时；60 秒内会限流，避免每 3 秒重复请求。
+time_sync_on_dd31 = true
 # 本机雷达/显控端用户 ID；写入公共报头、DD33、DDA4，必须非 0，支持十进制或 0x 十六进制。
 device_id = "0x11474202"
 # DDA4 自动上报开关；true 时识别为无人机的普通航迹自动组播，窗口可在本次运行中切换。
