@@ -131,7 +131,7 @@ max = 5                              # 最大显示距离（千米）
 [map]
 # 地图基本配置
 engine = 1                           # 地图引擎：0=OSM(MapLibre+PMTiles,WGS84), 1=高德(AMap,GCJ-02)
-default_type = 1                     # 默认地图类型（各引擎类型不同，详见下方说明）
+default_type = 0                     # 默认无地图；各引擎类型不同，详见下方说明。
 # OSM引擎类型: 0=无地图, 1=路网图, 2=雷达暗绿, 3=暗色标准, 4=全要素
 # 高德引擎类型: 0=无地图, 1=路网图, 2=标准图, 3=卫星图
 
@@ -192,10 +192,10 @@ extra_chromium_flags = ""            # 追加自定义Chromium参数(空格分�
 # =============================================================================
 # 激光侦察上报（独立模块）Laser Reconnaissance Report
 # 仅“激光终端”功能：右键航迹→引导光电跟踪(持续)，对该目标周期发送侦察帧。
-# enabled=false 时不创建模块、右键菜单也不出现该项；与其它上报/下发互不影响。
+# enabled=false 时不创建模块，右键菜单和 PPI“激光(F6)”快捷入口均不出现；默认开启。
 # =============================================================================
 [laser]
-enabled = false                      # 激光上报总开关（关闭时右键无此项）
+enabled = true                      # 激光上报总开关（默认开启；关闭时右键和 PPI F6 入口均不显示）
 radar_ip = "192.168.101.9"           # 雷达端本地绑定IP（9009发送源端）
 laser_ctrl_ip = "192.168.101.10"     # 激光控制终端IP
 udp_port = 9009                      # 雷达192.168.101.9:9009 → 激光192.168.101.10:9009
@@ -221,7 +221,7 @@ radar_peer_ip = "192.168.64.3"      # 阵面对端IP；本版本固定为 192.16
 # 生成期间使用 [radar] 的经纬高预存值作为本机位置，供既有 WGS84 坐标换算链路使用。
 # =============================================================================
 [test_track]
-enabled = false                     # 是否启用本地测试航迹功能；true 时才创建生成器和显示按钮
+enabled = true                     # 是否启用本地测试航迹功能；true 时才创建生成器和显示按钮
 track_count = 2                     # 每轮并行生成的无人机普通航迹数量，仅允许 2 或 3
 point_count = 300                   # 每条航迹的点数；最后一个点后发送 statMethod=2 消批
 interval_ms = 500                   # 相邻测试采样周期(ms)；默认 500ms 即 2Hz，应与 DDA4 数据率一致
@@ -234,10 +234,10 @@ first_batch = 65000                 # 第 1 条测试航迹批号；后续依次
 # 字符串引号解析问题。变更配置后重启生效。
 # =============================================================================
 [command_control]
-# 是否启用总控 UDP 通信模块；false 时不创建组播、单播、记录和控制窗口。
+# 是否启用总控 UDP 通信模块；默认开启。false 时不创建组播、单播、记录、控制窗口及 PPI F7 入口。
 enabled = true
 # 雷达/显控端本机 IPv4；用于绑定 UDP 套接字及写入 DD33 登录请求，需与总控同网段可达。
-local_ip = "192.30.105.13"
+local_ip = "192.30.106.13"
 # 本机 UDP 绑定端口；DD33 中同时上报该端口，合法范围 1～65535。
 local_port = 21505
 # DD25、DDA1、DDA4 和 DD31 使用的 IPv4 组播地址。
@@ -245,11 +245,13 @@ multicast_group = "224.0.1.2"
 # 组播收发端口；应与总控和其它设备配置一致，合法范围 1～65535。
 multicast_port = 21505
 # 期望总控来源 IP；仅用于收到 DD31 时的告警核对，不会阻止有效 DD31 更新实际单播端点。
-expected_control_ip = "192.30.105.10"
+expected_control_ip = "192.30.106.10"
+# 总控通信页面的本机/主控/NTP 网络状态刷新周期(ms)；异步 Ping，范围 1000～60000。
+network_status_poll_interval_ms = 5000
 # 是否启用标准 NTP/SNTP 备用授时；总控通信会立即启动，授时结果不会阻断既有功能。
 time_sync_enabled = true
-# NTP 时间服务器 IPv4；默认使用总控 192.30.105.10。
-time_server_ip = "192.30.105.10"
+# NTP 时间服务器 IPv4；默认 192.30.1.1，与总控主机地址独立配置。
+time_server_ip = "192.30.1.1"
 # 标准 NTP/SNTP UDP 端口。
 time_server_port = 123
 # 单次 NTP 请求超时，单位毫秒，范围 250～60000。
@@ -262,8 +264,8 @@ time_sync_interval_ms = 3600000
 time_sync_on_dd31 = true
 # 本机雷达/显控端用户 ID；写入公共报头、DD33、DDA4，必须非 0，支持十进制或 0x 十六进制。
 device_id = "0x11474202"
-# DDA4 自动上报开关；true 时识别为无人机的普通航迹自动组播，窗口可在本次运行中切换。
-auto_report_enabled = true
+# DDA4 自动上报开关；默认关闭。开启后识别为无人机的普通航迹自动组播，窗口可在本次运行中切换。
+auto_report_enabled = false
 # DD25 链路检测组播周期，单位毫秒；建议保持 3000，5 个周期未收到对端 DD25 判定其离线。
 link_interval_ms = 3000
 # DDA1 雷达装备状态组播周期，单位毫秒；建议保持 3000。
@@ -278,6 +280,8 @@ record_enabled = true
 record_directory = "CommandControlRecords"
 # 回放 DDA4 到 PPI 的投递周期，单位毫秒；数值越小回放越快，合法范围 10～10000。
 replay_interval_ms = 200
+# 回放中单条航迹最后一次更新后，在记录时间轴上持续无新点即自动从 PPI 删除；单位毫秒，0 表示禁用，合法范围 0～600000。
+replay_track_stale_ms = 3000
 # 控制窗口内存中最多展示的 DDA4 条数；只限制界面缓存，不影响 JSONL 完整落盘，范围 10～10000。
 visible_record_limit = 1000
 
@@ -395,22 +399,22 @@ elestep3 = 400                       # 波形3俯仰步进（0.01度）
 
 [params.sigpro]
 # 信号处理参数 Signal Processing Parameters
-noise = 1000                         # 噪声门限
-thresh1 = 0                          # 门限1
-thresh2 = 0                          # 门限2
-clutterThresh = 0                    # 杂波门限
-clutterMapFlaseRate = 0              # 杂波图虚警率
+noise = 3000                         # 噪声门限
+thresh1 = 1000                          # 门限1
+thresh2 = 1500                          # 门限2
+clutterThresh = 1500                    # 杂波门限
+clutterMapFlaseRate = 4              # 杂波图虚警率
 CFARType = 0                         # CFAR类型
-disProWin = 0                        # 距离保护窗
-disRefWin = 0                        # 距离参考窗
-dopProWin = 0                        # 多普勒保护窗
-dopRefWin = 0                        # 多普勒参考窗
-MTDWinType = 0                       # MTD窗类型
+disProWin = 2                        # 距离保护窗
+disRefWin = 16                        # 距离参考窗
+dopProWin = 2                        # 多普勒保护窗
+dopRefWin = 16                        # 多普勒参考窗
+MTDWinType = 1                       # MTD窗类型
 clutterMode = 0                      # 杂波模式
-clutterChannelWidth = 0              # 杂波通道宽度
-clutterUnitWin = 0                   # 杂波单元窗
-clutterIter = 0                      # 杂波迭代
-algorithmSwitch = 0                  # 算法开关
+clutterChannelWidth = 3              # 杂波通道宽度
+clutterUnitWin = 9                   # 杂波单元窗
+clutterIter = 19                      # 杂波迭代
+algorithmSwitch = 7                  # 算法开关
 # 距离处理上限（m）；AA06 原 10 字节预留区前 2 字节，unsigned short、小端、1m 量化。
 distanceProcessUpperLimitM = 5200
 
@@ -463,8 +467,8 @@ max_points = 1000                    # 最大检测点数量
 max_track_points = 200               # 单批航迹最大点数
 # P显和阵面开启控制的初始阵面数量（1~4，默认仅阵面1；不自动下发阵面开关命令）
 default_panel_count = 1
-iftbd = true                        # 是否启用TBD航迹接收与显示
-ifxietong = true                    # 是否启用协同航迹接收与显示
+iftbd = false                        # 是否启用TBD航迹接收与显示
+ifxietong = false                    # 是否启用协同航迹接收与显示
 sector_display_enabled = false       # Create the sector display widget
 sector_display_data_enabled = false  # Feed live points/tracks into sector display; keep false for benchmark
 track_label_refresh_ms = 200         # 主P显航迹标签最小刷新间隔，0=每点刷新

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-15 19:23:42
+ * @LastEditTime: 2026-09-16 21:32:28
  * @Description: 
  */
 #ifndef CONFIGMANAGER_H
@@ -172,7 +172,7 @@ public:
         return getValue("polarDisp.range." + key, def).toInt();
     }
 
-    int mapType(const QString& key, int def = 1) const {
+    int mapType(const QString& key, int def = 0) const {
         return getValue("map." + key, def).toInt();
     }
 
@@ -350,8 +350,8 @@ public:
         return getValue("webengine.extra_chromium_flags", def).toString();
     }
 
-    // ===== 激光侦察上报配置（独立模块，默认关闭；关闭时右键菜单无此项）=====
-    bool laserReportEnabled(bool def = false) const {
+    // ===== 激光侦察上报配置（独立模块，默认开启；关闭时右键菜单无此项）=====
+    bool laserReportEnabled(bool def = true) const {
         return getValue("laser.enabled", def).toBool();
     }
     QString laserRadarIp(const QString& def = "192.168.101.9") const {

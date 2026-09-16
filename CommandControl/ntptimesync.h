@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@xidian.edu.cn
- * @Date: 2026-09-15 18:44:37
+ * @Date: 2026-09-15 19:03:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-15 19:03:35
+ * @LastEditTime: 2026-09-16 21:32:29
  * @Description: 
  */
 #ifndef COMMANDCONTROL_NTP_TIME_SYNC_H
@@ -32,6 +32,8 @@ public:
 
     void start(const CommandControlSettings& settings);
     void requestSync(const QString& serverIp, const QString& reason);
+    void requestManualSync();
+    bool isEnabled() const { return m_settings.timeSyncEnabled; }
     QString statusText() const { return m_statusText; }
 
 signals:

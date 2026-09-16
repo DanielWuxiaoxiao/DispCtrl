@@ -2005,7 +2005,8 @@ PhotoElectricParam QLineEdit {
 }
 
 #CommandControlLoginButton,
-#CommandControlReplayButton {
+#CommandControlReplayButton,
+#CommandControlTimeSyncButton {
     color: #061b14;
     font-weight: bold;
     background-color: #00c982;
@@ -2013,7 +2014,8 @@ PhotoElectricParam QLineEdit {
 }
 
 #CommandControlLoginButton:hover,
-#CommandControlReplayButton:hover {
+#CommandControlReplayButton:hover,
+#CommandControlTimeSyncButton:hover {
     color: #03120d;
     background-color: #54efb3;
     border-color: #b0ffe0;
@@ -2024,6 +2026,30 @@ PhotoElectricParam QLineEdit {
     color: #ffded9;
     background-color: #4a2a2a;
     border-color: #bf6464;
+}
+
+#CommandControlPauseReplayButton {
+    color: #ffe8b0;
+    background-color: #4a3a1f;
+    border-color: #c89b3c;
+}
+
+#CommandControlPauseReplayButton:hover {
+    color: #ffffff;
+    background-color: #715425;
+    border-color: #ffd86a;
+}
+
+#CommandControlSeekReplayButton {
+    color: #ccecff;
+    background-color: #1b3544;
+    border-color: #438bb0;
+}
+
+#CommandControlSeekReplayButton:hover {
+    color: #ffffff;
+    background-color: #28536a;
+    border-color: #83d9ff;
 }
 
 #CommandControlLogoutButton:hover,

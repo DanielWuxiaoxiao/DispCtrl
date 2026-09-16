@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-15 19:03:34
+ * @LastEditTime: 2026-09-16 21:32:29
  * @Description: 
  */
 /*
@@ -35,10 +35,14 @@
 #include <QTimer>
 #include <QVector>
 
+#include <array>
+#include <cstddef>
+
 class CommandControlWindow;
 class CommandControlRecordWriter;
 class CommandControlTransport;
 class NtpTimeSync;
+class CommandControlNetworkMonitor;
 
 struct CommandControlPeer {
     quint32 deviceId = 0;
@@ -61,27 +65,43 @@ public:
     ~CommandControlModule() override;
 
     bool init();
+    bool isEnabled() const { return m_settings.enabled; }
     bool isReady() const { return m_ready; }
+    bool isLoggedIn() const { return m_loggedIn; }
     bool isAutoReportEnabled() const { return m_autoReportEnabled; }
     bool isManualReportActive(quint32 sourceBatch) const;
     QString statusText() const { return m_statusText; }
     // DD31 是组播发现报文；此文本单独描述发现结果，避免被最后一次登录状态覆盖。
     QString controlDiscoveryText() const;
     QString timeSyncText() const;
+    bool isTimeSyncEnabled() const { return m_settings.timeSyncEnabled; }
+    bool networkStatusOk(int index) const;
+    QString networkStatusText(int index) const;
     QString sessionRecordPath() const { return m_sessionRecordPath; }
     const QVector<CommandControlRecord>& recentRecords() const { return m_recentRecords; }
     QList<CommandControlPeer> peers() const;
+    bool isReplayActive() const { return !m_replayRecords.isEmpty(); }
+    bool isReplayPaused() const { return m_replayPaused; }
+    bool isReplayRebuilding() const { return m_replayRebuilding; }
+    int replayIndex() const { return m_replayIndex; }
+    int replayCount() const { return m_replayRecords.size(); }
 
 public slots:
     void processTrackPoint(const PointInfo& info);
     void processTargetClassification(TargetClaRes result);
     void toggleManualReport(quint32 sourceBatch);
+    /// 仅开启指定普通航迹的手动 DDA4 上报；已开启时保持开启，供 PPI 快捷入口调用。
+    bool startManualReport(quint32 sourceBatch);
     void setAutoReportEnabled(bool enabled);
     void requestLogin();
     void requestLogout();
+    void requestTimeSync();
     void showControlWindow();
     void startReplay(const QString& recordFilePath);
     void stopReplay();
+    void toggleReplayPause();
+    void rewindReplay();
+    void fastForwardReplay();
     void setRadiationStatus(bool transmitting);
     void updateRadarPosition(double latitude, double longitude, double altitude);
     void setTestRadarPosition(double latitude, double longitude, double altitude);
@@ -97,8 +117,15 @@ signals:
     void autoReportChanged(bool enabled);
     void peersChanged();
     void recordsChanged();
+    void networkStatusChanged(int index, bool ok, const QString& text);
     void readyChanged(bool ready);
-    void replayPointReady(const PointInfo& info);
+    void replayStateChanged();
+    // 回放使用内部批号隔离不同设备的同名航迹；同时携带原始设备/批号供 PPI 显示。
+    void replayPointReady(const PointInfo& info, quint32 sourceDeviceId,
+                          quint32 sourceBatch, bool sourceIsLocal);
+    // 仅清理回放分配的内部批号，绝不清理同屏实时航迹。
+    void replayTrackRemovalRequested(quint32 replayBatch);
+    void replayTracksCleared();
 
 private slots:
     void onTransportStarted(bool success, const QString& detail);
@@ -112,6 +139,7 @@ private slots:
     void retryLogin();
     void updatePeerLiveness();
     void emitNextReplayPoint();
+    void rebuildReplayChunk();
 
 private:
     struct ControlEndpoint {
@@ -126,6 +154,7 @@ private:
     void startRecordWriter();
     void stopRecordWriter();
     void startTimeSync();
+    void startNetworkMonitor();
     void stopNetwork();
     void setStatus(const QString& text);
     CommandControlProtocol::Header nextHeader(quint16 type, quint32 receiverId,
@@ -150,6 +179,11 @@ private:
     CommandControlProtocol::Dda4Track makeDda4Track(const PointInfo& info, bool manualMode) const;
     bool targetLla(const PointInfo& info, double& longitudeDeg, double& latitudeDeg, double& altitudeM) const;
     bool replayPointFor(const CommandControlRecord& record, PointInfo& point);
+    bool emitReplayRecord();
+    void removeStaleReplayTracks(qint64 replayTimeUtcMs);
+    void seekReplay(int targetIndex);
+    void clearReplayTracks();
+    void finishReplay(const QString& statusText);
     void storeDda4(bool outbound, const CommandControlProtocol::Dda4Track& track, const QByteArray& packet,
                    const PointInfo* sourcePoint = nullptr);
     void updatePeer(quint32 deviceId, const QHostAddress& sender, quint16 senderPort,
@@ -173,11 +207,13 @@ private:
     QThread m_recordThread;
     CommandControlRecordWriter* m_recordWriter = nullptr;
     NtpTimeSync* m_timeSync = nullptr;
+    CommandControlNetworkMonitor* m_networkMonitor = nullptr;
     QTimer m_linkTimer;
     QTimer m_equipmentStatusTimer;
     QTimer m_loginRetryTimer;
     QTimer m_peerLivenessTimer;
     QTimer m_replayTimer;
+    QTimer m_replayRebuildTimer;
     QTimer m_peerRefreshTimer;
     QTimer m_recordRefreshTimer;
     CommandControlWindow* m_window = nullptr;
@@ -188,6 +224,9 @@ private:
     QVector<CommandControlRecord> m_recentRecords;
     QVector<CommandControlRecord> m_replayRecords;
     QHash<quint64, quint32> m_replayBatches;
+    QHash<quint64, qint64> m_replayLastUpdateUtcMs;
+    std::array<bool, 3> m_networkStatusOk{};
+    std::array<QString, 3> m_networkStatusText{};
     ControlEndpoint m_controlEndpoint;
     quint32 m_nextReplayBatch = 0x80000000U;
     quint8 m_sequence = 0;
@@ -219,6 +258,10 @@ private:
     qint64 m_lastDda4TxLogMs = 0;
     qint64 m_lastDda4RxLogMs = 0;
     int m_replayIndex = 0;
+    int m_replayRebuildTargetIndex = 0;
+    bool m_replayPaused = false;
+    bool m_replayRebuilding = false;
+    bool m_resumeReplayAfterRebuild = false;
 };
 
 #endif  // COMMANDCONTROL_MODULE_H

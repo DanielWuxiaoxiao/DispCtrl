@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:52
+ * @LastEditTime: 2026-09-16 21:32:30
  * @Description: 
  */
 /**
@@ -22,6 +22,9 @@
 #include "../Basic/Protocol.h"
 
 #include <QGraphicsView>
+#include <QColor>
+#include <QHash>
+#include <QMap>
 #include <QRubberBand>
 #include <QSet>
 #include <QString>
@@ -39,6 +42,10 @@ class MousePositionInfo;  ///< 鼠标位置信息显示组件
 class PPIVisualSettings;  ///< PPI视觉设置组件
 class OsmRoadParser;      ///< OSM道路数据解析器
 class GCSManager;         ///< GCS地面站通信管理器
+class QFrame;
+class QLabel;
+class QPushButton;
+class QShortcut;
 
 /**
  * @class PPIView
@@ -161,8 +168,14 @@ public:
     void setTotalControlMqttClient(TotalControlMqttClient* client);
     void setLaserReportManager(LaserReportManager* mgr);
     void setCommandControlModule(CommandControlModule* module);
-    void replayCommandControlTrack(const PointInfo& info);
 
+public slots:
+    void replayCommandControlTrack(const PointInfo& info, quint32 sourceDeviceId,
+                                   quint32 sourceBatch, bool sourceIsLocal);
+    void removeCommandControlReplayTrack(quint32 replayBatch);
+    void clearCommandControlReplayLegend();
+
+public:
     /**
      * @brief 设置是否仅显示识别为无人机的普通航迹
      * @param enabled true时仅显示普通航迹中的无人机
@@ -387,6 +400,15 @@ protected:
 private:
     bool sendTrackTargetAssignment(int batchID);
     QString activeGcsTargetBatchSummary() const;
+    void updateExternalQuickActionVisibility();
+    void showLaserQuickReportDialog();
+    void showCommandControlQuickReportDialog();
+    bool laserQuickReportAvailable(QString& reason) const;
+    bool commandControlQuickReportAvailable(QString& reason) const;
+    int requestExternalReportBatch(const QString& title, const QString& prompt);
+    int preferredExternalReportBatch() const;
+    bool startLaserReportForBatch(int batch);
+    bool startCommandControlReportForBatch(quint32 batch);
 
     // 核心组件
     PPIScene* m_scene;                ///< PPI场景对象指针
@@ -410,6 +432,15 @@ private:
     PointInfoW* pointInfo = nullptr;            ///< 右上角选中点详细信息显示
     MousePositionInfo* mousePositionInfo = nullptr;  ///< 左下角鼠标位置信息显示
     PPIVisualSettings* visualSettings = nullptr;     ///< 右下角PPI视觉设置组件
+    QFrame* m_externalQuickActionPanel = nullptr;    ///< 激光/总控快捷下发入口
+    QPushButton* m_laserQuickReportButton = nullptr;
+    QPushButton* m_commandControlQuickReportButton = nullptr;
+    QShortcut* m_laserQuickReportShortcut = nullptr;
+    QShortcut* m_commandControlQuickReportShortcut = nullptr;
+    QFrame* m_commandControlReplayLegend = nullptr;  ///< DDA4 回放来源颜色图例
+    QLabel* m_commandControlReplayLegendText = nullptr;
+    QMap<quint32, QColor> m_commandControlReplayColors;
+    QSet<quint32> m_commandControlReplayLocalDevices;
 
     // 雷达地理位置信息
     double m_radarLongitude = 108.9138;         ///< 雷达中心经度（默认西电99号楼）
@@ -427,7 +458,11 @@ private:
     TotalControlMqttClient* m_totalControlMqttClient = nullptr; ///< 总控MQTT上报器（由外部注入，不拥有所有权）
     LaserReportManager* m_laserReportManager = nullptr; ///< 激光侦察上报器（由外部注入，不拥有所有权）
     CommandControlModule* m_commandControlModule = nullptr; ///< 总控通信模块（由外部注入，不拥有所有权）
-    bool m_laserReportEnabled = false;       ///< 是否启用激光上报（关闭则右键菜单无此项）
+    bool m_laserReportEnabled = true;        ///< 是否启用激光上报（关闭则右键菜单与 F6 无此项）
+    // 仅缓存 Controller::traInfoProcess 的普通 DBT 最新点，不混入 PPI 回放航迹；用于 F6/F7 默认批号。
+    QHash<int, PointInfo> m_currentNormalTracks;
+    QHash<int, quint64> m_currentNormalTrackUpdateOrder;
+    quint64 m_currentNormalTrackSequence = 0;
     // 手动下发过的批次集合。新批次加入集合而不替换旧批次；仅对应批次消批后移除。
     QSet<int> m_activeGcsTargetBatches;
     bool m_gcsTargetReportEnabled = false;   ///< 是否启用旧GCS 0x52航迹点上报
@@ -464,6 +499,8 @@ private:
      *          - 确保叠加层不会超出视图边界
      */
     void layoutOverlay();
+    QColor commandControlReplayColor(quint32 sourceDeviceId, bool sourceIsLocal);
+    void updateCommandControlReplayLegend();
 
     /**
      * @brief 清除测距线

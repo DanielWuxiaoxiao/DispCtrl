@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:52
+ * @LastEditTime: 2026-09-16 21:32:30
  * @Description: 
  */
 /**
@@ -38,6 +38,7 @@
 #include "../Controller/edgeradarreporter.h"
 #include "../Controller/laserreportmanager.h"
 #include "../CommandControl/commandcontrolmodule.h"
+#include "../cusWidgets/custommessagebox.h"
 
 #include <QMouseEvent>
 #include <QMenu>
@@ -54,9 +55,17 @@
 #include <QMainWindow>
 #include <QCoreApplication>
 #include <QFile>
+#include <QFrame>
+#include <QLabel>
+#include <QPushButton>
+#include <QShortcut>
+#include <QKeySequence>
+#include <QHBoxLayout>
+#include <QVBoxLayout>
 #include <QStringList>
 
 #include <algorithm>
+#include <limits>
 
 QString PPIView::activeGcsTargetBatchSummary() const
 {
@@ -297,6 +306,7 @@ PPIView::PPIView(QWidget* parent)
     // 从配置文件读取雷达中心经纬度（优先使用config.toml中的值）
     m_radarLongitude = CF_INS.longitude();
     m_radarLatitude  = CF_INS.latitude();
+    m_laserReportEnabled = CF_INS.laserReportEnabled(true);
     m_sendRoadPointsEnabled = CF_INS.displayFlag("send_road_points_to_datapro", false);
     setRenderHint(QPainter::Antialiasing, true);
     setDragMode(QGraphicsView::RubberBandDrag);
@@ -312,6 +322,31 @@ PPIView::PPIView(QWidget* parent)
     setupOverlay();
     enableRubberBandZoom(true);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
+    // F6/F7 的预填批号只取真实 TRAINFO 普通航迹；回放点直接写入 PPI，不经过该信号。
+    connect(CON_INS, &Controller::traInfoProcess, this, [this](const PointInfo& info) {
+        if (info.type != PointType::Track) {
+            return;
+        }
+        const int batch = static_cast<int>(info.batch);
+        if (info.statMethod == 2) {
+            m_currentNormalTracks.remove(batch);
+            m_currentNormalTrackUpdateOrder.remove(batch);
+            return;
+        }
+        m_currentNormalTracks.insert(batch, info);
+        m_currentNormalTrackUpdateOrder.insert(batch, ++m_currentNormalTrackSequence);
+    });
+    // 分类结果可能晚于对应 TRAINFO 到达；更新候选的无人机优先级，但不改变 PPI 航迹本体。
+    connect(CON_INS, &Controller::targetClaRes, this, [this](const TargetClaRes& result) {
+        const int batch = static_cast<int>(result.batchID);
+        auto it = m_currentNormalTracks.find(batch);
+        if (it == m_currentNormalTracks.end()) {
+            return;
+        }
+        it->targetRecResult = result.claRes == 1 ? 1U : 0U;
+        m_currentNormalTrackUpdateOrder.insert(batch, ++m_currentNormalTrackSequence);
+    });
 
     // 加载OSM道路数据（配置从config.toml读取）
     m_roadParser = new OsmRoadParser();
@@ -375,6 +410,40 @@ void PPIView::setupOverlay() {
     pointInfo = new PointInfoW(this);
     mousePositionInfo = new MousePositionInfo(this);
     visualSettings = new PPIVisualSettings(this);
+
+    // 快捷入口只由对应功能开关决定是否展示；真正下发前再校验网络、登录和航迹缓存。
+    m_externalQuickActionPanel = new QFrame(this);
+    m_externalQuickActionPanel->setObjectName(QStringLiteral("externalQuickActionPanel"));
+    m_externalQuickActionPanel->setStyleSheet(
+        QStringLiteral("QFrame#externalQuickActionPanel { background: rgba(4, 25, 25, 210); "
+                       "border: 1px solid #00BFA5; border-radius: 4px; }"
+                       "QPushButton { min-height: 28px; padding: 2px 10px; color: #D9FFFF; "
+                       "background: #075A58; border: 1px solid #00D7C0; border-radius: 3px; }"
+                       "QPushButton:hover { background: #087A75; }"
+                       "QPushButton:disabled { color: #809090; border-color: #426060; background: #183232; }"));
+    auto* quickActionLayout = new QHBoxLayout(m_externalQuickActionPanel);
+    quickActionLayout->setContentsMargins(6, 5, 6, 5);
+    quickActionLayout->setSpacing(6);
+    m_laserQuickReportButton = new QPushButton(tr("激光 (F6)"), m_externalQuickActionPanel);
+    m_laserQuickReportButton->setToolTip(tr("输入普通航迹批号，开启引导光电跟踪（持续）"));
+    m_commandControlQuickReportButton = new QPushButton(tr("总控主动上报 (F7)"), m_externalQuickActionPanel);
+    m_commandControlQuickReportButton->setToolTip(tr("输入普通航迹批号，开启总控 DDA4 手动上报"));
+    quickActionLayout->addWidget(m_laserQuickReportButton);
+    quickActionLayout->addWidget(m_commandControlQuickReportButton);
+    connect(m_laserQuickReportButton, &QPushButton::clicked,
+            this, &PPIView::showLaserQuickReportDialog);
+    connect(m_commandControlQuickReportButton, &QPushButton::clicked,
+            this, &PPIView::showCommandControlQuickReportDialog);
+
+    m_laserQuickReportShortcut = new QShortcut(QKeySequence(Qt::Key_F6), this);
+    m_laserQuickReportShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+    connect(m_laserQuickReportShortcut, &QShortcut::activated,
+            this, &PPIView::showLaserQuickReportDialog);
+    m_commandControlQuickReportShortcut = new QShortcut(QKeySequence(Qt::Key_F7), this);
+    m_commandControlQuickReportShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+    connect(m_commandControlQuickReportShortcut, &QShortcut::activated,
+            this, &PPIView::showCommandControlQuickReportDialog);
+    updateExternalQuickActionVisibility();
 
     // 连接鼠标位置信息的可见性信号
     connect(mousePositionInfo, &MousePositionInfo::detectionVisibilityChanged,
@@ -460,6 +529,14 @@ void PPIView::layoutOverlay() {
     if (visualSettings) {
         QSize s = visualSettings->size();
         visualSettings->move(width()-s.width()-8, height()-s.height()-8);
+    }
+    int leftOverlayTop = radarInfoW ? radarInfoW->height() + 12 : 8;
+    if (m_externalQuickActionPanel && m_externalQuickActionPanel->isVisible()) {
+        m_externalQuickActionPanel->move(8, leftOverlayTop);
+        leftOverlayTop += m_externalQuickActionPanel->height() + 8;
+    }
+    if (m_commandControlReplayLegend && m_commandControlReplayLegend->isVisible()) {
+        m_commandControlReplayLegend->move(8, leftOverlayTop);
     }
 }
 
@@ -1108,6 +1185,7 @@ void PPIView::onClearDisplayRequested()
     // 通过 RadarDataManager 统一清除数据
     // 这会触发 dataCleared 信号，通知所有注册的视图（包括 RangeAzimuthWidget）
     RADAR_DATA_MGR.clearAllData();
+    clearCommandControlReplayLegend();
 
     // 清除航迹列表表格（通过父对象MainOverLayOut）
     QWidget* parentWidget = this->parentWidget();
@@ -1389,18 +1467,271 @@ void PPIView::setTotalControlMqttClient(TotalControlMqttClient* client)
 void PPIView::setLaserReportManager(LaserReportManager* mgr)
 {
     m_laserReportManager = mgr;
-    m_laserReportEnabled = CF_INS.laserReportEnabled(false);
+    m_laserReportEnabled = CF_INS.laserReportEnabled(true);
+    updateExternalQuickActionVisibility();
 }
 
 void PPIView::setCommandControlModule(CommandControlModule* module)
 {
     m_commandControlModule = module;
+    updateExternalQuickActionVisibility();
 }
 
-void PPIView::replayCommandControlTrack(const PointInfo& info)
+void PPIView::updateExternalQuickActionVisibility()
+{
+    const bool showLaser = m_laserReportEnabled;
+    const bool showCommandControl = m_commandControlModule
+        && m_commandControlModule->isEnabled();
+    if (m_laserQuickReportButton) {
+        m_laserQuickReportButton->setVisible(showLaser);
+    }
+    if (m_commandControlQuickReportButton) {
+        m_commandControlQuickReportButton->setVisible(showCommandControl);
+    }
+    if (m_laserQuickReportShortcut) {
+        m_laserQuickReportShortcut->setEnabled(showLaser);
+    }
+    if (m_commandControlQuickReportShortcut) {
+        m_commandControlQuickReportShortcut->setEnabled(showCommandControl);
+    }
+    if (m_externalQuickActionPanel) {
+        m_externalQuickActionPanel->setVisible(showLaser || showCommandControl);
+        m_externalQuickActionPanel->adjustSize();
+    }
+    layoutOverlay();
+}
+
+bool PPIView::laserQuickReportAvailable(QString& reason) const
+{
+    if (!m_laserReportEnabled) {
+        reason = tr("激光下发功能已在 config.toml 的 [laser].enabled 中关闭。");
+        return false;
+    }
+    if (!m_laserReportManager || !m_laserReportManager->isEnabled()) {
+        reason = tr("激光 UDP 未就绪，请检查本机激光 IP、端口和绑定日志。");
+        return false;
+    }
+
+    QWidget* current = parentWidget();
+    while (current) {
+        auto* overlay = qobject_cast<MainOverLayOut*>(current);
+        if (overlay) {
+            if (!overlay->isLaserNetworkReady()) {
+                reason = tr("激光网络不可达，未执行下发。\n%1")
+                             .arg(overlay->laserNetworkStatusText());
+                return false;
+            }
+            break;
+        }
+        current = current->parentWidget();
+    }
+    return true;
+}
+
+bool PPIView::commandControlQuickReportAvailable(QString& reason) const
+{
+    if (!m_commandControlModule || !m_commandControlModule->isEnabled()) {
+        reason = tr("总控上报功能已在 config.toml 的 [command_control].enabled 中关闭。");
+        return false;
+    }
+    if (!m_commandControlModule->isReady()) {
+        reason = tr("总控 UDP 未就绪，未执行主动上报。\n当前状态：%1")
+                     .arg(m_commandControlModule->statusText());
+        return false;
+    }
+    if (!m_commandControlModule->isLoggedIn()) {
+        reason = tr("尚未完成 DD33/DD34 登录，未执行主动上报。\n当前状态：%1")
+                     .arg(m_commandControlModule->statusText());
+        return false;
+    }
+    return true;
+}
+
+int PPIView::requestExternalReportBatch(const QString& title, const QString& prompt)
+{
+    const int preferredBatch = preferredExternalReportBatch();
+    int batch = preferredBatch > 0 ? preferredBatch : 1;
+    return CustomMessageBox::getInteger(this, title, prompt, 1,
+                                        std::numeric_limits<int>::max(), batch)
+        ? batch : -1;
+}
+
+int PPIView::preferredExternalReportBatch() const
+{
+    int preferredDroneBatch = -1;
+    quint64 preferredDroneOrder = 0;
+    int preferredOtherBatch = -1;
+    quint64 preferredOtherOrder = 0;
+
+    for (auto it = m_currentNormalTracks.cbegin(); it != m_currentNormalTracks.cend(); ++it) {
+        const int batch = it.key();
+        if (batch <= 0) {
+            continue;
+        }
+        const quint64 updateOrder = m_currentNormalTrackUpdateOrder.value(batch, 0);
+        if (it.value().targetRecResult == 1) {
+            if (updateOrder > preferredDroneOrder) {
+                preferredDroneOrder = updateOrder;
+                preferredDroneBatch = batch;
+            }
+        } else if (updateOrder > preferredOtherOrder) {
+            preferredOtherOrder = updateOrder;
+            preferredOtherBatch = batch;
+        }
+    }
+    return preferredDroneBatch > 0 ? preferredDroneBatch : preferredOtherBatch;
+}
+
+bool PPIView::startLaserReportForBatch(int batch)
+{
+    QString reason;
+    if (!laserQuickReportAvailable(reason)) {
+        LOG_WARNING(QStringLiteral("[LASER][QUICK] 拒绝下发：%1").arg(reason));
+        CustomMessageBox::showWarning(this, tr("激光下发不可用"), reason);
+        return false;
+    }
+    if (!m_laserReportManager->hasTrack(batch)) {
+        LOG_WARNING(QStringLiteral("[LASER][QUICK] 未找到普通航迹 batch=%1").arg(batch));
+        CustomMessageBox::showWarning(this, tr("激光下发失败"),
+                                      tr("未找到批号 %1 的当前普通航迹。").arg(batch));
+        return false;
+    }
+    LOG_INFO(QStringLiteral("[LASER][REPORT] 开启持续跟踪 batch=%1").arg(batch));
+    m_laserReportManager->startReport(batch);
+    return true;
+}
+
+bool PPIView::startCommandControlReportForBatch(quint32 batch)
+{
+    QString reason;
+    if (!commandControlQuickReportAvailable(reason)) {
+        LOG_WARNING(QStringLiteral("[CommandControl][QUICK] 拒绝主动上报：%1").arg(reason));
+        CustomMessageBox::showWarning(this, tr("总控主动上报不可用"), reason);
+        return false;
+    }
+    if (!m_commandControlModule->startManualReport(batch)) {
+        LOG_WARNING(QStringLiteral("[CommandControl][QUICK] 不能开启 batch=%1：%2")
+                    .arg(batch)
+                    .arg(m_commandControlModule->statusText()));
+        CustomMessageBox::showWarning(this, tr("总控主动上报失败"),
+                                      m_commandControlModule->statusText());
+        return false;
+    }
+    LOG_INFO(QStringLiteral("[CommandControl][REPORT] 开启主动上报 batch=%1").arg(batch));
+    return true;
+}
+
+void PPIView::showLaserQuickReportDialog()
+{
+    QString reason;
+    if (!laserQuickReportAvailable(reason)) {
+        LOG_WARNING(QStringLiteral("[LASER][QUICK] 拒绝打开批号输入：%1").arg(reason));
+        CustomMessageBox::showWarning(this, tr("激光下发不可用"), reason);
+        return;
+    }
+    const int batch = requestExternalReportBatch(tr("激光持续跟踪"), tr("普通航迹批号："));
+    if (batch >= 0) {
+        startLaserReportForBatch(batch);
+    }
+}
+
+void PPIView::showCommandControlQuickReportDialog()
+{
+    QString reason;
+    if (!commandControlQuickReportAvailable(reason)) {
+        LOG_WARNING(QStringLiteral("[CommandControl][QUICK] 拒绝打开批号输入：%1").arg(reason));
+        CustomMessageBox::showWarning(this, tr("总控主动上报不可用"), reason);
+        return;
+    }
+    const int batch = requestExternalReportBatch(tr("总控主动上报"), tr("普通航迹批号："));
+    if (batch >= 0) {
+        startCommandControlReportForBatch(static_cast<quint32>(batch));
+    }
+}
+
+void PPIView::replayCommandControlTrack(const PointInfo& info, quint32 sourceDeviceId,
+                                        quint32 sourceBatch, bool sourceIsLocal)
 {
     if (m_scene && m_scene->track()) {
         m_scene->track()->addTrackPoint(info);
+        m_scene->track()->setBatchColor(info.batch,
+                                        commandControlReplayColor(sourceDeviceId, sourceIsLocal));
+        m_scene->track()->setBatchDisplayLabel(
+            info.batch, QString::number(sourceBatch));
+    }
+}
+
+QColor PPIView::commandControlReplayColor(quint32 sourceDeviceId, bool sourceIsLocal)
+{
+    auto colorIt = m_commandControlReplayColors.find(sourceDeviceId);
+    if (colorIt != m_commandControlReplayColors.end()) {
+        return colorIt.value();
+    }
+
+    static const QColor remoteColors[] = {
+        QColor(QStringLiteral("#00D7FF")), QColor(QStringLiteral("#FFB000")),
+        QColor(QStringLiteral("#C080FF")), QColor(QStringLiteral("#80FF80")),
+        QColor(QStringLiteral("#FF70C8")), QColor(QStringLiteral("#4FA8FF"))
+    };
+    const QColor color = sourceIsLocal
+                             ? QColor(QStringLiteral("#FF3030"))
+                             : remoteColors[m_commandControlReplayColors.size()
+                                            % (sizeof(remoteColors) / sizeof(remoteColors[0]))];
+    m_commandControlReplayColors.insert(sourceDeviceId, color);
+    if (sourceIsLocal) {
+        m_commandControlReplayLocalDevices.insert(sourceDeviceId);
+    }
+    updateCommandControlReplayLegend();
+    return color;
+}
+
+void PPIView::updateCommandControlReplayLegend()
+{
+    if (!m_commandControlReplayLegend) {
+        m_commandControlReplayLegend = new QFrame(this);
+        m_commandControlReplayLegend->setObjectName(QStringLiteral("commandControlReplayLegend"));
+        m_commandControlReplayLegend->setStyleSheet(
+            QStringLiteral("QFrame#commandControlReplayLegend { background: rgba(4, 25, 25, 210); "
+                           "border: 1px solid #00BFA5; border-radius: 4px; }"));
+        auto* layout = new QVBoxLayout(m_commandControlReplayLegend);
+        layout->setContentsMargins(8, 6, 8, 6);
+        layout->setSpacing(2);
+        m_commandControlReplayLegendText = new QLabel(m_commandControlReplayLegend);
+        m_commandControlReplayLegendText->setTextFormat(Qt::RichText);
+        m_commandControlReplayLegendText->setStyleSheet(
+            QStringLiteral("QLabel { color: #D9FFFF; font-size: 12px; background: transparent; }"));
+        layout->addWidget(m_commandControlReplayLegendText);
+    }
+
+    QStringList lines;
+    for (auto it = m_commandControlReplayColors.cbegin(); it != m_commandControlReplayColors.cend(); ++it) {
+        const QString deviceId = QStringLiteral("0x%1")
+                                     .arg(it.key(), 8, 16, QChar('0')).toUpper();
+        const bool isLocal = m_commandControlReplayLocalDevices.contains(it.key());
+        lines.append(QStringLiteral("<span style=\"color:%1;\">■</span> %2%3")
+                         .arg(it.value().name(), deviceId,
+                              isLocal ? QStringLiteral("（本机，高亮）") : QString()));
+    }
+    m_commandControlReplayLegendText->setText(
+        QStringLiteral("<b>DDA4 回放来源</b><br>%1").arg(lines.join(QStringLiteral("<br>"))));
+    m_commandControlReplayLegend->adjustSize();
+    m_commandControlReplayLegend->show();
+    layoutOverlay();
+}
+
+void PPIView::clearCommandControlReplayLegend()
+{
+    m_commandControlReplayColors.clear();
+    m_commandControlReplayLocalDevices.clear();
+    if (m_commandControlReplayLegend) {
+        m_commandControlReplayLegend->hide();
+    }
+}
+
+void PPIView::removeCommandControlReplayTrack(quint32 replayBatch)
+{
+    if (m_scene && m_scene->track()) {
+        m_scene->track()->removeBatch(static_cast<int>(replayBatch));
     }
 }
 
@@ -1437,19 +1768,24 @@ void PPIView::onTrackLabelRightClicked(int batchID, PointType type)
             tr("目标下发 [批次: %1]").arg(batchID));
     }
 
-    // 激光上报菜单项：仅在 [laser].enabled 时出现
+    // 激光持续跟踪入口只由 [laser].enabled 控制；即使 UDP 或光电网络未就绪也保留入口，
+    // 用户点击后给出明确原因，便于现场检查网口，而不是把功能误判为被关闭。
     QAction* laserAction = nullptr;      // 单目标持续上报开关
     QAction* laserAutoAction = nullptr;  // 自动上报(全部目标)开关
-    if (canReportExternally && m_laserReportEnabled && m_laserReportManager) {
-        const bool reporting = m_laserReportManager->isReporting(batchID);
+    if (canReportExternally && m_laserReportEnabled) {
+        const bool reporting = m_laserReportManager
+            && m_laserReportManager->isReporting(batchID);
         laserAction = menu.addAction(reporting
             ? tr("关闭引导光电跟踪 [批次: %1]").arg(batchID)
             : tr("引导光电跟踪(持续) [批次: %1]").arg(batchID));
 
-        const bool autoOn = m_laserReportManager->isAutoReport();
-        laserAutoAction = menu.addAction(autoOn
-            ? tr("关闭激光自动上报(全部目标)")
-            : tr("开启激光自动上报(全部目标)"));
+        // 自动上报依赖正常绑定的本地 UDP；无法使用时不显示，避免把“自动”误当成已生效。
+        if (m_laserReportManager && m_laserReportManager->isEnabled()) {
+            const bool autoOn = m_laserReportManager->isAutoReport();
+            laserAutoAction = menu.addAction(autoOn
+                ? tr("关闭激光自动上报(全部目标)")
+                : tr("开启激光自动上报(全部目标)"));
+        }
     }
 
     QAction* commandControlAction = nullptr;
@@ -1472,10 +1808,10 @@ void PPIView::onTrackLabelRightClicked(int batchID, PointType type)
     }
 
     if (laserAction && chosen == laserAction) {
-        if (m_laserReportManager->isReporting(batchID)) {
+        if (m_laserReportManager && m_laserReportManager->isReporting(batchID)) {
             m_laserReportManager->stopReport();
         } else {
-            m_laserReportManager->startReport(batchID);
+            startLaserReportForBatch(batchID);
         }
         return;
     }
@@ -1486,7 +1822,12 @@ void PPIView::onTrackLabelRightClicked(int batchID, PointType type)
     }
 
     if (commandControlAction && chosen == commandControlAction) {
-        m_commandControlModule->toggleManualReport(static_cast<quint32>(batchID));
+        const quint32 sourceBatch = static_cast<quint32>(batchID);
+        if (m_commandControlModule->isManualReportActive(sourceBatch)) {
+            m_commandControlModule->toggleManualReport(sourceBatch);
+        } else {
+            startCommandControlReportForBatch(sourceBatch);
+        }
         return;
     }
 

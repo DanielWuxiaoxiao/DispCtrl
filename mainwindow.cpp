@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-14 14:10:17
+ * @LastEditTime: 2026-09-16 21:32:31
  * @Description: 
  */
 /**
@@ -130,7 +130,7 @@ void FramelessMainWindow::setupCentralView()
     layout->addWidget(m_map->getView());
 
     // 设置默认地图显示模式（根据配置的引擎和类型）
-    int defaultMapType = CF_INS.mapType("default_type", 1);
+    int defaultMapType = CF_INS.mapType("default_type", 0);
     m_map->chooseMap(defaultMapType);
 
     // 将配置好的中央组件设置为主窗口的中央widget
@@ -237,16 +237,20 @@ void FramelessMainWindow::setupOverlayUI()
             ppiView->setEdgeRadarReporter(edgeReporter);
         }
 
-        // 激光侦察上报（独立模块，默认关闭；关闭时右键无此项、不创建网络资源）
-        LaserReportManager* laserReporter = new LaserReportManager(this);
-        connect(laserReporter, &LaserReportManager::logMessage, this,
-                [](const QString& msg) {
-                    LOG_INFO(msg);
-                });
-        connect(laserReporter, &LaserReportManager::logMessage, m_overlayWidget,
-                &MainOverLayOut::appendExternalLog);
-        // 当前需求仅允许显控向激光端发送9009状态/侦察帧；不接入激光端反向雷达控制。
-        if (laserReporter->init()) {
+        // 激光侦察上报（独立模块，默认由 config.toml 开启）。关闭时不创建网络资源；
+        // 开启但本机 9009 绑定失败时仍注入 PPI，保留右键/F6入口并在点击时说明原因。
+        if (CF_INS.laserReportEnabled(true)) {
+            LaserReportManager* laserReporter = new LaserReportManager(this);
+            connect(laserReporter, &LaserReportManager::logMessage, this,
+                    [](const QString& msg) {
+                        LOG_INFO(msg);
+                    });
+            connect(laserReporter, &LaserReportManager::logMessage, m_overlayWidget,
+                    &MainOverLayOut::appendExternalLog);
+            // 当前需求仅允许显控向激光端发送9009状态/侦察帧；不接入激光端反向雷达控制。
+            if (!laserReporter->init()) {
+                LOG_WARNING(QStringLiteral("[LASER][INIT] PPI 保留激光入口，等待现场修复网络或本地绑定后重启"));
+            }
             ppiView->setLaserReportManager(laserReporter);
         }
 
@@ -283,12 +287,19 @@ void FramelessMainWindow::setupOverlayUI()
                 });
         connect(commandControl, &CommandControlModule::replayPointReady, ppiView,
                 &PPIView::replayCommandControlTrack);
+        connect(commandControl, &CommandControlModule::replayTrackRemovalRequested, ppiView,
+                &PPIView::removeCommandControlReplayTrack);
+        connect(commandControl, &CommandControlModule::replayTracksCleared, ppiView,
+                &PPIView::clearCommandControlReplayLegend);
         connect(commandControl, &CommandControlModule::readyChanged, this,
                 [this, ppiView, commandControl](bool ready) {
-                    ppiView->setCommandControlModule(ready ? commandControl : nullptr);
                     m_overlayWidget->setCommandControlModule(ready ? commandControl : nullptr);
                 });
         commandControl->init();
+        // PPI 的 F7/右键入口仅依赖配置开关显示；实际下发仍须校验 UDP 已就绪并已完成 DD33/DD34 登录。
+        if (commandControl->isEnabled()) {
+            ppiView->setCommandControlModule(commandControl);
+        }
 
         TotalControlMqttClient* totalMqtt = new TotalControlMqttClient(this);
         connect(totalMqtt, &TotalControlMqttClient::logMessage, this,

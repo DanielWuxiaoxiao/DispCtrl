@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-14 14:10:17
+ * @LastEditTime: 2026-09-16 21:32:31
  * @Description: 
  */
 /**
@@ -180,6 +180,9 @@ public:
      */
     PPIView* getPPIView() const { return mView; }
     void setCommandControlModule(CommandControlModule* module);
+    /// 激光快捷下发使用与健康管理窗口一致的双端网络可达性判定。
+    bool isLaserNetworkReady() const;
+    QString laserNetworkStatusText() const;
 
 public slots:
     /**

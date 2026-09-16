@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:51
+ * @LastEditTime: 2026-09-16 21:32:30
  * @Description: 
  */
 /**
@@ -62,12 +62,12 @@ QColor displayTrackColor(const PointInfo& info)
     return trackTypeColor(info.type);
 }
 
-QString trackTooltipText(const PointInfo& info)
+QString trackTooltipText(const PointInfo& info, const QString& displayBatchLabel)
 {
     const QString targetRecStr = (info.targetRecResult == 1) ? "无人机" : "其它";
     return QString("%1\nNum:%2\nR:%3m\nA:%4°\nE:%5°\nSNR:%6dB\nV:%7m/s\nH:%8m\nAmp:%9\n识别:%10")
             .arg(trackTypeLabel(info.type))
-            .arg(info.batch)
+            .arg(displayBatchLabel.isEmpty() ? QString::number(info.batch) : displayBatchLabel)
             .arg(info.range)
             .arg(info.azimuth)
             .arg(info.elevation)
@@ -156,7 +156,37 @@ public:
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing, m_series->focused);
 
-        if (!m_series->focused) {
+        if (m_series->hasCustomColor) {
+            QVarLengthArray<QLineF, 256> lines;
+            QVarLengthArray<QPointF, 256> points;
+            for (int i = 1; i < m_series->nodes.size(); ++i) {
+                const TrackNode& node = m_series->nodes[i];
+                if (node.lineFromPrevVisible) {
+                    lines.append(QLineF(m_series->nodes[i - 1].scenePos, node.scenePos));
+                }
+            }
+            for (const TrackNode& node : m_series->nodes) {
+                if (node.pointVisible) {
+                    points.append(node.scenePos);
+                }
+            }
+
+            QPen linePen(m_series->color);
+            linePen.setWidth(m_series->focused ? 2 : 1);
+            linePen.setCapStyle(Qt::RoundCap);
+            painter->setPen(linePen);
+            if (!lines.isEmpty()) {
+                painter->drawLines(lines.constData(), lines.size());
+            }
+
+            QPen pointPen(m_series->color);
+            pointPen.setWidthF(m_series->focused ? 2.0 : qMax<qreal>(1.0, m_pointRadius * 2.0));
+            pointPen.setCapStyle(Qt::RoundCap);
+            painter->setPen(pointPen);
+            if (!points.isEmpty()) {
+                painter->drawPoints(points.constData(), points.size());
+            }
+        } else if (!m_series->focused) {
             QVarLengthArray<QLineF, 256> trackLines;
             QVarLengthArray<QLineF, 256> otherLines;
             QVarLengthArray<QLineF, 256> tbdLines;
@@ -293,7 +323,7 @@ protected:
         }
 
         TOOL_TIP->showTooltip(event->scenePos() + QPointF(15.0, 15.0),
-                              trackTooltipText(node->info));
+                              trackTooltipText(node->info, m_series->displayLabel));
         QGraphicsItem::hoverMoveEvent(event);
     }
 
@@ -564,6 +594,7 @@ void TrackManager::setBatchColor(int batchID, const QColor& c)
     }
     auto& s = mSeries[trackKey]; // 获取航迹序列引用
     s.color = c;
+    s.hasCustomColor = true;
 
     if (s.latestPoint) {
         s.latestPoint->setColor(c);
@@ -578,6 +609,25 @@ void TrackManager::setBatchColor(int batchID, const QColor& c)
         pen.setStyle(Qt::DashLine);             // 虚线样式
         s.labelLine->setPen(pen);
     }
+}
+
+void TrackManager::setBatchDisplayLabel(int batchID, const QString& text)
+{
+    const quint64 trackKey = makeTrackKey(PointType::Track, batchID);
+    auto it = mSeries.find(trackKey);
+    if (it == mSeries.end()) {
+        return;
+    }
+
+    TrackSeries& series = it.value();
+    if (series.displayLabel == text) {
+        return;
+    }
+    series.displayLabel = text;
+    if (series.latestPoint) {
+        series.latestPoint->setDisplayBatchText(text);
+    }
+    updateLatestLabel(trackKey, true);
 }
 
 /**
@@ -722,8 +772,9 @@ void TrackManager::addTrackPoint(const PointInfo& info)
     ensureSeries(info.batch, type);
     ensureBatchGraphics(trackKey);
     auto& s = mSeries[trackKey];  // 获取航迹序列引用
-    const QColor color = displayTrackColor(info);
-    s.color = color;
+    if (!s.hasCustomColor) {
+        s.color = displayTrackColor(info);
+    }
     const bool firstPointInBatch = s.nodes.isEmpty();
 
     PointInfo copy = info;
@@ -811,7 +862,7 @@ void TrackManager::updateLatestInteractivePoint(quint64 trackKey)
 
     TrackNode& latest = s.nodes.last();
     PointInfo copy = latest.info;
-    const QColor color = displayTrackColor(copy);
+    const QColor color = s.hasCustomColor ? s.color : displayTrackColor(copy);
     if (!s.latestPoint) {
         s.latestPoint = new TrackPoint(copy);
         mScene->addItem(s.latestPoint);
@@ -872,7 +923,7 @@ void TrackManager::updateLatestLabel(quint64 trackKey, bool force)
         }
         return;
     }
-    const QColor labelColor = displayTrackColor(pi);
+    const QColor labelColor = s.hasCustomColor ? s.color : displayTrackColor(pi);
     const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
     const bool labelExists = (s.label != nullptr);
 
@@ -922,7 +973,8 @@ void TrackManager::updateLatestLabel(quint64 trackKey, bool force)
     // 标签内容：根据你的需求自由定制
     QString labelText;
     if (s.type == PointType::Track) {
-        labelText = QString("batch : %1").arg(pi.batch);
+        labelText = QString("batch : %1")
+                        .arg(s.displayLabel.isEmpty() ? QString::number(pi.batch) : s.displayLabel);
     } else {
         QString typeText = trackTypeLabel(s.type);
         labelText = QString("%1:%2").arg(typeText).arg(pi.batch);

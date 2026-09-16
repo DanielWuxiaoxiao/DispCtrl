@@ -3,11 +3,12 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-15 19:23:42
+ * @LastEditTime: 2026-09-16 21:32:29
  * @Description: 
  */
 #include "commandcontrolmodule.h"
 
+#include "commandcontrolnetworkmonitor.h"
 #include "commandcontrolrecordwriter.h"
 #include "commandcontrolwindow.h"
 #include "commandcontroltransport.h"
@@ -27,6 +28,9 @@
 #include <limits>
 
 namespace {
+
+constexpr int kReplaySeekStep = 10;
+constexpr int kReplayRebuildChunkSize = 32;
 
 constexpr double kDegToRad = M_PI / 180.0;
 constexpr double kVelocityResolution = 0.15;
@@ -259,6 +263,7 @@ CommandControlModule::CommandControlModule(QObject* parent)
     m_loginRetryTimer.setSingleShot(true);
     m_peerLivenessTimer.setSingleShot(false);
     m_replayTimer.setSingleShot(false);
+    m_replayRebuildTimer.setSingleShot(true);
     m_peerRefreshTimer.setSingleShot(true);
     m_recordRefreshTimer.setSingleShot(true);
 
@@ -267,6 +272,7 @@ CommandControlModule::CommandControlModule(QObject* parent)
     connect(&m_loginRetryTimer, &QTimer::timeout, this, &CommandControlModule::retryLogin);
     connect(&m_peerLivenessTimer, &QTimer::timeout, this, &CommandControlModule::updatePeerLiveness);
     connect(&m_replayTimer, &QTimer::timeout, this, &CommandControlModule::emitNextReplayPoint);
+    connect(&m_replayRebuildTimer, &QTimer::timeout, this, &CommandControlModule::rebuildReplayChunk);
     connect(&m_peerRefreshTimer, &QTimer::timeout, this, &CommandControlModule::peersChanged);
     connect(&m_recordRefreshTimer, &QTimer::timeout, this, &CommandControlModule::recordsChanged);
 }
@@ -286,6 +292,7 @@ bool CommandControlModule::init()
     m_settings = CommandControlConfig::load();
     m_autoReportEnabled = m_settings.autoReportEnabled;
     m_radiationStatus = m_settings.radiationStatus;
+    m_networkStatusText.fill(QStringLiteral("网络状态检查中..."));
     if (!m_settings.enabled) {
         setStatus(QStringLiteral("总控通信已由配置关闭"));
         return true;
@@ -294,6 +301,7 @@ bool CommandControlModule::init()
         startRecordWriter();
     }
     startNetwork();
+    startNetworkMonitor();
     startTimeSync();
     return true;
 }
@@ -337,6 +345,28 @@ void CommandControlModule::startTimeSync()
         emit statusChanged(m_statusText);
     });
     m_timeSync->start(m_settings);
+}
+
+void CommandControlModule::startNetworkMonitor()
+{
+    if (m_networkMonitor) {
+        return;
+    }
+    m_networkMonitor = new CommandControlNetworkMonitor(this);
+    connect(m_networkMonitor, &CommandControlNetworkMonitor::statusChanged, this,
+            [this](int index, bool ok, const QString& text) {
+                if (index < 0 || index >= static_cast<int>(m_networkStatusOk.size())) {
+                    return;
+                }
+                const std::size_t position = static_cast<std::size_t>(index);
+                if (m_networkStatusOk[position] == ok && m_networkStatusText[position] == text) {
+                    return;
+                }
+                m_networkStatusOk[position] = ok;
+                m_networkStatusText[position] = text;
+                emit networkStatusChanged(index, ok, text);
+            });
+    m_networkMonitor->start(m_settings);
 }
 
 void CommandControlModule::startRecordWriter()
@@ -438,12 +468,17 @@ void CommandControlModule::onReplayRecordsLoaded(const QVector<CommandControlRec
         LOG_WARNING(QString("[CommandControl][REPLAY] 已跳过 %1 条缺少记录时雷达经纬高的历史 DDA4")
                     .arg(records.size() - replayableRecords.size()));
     }
+    stopReplay();
     m_replayRecords = replayableRecords;
     m_replayIndex = 0;
     m_replayBatches.clear();
     m_nextReplayBatch = 0x80000000U;
+    m_replayPaused = false;
+    m_replayRebuilding = false;
+    m_resumeReplayAfterRebuild = false;
     m_replayTimer.start(m_settings.replayIntervalMs);
     setStatus(QStringLiteral("开始回放 %1 条 DDA4 记录").arg(m_replayRecords.size()));
+    emit replayStateChanged();
 }
 
 void CommandControlModule::onTransportSendResult(quint16 messageType, bool success, const QString& detail)
@@ -466,8 +501,12 @@ void CommandControlModule::stopNetwork()
     m_loginRetryTimer.stop();
     m_peerLivenessTimer.stop();
     m_replayTimer.stop();
+    m_replayRebuildTimer.stop();
     m_peerRefreshTimer.stop();
     m_recordRefreshTimer.stop();
+    if (m_networkMonitor) {
+        m_networkMonitor->stop();
+    }
     stopRecordWriter();
     if (m_transport) {
         if (m_transportThread.isRunning()) {
@@ -511,6 +550,18 @@ QString CommandControlModule::timeSyncText() const
 {
     return m_timeSync ? QStringLiteral("授时状态：%1").arg(m_timeSync->statusText())
                       : QStringLiteral("授时状态：尚未初始化");
+}
+
+bool CommandControlModule::networkStatusOk(int index) const
+{
+    return index >= 0 && index < static_cast<int>(m_networkStatusOk.size())
+        ? m_networkStatusOk[static_cast<std::size_t>(index)] : false;
+}
+
+QString CommandControlModule::networkStatusText(int index) const
+{
+    return index >= 0 && index < static_cast<int>(m_networkStatusText.size())
+        ? m_networkStatusText[static_cast<std::size_t>(index)] : QStringLiteral("网络状态无效");
 }
 
 CommandControlProtocol::Header CommandControlModule::nextHeader(quint16 type, quint32 receiverId,
@@ -1013,13 +1064,28 @@ void CommandControlModule::toggleManualReport(quint32 sourceBatch)
         LOG_INFO(QString("[CommandControl][MANUAL] 关闭手动上报 sourceBatch=%1").arg(sourceBatch));
         return;
     }
-    if (!m_latestTracks.contains(sourceBatch)) {
-        LOG_WARNING(QString("[CommandControl][MANUAL] 未找到当前航迹，不能开启 sourceBatch=%1").arg(sourceBatch));
-        return;
+    startManualReport(sourceBatch);
+}
+
+bool CommandControlModule::startManualReport(quint32 sourceBatch)
+{
+    if (!m_ready) {
+        setStatus(QStringLiteral("总控通信未就绪，不能开启手动上报"));
+        return false;
     }
-    m_manualBatches.insert(sourceBatch);
-    LOG_INFO(QString("[CommandControl][MANUAL] 开启手动上报 sourceBatch=%1").arg(sourceBatch));
+    if (!m_latestTracks.contains(sourceBatch)) {
+        const QString text = QStringLiteral("未找到当前普通航迹，不能开启手动上报：批号 %1")
+                                 .arg(sourceBatch);
+        LOG_WARNING(QStringLiteral("[CommandControl][MANUAL] %1").arg(text));
+        setStatus(text);
+        return false;
+    }
+    if (!m_manualBatches.contains(sourceBatch)) {
+        m_manualBatches.insert(sourceBatch);
+        LOG_INFO(QString("[CommandControl][MANUAL] 开启手动上报 sourceBatch=%1").arg(sourceBatch));
+    }
     reportTrack(m_latestTracks.value(sourceBatch), true);
+    return true;
 }
 
 void CommandControlModule::setAutoReportEnabled(bool enabled)
@@ -1042,6 +1108,15 @@ void CommandControlModule::requestLogout()
 {
     beginLogin(CommandControlProtocol::LoginRequestType::Logout, false);
     m_logoutRequested = true;
+}
+
+void CommandControlModule::requestTimeSync()
+{
+    if (!m_timeSync) {
+        setStatus(QStringLiteral("NTP 授时尚未初始化"));
+        return;
+    }
+    m_timeSync->requestManualSync();
 }
 
 void CommandControlModule::showControlWindow()
@@ -1367,10 +1442,44 @@ void CommandControlModule::startReplay(const QString& recordFilePath)
         setStatus(QStringLiteral("DDA4 记录功能未开启，不能读取回放文件"));
         return;
     }
+    stopReplay();
     CommandControlRecordWriter* writer = m_recordWriter;
     QMetaObject::invokeMethod(writer, [writer, recordFilePath]() { writer->loadRecords(recordFilePath); },
                               Qt::QueuedConnection);
     setStatus(QStringLiteral("正在独立读取 DDA4 回放文件"));
+}
+
+void CommandControlModule::toggleReplayPause()
+{
+    if (m_replayRecords.isEmpty() || m_replayRebuilding) {
+        return;
+    }
+
+    m_replayPaused = !m_replayPaused;
+    if (m_replayPaused) {
+        m_replayTimer.stop();
+        setStatus(QStringLiteral("DDA4 回放已暂停：%1/%2").arg(m_replayIndex).arg(m_replayRecords.size()));
+    } else {
+        m_replayTimer.start(m_settings.replayIntervalMs);
+        setStatus(QStringLiteral("DDA4 回放继续：%1/%2").arg(m_replayIndex).arg(m_replayRecords.size()));
+    }
+    emit replayStateChanged();
+}
+
+void CommandControlModule::rewindReplay()
+{
+    if (m_replayRecords.isEmpty() || m_replayRebuilding) {
+        return;
+    }
+    seekReplay(qMax(0, m_replayIndex - kReplaySeekStep));
+}
+
+void CommandControlModule::fastForwardReplay()
+{
+    if (m_replayRecords.isEmpty() || m_replayRebuilding) {
+        return;
+    }
+    seekReplay(qMin(m_replayRecords.size(), m_replayIndex + kReplaySeekStep));
 }
 
 bool CommandControlModule::shouldLogDda4(bool outbound)
@@ -1406,26 +1515,147 @@ void CommandControlModule::logPacketHex(const QString& direction, quint16 type, 
 
 void CommandControlModule::stopReplay()
 {
-    m_replayTimer.stop();
-    m_replayRecords.clear();
-    m_replayBatches.clear();
-    m_replayIndex = 0;
-    setStatus(QStringLiteral("DDA4 回放已停止"));
+    finishReplay(QStringLiteral("DDA4 回放已停止，回放航迹已从 PPI 清除"));
 }
 
 void CommandControlModule::emitNextReplayPoint()
 {
-    if (m_replayIndex >= m_replayRecords.size()) {
-        stopReplay();
+    if (!emitReplayRecord()) {
+        finishReplay(QStringLiteral("DDA4 回放完成，回放航迹已从 PPI 清除"));
         return;
     }
+    if (m_replayIndex >= m_replayRecords.size()) {
+        finishReplay(QStringLiteral("DDA4 回放完成，回放航迹已从 PPI 清除"));
+        return;
+    }
+    emit replayStateChanged();
+}
+
+bool CommandControlModule::emitReplayRecord()
+{
+    if (m_replayIndex >= m_replayRecords.size()) {
+        return false;
+    }
+
     const CommandControlRecord& record = m_replayRecords.at(m_replayIndex++);
     PointInfo point;
     if (!replayPointFor(record, point)) {
         LOG_WARNING(QStringLiteral("[CommandControl][REPLAY] 跳过坐标反算失败的 DDA4 记录"));
+        return true;
+    }
+    const auto& track = record.track;
+    emit replayPointReady(point, track.deviceId, track.localBatch,
+                          track.deviceId == m_settings.deviceId);
+    const quint64 sourceKey = (static_cast<quint64>(track.deviceId) << 32) | track.localBatch;
+    m_replayLastUpdateUtcMs.insert(sourceKey, record.observedUtcMs);
+    removeStaleReplayTracks(record.observedUtcMs);
+    return true;
+}
+
+void CommandControlModule::removeStaleReplayTracks(qint64 replayTimeUtcMs)
+{
+    if (m_settings.replayTrackStaleMs <= 0) {
         return;
     }
-    emit replayPointReady(point);
+
+    QVector<quint64> staleSources;
+    staleSources.reserve(m_replayLastUpdateUtcMs.size());
+    for (auto it = m_replayLastUpdateUtcMs.cbegin(); it != m_replayLastUpdateUtcMs.cend(); ++it) {
+        const qint64 idleMs = replayTimeUtcMs - it.value();
+        if (idleMs >= m_settings.replayTrackStaleMs) {
+            staleSources.append(it.key());
+        }
+    }
+
+    for (quint64 sourceKey : staleSources) {
+        const quint32 replayBatch = m_replayBatches.take(sourceKey);
+        const qint64 lastUpdateUtcMs = m_replayLastUpdateUtcMs.take(sourceKey);
+        if (replayBatch == 0) {
+            continue;
+        }
+
+        const quint32 sourceDeviceId = static_cast<quint32>(sourceKey >> 32);
+        const quint32 sourceBatch = static_cast<quint32>(sourceKey & 0xffffffffULL);
+        LOG_INFO(QString("[CommandControl][REPLAY] 删除长时间未更新航迹 device=0x%1 batch=%2 idle=%3ms threshold=%4ms")
+                 .arg(sourceDeviceId, 8, 16, QChar('0'))
+                 .arg(sourceBatch)
+                 .arg(replayTimeUtcMs - lastUpdateUtcMs)
+                 .arg(m_settings.replayTrackStaleMs));
+        emit replayTrackRemovalRequested(replayBatch);
+    }
+}
+
+void CommandControlModule::seekReplay(int targetIndex)
+{
+    const bool resumeAfterSeek = !m_replayPaused && m_replayTimer.isActive();
+    m_replayTimer.stop();
+    clearReplayTracks();
+    m_replayBatches.clear();
+    m_nextReplayBatch = 0x80000000U;
+    m_replayIndex = 0;
+    m_replayRebuildTargetIndex = qBound(0, targetIndex, m_replayRecords.size());
+    m_replayPaused = true;
+    m_replayRebuilding = true;
+    m_resumeReplayAfterRebuild = resumeAfterSeek;
+    setStatus(QStringLiteral("正在定位 DDA4 回放：0/%1").arg(m_replayRebuildTargetIndex));
+    emit replayStateChanged();
+    m_replayRebuildTimer.start(0);
+}
+
+void CommandControlModule::rebuildReplayChunk()
+{
+    int rebuiltCount = 0;
+    while (m_replayIndex < m_replayRebuildTargetIndex && rebuiltCount < kReplayRebuildChunkSize) {
+        emitReplayRecord();
+        ++rebuiltCount;
+    }
+
+    if (m_replayIndex < m_replayRebuildTargetIndex) {
+        m_replayRebuildTimer.start(0);
+        return;
+    }
+
+    m_replayRebuilding = false;
+    if (m_resumeReplayAfterRebuild && m_replayIndex < m_replayRecords.size()) {
+        m_replayPaused = false;
+        m_replayTimer.start(m_settings.replayIntervalMs);
+        setStatus(QStringLiteral("DDA4 回放继续：%1/%2").arg(m_replayIndex).arg(m_replayRecords.size()));
+    } else {
+        setStatus(QStringLiteral("DDA4 回放已定位：%1/%2").arg(m_replayIndex).arg(m_replayRecords.size()));
+    }
+    m_resumeReplayAfterRebuild = false;
+    emit replayStateChanged();
+}
+
+void CommandControlModule::clearReplayTracks()
+{
+    QSet<quint32> replayBatches;
+    for (auto it = m_replayBatches.cbegin(); it != m_replayBatches.cend(); ++it) {
+        replayBatches.insert(it.value());
+    }
+    for (quint32 replayBatch : replayBatches) {
+        emit replayTrackRemovalRequested(replayBatch);
+    }
+    if (!replayBatches.isEmpty()) {
+        emit replayTracksCleared();
+    }
+    m_replayLastUpdateUtcMs.clear();
+}
+
+void CommandControlModule::finishReplay(const QString& statusText)
+{
+    m_replayTimer.stop();
+    m_replayRebuildTimer.stop();
+    clearReplayTracks();
+    m_replayRecords.clear();
+    m_replayBatches.clear();
+    m_replayIndex = 0;
+    m_replayRebuildTargetIndex = 0;
+    m_replayPaused = false;
+    m_replayRebuilding = false;
+    m_resumeReplayAfterRebuild = false;
+    setStatus(statusText);
+    emit replayStateChanged();
 }
 
 void CommandControlModule::setRadiationStatus(bool transmitting)

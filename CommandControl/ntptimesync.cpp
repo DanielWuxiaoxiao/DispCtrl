@@ -1,9 +1,9 @@
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@xidian.edu.cn
- * @Date: 2026-09-15 18:44:37
+ * @Date: 2026-09-15 19:03:33
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-15 19:03:35
+ * @LastEditTime: 2026-09-16 21:32:29
  * @Description: 
  */
 #include "ntptimesync.h"
@@ -185,6 +185,19 @@ void NtpTimeSync::requestSync(const QString& serverIp, const QString& reason)
     m_reason = reason;
     m_remainingRetries = m_settings.timeSyncRetryCount;
     beginRequest();
+}
+
+void NtpTimeSync::requestManualSync()
+{
+    if (!m_settings.timeSyncEnabled) {
+        setStatus(QStringLiteral("NTP 授时已由配置关闭，不能执行手动校时"));
+        return;
+    }
+    if (m_requestActive) {
+        setStatus(QStringLiteral("NTP 授时正在进行，请等待当前请求完成"));
+        return;
+    }
+    requestSync(m_settings.timeServerIp, QStringLiteral("手动校时"));
 }
 
 void NtpTimeSync::beginRequest()

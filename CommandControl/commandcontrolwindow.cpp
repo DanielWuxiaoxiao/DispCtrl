@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-15 19:03:34
+ * @LastEditTime: 2026-09-16 21:32:29
  * @Description: 
  */
 #include "commandcontrolwindow.h"
@@ -15,6 +15,7 @@
 #include <QDialogButtonBox>
 #include <QEvent>
 #include <QFileDialog>
+#include <QGridLayout>
 #include <QHeaderView>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -44,6 +45,10 @@ QTableWidgetItem* item(const QString& text)
     result->setFlags(result->flags() & ~Qt::ItemIsEditable);
     return result;
 }
+
+constexpr int kLocalNetworkStatus = 0;
+constexpr int kControlNetworkStatus = 1;
+constexpr int kNtpNetworkStatus = 2;
 
 }  // namespace
 
@@ -98,6 +103,25 @@ CommandControlWindow::CommandControlWindow(CommandControlModule* module)
     m_statusLabel->setObjectName(QStringLiteral("CommandControlStatusLabel"));
     m_statusLabel->setWordWrap(true);
     controlLayout->addWidget(m_statusLabel);
+    auto* networkTitle = new QLabel(QStringLiteral("总控网络状态（ICMP 可达性）"), controlPage);
+    networkTitle->setObjectName(QStringLiteral("CommandControlNetworkTitle"));
+    controlLayout->addWidget(networkTitle);
+    auto* networkLayout = new QGridLayout();
+    networkLayout->setHorizontalSpacing(10);
+    networkLayout->setVerticalSpacing(8);
+    const auto makeNetworkButton = [controlPage]() {
+        auto* button = new QPushButton(controlPage);
+        button->setEnabled(false);
+        button->setMinimumHeight(38);
+        return button;
+    };
+    m_localNetworkButton = makeNetworkButton();
+    m_controlNetworkButton = makeNetworkButton();
+    m_ntpNetworkButton = makeNetworkButton();
+    networkLayout->addWidget(m_localNetworkButton, 0, 0);
+    networkLayout->addWidget(m_controlNetworkButton, 0, 1);
+    networkLayout->addWidget(m_ntpNetworkButton, 1, 0, 1, 2);
+    controlLayout->addLayout(networkLayout);
     m_autoReportCheckBox = new QCheckBox(QStringLiteral("自动上报识别为无人机的正常航迹"), controlPage);
     m_autoReportCheckBox->setObjectName(QStringLiteral("CommandControlAutoReportCheck"));
     controlLayout->addWidget(m_autoReportCheckBox);
@@ -107,8 +131,12 @@ CommandControlWindow::CommandControlWindow(CommandControlModule* module)
     loginButton->setObjectName(QStringLiteral("CommandControlLoginButton"));
     auto* logoutButton = new QPushButton(QStringLiteral("退出登陆"), controlPage);
     logoutButton->setObjectName(QStringLiteral("CommandControlLogoutButton"));
+    m_manualTimeSyncButton = new QPushButton(QStringLiteral("手动 NTP 校时"), controlPage);
+    m_manualTimeSyncButton->setObjectName(QStringLiteral("CommandControlTimeSyncButton"));
+    m_manualTimeSyncButton->setToolTip(QStringLiteral("向配置的 NTP 服务器请求时间并更新操作系统时间"));
     loginLayout->addWidget(loginButton);
     loginLayout->addWidget(logoutButton);
+    loginLayout->addWidget(m_manualTimeSyncButton);
     loginLayout->addStretch();
     controlLayout->addLayout(loginLayout);
     controlLayout->addStretch();
@@ -142,10 +170,22 @@ CommandControlWindow::CommandControlWindow(CommandControlModule* module)
     recordActions->setSpacing(10);
     auto* replayButton = new QPushButton(QStringLiteral("选择记录并回放"), recordPage);
     replayButton->setObjectName(QStringLiteral("CommandControlReplayButton"));
-    auto* stopReplayButton = new QPushButton(QStringLiteral("停止回放"), recordPage);
-    stopReplayButton->setObjectName(QStringLiteral("CommandControlStopReplayButton"));
+    m_stopReplayButton = new QPushButton(QStringLiteral("停止回放"), recordPage);
+    m_stopReplayButton->setObjectName(QStringLiteral("CommandControlStopReplayButton"));
+    m_pauseReplayButton = new QPushButton(QStringLiteral("暂停"), recordPage);
+    m_pauseReplayButton->setObjectName(QStringLiteral("CommandControlPauseReplayButton"));
+    m_pauseReplayButton->setToolTip(QStringLiteral("暂停或继续当前回放"));
+    m_rewindReplayButton = new QPushButton(QStringLiteral("倒退 10 条"), recordPage);
+    m_rewindReplayButton->setObjectName(QStringLiteral("CommandControlSeekReplayButton"));
+    m_rewindReplayButton->setToolTip(QStringLiteral("定位到前 10 条 DDA4 记录；仅重建回放航迹"));
+    m_fastForwardReplayButton = new QPushButton(QStringLiteral("快进 10 条"), recordPage);
+    m_fastForwardReplayButton->setObjectName(QStringLiteral("CommandControlSeekReplayButton"));
+    m_fastForwardReplayButton->setToolTip(QStringLiteral("定位到后 10 条 DDA4 记录；仅重建回放航迹"));
     recordActions->addWidget(replayButton);
-    recordActions->addWidget(stopReplayButton);
+    recordActions->addWidget(m_pauseReplayButton);
+    recordActions->addWidget(m_rewindReplayButton);
+    recordActions->addWidget(m_fastForwardReplayButton);
+    recordActions->addWidget(m_stopReplayButton);
     recordActions->addStretch();
     recordLayout->addLayout(recordActions);
     m_recordTable = new QTableWidget(recordPage);
@@ -170,15 +210,30 @@ CommandControlWindow::CommandControlWindow(CommandControlModule* module)
 
     connect(loginButton, &QPushButton::clicked, m_module, &CommandControlModule::requestLogin);
     connect(logoutButton, &QPushButton::clicked, m_module, &CommandControlModule::requestLogout);
+    connect(m_manualTimeSyncButton, &QPushButton::clicked, m_module, &CommandControlModule::requestTimeSync);
     connect(m_autoReportCheckBox, &QCheckBox::toggled, m_module, &CommandControlModule::setAutoReportEnabled);
     connect(replayButton, &QPushButton::clicked, this, &CommandControlWindow::selectReplayFile);
-    connect(stopReplayButton, &QPushButton::clicked, m_module, &CommandControlModule::stopReplay);
+    connect(m_stopReplayButton, &QPushButton::clicked, m_module, &CommandControlModule::stopReplay);
+    connect(m_pauseReplayButton, &QPushButton::clicked, m_module, &CommandControlModule::toggleReplayPause);
+    connect(m_rewindReplayButton, &QPushButton::clicked, m_module, &CommandControlModule::rewindReplay);
+    connect(m_fastForwardReplayButton, &QPushButton::clicked, m_module, &CommandControlModule::fastForwardReplay);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::close);
     connect(titleCloseButton, &QPushButton::clicked, this, &QDialog::close);
     connect(m_module, &CommandControlModule::statusChanged, this, &CommandControlWindow::refreshStatus);
     connect(m_module, &CommandControlModule::autoReportChanged, this, &CommandControlWindow::refreshStatus);
     connect(m_module, &CommandControlModule::peersChanged, this, &CommandControlWindow::refreshPeers);
     connect(m_module, &CommandControlModule::recordsChanged, this, &CommandControlWindow::refreshRecords);
+    connect(m_module, &CommandControlModule::replayStateChanged, this, &CommandControlWindow::refreshStatus);
+    connect(m_module, &CommandControlModule::networkStatusChanged, this,
+            [this](int index, bool, const QString&) {
+                if (index == kLocalNetworkStatus) {
+                    applyNetworkStatus(m_localNetworkButton, index);
+                } else if (index == kControlNetworkStatus) {
+                    applyNetworkStatus(m_controlNetworkButton, index);
+                } else if (index == kNtpNetworkStatus) {
+                    applyNetworkStatus(m_ntpNetworkButton, index);
+                }
+            });
 
     refreshStatus();
     refreshPeers();
@@ -220,6 +275,33 @@ void CommandControlWindow::refreshStatus()
     m_autoReportCheckBox->blockSignals(true);
     m_autoReportCheckBox->setChecked(m_module->isAutoReportEnabled());
     m_autoReportCheckBox->blockSignals(false);
+    m_manualTimeSyncButton->setEnabled(m_module->isTimeSyncEnabled());
+    applyNetworkStatus(m_localNetworkButton, kLocalNetworkStatus);
+    applyNetworkStatus(m_controlNetworkButton, kControlNetworkStatus);
+    applyNetworkStatus(m_ntpNetworkButton, kNtpNetworkStatus);
+    const bool replayActive = m_module->isReplayActive();
+    const bool replaySeeking = m_module->isReplayRebuilding();
+    m_pauseReplayButton->setEnabled(replayActive && !replaySeeking);
+    m_rewindReplayButton->setEnabled(replayActive && !replaySeeking);
+    m_fastForwardReplayButton->setEnabled(replayActive && !replaySeeking);
+    m_stopReplayButton->setEnabled(replayActive || replaySeeking);
+    m_pauseReplayButton->setText(m_module->isReplayPaused() ? QStringLiteral("继续")
+                                                             : QStringLiteral("暂停"));
+}
+
+void CommandControlWindow::applyNetworkStatus(QPushButton* button, int index)
+{
+    if (!button || !m_module) {
+        return;
+    }
+    const bool ok = m_module->networkStatusOk(index);
+    const QString text = m_module->networkStatusText(index);
+    const QString style = ok
+        ? QStringLiteral("QPushButton { background:#00aa55; color:#ffffff; border:1px solid #66ffcc; border-radius:5px; padding:7px; font-size:13px; }")
+        : QStringLiteral("QPushButton { background:#a02a2a; color:#ffffff; border:1px solid #ff6666; border-radius:5px; padding:7px; font-size:13px; }");
+    button->setText(text);
+    button->setToolTip(text);
+    button->setStyleSheet(style);
 }
 
 void CommandControlWindow::refreshPeers()

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:55
+ * @LastEditTime: 2026-09-16 21:32:30
  * @Description: 
  */
 /**
@@ -43,6 +43,8 @@
 #include <QLabel>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+
+class QLineEdit;
 
 /**
  * @class CustomMessageBox
@@ -141,9 +143,19 @@ public:
      */
     static void showWarning(QWidget *parent, const QString &title, const QString &text);
 
+    /**
+     * @brief 显示深色主题整数输入框
+     * @param value 输入/输出整数；用户确认后写回
+     * @return true 表示输入通过范围校验并确认，false 表示取消
+     * @details 复用消息框的无边框深色容器和按钮样式，避免业务模块使用系统 QInputDialog。
+     */
+    static bool getInteger(QWidget *parent, const QString &title, const QString &prompt,
+                           int minimum, int maximum, int &value);
+
 private:
     QLabel *m_titleLabel;         ///< 标题显示标签
     QLabel *m_textLabel;          ///< 消息内容显示标签
+    QVBoxLayout *m_containerLayout; ///< 内容布局，整数输入框插入在提示文本与按钮之间
     QHBoxLayout *m_buttonLayout;  ///< 按钮布局管理器
 
     /**

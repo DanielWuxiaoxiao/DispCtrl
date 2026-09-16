@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:46
+ * @LastEditTime: 2026-09-16 21:32:29
  * @Description: 
  */
 /* 指控通信独立控制窗口。 */
@@ -16,6 +16,7 @@
 class CommandControlModule;
 class QLabel;
 class QCheckBox;
+class QPushButton;
 class QTableWidget;
 class QEvent;
 
@@ -35,11 +36,21 @@ protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
+    void applyNetworkStatus(QPushButton* button, int index);
+
     CommandControlModule* m_module = nullptr;
     QWidget* m_titleBar = nullptr;
     QPoint m_titleBarDragOffset;
     QLabel* m_statusLabel = nullptr;
     QCheckBox* m_autoReportCheckBox = nullptr;
+    QPushButton* m_localNetworkButton = nullptr;
+    QPushButton* m_controlNetworkButton = nullptr;
+    QPushButton* m_ntpNetworkButton = nullptr;
+    QPushButton* m_manualTimeSyncButton = nullptr;
+    QPushButton* m_pauseReplayButton = nullptr;
+    QPushButton* m_rewindReplayButton = nullptr;
+    QPushButton* m_fastForwardReplayButton = nullptr;
+    QPushButton* m_stopReplayButton = nullptr;
     QTableWidget* m_peerTable = nullptr;
     QTableWidget* m_recordTable = nullptr;
 };

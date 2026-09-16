@@ -1,4 +1,12 @@
 /*
+ * @Author: wuxiaoxiao
+ * @Email: wuxiaoxiao@xidian.edu.cn
+ * @Date: 2026-06-29 23:29:30 -0700
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2026-09-16 21:32:29
+ * @Description: 
+ */
+/*
  * @Description: 激光侦察上报实现，见 laserreportmanager.h
  */
 #include "laserreportmanager.h"
@@ -31,7 +39,7 @@ LaserReportManager::~LaserReportManager()
 
 bool LaserReportManager::init()
 {
-    m_enabled = CF_INS.laserReportEnabled(false);
+    m_enabled = CF_INS.laserReportEnabled(true);
     if (!m_enabled) {
         emit logMessage(QStringLiteral("[LASER][INIT] disabled by config"));
         return false;

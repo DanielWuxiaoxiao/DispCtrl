@@ -1,4 +1,12 @@
 /*
+ * @Author: wuxiaoxiao
+ * @Email: wuxiaoxiao@xidian.edu.cn
+ * @Date: 2026-06-29 23:29:30 -0700
+ * @LastEditors: wuxiaoxiao
+ * @LastEditTime: 2026-09-16 21:32:30
+ * @Description: 
+ */
+/*
  * @Description: 激光侦察上报（独立模块，仅“激光终端”功能）
  *  - 右键航迹“引导光电跟踪(持续)”→ 对该单一目标按周期(默认1s)持续发送侦察帧给激光控制终端；
  *  - 再次右键关闭或目标消批 → 停止（消批时补发一帧 cancelFlag=1）；
@@ -34,6 +42,8 @@ public:
     bool isReporting(int batch) const { return m_enabled && m_activeBatch == batch; }
     /// 自动上报（模式1：周期上报全部目标，最多10个）是否开启
     bool isAutoReport() const { return m_enabled && m_autoReportEnabled; }
+    /// 指定批号是否已有可立即下发的普通航迹最新点。
+    bool hasTrack(int batch) const { return m_enabled && m_latest.contains(batch); }
 
 public slots:
     void reportTrackPoint(const PointInfo& info);   ///< 缓存各批号最新航迹点（数据源）

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:50
+ * @LastEditTime: 2026-09-16 21:32:30
  * @Description: 
  */
 /**
@@ -130,6 +130,12 @@ public:
      */
     void setInfo(const PointInfo& nextInfo);
 
+    /**
+     * @brief 设置工具提示中的批号展示文本
+     * @details 保留 info.batch 作为内部索引，允许回放等场景展示外部原始批号。
+     */
+    void setDisplayBatchText(const QString& text);
+
 protected:
     /**
      * @defgroup HoverEvents 鼠标悬停事件处理
@@ -197,6 +203,7 @@ protected:
     // 核心数据
     PointInfo info;              ///< 雷达点信息数据
     QString text;                ///< 工具提示文本内容
+    QString m_displayBatchText;  ///< 工具提示使用的外部批号文本
 
     void rebuildTooltipText();
 

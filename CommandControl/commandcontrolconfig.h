@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-15 19:23:42
+ * @LastEditTime: 2026-09-16 21:32:29
  * @Description: 
  */
 /* 指控通信模块独立配置读取。 */
@@ -15,15 +15,16 @@
 
 struct CommandControlSettings {
     bool enabled = true;
-    bool autoReportEnabled = true;
-    QString localIp = QStringLiteral("192.30.105.13");
+    bool autoReportEnabled = false;
+    QString localIp = QStringLiteral("192.30.106.13");
     quint16 localPort = 21505;
     QString multicastGroup = QStringLiteral("224.0.1.2");
     quint16 multicastPort = 21505;
-    QString expectedControlIp = QStringLiteral("192.30.105.10");
+    QString expectedControlIp = QStringLiteral("192.30.106.10");
+    int networkStatusPollIntervalMs = 5000;
     // 标准 SNTP/NTP 服务；启动总控通信前以该服务器授时。
     bool timeSyncEnabled = true;
-    QString timeServerIp = QStringLiteral("192.30.105.10");
+    QString timeServerIp = QStringLiteral("192.30.1.1");
     quint16 timeServerPort = 123;
     int timeSyncTimeoutMs = 2000;
     int timeSyncRetryCount = 2;
@@ -37,6 +38,7 @@ struct CommandControlSettings {
     bool recordEnabled = true;
     QString recordDirectory = QStringLiteral("CommandControlRecords");
     int replayIntervalMs = 200;
+    int replayTrackStaleMs = 3000;
     int visibleRecordLimit = 1000;
     quint8 dd25CooperationStatus = 0x00;
     quint32 dda4ComprehensiveBatch = 0;

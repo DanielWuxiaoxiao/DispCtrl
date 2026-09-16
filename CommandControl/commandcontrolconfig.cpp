@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-15 19:23:42
+ * @LastEditTime: 2026-09-16 21:32:29
  * @Description: 
  */
 #include "commandcontrolconfig.h"
@@ -138,6 +138,8 @@ CommandControlSettings CommandControlConfig::load()
     settings.multicastGroup = configuredText(values, QStringLiteral("multicast_group"), settings.multicastGroup);
     settings.multicastPort = portValue(values, QStringLiteral("multicast_port"), settings.multicastPort);
     settings.expectedControlIp = configuredText(values, QStringLiteral("expected_control_ip"), settings.expectedControlIp);
+    settings.networkStatusPollIntervalMs = boundedInt(values, QStringLiteral("network_status_poll_interval_ms"),
+                                                       settings.networkStatusPollIntervalMs, 1000, 60000);
     settings.timeSyncEnabled = boolValue(values, QStringLiteral("time_sync_enabled"), settings.timeSyncEnabled);
     settings.timeServerIp = configuredText(values, QStringLiteral("time_server_ip"), settings.timeServerIp);
     settings.timeServerPort = portValue(values, QStringLiteral("time_server_port"), settings.timeServerPort);
@@ -160,6 +162,8 @@ CommandControlSettings CommandControlConfig::load()
     settings.recordEnabled = boolValue(values, QStringLiteral("record_enabled"), settings.recordEnabled);
     settings.recordDirectory = configuredText(values, QStringLiteral("record_directory"), settings.recordDirectory);
     settings.replayIntervalMs = boundedInt(values, QStringLiteral("replay_interval_ms"), settings.replayIntervalMs, 10, 10000);
+    settings.replayTrackStaleMs = boundedInt(values, QStringLiteral("replay_track_stale_ms"),
+                                               settings.replayTrackStaleMs, 0, 600000);
     settings.visibleRecordLimit = boundedInt(values, QStringLiteral("visible_record_limit"), settings.visibleRecordLimit, 10, 10000);
     settings.dd25CooperationStatus = byteValue(values, QStringLiteral("dd25_cooperation_status"), settings.dd25CooperationStatus);
     settings.dda4ComprehensiveBatch = unsignedValue(values, QStringLiteral("dda4_comprehensive_batch"), settings.dda4ComprehensiveBatch);
@@ -211,12 +215,14 @@ CommandControlSettings CommandControlConfig::load()
         settings.radiationStatus = 0;
     }
 
-    LOG_INFO(QString("[CommandControl][CONFIG] enabled=%1 local=%2:%3 group=%4:%5 timeSync=%6 server=%7:%8 device=0x%9 autoReport=%10 record=%11 dda1Type=0x%12 dda1NormalLog=%13 dda4NormalLog=%14 dda4LogInterval=%15 packetHex=%16")
+    LOG_INFO(QString("[CommandControl][CONFIG] enabled=%1 local=%2:%3 group=%4:%5 control=%6 netPoll=%7ms timeSync=%8 server=%9:%10 device=0x%11 autoReport=%12 record=%13 dda1Type=0x%14 dda1NormalLog=%15 dda4NormalLog=%16 dda4LogInterval=%17 packetHex=%18")
              .arg(settings.enabled)
              .arg(settings.localIp)
              .arg(settings.localPort)
              .arg(settings.multicastGroup)
              .arg(settings.multicastPort)
+             .arg(settings.expectedControlIp)
+             .arg(settings.networkStatusPollIntervalMs)
              .arg(settings.timeSyncEnabled)
              .arg(settings.timeServerIp)
              .arg(settings.timeServerPort)

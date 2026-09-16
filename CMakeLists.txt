@@ -171,6 +171,7 @@ set(SRC_FILES
     Controller/subsystemnetworkmonitor.cpp     # 健康管理分系统网络状态
     CommandControl/commandcontrolprotocol.cpp  # 总控 UDP 协议编解码
     CommandControl/commandcontrolconfig.cpp    # 总控通信独立配置
+    CommandControl/commandcontrolnetworkmonitor.cpp # 总控网络连通状态
     CommandControl/ntptimesync.cpp             # NTP 授时与系统时间更新
       CommandControl/commandcontrolrecordstore.cpp # DDA4 会话记录
       CommandControl/commandcontrolrecordwriter.cpp # DDA4 独立记录线程
@@ -268,6 +269,7 @@ set(HDR_FILES
     Controller/subsystemnetworkmonitor.h        # 健康管理分系统网络状态
     CommandControl/commandcontrolprotocol.h     # 总控 UDP 协议编解码
     CommandControl/commandcontrolconfig.h       # 总控通信独立配置
+    CommandControl/commandcontrolnetworkmonitor.h # 总控网络连通状态
     CommandControl/ntptimesync.h                # NTP 授时与系统时间更新
       CommandControl/commandcontrolrecordstore.h  # DDA4 会话记录
       CommandControl/commandcontrolrecordwriter.h # DDA4 独立记录线程

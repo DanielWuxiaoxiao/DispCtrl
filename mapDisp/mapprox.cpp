@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:58
+ * @LastEditTime: 2026-09-16 21:32:31
  * @Description: 
  */
 #include "mapprox.h"
@@ -27,7 +27,7 @@ MapProxyWidget::MapProxyWidget()
     m_currentRange = CF_INS.range("max", 5);  // 默认使用最大显示距离
     // 默认使用高德离线瓦片（AMap）——已移除OSM选项，强制为 AMap
     m_currentEngine = EngineAMap;
-    m_currentMapType = CF_INS.mapType("default_type", 1);
+    m_currentMapType = CF_INS.mapType("default_type", 0);
 
     // 检查必需的瓦片文件夹是否存在
     QString appDir = QCoreApplication::applicationDirPath();

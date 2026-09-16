@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:51
+ * @LastEditTime: 2026-09-16 21:32:30
  * @Description: 
  */
 /**
@@ -150,6 +150,8 @@ struct TrackSeries {
     bool visible = true;                        ///< 航迹可见性标志
     bool focused = false;                       ///< 是否关注该批次
     QColor color;                               ///< 航迹颜色
+    bool hasCustomColor = false;                ///< 外部指定的固定颜色，不被常规识别颜色覆盖
+    QString displayLabel;                       ///< PPI 标签展示文本；内部索引可与外部批号不同
     PointType type = PointType::Track;          ///< 航迹类型（区分DBT/TBD）
     qint64 lastLabelRefreshMs = 0;              ///< 最近一次标签重绘时间
 };
@@ -303,6 +305,12 @@ public:
      *          - 支持航迹的视觉区分
      */
     void setBatchColor(int batchID, const QColor& c);
+
+    /**
+     * @brief 设置指定批次在 PPI 标签中的展示文本
+     * @details 不改变内部批号索引，仅用于需要隔离同名外部航迹时显示其原始批号。
+     */
+    void setBatchDisplayLabel(int batchID, const QString& text);
 
     /**
      * @brief 设置角度显示范围

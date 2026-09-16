@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-23 09:44:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:52
+ * @LastEditTime: 2026-09-16 21:32:30
  * @Description: 
  */
 /**
@@ -91,7 +91,7 @@ PPIVisualSettings::PPIVisualSettings(QWidget *parent)
     double maxRangeInKm = CF_INS.range("max", 5);  // 配置直接返回公里值
     ui->maxDistanceEdit->setText(QString::number(maxRangeInKm));
 
-    int defaultMapType = CF_INS.mapType("default_type", 1);
+    int defaultMapType = CF_INS.mapType("default_type", 0);
     ui->mapTypeCombo->setCurrentIndex(defaultMapType); // 使用配置的默认地图类型
 
     // 设置默认最大检测点数量

@@ -102,6 +102,8 @@ SOURCES += \
     Controller/subsystemnetworkmonitor.cpp \
     CommandControl/commandcontrolprotocol.cpp \
     CommandControl/commandcontrolconfig.cpp \
+    CommandControl/commandcontrolnetworkmonitor.cpp \
+    CommandControl/ntptimesync.cpp \
     CommandControl/commandcontrolrecordstore.cpp \
     CommandControl/commandcontrolrecordwriter.cpp \
     CommandControl/commandcontroltransport.cpp \
@@ -211,6 +213,8 @@ HEADERS += \
     Controller/subsystemnetworkmonitor.h \
     CommandControl/commandcontrolprotocol.h \
     CommandControl/commandcontrolconfig.h \
+    CommandControl/commandcontrolnetworkmonitor.h \
+    CommandControl/ntptimesync.h \
     CommandControl/commandcontrolrecordstore.h \
     CommandControl/commandcontrolrecordwriter.h \
     CommandControl/commandcontroltransport.h \

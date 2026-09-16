@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:50
+ * @LastEditTime: 2026-09-16 21:32:30
  * @Description: 
  */
 /**
@@ -54,6 +54,12 @@ void Point::setInfo(const PointInfo& nextInfo)
     rebuildTooltipText();
 }
 
+void Point::setDisplayBatchText(const QString& displayText)
+{
+    m_displayBatchText = displayText;
+    rebuildTooltipText();
+}
+
 void Point::rebuildTooltipText()
 {
     const bool isDetection = (info.type == PointType::Detection);
@@ -69,7 +75,9 @@ void Point::rebuildTooltipText()
 
     const QString targetRecStr = (info.targetRecResult == 1) ? "无人机" : "其它";
     text = QString("%1\nNum:%2\nR:%3m\nA:%4°\nE:%5°\nSNR:%6dB\nV:%7m/s\nH:%8m\nAmp:%9\n识别:%10")
-            .arg(typeStr).arg(info.batch).arg(info.range).arg(info.azimuth).arg(info.elevation)
+            .arg(typeStr)
+            .arg(m_displayBatchText.isEmpty() ? QString::number(info.batch) : m_displayBatchText)
+            .arg(info.range).arg(info.azimuth).arg(info.elevation)
             .arg(info.SNR).arg(info.speed).arg(info.altitute).arg(info.amp).arg(targetRecStr);
 }
 

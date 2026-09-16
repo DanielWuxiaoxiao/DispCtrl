@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-15 19:23:42
+ * @LastEditTime: 2026-09-16 21:32:31
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -1030,6 +1030,19 @@ void MainOverLayOut::setCommandControlModule(CommandControlModule* module)
     if (m_commandControlButton) {
         m_commandControlButton->setEnabled(module != nullptr);
     }
+}
+
+bool MainOverLayOut::isLaserNetworkReady() const
+{
+    return m_networkHealthOk[SubsystemNetworkMonitor::LaserLocal]
+        && m_networkHealthOk[SubsystemNetworkMonitor::LaserPeer];
+}
+
+QString MainOverLayOut::laserNetworkStatusText() const
+{
+    return QStringLiteral("本机激光网口：%1；激光终端：%2")
+        .arg(m_networkHealthText[SubsystemNetworkMonitor::LaserLocal],
+             m_networkHealthText[SubsystemNetworkMonitor::LaserPeer]);
 }
 
 void MainOverLayOut::onGenerateTestTracksClicked()
