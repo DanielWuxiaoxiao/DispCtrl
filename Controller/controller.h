@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-14 14:10:17
+ * @LastEditTime: 2026-09-17 22:45:15
  * @Description: 
  */
 /**
@@ -142,6 +142,15 @@ public:
      * @details 测试点只从 Controller::traInfoProcess 注入，不模拟或占用 UDP 套接字。
      */
     bool startTestTrackGeneration();
+
+    /**
+     * @brief 终止当前本地测试航迹，并立即发送对应的消批点
+     * @return 已终止返回 true；生成器不存在或当前未运行返回 false
+     */
+    bool stopTestTrackGeneration();
+
+    /** @brief 当前是否正在生成本地测试航迹。 */
+    bool isTestTrackGenerationRunning() const;
 
     /**
      * @brief 将道路点经纬度分帧下发给数据处理模块

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-16 21:32:31
+ * @LastEditTime: 2026-09-17 22:45:16
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -15,6 +15,7 @@
 #include "Controller/RadarDataManager.h"
 #include "Controller/controller.h"
 #include "CommandControl/commandcontrolmodule.h"
+#include "Controller/laserreportmanager.h"
 #include "Controller/raedatasetreader.h"
 #include "Controller/subsystemnetworkmonitor.h"
 #include "PointManager/detmanager.h"
@@ -32,6 +33,8 @@
 #include "cusWidgets/frozentablewidget.h"
 // 参数配置对话框头文件
 #include <QApplication>
+#include <QBrush>
+#include <QColor>
 #include <QComboBox>
 #include <QCoreApplication>
 #include <QDateTime>
@@ -39,16 +42,21 @@
 #include <QDoubleValidator>
 #include <QDir>
 #include <QFileInfo>
+#include <QFont>
 #include <QGridLayout>
 #include <QHeaderView>
 #include <QIntValidator>
 #include <QLabel>
 #include <QLayout>
 #include <QLineEdit>
+#include <QPainter>
 #include <QScrollBar>
 #include <QSignalBlocker>
 #include <QSizePolicy>
 #include <QSplitter>
+#include <QStyledItemDelegate>
+#include <QStyle>
+#include <QStyleOptionViewItem>
 #include <QTableWidget>
 #include <QTabWidget>
 #include <QTimer>
@@ -83,6 +91,88 @@ namespace {
 constexpr int kTrackTableRefreshIntervalMs = 50;
 constexpr int kLogFlushIntervalMs = 50;
 constexpr bool kDefaultEnableSectorDisplay = false;
+constexpr int kTrackExternalReportingRole = Qt::UserRole + 1;
+constexpr int kTrackReportingBoundaryRole = Qt::UserRole + 2;
+
+enum TrackTableColumn {
+    TrackIdColumn = 0,
+    TrackRangeColumn,
+    TrackAzimuthColumn,
+    TrackHeightColumn,
+    TrackSpeedColumn,
+    TrackTypeColumn,
+    TrackSnrColumn,
+    TrackControlColumn,
+    TrackElevationColumn,
+    TrackTableColumnCount
+};
+
+bool isExternalControlStatus(const QString& status)
+{
+    return status != QStringLiteral("否");
+}
+
+class TrackTableItemDelegate final : public QStyledItemDelegate
+{
+public:
+    explicit TrackTableItemDelegate(QObject* parent = nullptr)
+        : QStyledItemDelegate(parent)
+    {
+    }
+
+    void paint(QPainter* painter, const QStyleOptionViewItem& option,
+               const QModelIndex& index) const override
+    {
+        QStyleOptionViewItem itemOption(option);
+        initStyleOption(&itemOption, index);
+        const QStyle* style = itemOption.widget ? itemOption.widget->style()
+                                                : QApplication::style();
+        const bool isHeightColumn = index.column() == TrackHeightColumn;
+        if (isHeightColumn) {
+            // 高度列由本代理统一绘制文字。先让 Qt 绘制底色、边框和选中态，
+            // 但清空默认文字，避免与后面的绿色文字重叠。
+            QStyleOptionViewItem backgroundOption(itemOption);
+            backgroundOption.text.clear();
+            style->drawControl(QStyle::CE_ItemViewItem, &backgroundOption, painter,
+                               backgroundOption.widget);
+        } else {
+            QStyledItemDelegate::paint(painter, option, index);
+        }
+
+        painter->save();
+        const QRect cellRect = option.rect.adjusted(1, 1, -1, -1);
+        const bool externallyReporting = index.data(kTrackExternalReportingRole).toBool();
+        if (externallyReporting) {
+            // 保持黑色主题底色，仅以细框强调，避免破坏普通行和交替行的可读性。
+            QPen reportingPen(QColor(0, 222, 166));
+            reportingPen.setWidth(2);
+            painter->setPen(reportingPen);
+            painter->setBrush(Qt::NoBrush);
+            painter->drawRect(cellRect);
+        }
+
+        if (index.data(kTrackReportingBoundaryRole).toBool()) {
+            // 第一条未上报航迹上方的粗分割线，将上报与未上报两组清晰分开。
+            QPen boundaryPen(QColor(0, 255, 200));
+            boundaryPen.setWidth(3);
+            painter->setPen(boundaryPen);
+            painter->drawLine(option.rect.topLeft(), option.rect.topRight());
+        }
+
+        if (isHeightColumn) {
+            // QSS 会覆盖 QTableWidgetItem 的前景色；高度文字只在这里绘制一次。
+            QFont heightFont = itemOption.font;
+            heightFont.setBold(true);
+            painter->setFont(heightFont);
+            painter->setPen(QColor(90, 255, 185));
+            const QRect textRect = style->subElementRect(QStyle::SE_ItemViewItemText,
+                                                         &itemOption, itemOption.widget);
+            painter->drawText(textRect, itemOption.displayAlignment,
+                              index.data(Qt::DisplayRole).toString());
+        }
+        painter->restore();
+    }
+};
 
 quint64 makeTrackTableUpdateKey(unsigned type, unsigned int batch)
 {
@@ -293,7 +383,7 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
         m_testTrackButton = new QPushButton(ui->btnDataProcess->parentWidget());
         m_testTrackButton->setObjectName(QStringLiteral("testTrackButton"));
         m_testTrackButton->setText(QStringLiteral("生成测试航迹"));
-        m_testTrackButton->setToolTip(QStringLiteral("生成配置数量的本地无人机普通航迹；完成后自动消批"));
+        m_testTrackButton->setToolTip(QStringLiteral("生成配置数量的本地普通航迹边界样本；生成中点击可终止并清除全部测试批次"));
         m_testTrackButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
         connect(m_testTrackButton, &QPushButton::clicked,
                 this, &MainOverLayOut::onGenerateTestTracksClicked);
@@ -302,8 +392,8 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
             if (!m_testTrackButton) {
                 return;
             }
-            m_testTrackButton->setEnabled(!active);
-            m_testTrackButton->setText(active ? QStringLiteral("测试航迹生成中")
+            m_testTrackButton->setEnabled(true);
+            m_testTrackButton->setText(active ? QStringLiteral("终止并清除测试航迹")
                                                : QStringLiteral("生成测试航迹"));
             if (!active) {
                 appendExternalLog(QStringLiteral("[测试航迹] 本轮已完成，所有测试批次已自动消批"));
@@ -1026,10 +1116,33 @@ MainOverLayOut::~MainOverLayOut() {
 
 void MainOverLayOut::setCommandControlModule(CommandControlModule* module)
 {
+    if (m_commandControlModule) {
+        disconnect(m_commandControlModule, &CommandControlModule::reportingStateChanged,
+                   this, &MainOverLayOut::refreshExternalReportingIndicators);
+    }
     m_commandControlModule = module;
+    if (m_commandControlModule) {
+        connect(m_commandControlModule, &CommandControlModule::reportingStateChanged,
+                this, &MainOverLayOut::refreshExternalReportingIndicators);
+    }
     if (m_commandControlButton) {
         m_commandControlButton->setEnabled(module != nullptr);
     }
+    refreshExternalReportingIndicators();
+}
+
+void MainOverLayOut::setLaserReportManager(LaserReportManager* module)
+{
+    if (m_laserReportManager) {
+        disconnect(m_laserReportManager, &LaserReportManager::reportingStateChanged,
+                   this, &MainOverLayOut::refreshExternalReportingIndicators);
+    }
+    m_laserReportManager = module;
+    if (m_laserReportManager) {
+        connect(m_laserReportManager, &LaserReportManager::reportingStateChanged,
+                this, &MainOverLayOut::refreshExternalReportingIndicators);
+    }
+    refreshExternalReportingIndicators();
 }
 
 bool MainOverLayOut::isLaserNetworkReady() const
@@ -1047,8 +1160,14 @@ QString MainOverLayOut::laserNetworkStatusText() const
 
 void MainOverLayOut::onGenerateTestTracksClicked()
 {
+    if (CON_INS->isTestTrackGenerationRunning()) {
+        if (CON_INS->stopTestTrackGeneration()) {
+            appendExternalLog(QStringLiteral("[测试航迹] 已终止本轮并清除全部测试批次"));
+        }
+        return;
+    }
     if (CON_INS->startTestTrackGeneration()) {
-        appendExternalLog(QStringLiteral("[测试航迹] 已开始生成本地无人机普通航迹；完成后会自动消批"));
+        appendExternalLog(QStringLiteral("[测试航迹] 已开始生成本地普通航迹；再次点击可终止并清除，完成后自动消批"));
         return;
     }
     appendExternalLog(QStringLiteral("[测试航迹] 无法启动：功能未启用或上一轮尚未结束"));
@@ -1150,7 +1269,7 @@ void MainOverLayOut::setupTrackTable(QTableWidget* tableWidget, FrozenColumnHelp
     if (!tableWidget) return;
 
     QStringList headers;
-    headers << "批次号" << "方位" << "俯仰" << "高度" << "距离" << "速度" << "SNR" << "类型";
+    headers << "ID" << "距离" << "方位" << "高度" << "速度" << "类型" << "SNR" << "指控" << "俯仰";
 
     tableWidget->setColumnCount(headers.size());
     tableWidget->setHorizontalHeaderLabels(headers);
@@ -1158,6 +1277,7 @@ void MainOverLayOut::setupTrackTable(QTableWidget* tableWidget, FrozenColumnHelp
     tableWidget->verticalHeader()->setVisible(false);
     tableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
     tableWidget->setAlternatingRowColors(true);
+    tableWidget->setItemDelegate(new TrackTableItemDelegate(tableWidget));
     tableWidget->setShowGrid(true);
     tableWidget->setWordWrap(false);
     tableWidget->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -1196,26 +1316,25 @@ void MainOverLayOut::fitTrackTableColumnsToViewport(QTableWidget* tableWidget)
         return;
     }
 
-    const int minColumnWidth = tableWidget->horizontalHeader()->minimumSectionSize();
-    const int columnCount = tableWidget->columnCount();
-    const int minTotal = columnCount * minColumnWidth;
-
     const int viewportWidth = tableWidget->viewport()->width();
-    const int targetWidth = qMax(viewportWidth, minTotal);
-    if (columnCount <= 0 || targetWidth <= 0) {
+    if (viewportWidth <= 0 || tableWidget->columnCount() != TrackTableColumnCount) {
         return;
     }
 
-    int assignedWidth = 0;
+    // 前 8 列刚好铺满可视区；第 9 列“俯仰”固定放在右侧滚动区，默认不挤占主信息。
+    const int idWidth = qBound(54, viewportWidth / 10, 78);
+    const int remainingWidth = qMax(7 * 48, viewportWidth - idWidth);
+    const int commonWidth = remainingWidth / 7;
     tableWidget->setProperty("trackColumnsFitting", true);
-    for (int i = 0; i < columnCount; ++i) {
-        int width = qMax(minColumnWidth, targetWidth / columnCount);
-        if (i == columnCount - 1) {
-            width = qMax(minColumnWidth, targetWidth - assignedWidth);
-        }
-        tableWidget->setColumnWidth(i, width);
+    tableWidget->setColumnWidth(TrackIdColumn, idWidth);
+    int assignedWidth = idWidth;
+    for (int column = TrackRangeColumn; column <= TrackControlColumn; ++column) {
+        const int width = column == TrackControlColumn
+            ? qMax(48, viewportWidth - assignedWidth) : qMax(48, commonWidth);
+        tableWidget->setColumnWidth(column, width);
         assignedWidth += width;
     }
+    tableWidget->setColumnWidth(TrackElevationColumn, 72);
     tableWidget->setProperty("trackColumnsFitting", false);
 }
 
@@ -1389,10 +1508,10 @@ void MainOverLayOut::updateTargetClassification(unsigned int batchID, int target
 
     if (ordinaryTrackRow >= 0) {
         QString recResultStr = (targetType == 1) ? tr("无人机") : tr("其它");
-        QTableWidgetItem* typeItem = trackTable->item(ordinaryTrackRow, 7);
+        QTableWidgetItem* typeItem = trackTable->item(ordinaryTrackRow, TrackTypeColumn);
         if (!typeItem) {
             typeItem = new QTableWidgetItem();
-            trackTable->setItem(ordinaryTrackRow, 7, typeItem);
+            trackTable->setItem(ordinaryTrackRow, TrackTypeColumn, typeItem);
         }
         typeItem->setText(recResultStr);
         typeItem->setFlags(typeItem->flags() & ~Qt::ItemIsEditable);
@@ -1401,12 +1520,12 @@ void MainOverLayOut::updateTargetClassification(unsigned int batchID, int target
     if (targetType == 1 && ordinaryTrackRow >= 0) {
         PointInfo info;
         info.batch = batchID;
-        info.azimuth = trackTable->item(ordinaryTrackRow, 1)->text().toFloat();
-        info.elevation = trackTable->item(ordinaryTrackRow, 2)->text().toFloat();
-        info.altitute = trackTable->item(ordinaryTrackRow, 3)->text().toFloat();
-        info.range = trackTable->item(ordinaryTrackRow, 4)->text().toFloat();
-        info.speed = trackTable->item(ordinaryTrackRow, 5)->text().toFloat();
-        info.SNR = trackTable->item(ordinaryTrackRow, 6)->text().toFloat();
+        info.range = trackTable->item(ordinaryTrackRow, TrackRangeColumn)->text().toFloat();
+        info.azimuth = trackTable->item(ordinaryTrackRow, TrackAzimuthColumn)->text().toFloat();
+        info.elevation = trackTable->item(ordinaryTrackRow, TrackElevationColumn)->text().toFloat();
+        info.altitute = trackTable->item(ordinaryTrackRow, TrackHeightColumn)->text().toFloat();
+        info.speed = trackTable->item(ordinaryTrackRow, TrackSpeedColumn)->text().toFloat();
+        info.SNR = trackTable->item(ordinaryTrackRow, TrackSnrColumn)->text().toFloat();
         info.type = PointType::Track;
         info.targetRecResult = 1;
 
@@ -1616,31 +1735,22 @@ int MainOverLayOut::addOrUpdateTrackRow(QTableWidget* tableWidget, const PointIn
     batchItem->setData(Qt::UserRole, info.type);
     batchItem->setText(QString::number(info.batch));
 
-    ensureItem(1)->setText(QString::number(info.azimuth, 'f', 1));
-    ensureItem(2)->setText(QString::number(info.elevation, 'f', 1));
-    ensureItem(3)->setText(QString::number(info.altitute, 'f', 1));
-    ensureItem(4)->setText(QString::number(info.range, 'f', 1));
-    ensureItem(5)->setText(QString::number(info.speed, 'f', 1));
-    ensureItem(6)->setText(QString::number(info.SNR, 'f', 1));
+    ensureItem(TrackRangeColumn)->setText(QString::number(info.range, 'f', 1));
+    ensureItem(TrackAzimuthColumn)->setText(QString::number(info.azimuth, 'f', 1));
+    ensureItem(TrackHeightColumn)->setText(QString::number(info.altitute, 'f', 1));
+    ensureItem(TrackSpeedColumn)->setText(QString::number(info.speed, 'f', 1));
     // 目标识别结果（来自数据处理上报）
     QString recResultStr = targetType;
     if (info.type == PointType::Track) {
         recResultStr = (info.targetRecResult == 1) ? QStringLiteral("无人机") : QStringLiteral("其它");
     }
-    // 显示识别结果在"类型"列（列索引7），不使用额外列
-    ensureItem(7)->setText(recResultStr);
+    ensureItem(TrackTypeColumn)->setText(recResultStr);
+    ensureItem(TrackSnrColumn)->setText(QString::number(info.SNR, 'f', 1));
+    const QString controlStatus = externalControlStatus(info);
+    ensureItem(TrackControlColumn)->setText(controlStatus);
+    ensureItem(TrackElevationColumn)->setText(QString::number(info.elevation, 'f', 1));
 
-    // 设置所有项为不可编辑
-    for (int col = 0; col < tableWidget->columnCount(); ++col) {
-        QTableWidgetItem* item = tableWidget->item(row, col);
-        if (!item) continue;
-        item->setFlags(item->flags() & ~Qt::ItemIsEditable);
-        if (info.type != PointType::Track) {
-            item->setBackground(QBrush(trackTypeColor(info.type).lighter(150)));
-        } else {
-            item->setBackground(QBrush());
-        }
-    }
+    applyTrackRowAppearance(tableWidget, row, info.type, controlStatus);
 
     if (inserted) {
         *inserted = rowInserted;
@@ -1683,13 +1793,26 @@ void MainOverLayOut::sortTrackTable(QTableWidget* tableWidget) {
         allRows.append(rowData);
     }
 
-    // 自定义排序：无人机优先，相同类别按时间排序
+    // 自定义排序：正在对外上报的航迹置顶，再按无人机和起批时间排列。
     std::sort(allRows.begin(), allRows.end(), [this](const TrackRowData& a, const TrackRowData& b) {
         unsigned int batchA = a.columns[0].toUInt();
         unsigned int batchB = b.columns[0].toUInt();
 
         int typeA = m_targetTypes.value(batchA, 0);
         int typeB = m_targetTypes.value(batchB, 0);
+        PointInfo infoA;
+        infoA.batch = batchA;
+        infoA.type = a.type;
+        PointInfo infoB;
+        infoB.batch = batchB;
+        infoB.type = b.type;
+        // 不相信行内缓存的“指控”文本；状态变化和批量表刷新跨事件循环时，
+        // 直接从总控/激光模块取状态，保证上报行一定优先排序。
+        const bool reportingA = isExternalControlStatus(externalControlStatus(infoA));
+        const bool reportingB = isExternalControlStatus(externalControlStatus(infoB));
+        if (reportingA != reportingB) {
+            return reportingA;
+        }
 
         // 无人机类型（1）优先
         if (typeA == 1 && typeB != 1) return true;
@@ -1707,6 +1830,7 @@ void MainOverLayOut::sortTrackTable(QTableWidget* tableWidget) {
 
     // 清空表格并重新填充
     tableWidget->setRowCount(0);
+    bool previousRowReporting = false;
     for (int i = 0; i < allRows.size(); ++i) {
         tableWidget->insertRow(i);
         const TrackRowData& rowData = allRows[i];
@@ -1716,12 +1840,113 @@ void MainOverLayOut::sortTrackTable(QTableWidget* tableWidget) {
                 item->setData(Qt::UserRole, rowData.type);
             }
             item->setFlags(item->flags() & ~Qt::ItemIsEditable);
-            if (rowData.type != PointType::Track) {
-                item->setBackground(QBrush(trackTypeColor(rowData.type).lighter(150)));
-            }
             tableWidget->setItem(i, col, item);
         }
+        PointInfo info;
+        info.batch = rowData.columns.value(TrackIdColumn).toUInt();
+        info.type = rowData.type;
+        const QString controlStatus = externalControlStatus(info);
+        if (QTableWidgetItem* statusItem = tableWidget->item(i, TrackControlColumn)) {
+            statusItem->setText(controlStatus);
+        }
+        applyTrackRowAppearance(tableWidget, i, rowData.type, controlStatus);
+        const bool reporting = isExternalControlStatus(controlStatus);
+        const bool startsUnreportedGroup = i > 0 && previousRowReporting && !reporting;
+        if (startsUnreportedGroup) {
+            for (int column = 0; column < tableWidget->columnCount(); ++column) {
+                if (QTableWidgetItem* item = tableWidget->item(i, column)) {
+                    item->setData(kTrackReportingBoundaryRole, true);
+                }
+            }
+        }
+        previousRowReporting = reporting;
     }
+}
+
+QString MainOverLayOut::externalControlStatus(const PointInfo& info) const
+{
+    if (info.type != PointType::Track) {
+        return QStringLiteral("否");
+    }
+    const int batch = static_cast<int>(info.batch);
+    if (m_laserReportManager && (m_laserReportManager->isReporting(batch)
+                                 || m_laserReportManager->isAutoReportingTrack(batch))) {
+        return QStringLiteral("激光");
+    }
+    if (m_commandControlModule && m_commandControlModule->isManualReportActive(info.batch)) {
+        return QStringLiteral("手动");
+    }
+    if (m_commandControlModule && m_commandControlModule->isAutoReportActive(info.batch)) {
+        return QStringLiteral("自动");
+    }
+    return QStringLiteral("否");
+}
+
+void MainOverLayOut::applyTrackRowAppearance(QTableWidget* tableWidget, int row, unsigned type,
+                                             const QString& controlStatus) const
+{
+    if (!tableWidget || row < 0 || row >= tableWidget->rowCount()) {
+        return;
+    }
+    const bool externallyControlled = isExternalControlStatus(controlStatus);
+    // 所有普通行都显式写入深色背景，避免交替行回退到系统白色调色板。
+    const QBrush normalBackground(row % 2 == 0 ? QColor(16, 24, 24)
+                                                : QColor(25, 39, 37));
+    // QSS 统一负责黑色主题底色；这里保留画刷作为无 QSS 场景的安全回退。
+    // 实际的上报强调由代理绘制青色细框，避免使用浅色背景破坏原始主题。
+    const QBrush background = externallyControlled
+        ? QBrush(QColor(0, 104, 88))
+        : (type != PointType::Track ? QBrush(trackTypeColor(type).darker(170)) : normalBackground);
+    // 深色主题下显式指定浅色文字；空画刷会回退到系统调色板，导致黑灰字不可读。
+    const QBrush foreground = externallyControlled ? QBrush(QColor(240, 255, 251))
+                                                     : QBrush(QColor(238, 245, 245));
+    const QBrush heightForeground(QColor(90, 255, 185));
+    for (int col = 0; col < tableWidget->columnCount(); ++col) {
+        QTableWidgetItem* item = tableWidget->item(row, col);
+        if (!item) {
+            continue;
+        }
+        item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+        item->setBackground(background);
+        item->setForeground(col == TrackHeightColumn ? heightForeground : foreground);
+        item->setData(kTrackExternalReportingRole, externallyControlled);
+        item->setData(kTrackReportingBoundaryRole, false);
+        QFont font = item->font();
+        font.setBold(externallyControlled || col == TrackHeightColumn);
+        item->setFont(font);
+    }
+}
+
+void MainOverLayOut::refreshExternalReportingIndicators()
+{
+    const std::array<QTableWidget*, 4> tables = {
+        ui ? ui->tableWidget : nullptr, ui ? ui->droneTableWidget : nullptr,
+        m_tbdTrackTable, m_cooperativeTrackTable
+    };
+    for (QTableWidget* tableWidget : tables) {
+        if (!tableWidget) {
+            continue;
+        }
+        for (int row = 0; row < tableWidget->rowCount(); ++row) {
+            QTableWidgetItem* idItem = tableWidget->item(row, TrackIdColumn);
+            if (!idItem) {
+                continue;
+            }
+            PointInfo info;
+            info.batch = idItem->text().toUInt();
+            info.type = idItem->data(Qt::UserRole).toUInt();
+            const QString status = externalControlStatus(info);
+            QTableWidgetItem* statusItem = tableWidget->item(row, TrackControlColumn);
+            if (!statusItem) {
+                statusItem = new QTableWidgetItem();
+                tableWidget->setItem(row, TrackControlColumn, statusItem);
+            }
+            statusItem->setText(status);
+            applyTrackRowAppearance(tableWidget, row, info.type, status);
+        }
+        sortTrackTable(tableWidget);
+    }
+    syncFrozenTrackTables();
 }
 
 QString MainOverLayOut::getTargetTypeText(int targetType) const {
@@ -2958,8 +3183,9 @@ void MainOverLayOut::onBITReport(BITReport res) {
         m_lastBITUpdateTime = currentTime;
     }
 
-    // 仅在需要更新时记录日志
-    if (shouldUpdate) {
+    // 健康管理界面继续逐帧刷新；正常 BIT 摘要默认不写显控日志，
+    // 只有显式打开字段级联调日志时才按节流周期输出。
+    if (shouldUpdate && CF_INS.bitReportNormalLogEnabled(false)) {
         const double fpgaTemp = res.fpgaTemp / 10.0;    // 0.1°
         const double panelTemp = res.panelTemp / 10.0;  // 0.1°
         const double yaw = res.yaw / 100.0;             // 0.01°

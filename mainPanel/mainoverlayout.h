@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-16 21:32:31
+ * @LastEditTime: 2026-09-17 22:45:16
  * @Description: 
  */
 /**
@@ -70,6 +70,7 @@ class QSplitter;
 class QToolButton;
 class SubsystemNetworkMonitor;
 class CommandControlModule;
+class LaserReportManager;
 
 
 namespace Ui {
@@ -180,6 +181,7 @@ public:
      */
     PPIView* getPPIView() const { return mView; }
     void setCommandControlModule(CommandControlModule* module);
+    void setLaserReportManager(LaserReportManager* module);
     /// 激光快捷下发使用与健康管理窗口一致的双端网络可达性判定。
     bool isLaserNetworkReady() const;
     QString laserNetworkStatusText() const;
@@ -454,6 +456,11 @@ private:
 
     void applyTrackTabDisplayMode();
 
+    QString externalControlStatus(const PointInfo& info) const;
+    void refreshExternalReportingIndicators();
+    void applyTrackRowAppearance(QTableWidget* tableWidget, int row, unsigned type,
+                                 const QString& controlStatus) const;
+
     // simulateIncomingTracks (test helper) removed
 
     /**
@@ -546,6 +553,7 @@ private:
     int m_targetRecSta;                  ///< 目标识别软件状态
     SubsystemNetworkMonitor* m_subsystemNetworkMonitor = nullptr;
     CommandControlModule* m_commandControlModule = nullptr;
+    LaserReportManager* m_laserReportManager = nullptr;
     std::array<bool, 4> m_networkHealthOk{};
     std::array<QString, 4> m_networkHealthText{};
     static constexpr int kRadarPanelCount = 4;

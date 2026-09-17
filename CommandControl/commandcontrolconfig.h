@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-16 21:32:29
+ * @LastEditTime: 2026-09-17 22:45:14
  * @Description: 
  */
 /* 指控通信模块独立配置读取。 */
@@ -16,6 +16,12 @@
 struct CommandControlSettings {
     bool enabled = true;
     bool autoReportEnabled = false;
+    // 自动 DDA4 上报仅有高度上限；距离和方位均为闭区间，方位允许跨 0 度。
+    double autoReportHeightMaxM = 100.0;
+    double autoReportRangeMinM = 0.0;
+    double autoReportRangeMaxM = 3000.0;
+    double autoReportAzimuthStartDeg = 0.0;
+    double autoReportAzimuthEndDeg = 360.0;
     QString localIp = QStringLiteral("192.30.106.13");
     quint16 localPort = 21505;
     QString multicastGroup = QStringLiteral("224.0.1.2");

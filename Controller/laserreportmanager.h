@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-06-29 23:29:30 -0700
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-16 21:32:30
+ * @LastEditTime: 2026-09-17 22:45:15
  * @Description: 
  */
 /*
@@ -39,11 +39,13 @@ public:
     bool isEnabled() const { return m_enabled; }
     int  activeBatch() const { return m_activeBatch; }
     /// 当前是否正在对该批号持续上报（供右键菜单决定显示“开启/关闭”）
-    bool isReporting(int batch) const { return m_enabled && m_activeBatch == batch; }
+    bool isReporting(int batch) const { return m_activeBatch == batch; }
     /// 自动上报（模式1：周期上报全部目标，最多10个）是否开启
-    bool isAutoReport() const { return m_enabled && m_autoReportEnabled; }
+    bool isAutoReport() const { return m_autoReportEnabled; }
+    /// 指定航迹当前是否因自动模式处于上报状态；离线时仅本地测试航迹有效。
+    bool isAutoReportingTrack(int batch) const;
     /// 指定批号是否已有可立即下发的普通航迹最新点。
-    bool hasTrack(int batch) const { return m_enabled && m_latest.contains(batch); }
+    bool hasTrack(int batch) const { return m_latest.contains(batch); }
 
 public slots:
     void reportTrackPoint(const PointInfo& info);   ///< 缓存各批号最新航迹点（数据源）
@@ -59,6 +61,7 @@ signals:
     void laserTimeSyncCommand(const LaserDataTime& syncTime);    ///< 收到授时(0x0101)
     void laserWorkStateCommand(unsigned char workState);        ///< 收到工作状态(0x0201)
     void laserSearchRangeCommand(const LaserSearchRange& range); ///< 收到搜索范围(0x0104)
+    void reportingStateChanged();
 
 private slots:
     void onReportTick();                            ///< 周期：发状态帧心跳 + 侦察帧
@@ -74,6 +77,7 @@ private:
     void fillTargetInfo(LaserTargetInfo& t, const PointInfo& info, unsigned char cancelFlag);
 
     void saveTxtRecord(const PointInfo& info);
+    bool isConfiguredTestTrack(int batch) const;
 
     static LaserDataTime  nowLaserTime();
     static unsigned short mapTargetType(const PointInfo& info);
@@ -89,6 +93,8 @@ private:
     QHostAddress m_laserHost;          ///< 激光控制终端IP
     quint16      m_udpPort = 9009;     ///< 单端口双向
     int          m_intervalMs = 1000;
+    int          m_heartbeatLogIntervalMs = 0; ///< 正常状态心跳日志周期；0=抑制
+    qint64       m_lastHeartbeatLogMs = -1;
     bool         m_saveTxt = true;
     QString      m_saveDir = "LaserReportLog";
 

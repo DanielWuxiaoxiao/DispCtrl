@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-16 21:32:29
+ * @LastEditTime: 2026-09-17 22:45:14
  * @Description: 
  */
 #include "commandcontrolmodule.h"
@@ -309,6 +309,27 @@ bool CommandControlModule::init()
 bool CommandControlModule::isManualReportActive(quint32 sourceBatch) const
 {
     return m_manualBatches.contains(sourceBatch);
+}
+
+bool CommandControlModule::isAutoReportActive(quint32 sourceBatch) const
+{
+    if (!m_autoReportEnabled || !m_latestTracks.contains(sourceBatch)) {
+        return false;
+    }
+    const PointInfo& info = m_latestTracks.value(sourceBatch);
+    if (!isDrone(sourceBatch, info)) {
+        return false;
+    }
+    // 测试航迹只豁免网络与登录条件，仍必须接受与真实航迹相同的业务范围筛选。
+    if (!isWithinAutoReportRange(info)) {
+        return false;
+    }
+    return isConfiguredTestTrack(sourceBatch) || (m_ready && m_loggedIn);
+}
+
+bool CommandControlModule::isTrackReporting(quint32 sourceBatch) const
+{
+    return isManualReportActive(sourceBatch) || isAutoReportActive(sourceBatch);
 }
 
 QList<CommandControlPeer> CommandControlModule::peers() const
@@ -1020,22 +1041,31 @@ void CommandControlModule::sendEquipmentStatus()
 
 void CommandControlModule::processTrackPoint(const PointInfo& info)
 {
-    if (!m_ready) {
-        return;
-    }
     if (info.type != PointType::Track) {
         return;
     }
     if (info.statMethod == 2) {
+        const bool wasReporting = m_manualBatches.contains(info.batch)
+                               || isAutoReportActive(info.batch);
         m_latestTracks.remove(info.batch);
         m_targetClasses.remove(info.batch);
         m_manualBatches.remove(info.batch);
         LOG_INFO(QString("[CommandControl][TRACK] 航迹消批 sourceBatch=%1，已停止手动上报").arg(info.batch));
+        if (wasReporting) {
+            emit reportingStateChanged();
+        }
         return;
     }
+    const bool wasAutoReporting = isAutoReportActive(info.batch);
     m_latestTracks.insert(info.batch, info);
+    if (wasAutoReporting != isAutoReportActive(info.batch)) {
+        emit reportingStateChanged();
+    }
+    if (!m_ready) {
+        return;
+    }
     const bool manual = m_manualBatches.contains(info.batch);
-    const bool automatic = m_autoReportEnabled && isDrone(info.batch, info);
+    const bool automatic = isAutoReportActive(info.batch);
     if (manual || automatic) {
         reportTrack(info, manual);
     }
@@ -1043,33 +1073,38 @@ void CommandControlModule::processTrackPoint(const PointInfo& info)
 
 void CommandControlModule::processTargetClassification(TargetClaRes result)
 {
+    const bool wasAutoReporting = isAutoReportActive(result.batchID);
+    m_targetClasses.insert(result.batchID, result.claRes);
+    const bool isAutoReporting = isAutoReportActive(result.batchID);
+    if (wasAutoReporting != isAutoReporting) {
+        emit reportingStateChanged();
+    }
     if (!m_ready) {
         return;
     }
-    m_targetClasses.insert(result.batchID, result.claRes);
-    if (!m_autoReportEnabled || result.claRes != 1 || !m_latestTracks.contains(result.batchID)) {
+    const bool manual = m_manualBatches.contains(result.batchID);
+    if ((!manual && !isAutoReportActive(result.batchID)) || !m_latestTracks.contains(result.batchID)) {
         return;
     }
     const PointInfo info = m_latestTracks.value(result.batchID);
-    reportTrack(info, m_manualBatches.contains(result.batchID));
+    reportTrack(info, manual);
 }
 
 void CommandControlModule::toggleManualReport(quint32 sourceBatch)
 {
-    if (!m_ready) {
-        return;
-    }
     if (m_manualBatches.contains(sourceBatch)) {
         m_manualBatches.remove(sourceBatch);
         LOG_INFO(QString("[CommandControl][MANUAL] 关闭手动上报 sourceBatch=%1").arg(sourceBatch));
+        emit reportingStateChanged();
         return;
     }
     startManualReport(sourceBatch);
 }
 
-bool CommandControlModule::startManualReport(quint32 sourceBatch)
+bool CommandControlModule::startManualReport(quint32 sourceBatch, bool allowOfflineTest)
 {
-    if (!m_ready) {
+    const bool offlineTest = allowOfflineTest && isConfiguredTestTrack(sourceBatch);
+    if (!m_ready && !offlineTest) {
         setStatus(QStringLiteral("总控通信未就绪，不能开启手动上报"));
         return false;
     }
@@ -1083,6 +1118,11 @@ bool CommandControlModule::startManualReport(quint32 sourceBatch)
     if (!m_manualBatches.contains(sourceBatch)) {
         m_manualBatches.insert(sourceBatch);
         LOG_INFO(QString("[CommandControl][MANUAL] 开启手动上报 sourceBatch=%1").arg(sourceBatch));
+        emit reportingStateChanged();
+    }
+    if (!m_ready) {
+        setStatus(QStringLiteral("测试航迹已标记为总控手动上报，等待总控通信就绪后发送"));
+        return true;
     }
     reportTrack(m_latestTracks.value(sourceBatch), true);
     return true;
@@ -1096,6 +1136,76 @@ void CommandControlModule::setAutoReportEnabled(bool enabled)
     m_autoReportEnabled = enabled;
     LOG_INFO(QString("[CommandControl][AUTO] 自动无人机航迹上报=%1").arg(enabled));
     emit autoReportChanged(enabled);
+    reconcileAutoReporting();
+}
+
+void CommandControlModule::setAutoReportRange(double heightMaxM, double rangeMinM,
+                                              double rangeMaxM, double azimuthStartDeg,
+                                              double azimuthEndDeg)
+{
+    if (!std::isfinite(heightMaxM) || !std::isfinite(rangeMinM) || !std::isfinite(rangeMaxM)
+        || !std::isfinite(azimuthStartDeg) || !std::isfinite(azimuthEndDeg)
+        || heightMaxM < -10000.0 || heightMaxM > 100000.0
+        || rangeMinM < 0.0 || rangeMaxM > 100000.0 || rangeMinM > rangeMaxM
+        || azimuthStartDeg < 0.0 || azimuthStartDeg > 360.0
+        || azimuthEndDeg < 0.0 || azimuthEndDeg > 360.0) {
+        LOG_WARNING(QStringLiteral("[CommandControl][AUTO] 忽略非法自动上报范围"));
+        return;
+    }
+    if (qFuzzyCompare(m_settings.autoReportHeightMaxM + 1.0, heightMaxM + 1.0)
+        && qFuzzyCompare(m_settings.autoReportRangeMinM + 1.0, rangeMinM + 1.0)
+        && qFuzzyCompare(m_settings.autoReportRangeMaxM + 1.0, rangeMaxM + 1.0)
+        && qFuzzyCompare(m_settings.autoReportAzimuthStartDeg + 1.0, azimuthStartDeg + 1.0)
+        && qFuzzyCompare(m_settings.autoReportAzimuthEndDeg + 1.0, azimuthEndDeg + 1.0)) {
+        // “确认”也可作为一次显式全量重判；不依赖后续新点到达。
+        reconcileAutoReporting();
+        return;
+    }
+    m_settings.autoReportHeightMaxM = heightMaxM;
+    m_settings.autoReportRangeMinM = rangeMinM;
+    m_settings.autoReportRangeMaxM = rangeMaxM;
+    m_settings.autoReportAzimuthStartDeg = azimuthStartDeg;
+    m_settings.autoReportAzimuthEndDeg = azimuthEndDeg;
+    LOG_INFO(QStringLiteral("[CommandControl][AUTO] 自动上报范围更新：高度<=%1m，距离=%2~%3m，方位=%4~%5度")
+                 .arg(heightMaxM).arg(rangeMinM).arg(rangeMaxM)
+                 .arg(azimuthStartDeg).arg(azimuthEndDeg));
+    emit autoReportRangeChanged();
+    reconcileAutoReporting();
+}
+
+void CommandControlModule::reconcileAutoReporting()
+{
+    // 自动上报没有独立的“停止包”：不再满足判据时，后续点不再发送 DDA4，
+    // 同时立即通知 PPI 和列表撤销“自动上报中”的强调状态。
+    emit reportingStateChanged();
+
+    int automaticCount = 0;
+    int manualCount = 0;
+    for (auto it = m_latestTracks.cbegin(); it != m_latestTracks.cend(); ++it) {
+        if (m_manualBatches.contains(it.key())) {
+            ++manualCount;
+        }
+        if (isAutoReportActive(it.key())) {
+            ++automaticCount;
+            // 未登录或 UDP 未就绪时 isAutoReportActive 对真实航迹为 false，
+            // 因此不会在通信未就绪时提前构造 DDA4。
+            if (m_ready) {
+                reportTrack(it.value(), false);
+            }
+        }
+    }
+
+    const QString summary = QStringLiteral("自动范围已应用：高度<=%1m，距离=%2~%3m，方位=%4~%5°；缓存=%6，自动合格=%7，手动保持=%8")
+                                .arg(m_settings.autoReportHeightMaxM, 0, 'f', 0)
+                                .arg(m_settings.autoReportRangeMinM, 0, 'f', 0)
+                                .arg(m_settings.autoReportRangeMaxM, 0, 'f', 0)
+                                .arg(m_settings.autoReportAzimuthStartDeg, 0, 'f', 1)
+                                .arg(m_settings.autoReportAzimuthEndDeg, 0, 'f', 1)
+                                .arg(m_latestTracks.size())
+                                .arg(automaticCount)
+                                .arg(manualCount);
+    LOG_INFO(QStringLiteral("[CommandControl][AUTO] %1").arg(summary));
+    setStatus(summary);
 }
 
 void CommandControlModule::requestLogin()
@@ -1133,6 +1243,41 @@ void CommandControlModule::showControlWindow()
 bool CommandControlModule::isDrone(quint32 sourceBatch, const PointInfo& info) const
 {
     return info.targetRecResult == 1 || m_targetClasses.value(sourceBatch, 0) == 1;
+}
+
+bool CommandControlModule::isWithinAutoReportRange(const PointInfo& info) const
+{
+    if (!std::isfinite(info.altitute) || !std::isfinite(info.range)
+        || !std::isfinite(info.azimuth)) {
+        return false;
+    }
+    if (info.altitute > m_settings.autoReportHeightMaxM
+        || info.range < m_settings.autoReportRangeMinM
+        || info.range > m_settings.autoReportRangeMaxM) {
+        return false;
+    }
+
+    double azimuth = std::fmod(static_cast<double>(info.azimuth), 360.0);
+    if (azimuth < 0.0) {
+        azimuth += 360.0;
+    }
+    const double start = m_settings.autoReportAzimuthStartDeg;
+    const double end = m_settings.autoReportAzimuthEndDeg;
+    if (start <= end) {
+        return azimuth >= start && azimuth <= end;
+    }
+    // 例如 330~30 度表示跨正北的扇区。
+    return azimuth >= start || azimuth <= end;
+}
+
+bool CommandControlModule::isConfiguredTestTrack(quint32 sourceBatch) const
+{
+    if (!CF_INS.testTrackEnabled(false)) {
+        return false;
+    }
+    const quint32 firstBatch = CF_INS.testTrackFirstBatch(101);
+    const quint32 trackCount = static_cast<quint32>(qBound(2, CF_INS.testTrackCount(10), 10));
+    return sourceBatch >= firstBatch && sourceBatch < firstBatch + trackCount;
 }
 
 bool CommandControlModule::targetLla(const PointInfo& info, double& longitudeDeg,
@@ -1271,6 +1416,12 @@ CommandControlProtocol::Dda4Track CommandControlModule::makeDda4Track(const Poin
 
 void CommandControlModule::reportTrack(const PointInfo& info, bool manualMode)
 {
+    // 所有自动 DDA4 在最终发送点再次执行判据。即使未来新增调用者，
+    // 也不能绕过高度、距离、方位和无人机识别的自动上报筛选。
+    if (!manualMode && !isAutoReportActive(info.batch)) {
+        return;
+    }
+
     double radarLongitude = 0.0;
     double radarLatitude = 0.0;
     double radarAltitude = 0.0;

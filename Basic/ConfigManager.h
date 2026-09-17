@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-16 21:32:28
+ * @LastEditTime: 2026-09-17 22:45:14
  * @Description: 
  */
 #ifndef CONFIGMANAGER_H
@@ -72,11 +72,11 @@ public:
         return getValue("test_track.enabled", def).toBool();
     }
 
-    int testTrackCount(int def = 2) const {
+    int testTrackCount(int def = 10) const {
         return getValue("test_track.track_count", def).toInt();
     }
 
-    int testTrackPointCount(int def = 300) const {
+    int testTrackPointCount(int def = 1200) const {
         return getValue("test_track.point_count", def).toInt();
     }
 
@@ -88,7 +88,7 @@ public:
         return getValue("test_track.speed_mps", def).toDouble();
     }
 
-    quint32 testTrackFirstBatch(quint32 def = 65000) const {
+    quint32 testTrackFirstBatch(quint32 def = 101) const {
         return getValue("test_track.first_batch", def).toUInt();
     }
 
@@ -365,6 +365,10 @@ public:
     }
     int laserReportIntervalMs(int def = 1000) const {
         return getValue("laser.report_interval_ms", def).toInt();
+    }
+    /// 激光正常状态心跳的日志间隔；0 表示不打印正常心跳，发送错误始终记录。
+    int laserHeartbeatLogIntervalMs(int def = 0) const {
+        return getValue("laser.heartbeat_log_interval_ms", def).toInt();
     }
     bool laserSaveTxt(bool def = true) const {
         return getValue("laser.save_txt", def).toBool();

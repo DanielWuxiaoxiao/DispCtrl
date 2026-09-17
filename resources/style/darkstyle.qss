@@ -650,7 +650,17 @@ QTableWidget#tbdTrackTableWidget::item,
 QTableWidget#cooperativeTrackTableWidget::item {
     border-bottom: 1px solid #333333;
     padding: 4px 8px;
-    background-color: rgba(16, 24, 24, 0.8);
+    background-color: #101818;
+    color: #eef5f5;
+}
+
+/* 交替行必须显式覆盖系统的 AlternateBase，避免 Windows 回退为白底。 */
+QTableWidget#tableWidget::item:alternate,
+QTableWidget#droneTableWidget::item:alternate,
+QTableWidget#tbdTrackTableWidget::item:alternate,
+QTableWidget#cooperativeTrackTableWidget::item:alternate {
+    background-color: #192725;
+    color: #eef5f5;
 }
 
 /* 选中项的样式 */
@@ -661,14 +671,6 @@ QTableWidget#cooperativeTrackTableWidget::item:selected {
     background-color: rgba(0, 255, 200, 0.3);
     color: #FFFFFF;
     border: 1px solid #00ffc8;
-}
-
-/* 交替行颜色 */
-QTableWidget#tableWidget::item:alternate,
-QTableWidget#droneTableWidget::item:alternate,
-QTableWidget#tbdTrackTableWidget::item:alternate,
-QTableWidget#cooperativeTrackTableWidget::item:alternate {
-    background-color: rgba(20, 30, 30, 0.8);
 }
 
 /* 航迹表格滚动条样式 */
@@ -1982,6 +1984,34 @@ PhotoElectricParam QLineEdit {
 #CommandControlWindow QCheckBox::indicator:checked {
     background-color: #00c982;
     border-color: #70ffd0;
+}
+
+#CommandControlWindow #CommandControlAutoRangeSpinBox {
+    color: #d9fff0;
+    background-color: #0c1b18;
+    border: 1px solid #33886e;
+    border-radius: 5px;
+    padding: 2px 7px;
+    font-size: 13px;
+}
+
+#CommandControlWindow #CommandControlAutoRangeSpinBox:hover,
+#CommandControlWindow #CommandControlAutoRangeSpinBox:focus {
+    border-color: #67e8b5;
+    background-color: #132924;
+}
+
+#CommandControlWindow #CommandControlApplyAutoRangeButton {
+    color: #071713;
+    font-weight: bold;
+    background-color: #00c982;
+    border-color: #72ffd1;
+}
+
+#CommandControlWindow #CommandControlApplyAutoRangeButton:hover {
+    color: #03100c;
+    background-color: #57efb2;
+    border-color: #c5ffe8;
 }
 
 #CommandControlWindow QPushButton {

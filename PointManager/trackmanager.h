@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-16 21:32:30
+ * @LastEditTime: 2026-09-17 22:45:15
  * @Description: 
  */
 /**
@@ -76,6 +76,10 @@ public:
 
     void setFocused(bool focused);
     bool isFocused() const { return m_focused; }
+    void setExternallyReported(bool reported);
+
+    /// 高亮标签的背景比文字区域大，必须纳入场景脏矩形，避免拖动后残留绘制。
+    QRectF boundingRect() const override;
 
     /** @brief 绑定所属批次ID，右键菜单使用 */
     void setBatchID(int id) { m_batchID = id; }
@@ -115,6 +119,7 @@ private:
     PointType m_trackType = PointType::Track; ///< 所属航迹类型
     QFont m_baseFont;                       ///< 默认字体
     bool m_focused = false;                 ///< 是否处于关注高亮态
+    bool m_externallyReported = false;      ///< 是否处于外部上报强调态
 };
 
 /**
@@ -149,6 +154,8 @@ struct TrackSeries {
     QGraphicsLineItem* labelLine = nullptr;     ///< 标签到最新点的连线
     bool visible = true;                        ///< 航迹可见性标志
     bool focused = false;                       ///< 是否关注该批次
+    bool externallyReported = false;            ///< 是否正在被总控或激光上报
+    QString externalReportText;                 ///< 外部上报状态文字，例如“自动上报中”
     QColor color;                               ///< 航迹颜色
     bool hasCustomColor = false;                ///< 外部指定的固定颜色，不被常规识别颜色覆盖
     QString displayLabel;                       ///< PPI 标签展示文本；内部索引可与外部批号不同
@@ -336,6 +343,10 @@ public:
     void setBatchFocused(int batchID, bool focused);
 
     bool isBatchFocused(int batchID) const;
+
+    /// 标记普通航迹是否正在被总控或激光上报，并同步强调绘制和 PPI 标签。
+    void setBatchExternalReporting(int batchID, bool reporting,
+                                   const QString& reportText = QString());
 
 signals:
     /**

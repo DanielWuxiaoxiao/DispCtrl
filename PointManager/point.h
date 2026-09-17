@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-16 21:32:30
+ * @LastEditTime: 2026-09-17 22:45:15
  * @Description: 
  */
 /**
@@ -312,6 +312,7 @@ public:
 
     void setFocused(bool focused);
     bool isFocused() const { return m_focused; }
+    void setExternallyReported(bool reported);
 
 protected:
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget = nullptr) override;
@@ -332,6 +333,7 @@ protected:
 private:
     QColor m_color;
     bool m_focused = false;
+    bool m_externallyReported = false;
 };
 
 #endif // POINT_H

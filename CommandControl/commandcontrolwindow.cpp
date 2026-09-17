@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-16 21:32:29
+ * @LastEditTime: 2026-09-17 22:45:14
  * @Description: 
  */
 #include "commandcontrolwindow.h"
@@ -13,6 +13,7 @@
 #include <QCheckBox>
 #include <QDateTime>
 #include <QDialogButtonBox>
+#include <QDoubleSpinBox>
 #include <QEvent>
 #include <QFileDialog>
 #include <QGridLayout>
@@ -24,6 +25,7 @@
 #include <QTabWidget>
 #include <QTableWidget>
 #include <QTableWidgetItem>
+#include <QSignalBlocker>
 #include <QVBoxLayout>
 
 namespace {
@@ -103,6 +105,10 @@ CommandControlWindow::CommandControlWindow(CommandControlModule* module)
     m_statusLabel->setObjectName(QStringLiteral("CommandControlStatusLabel"));
     m_statusLabel->setWordWrap(true);
     controlLayout->addWidget(m_statusLabel);
+    m_loginStatusButton = new QPushButton(controlPage);
+    m_loginStatusButton->setEnabled(false);
+    m_loginStatusButton->setMinimumHeight(38);
+    controlLayout->addWidget(m_loginStatusButton);
     auto* networkTitle = new QLabel(QStringLiteral("总控网络状态（ICMP 可达性）"), controlPage);
     networkTitle->setObjectName(QStringLiteral("CommandControlNetworkTitle"));
     controlLayout->addWidget(networkTitle);
@@ -125,6 +131,45 @@ CommandControlWindow::CommandControlWindow(CommandControlModule* module)
     m_autoReportCheckBox = new QCheckBox(QStringLiteral("自动上报识别为无人机的正常航迹"), controlPage);
     m_autoReportCheckBox->setObjectName(QStringLiteral("CommandControlAutoReportCheck"));
     controlLayout->addWidget(m_autoReportCheckBox);
+    auto* autoRangeTitle = new QLabel(QStringLiteral("自动上报范围（仅识别为无人机的普通航迹）"), controlPage);
+    autoRangeTitle->setObjectName(QStringLiteral("CommandControlNetworkTitle"));
+    controlLayout->addWidget(autoRangeTitle);
+    auto* autoRangeLayout = new QGridLayout();
+    autoRangeLayout->setHorizontalSpacing(10);
+    autoRangeLayout->setVerticalSpacing(8);
+    const auto makeRangeSpin = [controlPage](double minimum, double maximum, int decimals,
+                                              const QString& suffix) {
+        auto* spin = new QDoubleSpinBox(controlPage);
+        spin->setObjectName(QStringLiteral("CommandControlAutoRangeSpinBox"));
+        spin->setRange(minimum, maximum);
+        spin->setDecimals(decimals);
+        spin->setSingleStep(decimals == 0 ? 1.0 : 0.1);
+        spin->setSuffix(suffix);
+        spin->setMinimumHeight(32);
+        return spin;
+    };
+    m_autoReportHeightMaxSpin = makeRangeSpin(-10000.0, 100000.0, 0, QStringLiteral(" m"));
+    m_autoReportRangeMinSpin = makeRangeSpin(0.0, 100000.0, 0, QStringLiteral(" m"));
+    m_autoReportRangeMaxSpin = makeRangeSpin(0.0, 100000.0, 0, QStringLiteral(" m"));
+    m_autoReportAzimuthStartSpin = makeRangeSpin(0.0, 360.0, 1, QStringLiteral(" °"));
+    m_autoReportAzimuthEndSpin = makeRangeSpin(0.0, 360.0, 1, QStringLiteral(" °"));
+    autoRangeLayout->addWidget(new QLabel(QStringLiteral("高度上限（不设下限）"), controlPage), 0, 0);
+    autoRangeLayout->addWidget(m_autoReportHeightMaxSpin, 0, 1);
+    autoRangeLayout->addWidget(new QLabel(QStringLiteral("距离起始"), controlPage), 0, 2);
+    autoRangeLayout->addWidget(m_autoReportRangeMinSpin, 0, 3);
+    autoRangeLayout->addWidget(new QLabel(QStringLiteral("距离终止"), controlPage), 0, 4);
+    autoRangeLayout->addWidget(m_autoReportRangeMaxSpin, 0, 5);
+    autoRangeLayout->addWidget(new QLabel(QStringLiteral("方位起始（正北 0°）"), controlPage), 1, 0);
+    autoRangeLayout->addWidget(m_autoReportAzimuthStartSpin, 1, 1);
+    autoRangeLayout->addWidget(new QLabel(QStringLiteral("方位终止（允许跨 0°）"), controlPage), 1, 2);
+    autoRangeLayout->addWidget(m_autoReportAzimuthEndSpin, 1, 3);
+    m_applyAutoReportRangeButton = new QPushButton(QStringLiteral("确认并应用范围"), controlPage);
+    m_applyAutoReportRangeButton->setObjectName(QStringLiteral("CommandControlApplyAutoRangeButton"));
+    m_applyAutoReportRangeButton->setToolTip(
+        QStringLiteral("以当前输入值重新判定全部航迹；不符合的自动上报立即停止"));
+    autoRangeLayout->addWidget(m_applyAutoReportRangeButton, 1, 4, 1, 2);
+    autoRangeLayout->setColumnStretch(5, 1);
+    controlLayout->addLayout(autoRangeLayout);
     auto* loginLayout = new QHBoxLayout();
     loginLayout->setSpacing(10);
     auto* loginButton = new QPushButton(QStringLiteral("登陆"), controlPage);
@@ -212,6 +257,16 @@ CommandControlWindow::CommandControlWindow(CommandControlModule* module)
     connect(logoutButton, &QPushButton::clicked, m_module, &CommandControlModule::requestLogout);
     connect(m_manualTimeSyncButton, &QPushButton::clicked, m_module, &CommandControlModule::requestTimeSync);
     connect(m_autoReportCheckBox, &QCheckBox::toggled, m_module, &CommandControlModule::setAutoReportEnabled);
+    connect(m_applyAutoReportRangeButton, &QPushButton::clicked,
+            this, &CommandControlWindow::updateAutoReportRange);
+    connect(m_autoReportRangeMinSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+            [this](double value) {
+                m_autoReportRangeMaxSpin->setMinimum(value);
+            });
+    connect(m_autoReportRangeMaxSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
+            [this](double value) {
+                m_autoReportRangeMinSpin->setMaximum(value);
+            });
     connect(replayButton, &QPushButton::clicked, this, &CommandControlWindow::selectReplayFile);
     connect(m_stopReplayButton, &QPushButton::clicked, m_module, &CommandControlModule::stopReplay);
     connect(m_pauseReplayButton, &QPushButton::clicked, m_module, &CommandControlModule::toggleReplayPause);
@@ -221,6 +276,10 @@ CommandControlWindow::CommandControlWindow(CommandControlModule* module)
     connect(titleCloseButton, &QPushButton::clicked, this, &QDialog::close);
     connect(m_module, &CommandControlModule::statusChanged, this, &CommandControlWindow::refreshStatus);
     connect(m_module, &CommandControlModule::autoReportChanged, this, &CommandControlWindow::refreshStatus);
+    connect(m_module, &CommandControlModule::autoReportRangeChanged, this, [this]() {
+        applyAutoReportRange();
+        refreshStatus();
+    });
     connect(m_module, &CommandControlModule::peersChanged, this, &CommandControlWindow::refreshPeers);
     connect(m_module, &CommandControlModule::recordsChanged, this, &CommandControlWindow::refreshRecords);
     connect(m_module, &CommandControlModule::replayStateChanged, this, &CommandControlWindow::refreshStatus);
@@ -235,6 +294,7 @@ CommandControlWindow::CommandControlWindow(CommandControlModule* module)
                 }
             });
 
+    applyAutoReportRange();
     refreshStatus();
     refreshPeers();
     refreshRecords();
@@ -279,6 +339,7 @@ void CommandControlWindow::refreshStatus()
     applyNetworkStatus(m_localNetworkButton, kLocalNetworkStatus);
     applyNetworkStatus(m_controlNetworkButton, kControlNetworkStatus);
     applyNetworkStatus(m_ntpNetworkButton, kNtpNetworkStatus);
+    applyLoginStatus();
     const bool replayActive = m_module->isReplayActive();
     const bool replaySeeking = m_module->isReplayRebuilding();
     m_pauseReplayButton->setEnabled(replayActive && !replaySeeking);
@@ -302,6 +363,55 @@ void CommandControlWindow::applyNetworkStatus(QPushButton* button, int index)
     button->setText(text);
     button->setToolTip(text);
     button->setStyleSheet(style);
+}
+
+void CommandControlWindow::applyAutoReportRange()
+{
+    if (!m_module) {
+        return;
+    }
+    const QSignalBlocker heightBlocker(m_autoReportHeightMaxSpin);
+    const QSignalBlocker minBlocker(m_autoReportRangeMinSpin);
+    const QSignalBlocker maxBlocker(m_autoReportRangeMaxSpin);
+    const QSignalBlocker azStartBlocker(m_autoReportAzimuthStartSpin);
+    const QSignalBlocker azEndBlocker(m_autoReportAzimuthEndSpin);
+    m_autoReportRangeMaxSpin->setMinimum(m_module->autoReportRangeMinM());
+    m_autoReportRangeMinSpin->setMaximum(m_module->autoReportRangeMaxM());
+    m_autoReportHeightMaxSpin->setValue(m_module->autoReportHeightMaxM());
+    m_autoReportRangeMinSpin->setValue(m_module->autoReportRangeMinM());
+    m_autoReportRangeMaxSpin->setValue(m_module->autoReportRangeMaxM());
+    m_autoReportAzimuthStartSpin->setValue(m_module->autoReportAzimuthStartDeg());
+    m_autoReportAzimuthEndSpin->setValue(m_module->autoReportAzimuthEndDeg());
+}
+
+void CommandControlWindow::updateAutoReportRange()
+{
+    if (!m_module || !m_autoReportHeightMaxSpin || !m_autoReportRangeMinSpin
+        || !m_autoReportRangeMaxSpin || !m_autoReportAzimuthStartSpin
+        || !m_autoReportAzimuthEndSpin) {
+        return;
+    }
+    m_module->setAutoReportRange(m_autoReportHeightMaxSpin->value(),
+                                 m_autoReportRangeMinSpin->value(),
+                                 m_autoReportRangeMaxSpin->value(),
+                                 m_autoReportAzimuthStartSpin->value(),
+                                 m_autoReportAzimuthEndSpin->value());
+}
+
+void CommandControlWindow::applyLoginStatus()
+{
+    if (!m_loginStatusButton || !m_module) {
+        return;
+    }
+    const bool loggedIn = m_module->isLoggedIn();
+    const QString text = loggedIn ? QStringLiteral("登录状态：已登录")
+                                  : QStringLiteral("登录状态：未登录");
+    const QString style = loggedIn
+        ? QStringLiteral("QPushButton { background:#00aa55; color:#ffffff; border:1px solid #66ffcc; border-radius:5px; padding:7px; font-size:13px; }")
+        : QStringLiteral("QPushButton { background:#a02a2a; color:#ffffff; border:1px solid #ff6666; border-radius:5px; padding:7px; font-size:13px; }");
+    m_loginStatusButton->setText(text);
+    m_loginStatusButton->setToolTip(m_module->statusText());
+    m_loginStatusButton->setStyleSheet(style);
 }
 
 void CommandControlWindow::refreshPeers()

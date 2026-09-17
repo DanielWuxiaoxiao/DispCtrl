@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-16 21:32:30
+ * @LastEditTime: 2026-09-17 22:45:15
  * @Description: 
  */
 /**
@@ -403,8 +403,13 @@ private:
     void updateExternalQuickActionVisibility();
     void showLaserQuickReportDialog();
     void showCommandControlQuickReportDialog();
-    bool laserQuickReportAvailable(QString& reason) const;
-    bool commandControlQuickReportAvailable(QString& reason) const;
+    bool laserQuickReportAvailable(int batch, QString& reason) const;
+    bool commandControlQuickReportAvailable(quint32 batch, QString& reason) const;
+    bool isConfiguredTestTrack(int batch) const;
+    bool isExternallyReporting(int batch) const;
+    QString externalReportingText(int batch) const;
+    void refreshExternalReportingHighlight(int batch);
+    void refreshExternalReportingHighlights();
     int requestExternalReportBatch(const QString& title, const QString& prompt);
     int preferredExternalReportBatch() const;
     bool startLaserReportForBatch(int batch);

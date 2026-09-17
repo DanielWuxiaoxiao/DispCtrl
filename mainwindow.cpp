@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-16 21:32:31
+ * @LastEditTime: 2026-09-17 22:45:16
  * @Description: 
  */
 /**
@@ -252,6 +252,7 @@ void FramelessMainWindow::setupOverlayUI()
                 LOG_WARNING(QStringLiteral("[LASER][INIT] PPI 保留激光入口，等待现场修复网络或本地绑定后重启"));
             }
             ppiView->setLaserReportManager(laserReporter);
+            m_overlayWidget->setLaserReportManager(laserReporter);
         }
 
         // 总控通信遵循 DD31/DD33/DD34/DD25/DDA4/DDA1 定版 UDP 协议；模块独立
@@ -292,13 +293,15 @@ void FramelessMainWindow::setupOverlayUI()
         connect(commandControl, &CommandControlModule::replayTracksCleared, ppiView,
                 &PPIView::clearCommandControlReplayLegend);
         connect(commandControl, &CommandControlModule::readyChanged, this,
-                [this, ppiView, commandControl](bool ready) {
-                    m_overlayWidget->setCommandControlModule(ready ? commandControl : nullptr);
+                [this, commandControl](bool) {
+                    // 控制窗口和测试航迹状态不依赖 UDP 就绪；实际普通航迹发包仍由模块内部校验。
+                    m_overlayWidget->setCommandControlModule(commandControl);
                 });
         commandControl->init();
         // PPI 的 F7/右键入口仅依赖配置开关显示；实际下发仍须校验 UDP 已就绪并已完成 DD33/DD34 登录。
         if (commandControl->isEnabled()) {
             ppiView->setCommandControlModule(commandControl);
+            m_overlayWidget->setCommandControlModule(commandControl);
         }
 
         TotalControlMqttClient* totalMqtt = new TotalControlMqttClient(this);

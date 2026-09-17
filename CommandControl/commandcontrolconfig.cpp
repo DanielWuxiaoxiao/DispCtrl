@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-16 21:32:29
+ * @LastEditTime: 2026-09-17 22:45:14
  * @Description: 
  */
 #include "commandcontrolconfig.h"
@@ -16,6 +16,7 @@
 #include <QTextStream>
 
 #include <limits>
+#include <cmath>
 
 namespace {
 
@@ -113,6 +114,14 @@ int boundedInt(const QHash<QString, QString>& values, const QString& key, int fa
     return ok && value >= low && value <= high ? value : fallback;
 }
 
+double boundedDouble(const QHash<QString, QString>& values, const QString& key,
+                     double fallback, double low, double high)
+{
+    bool ok = false;
+    const double value = configuredText(values, key, QString::number(fallback)).toDouble(&ok);
+    return ok && std::isfinite(value) && value >= low && value <= high ? value : fallback;
+}
+
 bool boolValue(const QHash<QString, QString>& values, const QString& key, bool fallback)
 {
     const QString text = configuredText(values, key, fallback ? QStringLiteral("true") : QStringLiteral("false")).toLower();
@@ -133,6 +142,21 @@ CommandControlSettings CommandControlConfig::load()
     const QHash<QString, QString> values = loadCommandControlValues();
     settings.enabled = boolValue(values, QStringLiteral("enabled"), settings.enabled);
     settings.autoReportEnabled = boolValue(values, QStringLiteral("auto_report_enabled"), settings.autoReportEnabled);
+    settings.autoReportHeightMaxM = boundedDouble(values, QStringLiteral("auto_report_height_max_m"),
+                                                   settings.autoReportHeightMaxM, -10000.0, 100000.0);
+    settings.autoReportRangeMinM = boundedDouble(values, QStringLiteral("auto_report_range_min_m"),
+                                                  settings.autoReportRangeMinM, 0.0, 100000.0);
+    settings.autoReportRangeMaxM = boundedDouble(values, QStringLiteral("auto_report_range_max_m"),
+                                                  settings.autoReportRangeMaxM, 0.0, 100000.0);
+    settings.autoReportAzimuthStartDeg = boundedDouble(values, QStringLiteral("auto_report_azimuth_start_deg"),
+                                                        settings.autoReportAzimuthStartDeg, 0.0, 360.0);
+    settings.autoReportAzimuthEndDeg = boundedDouble(values, QStringLiteral("auto_report_azimuth_end_deg"),
+                                                      settings.autoReportAzimuthEndDeg, 0.0, 360.0);
+    if (settings.autoReportRangeMinM > settings.autoReportRangeMaxM) {
+        LOG_WARNING(QStringLiteral("[CommandControl][CONFIG] 自动上报距离起始大于终止，已回退为 0~3000m"));
+        settings.autoReportRangeMinM = 0.0;
+        settings.autoReportRangeMaxM = 3000.0;
+    }
     settings.localIp = configuredText(values, QStringLiteral("local_ip"), settings.localIp);
     settings.localPort = portValue(values, QStringLiteral("local_port"), settings.localPort);
     settings.multicastGroup = configuredText(values, QStringLiteral("multicast_group"), settings.multicastGroup);
@@ -215,7 +239,7 @@ CommandControlSettings CommandControlConfig::load()
         settings.radiationStatus = 0;
     }
 
-    LOG_INFO(QString("[CommandControl][CONFIG] enabled=%1 local=%2:%3 group=%4:%5 control=%6 netPoll=%7ms timeSync=%8 server=%9:%10 device=0x%11 autoReport=%12 record=%13 dda1Type=0x%14 dda1NormalLog=%15 dda4NormalLog=%16 dda4LogInterval=%17 packetHex=%18")
+    LOG_INFO(QString("[CommandControl][CONFIG] enabled=%1 local=%2:%3 group=%4:%5 control=%6 netPoll=%7ms timeSync=%8 server=%9:%10 device=0x%11 autoReport=%12 autoRange(h<=%13,r=%14~%15,az=%16~%17) record=%18 dda1Type=0x%19 dda1NormalLog=%20 dda4NormalLog=%21 dda4LogInterval=%22 packetHex=%23")
              .arg(settings.enabled)
              .arg(settings.localIp)
              .arg(settings.localPort)
@@ -228,6 +252,11 @@ CommandControlSettings CommandControlConfig::load()
              .arg(settings.timeServerPort)
              .arg(settings.deviceId, 8, 16, QChar('0'))
              .arg(settings.autoReportEnabled)
+             .arg(settings.autoReportHeightMaxM)
+             .arg(settings.autoReportRangeMinM)
+             .arg(settings.autoReportRangeMaxM)
+             .arg(settings.autoReportAzimuthStartDeg)
+             .arg(settings.autoReportAzimuthEndDeg)
              .arg(settings.recordEnabled)
              .arg(settings.dda1DeviceType, 2, 16, QChar('0'))
              .arg(settings.dda1NormalLogEnabled)

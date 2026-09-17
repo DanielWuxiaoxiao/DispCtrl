@@ -200,6 +200,7 @@ radar_ip = "192.168.101.9"           # 雷达端本地绑定IP（9009发送源�
 laser_ctrl_ip = "192.168.101.10"     # 激光控制终端IP
 udp_port = 9009                      # 雷达192.168.101.9:9009 → 激光192.168.101.10:9009
 report_interval_ms = 1000            # 持续上报周期(ms)
+heartbeat_log_interval_ms = 0        # 正常9009状态心跳日志间隔(ms)；0=不打印，发送错误始终记录；联调可设60000
 save_txt = true                      # 是否把每次“下发新目标”的信息保存到本地txt
 save_dir = "LaserReportLog"          # txt保存目录（相对程序运行目录）
 
@@ -222,11 +223,11 @@ radar_peer_ip = "192.168.64.3"      # 阵面对端IP；本版本固定为 192.16
 # =============================================================================
 [test_track]
 enabled = true                     # 是否启用本地测试航迹功能；true 时才创建生成器和显示按钮
-track_count = 2                     # 每轮并行生成的无人机普通航迹数量，仅允许 2 或 3
-point_count = 300                   # 每条航迹的点数；最后一个点后发送 statMethod=2 消批
+track_count = 10                    # 每轮并行普通航迹数量，范围 2～10；内含无人机和非无人机、不同量程/高度的边界样本
+point_count = 1200                  # 每条航迹的点数；500ms 周期下持续约 10 分钟，最后一个点后发送 statMethod=2 消批
 interval_ms = 500                   # 相邻测试采样周期(ms)；默认 500ms 即 2Hz，应与 DDA4 数据率一致
-speed_mps = 15.0                     # 每条测试无人机的真实速度(m/s)；位置按实际经过时间匀速积分
-first_batch = 65000                 # 第 1 条测试航迹批号；后续依次递增，避免与现场批号冲突
+speed_mps = 15.0                     # 每条测试航迹的真实速度(m/s)；位置按实际经过时间匀速积分
+first_batch = 101                   # 第 1 条测试航迹批号；默认依次使用 101～110，便于现场辨识
 
 # =============================================================================
 # 总控通信 Command-control UDP Protocol
@@ -264,8 +265,16 @@ time_sync_interval_ms = 3600000
 time_sync_on_dd31 = true
 # 本机雷达/显控端用户 ID；写入公共报头、DD33、DDA4，必须非 0，支持十进制或 0x 十六进制。
 device_id = "0x11474202"
-# DDA4 自动上报开关；默认关闭。开启后识别为无人机的普通航迹自动组播，窗口可在本次运行中切换。
+# DDA4 自动上报开关；默认关闭。真实无人机航迹满足下方范围且 DD33/DD34 登录后自动组播；窗口可在本次运行中切换。
 auto_report_enabled = false
+# 自动上报的目标高度上限(m)；仅过滤超过上限的目标，不设置高度下限。
+auto_report_height_max_m = 100
+# 自动上报的距离闭区间(m)；仅识别为无人机的普通航迹参与判定。
+auto_report_range_min_m = 0
+auto_report_range_max_m = 3000
+# 自动上报的方位闭区间(度)，正北为 0；起始值大于终止值时表示跨 0 度扇区。
+auto_report_azimuth_start_deg = 0
+auto_report_azimuth_end_deg = 360
 # DD25 链路检测组播周期，单位毫秒；建议保持 3000，5 个周期未收到对端 DD25 判定其离线。
 link_interval_ms = 3000
 # DDA1 雷达装备状态组播周期，单位毫秒；建议保持 3000。
@@ -419,7 +428,7 @@ algorithmSwitch = 7                  # 算法开关
 distanceProcessUpperLimitM = 5200
 
 [logging]
-# 是否打印每一帧 BIT(DE02) 的完整正常字段；false 时仅打印协议异常帧，健康管理 UI 仍实时更新。
+# 是否打印 BIT(DE02) 正常字段；false 时正常 BIT 不进入项目/显控日志，仅协议异常帧打印，健康管理 UI 仍实时更新。
 bit_report_normal_log_enabled = false
 
 [params.datapro]

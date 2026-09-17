@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-15 19:23:42
+ * @LastEditTime: 2026-09-17 22:45:15
  * @Description: 
  */
 /**
@@ -195,6 +195,19 @@ bool Controller::startTestTrackGeneration()
         return false;
     }
     return testTrackGenerator->start();
+}
+
+bool Controller::stopTestTrackGeneration()
+{
+    if (!testTrackGenerator) {
+        return false;
+    }
+    return testTrackGenerator->stop();
+}
+
+bool Controller::isTestTrackGenerationRunning() const
+{
+    return testTrackGenerator && testTrackGenerator->isRunning();
 }
 
 bool Controller::sendExternalSystemControl(const QByteArray& frame512) {

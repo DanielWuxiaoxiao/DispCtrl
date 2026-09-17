@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-16 21:32:29
+ * @LastEditTime: 2026-09-17 22:45:14
  * @Description: 
  */
 /*
@@ -69,7 +69,14 @@ public:
     bool isReady() const { return m_ready; }
     bool isLoggedIn() const { return m_loggedIn; }
     bool isAutoReportEnabled() const { return m_autoReportEnabled; }
+    double autoReportHeightMaxM() const { return m_settings.autoReportHeightMaxM; }
+    double autoReportRangeMinM() const { return m_settings.autoReportRangeMinM; }
+    double autoReportRangeMaxM() const { return m_settings.autoReportRangeMaxM; }
+    double autoReportAzimuthStartDeg() const { return m_settings.autoReportAzimuthStartDeg; }
+    double autoReportAzimuthEndDeg() const { return m_settings.autoReportAzimuthEndDeg; }
     bool isManualReportActive(quint32 sourceBatch) const;
+    bool isAutoReportActive(quint32 sourceBatch) const;
+    bool isTrackReporting(quint32 sourceBatch) const;
     QString statusText() const { return m_statusText; }
     // DD31 是组播发现报文；此文本单独描述发现结果，避免被最后一次登录状态覆盖。
     QString controlDiscoveryText() const;
@@ -91,8 +98,11 @@ public slots:
     void processTargetClassification(TargetClaRes result);
     void toggleManualReport(quint32 sourceBatch);
     /// 仅开启指定普通航迹的手动 DDA4 上报；已开启时保持开启，供 PPI 快捷入口调用。
-    bool startManualReport(quint32 sourceBatch);
+    bool startManualReport(quint32 sourceBatch, bool allowOfflineTest = false);
     void setAutoReportEnabled(bool enabled);
+    /// 运行期更新自动上报判据；仅影响本次运行，配置文件保存默认值。
+    void setAutoReportRange(double heightMaxM, double rangeMinM, double rangeMaxM,
+                            double azimuthStartDeg, double azimuthEndDeg);
     void requestLogin();
     void requestLogout();
     void requestTimeSync();
@@ -115,6 +125,8 @@ signals:
     // 仅投递本机与当前总控的协议要点，供主界面日志栏排障；完整字段始终写项目日志。
     void diagnosticLog(const QString& text);
     void autoReportChanged(bool enabled);
+    void autoReportRangeChanged();
+    void reportingStateChanged();
     void peersChanged();
     void recordsChanged();
     void networkStatusChanged(int index, bool ok, const QString& text);
@@ -175,7 +187,11 @@ private:
                             const QHostAddress& sender, quint16 senderPort);
     void beginLogin(CommandControlProtocol::LoginRequestType type, bool allowRetries);
     void reportTrack(const PointInfo& info, bool manualMode);
+    /// 范围或开关变更后，以当前缓存的全部普通航迹重新判定自动上报状态。
+    void reconcileAutoReporting();
     bool isDrone(quint32 sourceBatch, const PointInfo& info) const;
+    bool isWithinAutoReportRange(const PointInfo& info) const;
+    bool isConfiguredTestTrack(quint32 sourceBatch) const;
     CommandControlProtocol::Dda4Track makeDda4Track(const PointInfo& info, bool manualMode) const;
     bool targetLla(const PointInfo& info, double& longitudeDeg, double& latitudeDeg, double& altitudeM) const;
     bool replayPointFor(const CommandControlRecord& record, PointInfo& point);

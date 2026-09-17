@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-16 21:32:30
+ * @LastEditTime: 2026-09-17 22:45:15
  * @Description: 
  */
 /**
@@ -619,6 +619,7 @@ void PPIView::setPPIScene(PPIScene* scene) {
                         && m_activeGcsTargetBatches.contains(static_cast<int>(info.batch))) {
                         sendTrackTargetAssignment(static_cast<int>(info.batch));
                     }
+                    refreshExternalReportingHighlight(static_cast<int>(info.batch));
                 }
             });
             LOG_INFO("Connected TrackManager::trackPointAdded for continuous update");
@@ -1466,15 +1467,74 @@ void PPIView::setTotalControlMqttClient(TotalControlMqttClient* client)
 
 void PPIView::setLaserReportManager(LaserReportManager* mgr)
 {
+    if (m_laserReportManager) {
+        disconnect(m_laserReportManager, &LaserReportManager::reportingStateChanged,
+                   this, &PPIView::refreshExternalReportingHighlights);
+    }
     m_laserReportManager = mgr;
+    if (m_laserReportManager) {
+        connect(m_laserReportManager, &LaserReportManager::reportingStateChanged,
+                this, &PPIView::refreshExternalReportingHighlights);
+    }
     m_laserReportEnabled = CF_INS.laserReportEnabled(true);
     updateExternalQuickActionVisibility();
+    refreshExternalReportingHighlights();
 }
 
 void PPIView::setCommandControlModule(CommandControlModule* module)
 {
+    if (m_commandControlModule) {
+        disconnect(m_commandControlModule, &CommandControlModule::reportingStateChanged,
+                   this, &PPIView::refreshExternalReportingHighlights);
+    }
     m_commandControlModule = module;
+    if (m_commandControlModule) {
+        connect(m_commandControlModule, &CommandControlModule::reportingStateChanged,
+                this, &PPIView::refreshExternalReportingHighlights);
+    }
     updateExternalQuickActionVisibility();
+    refreshExternalReportingHighlights();
+}
+
+bool PPIView::isExternallyReporting(int batch) const
+{
+    return !externalReportingText(batch).isEmpty();
+}
+
+QString PPIView::externalReportingText(int batch) const
+{
+    const bool laserReporting = m_laserReportManager
+        && (m_laserReportManager->isReporting(batch)
+            || m_laserReportManager->isAutoReportingTrack(batch));
+    if (laserReporting) {
+        return QStringLiteral("激光上报中");
+    }
+    if (!m_commandControlModule) {
+        return QString();
+    }
+    if (m_commandControlModule->isManualReportActive(static_cast<quint32>(batch))) {
+        return QStringLiteral("手动上报中");
+    }
+    if (m_commandControlModule->isAutoReportActive(static_cast<quint32>(batch))) {
+        return QStringLiteral("自动上报中");
+    }
+    return QString();
+}
+
+void PPIView::refreshExternalReportingHighlight(int batch)
+{
+    if (batch < 0 || !m_scene || !m_scene->track()) {
+        return;
+    }
+    const QString reportText = externalReportingText(batch);
+    m_scene->track()->setBatchExternalReporting(batch, !reportText.isEmpty(), reportText);
+}
+
+void PPIView::refreshExternalReportingHighlights()
+{
+    for (auto it = m_currentNormalTracks.cbegin(); it != m_currentNormalTracks.cend(); ++it) {
+        refreshExternalReportingHighlight(it.key());
+    }
 }
 
 void PPIView::updateExternalQuickActionVisibility()
@@ -1501,13 +1561,30 @@ void PPIView::updateExternalQuickActionVisibility()
     layoutOverlay();
 }
 
-bool PPIView::laserQuickReportAvailable(QString& reason) const
+bool PPIView::isConfiguredTestTrack(int batch) const
+{
+    if (batch < 0 || !CF_INS.testTrackEnabled(false)) {
+        return false;
+    }
+    const int firstBatch = static_cast<int>(CF_INS.testTrackFirstBatch(101));
+    const int trackCount = qBound(2, CF_INS.testTrackCount(10), 10);
+    return batch >= firstBatch && batch < firstBatch + trackCount;
+}
+
+bool PPIView::laserQuickReportAvailable(int batch, QString& reason) const
 {
     if (!m_laserReportEnabled) {
         reason = tr("激光下发功能已在 config.toml 的 [laser].enabled 中关闭。");
         return false;
     }
-    if (!m_laserReportManager || !m_laserReportManager->isEnabled()) {
+    if (!m_laserReportManager) {
+        reason = tr("激光上报模块尚未创建，请检查启动日志。");
+        return false;
+    }
+    if (isConfiguredTestTrack(batch)) {
+        return true;
+    }
+    if (!m_laserReportManager->isEnabled()) {
         reason = tr("激光 UDP 未就绪，请检查本机激光 IP、端口和绑定日志。");
         return false;
     }
@@ -1528,11 +1605,14 @@ bool PPIView::laserQuickReportAvailable(QString& reason) const
     return true;
 }
 
-bool PPIView::commandControlQuickReportAvailable(QString& reason) const
+bool PPIView::commandControlQuickReportAvailable(quint32 batch, QString& reason) const
 {
     if (!m_commandControlModule || !m_commandControlModule->isEnabled()) {
         reason = tr("总控上报功能已在 config.toml 的 [command_control].enabled 中关闭。");
         return false;
+    }
+    if (isConfiguredTestTrack(static_cast<int>(batch))) {
+        return true;
     }
     if (!m_commandControlModule->isReady()) {
         reason = tr("总控 UDP 未就绪，未执行主动上报。\n当前状态：%1")
@@ -1585,7 +1665,7 @@ int PPIView::preferredExternalReportBatch() const
 bool PPIView::startLaserReportForBatch(int batch)
 {
     QString reason;
-    if (!laserQuickReportAvailable(reason)) {
+    if (!laserQuickReportAvailable(batch, reason)) {
         LOG_WARNING(QStringLiteral("[LASER][QUICK] 拒绝下发：%1").arg(reason));
         CustomMessageBox::showWarning(this, tr("激光下发不可用"), reason);
         return false;
@@ -1604,12 +1684,12 @@ bool PPIView::startLaserReportForBatch(int batch)
 bool PPIView::startCommandControlReportForBatch(quint32 batch)
 {
     QString reason;
-    if (!commandControlQuickReportAvailable(reason)) {
+    if (!commandControlQuickReportAvailable(batch, reason)) {
         LOG_WARNING(QStringLiteral("[CommandControl][QUICK] 拒绝主动上报：%1").arg(reason));
         CustomMessageBox::showWarning(this, tr("总控主动上报不可用"), reason);
         return false;
     }
-    if (!m_commandControlModule->startManualReport(batch)) {
+    if (!m_commandControlModule->startManualReport(batch, isConfiguredTestTrack(static_cast<int>(batch)))) {
         LOG_WARNING(QStringLiteral("[CommandControl][QUICK] 不能开启 batch=%1：%2")
                     .arg(batch)
                     .arg(m_commandControlModule->statusText()));
@@ -1623,10 +1703,9 @@ bool PPIView::startCommandControlReportForBatch(quint32 batch)
 
 void PPIView::showLaserQuickReportDialog()
 {
-    QString reason;
-    if (!laserQuickReportAvailable(reason)) {
-        LOG_WARNING(QStringLiteral("[LASER][QUICK] 拒绝打开批号输入：%1").arg(reason));
-        CustomMessageBox::showWarning(this, tr("激光下发不可用"), reason);
+    if (!m_laserReportEnabled) {
+        CustomMessageBox::showWarning(this, tr("激光下发不可用"),
+                                      tr("激光下发功能已在 config.toml 的 [laser].enabled 中关闭。"));
         return;
     }
     const int batch = requestExternalReportBatch(tr("激光持续跟踪"), tr("普通航迹批号："));
@@ -1637,10 +1716,9 @@ void PPIView::showLaserQuickReportDialog()
 
 void PPIView::showCommandControlQuickReportDialog()
 {
-    QString reason;
-    if (!commandControlQuickReportAvailable(reason)) {
-        LOG_WARNING(QStringLiteral("[CommandControl][QUICK] 拒绝打开批号输入：%1").arg(reason));
-        CustomMessageBox::showWarning(this, tr("总控主动上报不可用"), reason);
+    if (!m_commandControlModule || !m_commandControlModule->isEnabled()) {
+        CustomMessageBox::showWarning(this, tr("总控主动上报不可用"),
+                                      tr("总控上报功能已在 config.toml 的 [command_control].enabled 中关闭。"));
         return;
     }
     const int batch = requestExternalReportBatch(tr("总控主动上报"), tr("普通航迹批号："));
@@ -1779,8 +1857,8 @@ void PPIView::onTrackLabelRightClicked(int batchID, PointType type)
             ? tr("关闭引导光电跟踪 [批次: %1]").arg(batchID)
             : tr("引导光电跟踪(持续) [批次: %1]").arg(batchID));
 
-        // 自动上报依赖正常绑定的本地 UDP；无法使用时不显示，避免把“自动”误当成已生效。
-        if (m_laserReportManager && m_laserReportManager->isEnabled()) {
+        // 离线测试航迹允许开启自动模式；真实航迹仍会在无网络时被排除。
+        if (m_laserReportManager) {
             const bool autoOn = m_laserReportManager->isAutoReport();
             laserAutoAction = menu.addAction(autoOn
                 ? tr("关闭激光自动上报(全部目标)")

@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-06-29 23:29:30 -0700
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-16 21:32:29
+ * @LastEditTime: 2026-09-17 22:45:15
  * @Description: 
  */
 /*
@@ -49,14 +49,17 @@ bool LaserReportManager::init()
     m_laserHost   = QHostAddress(CF_INS.laserCtrlIp("192.168.101.10"));
     m_udpPort     = CF_INS.laserUdpPort(9009);
     m_intervalMs  = qMax(100, CF_INS.laserReportIntervalMs(1000));
+    m_heartbeatLogIntervalMs = qMax(0, CF_INS.laserHeartbeatLogIntervalMs(0));
+    m_lastHeartbeatLogMs = -1;
     m_saveTxt     = CF_INS.laserSaveTxt(true);
     m_saveDir     = CF_INS.laserSaveDir("LaserReportLog");
 
-    emit logMessage(QString("[LASER][INIT] enabled radar=%1 laser=%2 port=%3 interval=%4ms saveTxt=%5 dir=%6")
+    emit logMessage(QString("[LASER][INIT] enabled radar=%1 laser=%2 port=%3 interval=%4ms heartbeatLog=%5ms saveTxt=%6 dir=%7")
                         .arg(m_radarHost.toString())
                         .arg(m_laserHost.toString())
                         .arg(m_udpPort)
                         .arg(m_intervalMs)
+                        .arg(m_heartbeatLogIntervalMs)
                         .arg(m_saveTxt)
                         .arg(m_saveDir));
 
@@ -105,15 +108,12 @@ bool LaserReportManager::init()
 
 void LaserReportManager::reportTrackPoint(const PointInfo& info)
 {
-    if (!m_enabled) return;
     if (info.type != PointType::Track) return;   // 仅常规航迹
     m_latest.insert(static_cast<int>(info.batch), info);
 }
 
 void LaserReportManager::removeTrackPoint(int batch)
 {
-    if (!m_enabled) return;
-
     const bool wasActive = (batch == m_activeBatch);
     PointInfo last;
     const bool hadInfo = m_latest.contains(batch);
@@ -132,19 +132,29 @@ void LaserReportManager::removeTrackPoint(int batch)
 
 void LaserReportManager::setAutoReport(bool on)
 {
-    if (!m_enabled) return;
     if (m_autoReportEnabled == on) return;
     m_autoReportEnabled = on;
     emit logMessage(QString("[LASER][AUTO] 自动上报(全部目标,最多%1) %2")
                         .arg(LASER_MAX_TARGETS)
                         .arg(on ? QStringLiteral("已开启") : QStringLiteral("已关闭")));
-    if (on) onReportTick();  // 立即发一拍
+    if (on && m_enabled) {
+        onReportTick();  // 立即发一拍
+    } else if (on) {
+        emit logMessage(QStringLiteral("[LASER][OFFLINE] 自动上报已为测试航迹开启，等待激光 UDP 就绪后发送"));
+    }
+    emit reportingStateChanged();
+}
+
+bool LaserReportManager::isAutoReportingTrack(int batch) const
+{
+    if (!m_autoReportEnabled || !m_latest.contains(batch)) {
+        return false;
+    }
+    return m_enabled || isConfiguredTestTrack(batch);
 }
 
 void LaserReportManager::startReport(int batch)
 {
-    if (!m_enabled) return;
-
     if (m_activeBatch == batch) {
         return;  // 已在上报该目标
     }
@@ -164,8 +174,13 @@ void LaserReportManager::startReport(int batch)
         emit logMessage(QString("[LASER][START][WARN] batch=%1 暂无缓存航迹点，txt记录将待首帧后由上报日志体现").arg(batch));
     }
 
-    // 定时器在 init() 中已常驻运行（状态帧心跳）；此处立即发一拍，附带该目标侦察帧即时反馈
-    onReportTick();
+    if (m_enabled) {
+        // 定时器在 init() 中已常驻运行（状态帧心跳）；此处立即发一拍，附带该目标侦察帧即时反馈
+        onReportTick();
+    } else {
+        emit logMessage(QString("[LASER][OFFLINE] batch=%1 已标记为持续跟踪，等待激光 UDP 就绪后发送").arg(batch));
+    }
+    emit reportingStateChanged();
 }
 
 void LaserReportManager::stopReport()
@@ -173,7 +188,18 @@ void LaserReportManager::stopReport()
     if (m_activeBatch < 0) return;
     emit logMessage(QString("[LASER][STOP] 停止 batch=%1 的引导光电持续跟踪（状态帧心跳继续）").arg(m_activeBatch));
     m_activeBatch = -1;
+    emit reportingStateChanged();
     // 注意：不停止定时器——状态帧心跳在模块启用期间始终保持
+}
+
+bool LaserReportManager::isConfiguredTestTrack(int batch) const
+{
+    if (batch < 0 || !CF_INS.testTrackEnabled(false)) {
+        return false;
+    }
+    const int firstBatch = static_cast<int>(CF_INS.testTrackFirstBatch(101));
+    const int trackCount = qBound(2, CF_INS.testTrackCount(10), 10);
+    return batch >= firstBatch && batch < firstBatch + trackCount;
 }
 
 void LaserReportManager::onReportTick()
@@ -341,10 +367,16 @@ bool LaserReportManager::sendStatusFrame()
                             .arg(m_laserHost.toString()).arg(m_udpPort).arg(m_socket->errorString()));
         return false;
     }
-    // 心跳日志较频繁，降为概要（每帧一条），需要时可在配置里关日志
-    emit logMessage(QString("[LASER][STATUS] seq=%1 bytes=%2 -> %3:%4 (heartbeat)")
-                        .arg(m_statusSeq).arg(written)
-                        .arg(m_laserHost.toString()).arg(m_udpPort));
+    // 状态帧 1 秒一次；正常帧默认不进入显控/落盘日志，避免掩盖真正的下发和异常。
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+    if (m_heartbeatLogIntervalMs > 0
+        && (m_lastHeartbeatLogMs < 0
+            || nowMs - m_lastHeartbeatLogMs >= m_heartbeatLogIntervalMs)) {
+        m_lastHeartbeatLogMs = nowMs;
+        emit logMessage(QString("[LASER][STATUS] seq=%1 bytes=%2 -> %3:%4 (heartbeat)")
+                            .arg(m_statusSeq).arg(written)
+                            .arg(m_laserHost.toString()).arg(m_udpPort));
+    }
     return true;
 }
 

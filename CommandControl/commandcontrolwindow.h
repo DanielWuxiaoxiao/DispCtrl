@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-16 21:32:29
+ * @LastEditTime: 2026-09-17 22:45:15
  * @Description: 
  */
 /* 指控通信独立控制窗口。 */
@@ -16,6 +16,7 @@
 class CommandControlModule;
 class QLabel;
 class QCheckBox;
+class QDoubleSpinBox;
 class QPushButton;
 class QTableWidget;
 class QEvent;
@@ -37,12 +38,22 @@ protected:
 
 private:
     void applyNetworkStatus(QPushButton* button, int index);
+    void applyLoginStatus();
+    void applyAutoReportRange();
+    void updateAutoReportRange();
 
     CommandControlModule* m_module = nullptr;
     QWidget* m_titleBar = nullptr;
     QPoint m_titleBarDragOffset;
     QLabel* m_statusLabel = nullptr;
     QCheckBox* m_autoReportCheckBox = nullptr;
+    QDoubleSpinBox* m_autoReportHeightMaxSpin = nullptr;
+    QDoubleSpinBox* m_autoReportRangeMinSpin = nullptr;
+    QDoubleSpinBox* m_autoReportRangeMaxSpin = nullptr;
+    QDoubleSpinBox* m_autoReportAzimuthStartSpin = nullptr;
+    QDoubleSpinBox* m_autoReportAzimuthEndSpin = nullptr;
+    QPushButton* m_applyAutoReportRangeButton = nullptr;
+    QPushButton* m_loginStatusButton = nullptr;
     QPushButton* m_localNetworkButton = nullptr;
     QPushButton* m_controlNetworkButton = nullptr;
     QPushButton* m_ntpNetworkButton = nullptr;

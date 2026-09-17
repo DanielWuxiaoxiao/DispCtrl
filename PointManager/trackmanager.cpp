@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-16 21:32:30
+ * @LastEditTime: 2026-09-17 22:45:15
  * @Description: 
  */
 /**
@@ -42,6 +42,9 @@ namespace {
 constexpr qreal kFocusedPointZ = INFO_Z + 20;
 constexpr qreal kFocusedLineZ = INFO_Z + 19;
 constexpr qreal kFocusedLabelZ = INFO_Z + 21;
+constexpr qreal kReportedPointZ = INFO_Z + 40;
+constexpr qreal kReportedLineZ = INFO_Z + 39;
+constexpr qreal kReportedLabelZ = INFO_Z + 41;
 constexpr qreal kFocusedLabelFontScale = 1.2;
 constexpr int kPpiRefreshIntervalMs = 16; // ~60 FPS when the GUI thread keeps up.
 
@@ -60,6 +63,15 @@ QColor displayTrackColor(const PointInfo& info)
         return (info.targetRecResult == 1) ? TRA_COLOR : DRONE_COLOR;
     }
     return trackTypeColor(info.type);
+}
+
+QColor displayedSeriesColor(const TrackSeries& series, const PointInfo& info)
+{
+    // 正在外部上报的普通航迹使用协同航迹色，避免与常规 DBT 航迹混淆。
+    if (series.externallyReported) {
+        return trackTypeColor(PointType::CooperativeTrackPointType);
+    }
+    return series.hasCustomColor ? series.color : displayTrackColor(info);
 }
 
 QString trackTooltipText(const PointInfo& info, const QString& displayBatchLabel)
@@ -140,8 +152,22 @@ public:
         if (ratio <= 0.0f) {
             ratio = 1.0f;
         }
-        m_pointRadius = qMax<qreal>(1.0, TRA_SIZE * ratio * 0.5);
+        m_pointSizeRatio = ratio;
+        m_pointRadius = qMax<qreal>(1.0, TRA_SIZE * ratio * 0.5
+                                    * (m_externallyReported ? 1.45 : 1.0));
         rebuildBounds();
+    }
+
+    void setExternallyReported(bool reported)
+    {
+        if (m_externallyReported == reported) {
+            return;
+        }
+        m_externallyReported = reported;
+        m_pointRadius = qMax<qreal>(1.0, TRA_SIZE * m_pointSizeRatio * 0.5
+                                    * (reported ? 1.45 : 1.0));
+        rebuildBounds();
+        update();
     }
 
     void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget) override
@@ -154,9 +180,10 @@ public:
         }
 
         painter->save();
-        painter->setRenderHint(QPainter::Antialiasing, m_series->focused);
+        painter->setRenderHint(QPainter::Antialiasing,
+                               m_series->focused || m_series->externallyReported);
 
-        if (m_series->hasCustomColor) {
+        if (m_series->hasCustomColor || m_series->externallyReported) {
             QVarLengthArray<QLineF, 256> lines;
             QVarLengthArray<QPointF, 256> points;
             for (int i = 1; i < m_series->nodes.size(); ++i) {
@@ -171,16 +198,18 @@ public:
                 }
             }
 
-            QPen linePen(m_series->color);
-            linePen.setWidth(m_series->focused ? 2 : 1);
+            const QColor seriesColor = displayedSeriesColor(*m_series, m_series->nodes.last().info);
+            QPen linePen(seriesColor);
+            linePen.setWidth((m_series->focused || m_series->externallyReported) ? 2 : 1);
             linePen.setCapStyle(Qt::RoundCap);
             painter->setPen(linePen);
             if (!lines.isEmpty()) {
                 painter->drawLines(lines.constData(), lines.size());
             }
 
-            QPen pointPen(m_series->color);
-            pointPen.setWidthF(m_series->focused ? 2.0 : qMax<qreal>(1.0, m_pointRadius * 2.0));
+            QPen pointPen(seriesColor);
+            pointPen.setWidthF((m_series->focused || m_series->externallyReported)
+                ? 2.0 : qMax<qreal>(1.0, m_pointRadius * 2.0));
             pointPen.setCapStyle(Qt::RoundCap);
             painter->setPen(pointPen);
             if (!points.isEmpty()) {
@@ -276,7 +305,7 @@ public:
                     continue;
                 }
                 const TrackNode& prevNode = m_series->nodes[i - 1];
-                QPen linePen(displayTrackColor(node.info));
+                QPen linePen(displayedSeriesColor(*m_series, node.info));
                 linePen.setWidth(2);
                 linePen.setStyle(Qt::SolidLine);
                 linePen.setCapStyle(Qt::RoundCap);
@@ -290,7 +319,7 @@ public:
                     continue;
                 }
 
-                const QColor color = displayTrackColor(node.info);
+                const QColor color = displayedSeriesColor(*m_series, node.info);
                 QPen pointPen(color);
                 pointPen.setWidth(2);
                 painter->setPen(pointPen);
@@ -379,6 +408,8 @@ private:
     const TrackSeries* m_series = nullptr;
     QRectF m_bounds = QRectF(-1.0, -1.0, 2.0, 2.0);
     qreal m_pointRadius = qMax<qreal>(1.0, TRA_SIZE * 0.5);
+    float m_pointSizeRatio = 1.0f;
+    bool m_externallyReported = false;
     bool m_hasContentBounds = false;
 };
 
@@ -421,23 +452,55 @@ void DraggableLabel::setFocused(bool focused)
         return;
     }
 
+    prepareGeometryChange();
     m_focused = focused;
 
     QFont nextFont = m_baseFont;
-    if (focused) {
+    if (m_focused || m_externallyReported) {
         const qreal pointSize = nextFont.pointSizeF();
         if (pointSize > 0.0) {
-            nextFont.setPointSizeF(pointSize * kFocusedLabelFontScale);
+            nextFont.setPointSizeF(pointSize * (m_focused ? kFocusedLabelFontScale : 1.35));
         } else {
             const int pixelSize = nextFont.pixelSize();
             if (pixelSize > 0) {
-                nextFont.setPixelSize(qRound(pixelSize * kFocusedLabelFontScale));
+                nextFont.setPixelSize(qRound(pixelSize * (m_focused ? kFocusedLabelFontScale : 1.35)));
             }
         }
         nextFont.setBold(true);
     }
     setFont(nextFont);
     update();
+}
+
+void DraggableLabel::setExternallyReported(bool reported)
+{
+    if (m_externallyReported == reported) {
+        return;
+    }
+
+    prepareGeometryChange();
+    m_externallyReported = reported;
+    QFont nextFont = m_baseFont;
+    if (m_focused || m_externallyReported) {
+        const qreal pointSize = nextFont.pointSizeF();
+        if (pointSize > 0.0) {
+            nextFont.setPointSizeF(pointSize * (m_focused ? kFocusedLabelFontScale : 1.35));
+        } else if (nextFont.pixelSize() > 0) {
+            nextFont.setPixelSize(qRound(nextFont.pixelSize()
+                                         * (m_focused ? kFocusedLabelFontScale : 1.35)));
+        }
+        nextFont.setBold(true);
+    }
+    setFont(nextFont);
+    update();
+}
+
+QRectF DraggableLabel::boundingRect() const
+{
+    const QRectF textRect = QGraphicsTextItem::boundingRect();
+    // paint() 在高亮状态扩展 6/4 像素绘制背景；场景必须知晓该扩展区域。
+    return (m_focused || m_externallyReported)
+        ? textRect.adjusted(-6.0, -4.0, 6.0, 4.0) : textRect;
 }
 
 /**
@@ -474,13 +537,15 @@ void DraggableLabel::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
 
 void DraggableLabel::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
 {
-    if (m_focused) {
+    if (m_focused || m_externallyReported) {
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing, true);
 
-        QRectF backgroundRect = boundingRect().adjusted(-6.0, -4.0, 6.0, 4.0);
+        // boundingRect() 已包含该边距；背景本身只围绕文字原始区域扩展一次。
+        QRectF backgroundRect = QGraphicsTextItem::boundingRect().adjusted(-6.0, -4.0, 6.0, 4.0);
         QColor borderColor = defaultTextColor();
-        QColor fillColor(8, 18, 18, 230);
+        QColor fillColor = m_externallyReported
+            ? QColor(8, 45, 58, 238) : QColor(8, 18, 18, 230);
         painter->setPen(QPen(borderColor, 1.5));
         painter->setBrush(QBrush(fillColor));
         painter->drawRoundedRect(backgroundRect, 4.0, 4.0);
@@ -862,7 +927,7 @@ void TrackManager::updateLatestInteractivePoint(quint64 trackKey)
 
     TrackNode& latest = s.nodes.last();
     PointInfo copy = latest.info;
-    const QColor color = s.hasCustomColor ? s.color : displayTrackColor(copy);
+    const QColor color = displayedSeriesColor(s, copy);
     if (!s.latestPoint) {
         s.latestPoint = new TrackPoint(copy);
         mScene->addItem(s.latestPoint);
@@ -873,6 +938,7 @@ void TrackManager::updateLatestInteractivePoint(quint64 trackKey)
     s.latestPoint->setColor(color);
     s.latestPoint->resize(mPointSizeRatio);
     s.latestPoint->setFocused(m_focusedBatches.contains(trackKey));
+    s.latestPoint->setExternallyReported(s.externallyReported);
     s.latestPoint->updatePosition(latest.scenePos.x(), latest.scenePos.y());
     s.latestPoint->setVisible(latest.pointVisible);
 }
@@ -923,7 +989,7 @@ void TrackManager::updateLatestLabel(quint64 trackKey, bool force)
         }
         return;
     }
-    const QColor labelColor = s.hasCustomColor ? s.color : displayTrackColor(pi);
+    const QColor labelColor = displayedSeriesColor(s, pi);
     const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
     const bool labelExists = (s.label != nullptr);
 
@@ -952,6 +1018,7 @@ void TrackManager::updateLatestLabel(quint64 trackKey, bool force)
                              && !force
                              && m_labelRefreshIntervalMs > 0
                              && !m_focusedBatches.contains(trackKey)
+                             && !s.externallyReported
                              && (nowMs - s.lastLabelRefreshMs) < m_labelRefreshIntervalMs;
     if (shouldThrottle) {
         bool vis = s.visible && isSeriesRecognitionVisible(s) && inRange(pi.range);
@@ -966,6 +1033,7 @@ void TrackManager::updateLatestLabel(quint64 trackKey, bool force)
     }
 
     s.label->setDefaultTextColor(labelColor);
+    s.label->setExternallyReported(s.externallyReported);
     QPen pen(labelColor);
     pen.setStyle(Qt::DashLine);
     s.labelLine->setPen(pen);
@@ -975,6 +1043,9 @@ void TrackManager::updateLatestLabel(quint64 trackKey, bool force)
     if (s.type == PointType::Track) {
         labelText = QString("batch : %1")
                         .arg(s.displayLabel.isEmpty() ? QString::number(pi.batch) : s.displayLabel);
+        if (s.externallyReported && !s.externalReportText.isEmpty()) {
+            labelText += QLatin1Char('\n') + s.externalReportText;
+        }
     } else {
         QString typeText = trackTypeLabel(s.type);
         labelText = QString("%1:%2").arg(typeText).arg(pi.batch);
@@ -1113,6 +1184,25 @@ bool TrackManager::isBatchFocused(int batchID) const
     return m_focusedBatches.contains(makeTrackKey(PointType::Track, batchID));
 }
 
+void TrackManager::setBatchExternalReporting(int batchID, bool reporting, const QString& reportText)
+{
+    const quint64 trackKey = makeTrackKey(PointType::Track, batchID);
+    auto it = mSeries.find(trackKey);
+    if (it == mSeries.end()) {
+        return;
+    }
+    const QString normalizedText = reporting ? reportText : QString();
+    if (it->externallyReported == reporting && it->externalReportText == normalizedText) {
+        return;
+    }
+
+    it->externallyReported = reporting;
+    it->externalReportText = normalizedText;
+    updateBatchFocusStyle(trackKey);
+    updateLatestLabel(trackKey, true);
+    scheduleBatchRepaint(it.value());
+}
+
 void TrackManager::setAllVisible(bool vis)
 {
     LOG_DEBUG(QString("[TrackManager::setAllVisible] %1 - Series count: %2")
@@ -1196,19 +1286,26 @@ void TrackManager::updateBatchFocusStyle(quint64 trackKey)
 
     if (s.latestPoint) {
         s.latestPoint->setFocused(focused);
-        s.latestPoint->setZValue(focused ? kFocusedPointZ : POINT_Z);
+        s.latestPoint->setExternallyReported(s.externallyReported);
+        s.latestPoint->setZValue(s.externallyReported ? kReportedPointZ
+                                                       : (focused ? kFocusedPointZ : POINT_Z));
     }
     if (s.batchItem) {
-        s.batchItem->setZValue(focused ? kFocusedLineZ : LINE_Z);
+        s.batchItem->setExternallyReported(s.externallyReported);
+        s.batchItem->setZValue(s.externallyReported ? kReportedLineZ
+                                                     : (focused ? kFocusedLineZ : LINE_Z));
         s.batchItem->update();
     }
 
     if (s.label) {
         s.label->setFocused(focused);
-        s.label->setZValue(focused ? kFocusedLabelZ : INFO_Z);
+        s.label->setExternallyReported(s.externallyReported);
+        s.label->setZValue(s.externallyReported ? kReportedLabelZ
+                                                : (focused ? kFocusedLabelZ : INFO_Z));
     }
     if (s.labelLine) {
-        s.labelLine->setZValue(focused ? kFocusedLineZ : INFO_Z);
+        s.labelLine->setZValue(s.externallyReported ? kReportedLineZ
+                                                    : (focused ? kFocusedLineZ : INFO_Z));
     }
 }
 

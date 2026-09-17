@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-16 21:32:30
+ * @LastEditTime: 2026-09-17 22:45:15
  * @Description: 
  */
 /**
@@ -350,7 +350,7 @@ void TrackPoint::setColor(QColor color)
     m_color = color;
 
     QPen pen(color);
-    pen.setWidth(m_focused ? 2 : 1);
+    pen.setWidth((m_focused || m_externallyReported) ? 2 : 1);
     setPen(pen);
     setBrush(m_focused ? QBrush(Qt::NoBrush) : QBrush(color));
     update();
@@ -363,6 +363,17 @@ void TrackPoint::setFocused(bool focused)
     }
 
     m_focused = focused;
+    setSmallRect();
+    setColor(m_color);
+}
+
+void TrackPoint::setExternallyReported(bool reported)
+{
+    if (m_externallyReported == reported) {
+        return;
+    }
+
+    m_externallyReported = reported;
     setSmallRect();
     setColor(m_color);
 }
@@ -398,7 +409,7 @@ void TrackPoint::paint(QPainter* painter, const QStyleOptionGraphicsItem* option
  */
 void TrackPoint::setSmallRect()
 {
-    const float scale = m_focused ? 1.8f : 1.0f;
+    const float scale = m_focused ? 1.8f : (m_externallyReported ? 1.45f : 1.0f);
     const float drawW = w * scale;
     const float drawH = h * scale;
     QRectF newRect(-drawW*0.5f, -drawH*0.5f, drawW, drawH);
@@ -418,6 +429,6 @@ void TrackPoint::setSmallRect()
  */
 void TrackPoint::setBigRect()
 {
-    const float scale = m_focused ? 1.8f : 1.0f;
+    const float scale = m_focused ? 1.8f : (m_externallyReported ? 1.45f : 1.0f);
     setRect(-W*scale*0.5f, -H*scale*0.5f, W*scale, H*scale);
 }
