@@ -226,7 +226,18 @@ DD33 为单播登录请求，报头 D7 按“单播一般需要回执”的规�
 
 UDP 套接字独占模块内部工作线程；DDA4 的 JSONL 序列化、立即 `flush` 落盘和回放文件读取由另一条独立记录线程完成。GUI/PPI 线程只保留上限受 `visible_record_limit` 控制的小型界面缓存，并通过队列投递记录值对象，不等待磁盘 I/O，因此不因文件写入或读取阻塞 PPI 绘制。记录表和设备表的刷新也合并为最多每 200 ms 一次，避免打开控制窗口后高频 DDA4 触发整表重绘。
 
-### 10.1 总控交互调试日志
+### 10.1 DDA4 真实航迹上报过程日志
+
+`track_report_log_enabled=true` 时，软件每次启动会在 `track_report_log_directory`（默认 `CommandControlTrackReports`）创建独立的 `command_control_track_report_*.jsonl`。该文件与第 3 页 DDA4 收发/回放 JSONL、项目调试日志完全分离，不参与回放。
+
+- 仅普通真实 `TRAINFO/DBT` 航迹可写入；TBD、协同、离线 RAE 和本地测试航迹均不会写入。
+- 显控在收到真实航迹的第一个起批点起缓存其完整 RAE 和当时的雷达原点；手动或自动 DDA4 实际具备坐标并开始组包发送时，会先补写从起批点到上报开始前的全部历史点，再逐点追加。
+- 再次手动关闭、自动判据失效、上报模式切换或 `statMethod=2` 消批时写一条 `session_stop`，含结束原因；消批后释放该批次缓存。
+- 每条 `track_point` 包含 UTC/北京时间戳、批号、手动/自动模式、类别与置信度、雷达 ID、`range_m/azimuth_deg/elevation_deg`、相对高度、速度、SNR、幅度、`stat_method`，以及采样时 DD05 雷达经纬高和由同一 ENU→WGS84 公式解出的目标经纬高。没有有效 DD05 原点的点保留 RAE 和时间，但 `target_lla_valid=false`，绝不伪造经纬高。
+
+文件写入仍投递给既有总控记录线程并逐行 `flush`；PPI/GUI 线程只保存尚未开始上报的真实航迹历史，不执行 JSON 序列化或磁盘 I/O。
+
+### 10.2 总控交互调试日志
 
 为防止位域信息在逐字节十六进制日志中难以辨认，公共报头版本/标志、DD25/DDA4 月内压缩时间、DDA4 更新方式/目标属性、DDA1 工作状态及有符号俯仰均额外按 bit 段输出，同时保留原始数值。原始整包十六进制日志仍仅由 `packet_hex_log_enabled` 控制。
 
@@ -244,6 +255,7 @@ UDP 套接字独占模块内部工作线程；DDA4 的 JSONL 序列化、立即 
 - DDA4：`dda4_comprehensive_batch`、设备类型/编号、数据率、目标属性/类型、航迹质量、RCS、干扰状态、更新方式高低半字节和相对延时。
 - DDA1：工作/健康状态、设备数量、搜索雷达类型/编号/状态、工作模式、方位范围、俯仰范围、BIT 阵面选择和初始辐射状态。
 - 传输和行为：DD33 重试次数/间隔、DD25/DDA1 发送周期、自动上报、JSONL 记录和回放周期。
+- 上报过程日志：`track_report_log_enabled` 与 `track_report_log_directory`；该日志默认开启、每次软件启动新建文件，与 DDA4 回放记录无依赖。
 - 授时：`time_sync_enabled`、时间服务器 IP/端口、超时、重试、周期和 DD31 补充校时开关。授时失败只保留状态，不阻断总控通信。
 - 控制窗口网络状态：`network_status_poll_interval_ms` 控制本机、主控、NTP 服务器的异步 ICMP 检查周期。绿色只表示网络可达；DD33/DD34 登录和 NTP 授时是否成功仍以各自状态文本为准。
 

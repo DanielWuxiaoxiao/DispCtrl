@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:45
+ * @LastEditTime: 2026-09-18 23:42:18
  * @Description: 
  */
 /*
@@ -16,6 +16,7 @@
 #define COMMANDCONTROL_RECORDWRITER_H
 
 #include "commandcontrolrecordstore.h"
+#include "commandcontroltrackreportstore.h"
 
 #include <QObject>
 
@@ -26,18 +27,22 @@ public:
     explicit CommandControlRecordWriter(QObject* parent = nullptr);
 
 public slots:
-    void startSession(const QString& directoryPath);
+    void startSessions(const QString& dda4DirectoryPath, bool dda4RecordEnabled,
+                       const QString& trackReportDirectoryPath, bool trackReportEnabled);
     void appendRecord(const CommandControlRecord& record);
+    void appendTrackReportRecord(const CommandControlTrackReportRecord& record);
     void loadRecords(const QString& filePath);
     void stop();
 
 signals:
     void sessionOpened(bool success, const QString& filePath, const QString& detail);
+    void trackReportSessionOpened(bool success, const QString& filePath, const QString& detail);
     void writeFailed(const QString& detail);
     void recordsLoaded(const QVector<CommandControlRecord>& records, const QString& detail);
 
 private:
     CommandControlRecordStore m_store;
+    CommandControlTrackReportStore m_trackReportStore;
 };
 
 #endif  // COMMANDCONTROL_RECORDWRITER_H

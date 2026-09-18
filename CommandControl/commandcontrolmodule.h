@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-17 22:45:14
+ * @LastEditTime: 2026-09-18 23:42:17
  * @Description: 
  */
 /*
@@ -19,6 +19,7 @@
 #include "commandcontrolconfig.h"
 #include "commandcontrolprotocol.h"
 #include "commandcontrolrecordstore.h"
+#include "commandcontroltrackreportstore.h"
 
 #include "Basic/Protocol.h"
 
@@ -143,6 +144,7 @@ private slots:
     void onTransportStarted(bool success, const QString& detail);
     void onTransportSendResult(quint16 messageType, bool success, const QString& detail);
     void onRecordSessionOpened(bool success, const QString& filePath, const QString& detail);
+    void onTrackReportSessionOpened(bool success, const QString& filePath, const QString& detail);
     void onRecordWriteFailed(const QString& detail);
     void onReplayRecordsLoaded(const QVector<CommandControlRecord>& records, const QString& detail);
     void handleDatagram(const QByteArray& packet, const QHostAddress& sender, quint16 senderPort);
@@ -160,6 +162,24 @@ private:
         quint16 port = 0;
 
         bool isValid() const { return id != 0 && !address.isNull() && port != 0; }
+    };
+
+    // 只在 GUI/总控模块线程缓存；实际 JSONL 序列化及文件写入始终投递到记录线程。
+    struct TrackHistorySample {
+        PointInfo point;
+        qint64 observedUtcMs = 0;
+        bool radarOriginValid = false;
+        double radarLongitudeDeg = 0.0;
+        double radarLatitudeDeg = 0.0;
+        double radarAltitudeM = 0.0;
+    };
+
+    struct TrackReportSession {
+        QString id;
+        QString mode;
+        qint64 sourceTrackStartedUtcMs = 0;
+        qint64 reportingStartedUtcMs = 0;
+        quint64 nextPointIndex = 0;
     };
 
     bool startNetwork();
@@ -187,6 +207,15 @@ private:
                             const QHostAddress& sender, quint16 senderPort);
     void beginLogin(CommandControlProtocol::LoginRequestType type, bool allowRetries);
     void reportTrack(const PointInfo& info, bool manualMode);
+    void captureTrackHistory(const PointInfo& info);
+    void startTrackReportSession(quint32 sourceBatch, const QString& mode);
+    void finishTrackReportSession(quint32 sourceBatch, const QString& reason);
+    void appendTrackReportPoint(TrackReportSession& session, const TrackHistorySample& sample);
+    CommandControlTrackReportRecord makeTrackReportRecord(const TrackReportSession& session,
+                                                           const TrackHistorySample& sample,
+                                                           const QString& event,
+                                                           const QString& stopReason = QString()) const;
+    void enqueueTrackReportRecord(const CommandControlTrackReportRecord& record) const;
     /// 范围或开关变更后，以当前缓存的全部普通航迹重新判定自动上报状态。
     void reconcileAutoReporting();
     bool isDrone(quint32 sourceBatch, const PointInfo& info) const;
@@ -236,6 +265,8 @@ private:
     QHash<quint32, PointInfo> m_latestTracks;
     QHash<quint32, quint8> m_targetClasses;
     QSet<quint32> m_manualBatches;
+    QHash<quint32, QVector<TrackHistorySample>> m_trackHistory;
+    QHash<quint32, TrackReportSession> m_trackReportSessions;
     QHash<quint32, CommandControlPeer> m_peers;
     QVector<CommandControlRecord> m_recentRecords;
     QVector<CommandControlRecord> m_replayRecords;
@@ -255,6 +286,7 @@ private:
     bool m_ready = false;
     QString m_statusText;
     QString m_sessionRecordPath;
+    QString m_trackReportSessionPath;
     quint8 m_radiationStatus = 0;
     double m_radarLongitudeDeg = 0.0;
     double m_radarLatitudeDeg = 0.0;

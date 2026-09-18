@@ -287,6 +287,11 @@ login_retry_interval_ms = 1000
 record_enabled = true
 # JSONL 会话记录目录；相对路径以程序当前工作目录为基准，每次启动创建一个新文件。
 record_directory = "CommandControlRecords"
+# 是否独立记录真实普通航迹的 DDA4 手动/自动上报全过程；测试航迹绝不写入。
+# 记录从 TRAINFO 起批点开始，到手动停止、自动条件失效或消批结束；不影响 DDA4 回放 JSONL。
+track_report_log_enabled = true
+# 上报全过程 JSONL 目录；每次软件启动创建独立文件，磁盘 I/O 在总控记录线程执行。
+track_report_log_directory = "CommandControlTrackReports"
 # 回放 DDA4 到 PPI 的投递周期，单位毫秒；数值越小回放越快，合法范围 10～10000。
 replay_interval_ms = 200
 # 回放中单条航迹最后一次更新后，在记录时间轴上持续无新点即自动从 PPI 删除；单位毫秒，0 表示禁用，合法范围 0～600000。

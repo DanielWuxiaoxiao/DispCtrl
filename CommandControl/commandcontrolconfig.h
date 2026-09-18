@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-17 22:45:14
+ * @LastEditTime: 2026-09-18 23:42:17
  * @Description: 
  */
 /* 指控通信模块独立配置读取。 */
@@ -43,6 +43,9 @@ struct CommandControlSettings {
     int loginRetryIntervalMs = 1000;
     bool recordEnabled = true;
     QString recordDirectory = QStringLiteral("CommandControlRecords");
+    // 与 DDA4 回放 JSONL 分离的真实航迹上报过程日志；测试航迹不写入。
+    bool trackReportLogEnabled = true;
+    QString trackReportLogDirectory = QStringLiteral("CommandControlTrackReports");
     int replayIntervalMs = 200;
     int replayTrackStaleMs = 3000;
     int visibleRecordLimit = 1000;

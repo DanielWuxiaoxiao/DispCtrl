@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-17 22:45:14
+ * @LastEditTime: 2026-09-18 23:42:17
  * @Description: 
  */
 #include "commandcontrolmodule.h"
@@ -289,6 +289,7 @@ bool CommandControlModule::init()
     qRegisterMetaType<QHostAddress>("QHostAddress");
     qRegisterMetaType<CommandControlRecord>("CommandControlRecord");
     qRegisterMetaType<QVector<CommandControlRecord>>("QVector<CommandControlRecord>");
+    qRegisterMetaType<CommandControlTrackReportRecord>("CommandControlTrackReportRecord");
     m_settings = CommandControlConfig::load();
     m_autoReportEnabled = m_settings.autoReportEnabled;
     m_radiationStatus = m_settings.radiationStatus;
@@ -297,7 +298,7 @@ bool CommandControlModule::init()
         setStatus(QStringLiteral("总控通信已由配置关闭"));
         return true;
     }
-    if (m_settings.recordEnabled) {
+    if (m_settings.recordEnabled || m_settings.trackReportLogEnabled) {
         startRecordWriter();
     }
     startNetwork();
@@ -401,6 +402,8 @@ void CommandControlModule::startRecordWriter()
     connect(&m_recordThread, &QThread::finished, m_recordWriter, &QObject::deleteLater);
     connect(m_recordWriter, &CommandControlRecordWriter::sessionOpened,
             this, &CommandControlModule::onRecordSessionOpened);
+    connect(m_recordWriter, &CommandControlRecordWriter::trackReportSessionOpened,
+            this, &CommandControlModule::onTrackReportSessionOpened);
     connect(m_recordWriter, &CommandControlRecordWriter::writeFailed,
             this, &CommandControlModule::onRecordWriteFailed);
     connect(m_recordWriter, &CommandControlRecordWriter::recordsLoaded,
@@ -408,9 +411,16 @@ void CommandControlModule::startRecordWriter()
 
     m_recordThread.start();
     CommandControlRecordWriter* writer = m_recordWriter;
-    const QString directory = m_settings.recordDirectory;
-    QMetaObject::invokeMethod(writer, [writer, directory]() { writer->startSession(directory); },
-                              Qt::QueuedConnection);
+    const QString dda4Directory = m_settings.recordDirectory;
+    const QString trackReportDirectory = m_settings.trackReportLogDirectory;
+    const bool dda4RecordEnabled = m_settings.recordEnabled;
+    const bool trackReportEnabled = m_settings.trackReportLogEnabled;
+    QMetaObject::invokeMethod(writer,
+                              [writer, dda4Directory, dda4RecordEnabled,
+                               trackReportDirectory, trackReportEnabled]() {
+                                  writer->startSessions(dda4Directory, dda4RecordEnabled,
+                                                        trackReportDirectory, trackReportEnabled);
+                              }, Qt::QueuedConnection);
 }
 
 void CommandControlModule::stopRecordWriter()
@@ -462,6 +472,17 @@ void CommandControlModule::onRecordSessionOpened(bool success, const QString& fi
     }
     m_sessionRecordPath = filePath;
     LOG_INFO(QString("[CommandControl][RECORD] 独立记录线程已打开会话：%1").arg(filePath));
+}
+
+void CommandControlModule::onTrackReportSessionOpened(bool success, const QString& filePath,
+                                                       const QString& detail)
+{
+    if (!success) {
+        LOG_WARNING(QString("[CommandControl][TRACK_REPORT] %1").arg(detail));
+        return;
+    }
+    m_trackReportSessionPath = filePath;
+    LOG_INFO(QString("[CommandControl][TRACK_REPORT] 已打开独立航迹上报过程日志：%1").arg(filePath));
 }
 
 void CommandControlModule::onRecordWriteFailed(const QString& detail)
@@ -528,6 +549,13 @@ void CommandControlModule::stopNetwork()
     if (m_networkMonitor) {
         m_networkMonitor->stop();
     }
+    // 进程退出也要显式封口尚未消批的上报会话；随后 stopRecordWriter 会等待
+    // 记录线程按队列顺序 flush 完这条结束记录，再关闭独立 JSONL 文件。
+    const QList<quint32> activeReportBatches = m_trackReportSessions.keys();
+    for (quint32 sourceBatch : activeReportBatches) {
+        finishTrackReportSession(sourceBatch, QStringLiteral("软件退出"));
+    }
+    m_trackHistory.clear();
     stopRecordWriter();
     if (m_transport) {
         if (m_transportThread.isRunning()) {
@@ -1047,6 +1075,8 @@ void CommandControlModule::processTrackPoint(const PointInfo& info)
     if (info.statMethod == 2) {
         const bool wasReporting = m_manualBatches.contains(info.batch)
                                || isAutoReportActive(info.batch);
+        finishTrackReportSession(info.batch, QStringLiteral("航迹消批"));
+        m_trackHistory.remove(info.batch);
         m_latestTracks.remove(info.batch);
         m_targetClasses.remove(info.batch);
         m_manualBatches.remove(info.batch);
@@ -1056,16 +1086,21 @@ void CommandControlModule::processTrackPoint(const PointInfo& info)
         }
         return;
     }
+    // 在资格判定之前保留每个真实起批点。若稍后开启手动/自动上报，会补写这些历史点。
+    captureTrackHistory(info);
     const bool wasAutoReporting = isAutoReportActive(info.batch);
     m_latestTracks.insert(info.batch, info);
     if (wasAutoReporting != isAutoReportActive(info.batch)) {
         emit reportingStateChanged();
     }
+    const bool manual = m_manualBatches.contains(info.batch);
+    const bool automatic = isAutoReportActive(info.batch);
+    if (!manual && !automatic) {
+        finishTrackReportSession(info.batch, QStringLiteral("自动上报条件不满足"));
+    }
     if (!m_ready) {
         return;
     }
-    const bool manual = m_manualBatches.contains(info.batch);
-    const bool automatic = isAutoReportActive(info.batch);
     if (manual || automatic) {
         reportTrack(info, manual);
     }
@@ -1079,14 +1114,18 @@ void CommandControlModule::processTargetClassification(TargetClaRes result)
     if (wasAutoReporting != isAutoReporting) {
         emit reportingStateChanged();
     }
-    if (!m_ready) {
-        return;
-    }
     const bool manual = m_manualBatches.contains(result.batchID);
-    if ((!manual && !isAutoReportActive(result.batchID)) || !m_latestTracks.contains(result.batchID)) {
+    const bool automatic = isAutoReportActive(result.batchID);
+    if (!m_latestTracks.contains(result.batchID)) {
         return;
     }
     const PointInfo info = m_latestTracks.value(result.batchID);
+    if (!manual && !automatic) {
+        finishTrackReportSession(result.batchID, QStringLiteral("目标类别或自动上报条件改变"));
+    }
+    if (!m_ready || (!manual && !automatic)) {
+        return;
+    }
     reportTrack(info, manual);
 }
 
@@ -1095,6 +1134,11 @@ void CommandControlModule::toggleManualReport(quint32 sourceBatch)
     if (m_manualBatches.contains(sourceBatch)) {
         m_manualBatches.remove(sourceBatch);
         LOG_INFO(QString("[CommandControl][MANUAL] 关闭手动上报 sourceBatch=%1").arg(sourceBatch));
+        if (isAutoReportActive(sourceBatch)) {
+            reportTrack(m_latestTracks.value(sourceBatch), false);
+        } else {
+            finishTrackReportSession(sourceBatch, QStringLiteral("手动停止上报"));
+        }
         emit reportingStateChanged();
         return;
     }
@@ -1182,16 +1226,19 @@ void CommandControlModule::reconcileAutoReporting()
     int automaticCount = 0;
     int manualCount = 0;
     for (auto it = m_latestTracks.cbegin(); it != m_latestTracks.cend(); ++it) {
-        if (m_manualBatches.contains(it.key())) {
+        const bool manual = m_manualBatches.contains(it.key());
+        const bool automatic = isAutoReportActive(it.key());
+        if (manual) {
             ++manualCount;
-        }
-        if (isAutoReportActive(it.key())) {
+        } else if (automatic) {
             ++automaticCount;
             // 未登录或 UDP 未就绪时 isAutoReportActive 对真实航迹为 false，
             // 因此不会在通信未就绪时提前构造 DDA4。
             if (m_ready) {
                 reportTrack(it.value(), false);
             }
+        } else {
+            finishTrackReportSession(it.key(), QStringLiteral("自动上报条件不满足"));
         }
     }
 
@@ -1278,6 +1325,166 @@ bool CommandControlModule::isConfiguredTestTrack(quint32 sourceBatch) const
     const quint32 firstBatch = CF_INS.testTrackFirstBatch(101);
     const quint32 trackCount = static_cast<quint32>(qBound(2, CF_INS.testTrackCount(10), 10));
     return sourceBatch >= firstBatch && sourceBatch < firstBatch + trackCount;
+}
+
+void CommandControlModule::captureTrackHistory(const PointInfo& info)
+{
+    // 测试航迹仅用于联调 DDA4 编码和 UI，不污染真实航迹的全过程日志。
+    if (!m_settings.trackReportLogEnabled || isConfiguredTestTrack(info.batch)) {
+        return;
+    }
+
+    TrackHistorySample sample;
+    sample.point = info;
+    sample.observedUtcMs = QDateTime::currentMSecsSinceEpoch();
+    sample.radarOriginValid = currentRadarPosition(sample.radarLongitudeDeg,
+                                                    sample.radarLatitudeDeg,
+                                                    sample.radarAltitudeM);
+    QVector<TrackHistorySample>& history = m_trackHistory[info.batch];
+    history.append(sample);
+
+    auto session = m_trackReportSessions.find(info.batch);
+    if (session != m_trackReportSessions.end()) {
+        appendTrackReportPoint(session.value(), sample);
+    }
+}
+
+void CommandControlModule::startTrackReportSession(quint32 sourceBatch, const QString& mode)
+{
+    if (!m_settings.trackReportLogEnabled || isConfiguredTestTrack(sourceBatch)) {
+        return;
+    }
+    const auto history = m_trackHistory.constFind(sourceBatch);
+    if (history == m_trackHistory.cend() || history->isEmpty()) {
+        return;
+    }
+
+    auto existing = m_trackReportSessions.find(sourceBatch);
+    if (existing != m_trackReportSessions.end()) {
+        if (existing->mode == mode) {
+            return;
+        }
+        finishTrackReportSession(sourceBatch, QStringLiteral("上报模式切换"));
+    }
+
+    TrackReportSession session;
+    session.mode = mode;
+    session.sourceTrackStartedUtcMs = history->first().observedUtcMs;
+    session.reportingStartedUtcMs = QDateTime::currentMSecsSinceEpoch();
+    session.id = QStringLiteral("%1_batch_%2_%3")
+                     .arg(QDateTime::currentDateTimeUtc().toString(QStringLiteral("yyyyMMdd_hhmmss_zzz")))
+                     .arg(sourceBatch)
+                     .arg(mode);
+    m_trackReportSessions.insert(sourceBatch, session);
+
+    TrackReportSession& activeSession = m_trackReportSessions[sourceBatch];
+    CommandControlTrackReportRecord started = makeTrackReportRecord(
+        activeSession, history->first(), QStringLiteral("session_start"));
+    started.observedUtcMs = activeSession.reportingStartedUtcMs;
+    started.pointIndex = 0;
+    enqueueTrackReportRecord(started);
+    for (const TrackHistorySample& sample : *history) {
+        appendTrackReportPoint(activeSession, sample);
+    }
+    LOG_INFO(QStringLiteral("[CommandControl][TRACK_REPORT] 开始 sourceBatch=%1 mode=%2，已补写起批以来 %3 个点")
+                 .arg(sourceBatch).arg(mode).arg(history->size()));
+}
+
+void CommandControlModule::finishTrackReportSession(quint32 sourceBatch, const QString& reason)
+{
+    auto session = m_trackReportSessions.find(sourceBatch);
+    if (session == m_trackReportSessions.end()) {
+        return;
+    }
+
+    TrackHistorySample lastSample;
+    const auto history = m_trackHistory.constFind(sourceBatch);
+    if (history != m_trackHistory.cend() && !history->isEmpty()) {
+        lastSample = history->last();
+    } else {
+        lastSample.point.batch = sourceBatch;
+        lastSample.observedUtcMs = QDateTime::currentMSecsSinceEpoch();
+    }
+    CommandControlTrackReportRecord stopped = makeTrackReportRecord(
+        session.value(), lastSample, QStringLiteral("session_stop"), reason);
+    stopped.observedUtcMs = QDateTime::currentMSecsSinceEpoch();
+    stopped.pointIndex = session->nextPointIndex;
+    enqueueTrackReportRecord(stopped);
+    LOG_INFO(QStringLiteral("[CommandControl][TRACK_REPORT] 结束 sourceBatch=%1 mode=%2 points=%3 reason=%4")
+                 .arg(sourceBatch).arg(session->mode).arg(session->nextPointIndex).arg(reason));
+    m_trackReportSessions.erase(session);
+}
+
+void CommandControlModule::appendTrackReportPoint(TrackReportSession& session,
+                                                   const TrackHistorySample& sample)
+{
+    CommandControlTrackReportRecord record = makeTrackReportRecord(
+        session, sample, QStringLiteral("track_point"));
+    record.pointIndex = ++session.nextPointIndex;
+    enqueueTrackReportRecord(record);
+}
+
+CommandControlTrackReportRecord CommandControlModule::makeTrackReportRecord(
+    const TrackReportSession& session, const TrackHistorySample& sample, const QString& event,
+    const QString& stopReason) const
+{
+    const PointInfo& info = sample.point;
+    CommandControlTrackReportRecord record;
+    record.event = event;
+    record.reportSessionId = session.id;
+    record.reportMode = session.mode;
+    record.stopReason = stopReason;
+    record.sourceBatch = info.batch;
+    record.observedUtcMs = sample.observedUtcMs;
+    record.sourceTrackStartedUtcMs = session.sourceTrackStartedUtcMs;
+    record.reportingStartedUtcMs = session.reportingStartedUtcMs;
+    record.sourceType = info.type;
+    record.statMethod = info.statMethod;
+    record.targetRecognition = info.targetRecResult == 1
+        ? 1U : m_targetClasses.value(info.batch, info.targetRecResult);
+    record.targetConfidence = info.targetConfidence;
+    record.radarId = info.radarId;
+    record.rangeM = info.range;
+    record.azimuthDeg = info.azimuth;
+    record.elevationDeg = info.elevation;
+    record.snr = info.SNR;
+    record.speedMps = info.speed;
+    record.relativeAltitudeM = info.altitute;
+    record.amplitude = info.amp;
+    record.radarOriginValid = sample.radarOriginValid;
+    record.radarLongitudeDeg = sample.radarLongitudeDeg;
+    record.radarLatitudeDeg = sample.radarLatitudeDeg;
+    record.radarAltitudeM = sample.radarAltitudeM;
+
+    double eastM = 0.0;
+    double northM = 0.0;
+    double upM = 0.0;
+    Wgs84Coordinate::Lla target;
+    const Wgs84Coordinate::Lla radar{sample.radarLongitudeDeg, sample.radarLatitudeDeg,
+                                     sample.radarAltitudeM};
+    if (sample.radarOriginValid && std::isfinite(info.range) && std::isfinite(info.azimuth)
+        && std::isfinite(info.elevation) && info.range >= 0.0f
+        && Wgs84Coordinate::polarToEnu(info.range, info.azimuth, info.elevation,
+                                       eastM, northM, upM)
+        && Wgs84Coordinate::enuToLla(radar, eastM, northM, upM, target)) {
+        record.targetLlaValid = true;
+        record.targetLongitudeDeg = target.longitudeDeg;
+        record.targetLatitudeDeg = target.latitudeDeg;
+        record.targetAltitudeM = target.altitudeM;
+    }
+    return record;
+}
+
+void CommandControlModule::enqueueTrackReportRecord(const CommandControlTrackReportRecord& record) const
+{
+    if (!m_recordWriter) {
+        return;
+    }
+    CommandControlRecordWriter* writer = m_recordWriter;
+    // 只投递值对象，避免高频航迹点在 GUI/PPI 线程执行 JSON 序列化或磁盘 flush。
+    QMetaObject::invokeMethod(writer,
+                              [writer, record]() { writer->appendTrackReportRecord(record); },
+                              Qt::QueuedConnection);
 }
 
 bool CommandControlModule::targetLla(const PointInfo& info, double& longitudeDeg,
@@ -1439,6 +1646,9 @@ void CommandControlModule::reportTrack(const PointInfo& info, bool manualMode)
         LOG_WARNING(QString("[CommandControl][DDA4] 跳过无效 RAE sourceBatch=%1").arg(info.batch));
         return;
     }
+    // 只有实际具备坐标并开始构造 DDA4 时才开启全过程记录；此前缓存的起批点会一次补写。
+    startTrackReportSession(info.batch, manualMode ? QStringLiteral("manual")
+                                                   : QStringLiteral("auto"));
     const auto track = makeDda4Track(info, manualMode);
     const auto header = nextHeader(CommandControlProtocol::SituationIntelligence, 0, false, 0x03);
     const QByteArray packet = CommandControlProtocol::makeDda4Track(header, track);

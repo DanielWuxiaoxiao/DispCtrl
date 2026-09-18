@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-17 22:45:14
+ * @LastEditTime: 2026-09-18 23:42:17
  * @Description: 
  */
 #include "commandcontrolconfig.h"
@@ -185,6 +185,10 @@ CommandControlSettings CommandControlConfig::load()
     settings.loginRetryIntervalMs = boundedInt(values, QStringLiteral("login_retry_interval_ms"), settings.loginRetryIntervalMs, 250, 60000);
     settings.recordEnabled = boolValue(values, QStringLiteral("record_enabled"), settings.recordEnabled);
     settings.recordDirectory = configuredText(values, QStringLiteral("record_directory"), settings.recordDirectory);
+    settings.trackReportLogEnabled = boolValue(values, QStringLiteral("track_report_log_enabled"),
+                                                settings.trackReportLogEnabled);
+    settings.trackReportLogDirectory = configuredText(values, QStringLiteral("track_report_log_directory"),
+                                                       settings.trackReportLogDirectory);
     settings.replayIntervalMs = boundedInt(values, QStringLiteral("replay_interval_ms"), settings.replayIntervalMs, 10, 10000);
     settings.replayTrackStaleMs = boundedInt(values, QStringLiteral("replay_track_stale_ms"),
                                                settings.replayTrackStaleMs, 0, 600000);
@@ -239,7 +243,7 @@ CommandControlSettings CommandControlConfig::load()
         settings.radiationStatus = 0;
     }
 
-    LOG_INFO(QString("[CommandControl][CONFIG] enabled=%1 local=%2:%3 group=%4:%5 control=%6 netPoll=%7ms timeSync=%8 server=%9:%10 device=0x%11 autoReport=%12 autoRange(h<=%13,r=%14~%15,az=%16~%17) record=%18 dda1Type=0x%19 dda1NormalLog=%20 dda4NormalLog=%21 dda4LogInterval=%22 packetHex=%23")
+    LOG_INFO(QString("[CommandControl][CONFIG] enabled=%1 local=%2:%3 group=%4:%5 control=%6 netPoll=%7ms timeSync=%8 server=%9:%10 device=0x%11 autoReport=%12 autoRange(h<=%13,r=%14~%15,az=%16~%17) record=%18 trackReportLog=%19 dda1Type=0x%20 dda1NormalLog=%21 dda4NormalLog=%22 dda4LogInterval=%23 packetHex=%24")
              .arg(settings.enabled)
              .arg(settings.localIp)
              .arg(settings.localPort)
@@ -258,6 +262,7 @@ CommandControlSettings CommandControlConfig::load()
              .arg(settings.autoReportAzimuthStartDeg)
              .arg(settings.autoReportAzimuthEndDeg)
              .arg(settings.recordEnabled)
+             .arg(settings.trackReportLogEnabled)
              .arg(settings.dda1DeviceType, 2, 16, QChar('0'))
              .arg(settings.dda1NormalLogEnabled)
              .arg(settings.dda4NormalLogEnabled)

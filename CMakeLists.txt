@@ -173,8 +173,9 @@ set(SRC_FILES
     CommandControl/commandcontrolconfig.cpp    # 总控通信独立配置
     CommandControl/commandcontrolnetworkmonitor.cpp # 总控网络连通状态
     CommandControl/ntptimesync.cpp             # NTP 授时与系统时间更新
-      CommandControl/commandcontrolrecordstore.cpp # DDA4 会话记录
-      CommandControl/commandcontrolrecordwriter.cpp # DDA4 独立记录线程
+    CommandControl/commandcontrolrecordstore.cpp # DDA4 会话记录
+    CommandControl/commandcontroltrackreportstore.cpp # DDA4 航迹上报过程独立记录
+    CommandControl/commandcontrolrecordwriter.cpp # DDA4 独立记录线程
     CommandControl/commandcontroltransport.cpp # UDP 工作线程
     CommandControl/commandcontrolmodule.cpp    # 总控通信核心模块
     CommandControl/commandcontrolwindow.cpp    # 总控通信独立窗口
@@ -271,8 +272,9 @@ set(HDR_FILES
     CommandControl/commandcontrolconfig.h       # 总控通信独立配置
     CommandControl/commandcontrolnetworkmonitor.h # 总控网络连通状态
     CommandControl/ntptimesync.h                # NTP 授时与系统时间更新
-      CommandControl/commandcontrolrecordstore.h  # DDA4 会话记录
-      CommandControl/commandcontrolrecordwriter.h # DDA4 独立记录线程
+    CommandControl/commandcontrolrecordstore.h  # DDA4 会话记录
+    CommandControl/commandcontroltrackreportstore.h # DDA4 航迹上报过程独立记录
+    CommandControl/commandcontrolrecordwriter.h # DDA4 独立记录线程
     CommandControl/commandcontroltransport.h    # UDP 工作线程
     CommandControl/commandcontrolmodule.h       # 总控通信核心模块
     CommandControl/commandcontrolwindow.h       # 总控通信独立窗口

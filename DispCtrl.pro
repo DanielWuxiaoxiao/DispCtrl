@@ -105,6 +105,7 @@ SOURCES += \
     CommandControl/commandcontrolnetworkmonitor.cpp \
     CommandControl/ntptimesync.cpp \
     CommandControl/commandcontrolrecordstore.cpp \
+    CommandControl/commandcontroltrackreportstore.cpp \
     CommandControl/commandcontrolrecordwriter.cpp \
     CommandControl/commandcontroltransport.cpp \
     CommandControl/commandcontrolmodule.cpp \
@@ -216,6 +217,7 @@ HEADERS += \
     CommandControl/commandcontrolnetworkmonitor.h \
     CommandControl/ntptimesync.h \
     CommandControl/commandcontrolrecordstore.h \
+    CommandControl/commandcontroltrackreportstore.h \
     CommandControl/commandcontrolrecordwriter.h \
     CommandControl/commandcontroltransport.h \
     CommandControl/commandcontrolmodule.h \
