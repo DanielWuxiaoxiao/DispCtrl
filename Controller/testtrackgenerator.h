@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-14 14:10:16
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-17 22:45:15
+ * @LastEditTime: 2026-09-20 19:24:22
  * @Description: 
  */
 #ifndef TESTTRACKGENERATOR_H
@@ -16,9 +16,10 @@
 #include "Basic/Protocol.h"
 
 /**
- * @brief 以低频定时方式生成多组普通 DBT 测试航迹
+ * @brief 以低频定时方式生成多组普通 DBT 三维测试航迹
  * @details 不创建 UDP 套接字。每个 PointInfo 与 UDP 正常航迹使用相同的单位和类型：
- *          range 为米、azimuth/elevation 为度、type 为 PointType::Track。
+ *          range 为米、azimuth/elevation 为度、type 为 PointType::Track；每条航迹在
+ *          局地东北天坐标系中匀速积分，RAE 由三维位置实时反算。
  */
 class TestTrackGenerator final : public QObject
 {

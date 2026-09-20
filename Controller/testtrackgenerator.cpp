@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-14 14:10:16
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-17 22:45:15
+ * @LastEditTime: 2026-09-20 19:24:22
  * @Description: 
  */
 #include "testtrackgenerator.h"
@@ -30,24 +30,29 @@ struct TestTrackProfile {
     double initialRangeM;
     double azimuthDeg;
     double elevationDeg;
+    double courseAzimuthDeg;
+    double climbAngleDeg;
     bool recognizedDrone;
 };
 
-// 覆盖自动上报的高度/距离边界和非无人机分支；固定视线匀速运动使 PPI RAE、
-// DDA4 经纬高和速度矢量完全一致。前两条、7 号满足默认范围，其他条分别用于
-// 验证距离超限、高度超限和非无人机不自动上报。
+// 覆盖自动上报的高度/距离边界和非无人机分支。每条航迹都在东北天坐标系中沿不同
+// 航向、爬升角匀速运动，再反算 PPI 所需的 RAE；因此方位、俯仰、经纬高和速度来自
+// 同一个三维位置模型。前两条、7 号初始满足默认范围，其他条分别用于验证距离超限、
+// 高度超限和非无人机不自动上报。
 constexpr TestTrackProfile kTrackProfiles[] = {
-    {1200.0,  25.0, 2.0, true},   // 合格：高度约 42m，距离 1.2km。
-    {2500.0,  90.0, 1.5, true},   // 合格：高度约 65m，距离 2.5km。
-    {3600.0, 135.0, 1.0, true},   // 距离超限。
-    {1800.0, 200.0, 5.0, true},   // 高度超限。
-    {2200.0, 250.0, 2.0, false},  // 非无人机，几何范围合格但不自动上报。
-    { 600.0, 300.0, 8.0, false},  // 非无人机且高度超限。
-    {2900.0, 315.0, 1.0, true},   // 合格：高度约 51m，距离 2.9km。
-    { 800.0,  45.0, 8.0, true},   // 高度超限。
-    {4500.0, 160.0, 0.5, false},  // 非无人机且距离超限。
-    {3100.0, 350.0, 1.0, true}    // 距离超限，用于方位跨 0 度联调。
+    {1200.0,  25.0, 2.0, 110.0,  4.0, true},   // 合格：横向上升，方位/俯仰均变化。
+    {2500.0,  90.0, 1.5,  20.0, -3.0, true},   // 合格：横向下降。
+    {3600.0, 135.0, 1.0, 230.0,  2.0, true},   // 距离超限，斜向上升。
+    {1800.0, 200.0, 5.0, 290.0, -4.0, true},   // 高度超限，斜向下降。
+    {2200.0, 250.0, 2.0, 340.0,  3.0, false},  // 非无人机，几何范围合格但不自动上报。
+    { 600.0, 300.0, 8.0,  50.0, -6.0, false},  // 非无人机且高度超限。
+    {2900.0, 315.0, 1.0,  65.0,  5.0, true},   // 合格：横向上升，便于范围联调。
+    { 800.0,  45.0, 8.0, 150.0, -5.0, true},   // 高度超限。
+    {4500.0, 160.0, 0.5, 260.0,  1.0, false},  // 非无人机且距离超限。
+    {3100.0, 350.0, 1.0,  80.0,  3.0, true}    // 距离超限，跨正北方位联调。
 };
+static_assert(sizeof(kTrackProfiles) / sizeof(kTrackProfiles[0]) >= kMaximumTrackCount,
+              "测试航迹配置上限不得超过预设三维航迹数量");
 
 float normalizeAzimuth(double azimuthDeg)
 {
@@ -56,6 +61,11 @@ float normalizeAzimuth(double azimuthDeg)
         normalized += 360.0;
     }
     return static_cast<float>(normalized);
+}
+
+double degreesToRadians(double degrees)
+{
+    return degrees * kPi / 180.0;
 }
 
 } // namespace
@@ -98,7 +108,7 @@ bool TestTrackGenerator::start()
     const double altitude = CF_INS.altitude("altitude", 781.48);
     emit fallbackRadarPositionReady(latitude, longitude, altitude);
     emit generationStarted(m_trackCount, m_pointCount);
-    LOG_INFO(QString("[TestTrack] 开始：tracks=%1 points=%2 intervalMs=%3 speed=%4m/s batches=%5..%6 fallbackRadar=[lon=%7 lat=%8 alt=%9]")
+    LOG_INFO(QString("[TestTrack] 开始：tracks=%1 points=%2 intervalMs=%3 speed=%4m/s batches=%5..%6 model=ENU-3D fallbackRadar=[lon=%7 lat=%8 alt=%9]")
              .arg(m_trackCount).arg(m_pointCount).arg(m_intervalMs).arg(m_speedMps, 0, 'f', 2)
              .arg(m_firstBatch).arg(m_firstBatch + static_cast<quint32>(m_trackCount) - 1)
              .arg(longitude, 0, 'f', 8).arg(latitude, 0, 'f', 8).arg(altitude, 0, 'f', 1));
@@ -149,7 +159,27 @@ PointInfo TestTrackGenerator::makeTrackPoint(int trackIndex) const
 {
     const TestTrackProfile& profile = kTrackProfiles[trackIndex];
     const double elapsedSeconds = static_cast<double>(m_elapsedTimer.elapsed()) / 1000.0;
-    const double rangeM = profile.initialRangeM + m_speedMps * elapsedSeconds;
+    const double initialAzimuthRad = degreesToRadians(profile.azimuthDeg);
+    const double initialElevationRad = degreesToRadians(profile.elevationDeg);
+    const double courseAzimuthRad = degreesToRadians(profile.courseAzimuthDeg);
+    const double climbAngleRad = degreesToRadians(profile.climbAngleDeg);
+
+    // 本项目 RAE 定义为正北=0°、正东=90°、俯仰向上为正。先由初始 RAE 得到
+    // 东北天位置，再按航向和爬升角积分，避免单独篡改角度而产生不真实的速度。
+    const double initialHorizontalM = profile.initialRangeM * std::cos(initialElevationRad);
+    double eastM = initialHorizontalM * std::sin(initialAzimuthRad);
+    double northM = initialHorizontalM * std::cos(initialAzimuthRad);
+    double upM = profile.initialRangeM * std::sin(initialElevationRad);
+
+    const double horizontalSpeedMps = m_speedMps * std::cos(climbAngleRad);
+    eastM += horizontalSpeedMps * std::sin(courseAzimuthRad) * elapsedSeconds;
+    northM += horizontalSpeedMps * std::cos(courseAzimuthRad) * elapsedSeconds;
+    upM += m_speedMps * std::sin(climbAngleRad) * elapsedSeconds;
+
+    const double horizontalRangeM = std::hypot(eastM, northM);
+    const double rangeM = std::hypot(horizontalRangeM, upM);
+    const double azimuthDeg = std::atan2(eastM, northM) * 180.0 / kPi;
+    const double elevationDeg = std::atan2(upM, horizontalRangeM) * 180.0 / kPi;
 
     PointInfo point;
     point.type = PointType::Track;
@@ -160,10 +190,10 @@ PointInfo TestTrackGenerator::makeTrackPoint(int trackIndex) const
     point.radarId = RADAR_ID_MIN;
 
     point.range = static_cast<float>(rangeM);
-    point.azimuth = normalizeAzimuth(profile.azimuthDeg);
-    point.elevation = static_cast<float>(profile.elevationDeg);
-    // 现场 PointInfo 的高度字段表示相对雷达的上向量；与 elevation/range 保持一致。
-    point.altitute = static_cast<float>(rangeM * std::sin(profile.elevationDeg * kPi / 180.0));
+    point.azimuth = normalizeAzimuth(azimuthDeg);
+    point.elevation = static_cast<float>(elevationDeg);
+    // 现场 PointInfo 的高度字段表示相对雷达的上向量，直接复用三维位置的 up 分量。
+    point.altitute = static_cast<float>(upM);
     point.speed = static_cast<float>(m_speedMps);
     point.SNR = 24.0f;
     point.amp = 1.0f;
