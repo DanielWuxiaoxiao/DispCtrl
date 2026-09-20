@@ -199,8 +199,10 @@ enabled = true                      # 激光上报总开关（默认开启；关
 radar_ip = "192.168.101.9"           # 雷达端本地绑定IP（9009发送源端）
 laser_ctrl_ip = "192.168.101.10"     # 激光控制终端IP
 udp_port = 9009                      # 雷达192.168.101.9:9009 → 激光192.168.101.10:9009
-report_interval_ms = 1000            # 持续上报周期(ms)
+report_interval_ms = 1000            # 9009状态心跳周期(ms)；侦察帧按TRAINFO航迹新点实时发送，不由本项限速
 heartbeat_log_interval_ms = 0        # 正常9009状态心跳日志间隔(ms)；0=不打印，发送错误始终记录；联调可设60000
+# 正常9009侦察帧显控/项目日志间隔(ms)；默认30秒一条摘要并附带抑制数量，0=不打印正常帧；取消和发送错误始终记录。
+recon_log_interval_ms = 30000
 save_txt = true                      # 是否把每次“下发新目标”的信息保存到本地txt
 save_dir = "LaserReportLog"          # txt保存目录（相对程序运行目录）
 
@@ -357,8 +359,9 @@ dda1_elevation_end_deg = 70
 dda1_radar_id = 0
 # DDA1 初始辐射状态；0 表示关、1 表示开；运行期间会跟随显控发射开关更新。
 radiation_status = 0
-# DDA4 正常帧项目日志的最小间隔，单位毫秒；仅 dda4_normal_log_enabled=true 时生效，0 表示每条均写。JSONL 始终逐条落盘。
-dda4_log_interval_ms = 1000
+# DDA4 正常帧项目日志的最小间隔，单位毫秒；仅 dda4_normal_log_enabled=true 时生效。
+# 默认 10 秒最多一条摘要，避免 2Hz 正常上报刷占显控日志；0 仅供短时逐帧联调。JSONL 始终逐条落盘。
+dda4_log_interval_ms = 10000
 # 是否打印 DDA4 正常帧的完整字段；false 时仅记录错误帧，JSONL 完整落盘不受影响。
 dda4_normal_log_enabled = false
 # 是否打印 DDA1 正常帧的完整字段；false 时仅记录错误帧。

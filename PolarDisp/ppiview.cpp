@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-17 22:45:15
+ * @LastEditTime: 2026-09-20 18:52:02
  * @Description: 
  */
 /**
@@ -1503,22 +1503,22 @@ bool PPIView::isExternallyReporting(int batch) const
 
 QString PPIView::externalReportingText(int batch) const
 {
+    QStringList states;
     const bool laserReporting = m_laserReportManager
         && (m_laserReportManager->isReporting(batch)
             || m_laserReportManager->isAutoReportingTrack(batch));
     if (laserReporting) {
-        return QStringLiteral("激光上报中");
+        states.append(QStringLiteral("激光上报中"));
     }
-    if (!m_commandControlModule) {
-        return QString();
+    if (m_commandControlModule) {
+        if (m_commandControlModule->isManualReportActive(static_cast<quint32>(batch))) {
+            states.append(QStringLiteral("手动上报中"));
+        } else if (m_commandControlModule->isAutoReportActive(static_cast<quint32>(batch))) {
+            states.append(QStringLiteral("自动上报中"));
+        }
     }
-    if (m_commandControlModule->isManualReportActive(static_cast<quint32>(batch))) {
-        return QStringLiteral("手动上报中");
-    }
-    if (m_commandControlModule->isAutoReportActive(static_cast<quint32>(batch))) {
-        return QStringLiteral("自动上报中");
-    }
-    return QString();
+    // 激光与指控分别由独立模块维护；同批航迹允许同时处于两种上报状态。
+    return states.join(QStringLiteral(" + "));
 }
 
 void PPIView::refreshExternalReportingHighlight(int batch)

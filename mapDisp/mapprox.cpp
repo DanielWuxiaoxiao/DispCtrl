@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-16 21:32:31
+ * @LastEditTime: 2026-09-20 18:52:02
  * @Description: 
  */
 #include "mapprox.h"
@@ -81,6 +81,25 @@ MapProxyWidget::MapProxyWidget()
     webChannel->registerObject(QString("qtChannel"), this);
     mView->page()->setWebChannel(webChannel);
 
+    // URL 参数可完成首帧定位；页面加载完成后仍要直接刷新一次地图。
+    // 这样不依赖 WebChannel 注册完成的先后，也避免卫星瓦片在首次布局尚未稳定时保持空白。
+    connect(mView, &QWebEngineView::loadFinished, this, [this](bool success) {
+        if (!m_mapPageSyncPending || mView->url() != m_expectedMapUrl) {
+            return;
+        }
+
+        m_mapPageSyncPending = false;
+        if (!success) {
+            LOG_ERROR(QString("Map HTML load failed: %1").arg(m_expectedMapUrl.toString()));
+            return;
+        }
+        if (m_currentMapType == 0) {
+            return;
+        }
+
+        QTimer::singleShot(0, this, &MapProxyWidget::refreshLoadedMapState);
+    });
+
     // 渲染进程崩溃监控（外场黑屏排查用）：WebEngine 渲染/ GPU 进程一旦终止，地图区域立即变黑。
     // 记录终止状态与退出码，便于判断是否需要切换 gl_backend(angle→desktop→software)。
     connect(mView->page(), &QWebEnginePage::renderProcessTerminated, this,
@@ -99,13 +118,24 @@ MapProxyWidget::MapProxyWidget()
     // 先显示黑色占位页，延迟到布局完成后再加载实际地图。
     mView->setHtml("<html><body style='background-color: black; margin: 0; padding: 0;'></body></html>");
 
-    // 延迟加载：等待主窗口布局完成后QWebEngineView拥有有效尺寸，
-    // 然后触发真正的地图加载。在此期间PPIVisualSettings的chooseMap调用
-    // 会被拦截（仅更新m_currentMapType）。
-    QTimer::singleShot(500, this, [this]() {
-        m_initialLoadPending = false;
-        chooseMap(m_currentMapType);
-    });
+    // 等待视图实际拥有可用尺寸后再加载；不能以固定 500ms 猜测 WebEngine 的布局状态。
+    // 此期间的 chooseMap 调用只保存用户选择，首次加载时统一使用最终的类型。
+    QTimer::singleShot(0, this, &MapProxyWidget::loadInitialMapWhenReady);
+}
+
+void MapProxyWidget::loadInitialMapWhenReady()
+{
+    if (!m_initialLoadPending) {
+        return;
+    }
+
+    if (!mView || !mView->isVisible() || mView->width() <= 1 || mView->height() <= 1) {
+        QTimer::singleShot(50, this, &MapProxyWidget::loadInitialMapWhenReady);
+        return;
+    }
+
+    m_initialLoadPending = false;
+    chooseMap(m_currentMapType);
 }
 
 void MapProxyWidget::chooseMap(int index)
@@ -152,6 +182,8 @@ void MapProxyWidget::chooseMap(int index)
     query.addQueryItem("offx", QString::number(m_offsetRatioX, 'f', 6));
     query.addQueryItem("offy", QString::number(m_offsetRatioY, 'f', 6));
     baseUrl.setQuery(query);
+    m_expectedMapUrl = baseUrl;
+    m_mapPageSyncPending = true;
     mView->setUrl(baseUrl);
 
     LOG_DEBUG(QString("Map switched: AMap, typeIndex=%1").arg(index));
@@ -224,6 +256,32 @@ void MapProxyWidget::syncCurrentRadarState()
                   .arg(m_currentRange)
                   .arg(m_offsetRatioX)
                   .arg(m_offsetRatioY));
+}
+
+void MapProxyWidget::refreshLoadedMapState()
+{
+    if (!mView || !mView->page() || m_currentMapType == 0) {
+        return;
+    }
+
+    const QString javascript = QStringLiteral(
+        "(function() {"
+        "if (typeof map === 'undefined' || typeof setCenterOn !== 'function') return;"
+        "map.resize();"
+        "setCenterOn(%1, %2, %3, %4, %5);"
+        "})();")
+        .arg(QString::number(m_currentLongitude, 'f', 9),
+             QString::number(m_currentLatitude, 'f', 9),
+             QString::number(m_currentRange, 'f', 3),
+             QString::number(m_offsetRatioX, 'f', 6),
+             QString::number(m_offsetRatioY, 'f', 6));
+    mView->page()->runJavaScript(javascript);
+
+    LOG_DEBUG(QString("Map initial page ready: refreshed typeIndex=%1, center=(%2,%3), range=%4km")
+                  .arg(m_currentMapType)
+                  .arg(m_currentLongitude, 0, 'f', 9)
+                  .arg(m_currentLatitude, 0, 'f', 9)
+                  .arg(m_currentRange, 0, 'f', 3));
 }
 
 void MapProxyWidget::setGray(int value)

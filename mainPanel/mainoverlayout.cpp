@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-17 22:45:16
+ * @LastEditTime: 2026-09-20 18:52:02
  * @Description: 
  */
 #include "mainoverlayout.h"
@@ -1869,15 +1869,23 @@ QString MainOverLayOut::externalControlStatus(const PointInfo& info) const
         return QStringLiteral("否");
     }
     const int batch = static_cast<int>(info.batch);
-    if (m_laserReportManager && (m_laserReportManager->isReporting(batch)
-                                 || m_laserReportManager->isAutoReportingTrack(batch))) {
-        return QStringLiteral("激光");
-    }
+    QString commandControlStatus;
     if (m_commandControlModule && m_commandControlModule->isManualReportActive(info.batch)) {
-        return QStringLiteral("手动");
+        commandControlStatus = QStringLiteral("手动");
+    } else if (m_commandControlModule && m_commandControlModule->isAutoReportActive(info.batch)) {
+        commandControlStatus = QStringLiteral("自动");
     }
-    if (m_commandControlModule && m_commandControlModule->isAutoReportActive(info.batch)) {
-        return QStringLiteral("自动");
+    const bool laserReporting = m_laserReportManager
+        && (m_laserReportManager->isReporting(batch)
+            || m_laserReportManager->isAutoReportingTrack(batch));
+    if (!commandControlStatus.isEmpty() && laserReporting) {
+        return commandControlStatus + QStringLiteral("/激光");
+    }
+    if (!commandControlStatus.isEmpty()) {
+        return commandControlStatus;
+    }
+    if (laserReporting) {
+        return QStringLiteral("激光");
     }
     return QStringLiteral("否");
 }

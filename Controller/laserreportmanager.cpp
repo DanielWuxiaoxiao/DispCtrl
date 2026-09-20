@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-06-29 23:29:30 -0700
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-17 22:45:15
+ * @LastEditTime: 2026-09-20 18:52:01
  * @Description: 
  */
 /*
@@ -50,16 +50,20 @@ bool LaserReportManager::init()
     m_udpPort     = CF_INS.laserUdpPort(9009);
     m_intervalMs  = qMax(100, CF_INS.laserReportIntervalMs(1000));
     m_heartbeatLogIntervalMs = qMax(0, CF_INS.laserHeartbeatLogIntervalMs(0));
+    m_reconLogIntervalMs = qMax(0, CF_INS.laserReconLogIntervalMs(30000));
     m_lastHeartbeatLogMs = -1;
+    m_lastReconLogMs = -1;
+    m_suppressedReconLogCount = 0;
     m_saveTxt     = CF_INS.laserSaveTxt(true);
     m_saveDir     = CF_INS.laserSaveDir("LaserReportLog");
 
-    emit logMessage(QString("[LASER][INIT] enabled radar=%1 laser=%2 port=%3 interval=%4ms heartbeatLog=%5ms saveTxt=%6 dir=%7")
+    emit logMessage(QString("[LASER][INIT] enabled radar=%1 laser=%2 port=%3 interval=%4ms heartbeatLog=%5ms reconLog=%6ms saveTxt=%7 dir=%8")
                         .arg(m_radarHost.toString())
                         .arg(m_laserHost.toString())
                         .arg(m_udpPort)
                         .arg(m_intervalMs)
                         .arg(m_heartbeatLogIntervalMs)
+                        .arg(m_reconLogIntervalMs)
                         .arg(m_saveTxt)
                         .arg(m_saveDir));
 
@@ -95,21 +99,29 @@ bool LaserReportManager::init()
     defaultRange.endElevation = 60.0f;
     m_scanRanges = {defaultRange};
 
-    // 1s 周期定时器：启用后常驻运行，每拍发状态帧(心跳)；有活动目标时附带侦察帧。
+    // 周期定时器只维护状态帧心跳。侦察帧必须由实际航迹新点直接触发，
+    // 否则会重复发送旧点并与雷达数据率脱节。
     m_timer = new QTimer(this);
     m_timer->setTimerType(Qt::PreciseTimer);
     connect(m_timer, &QTimer::timeout, this, &LaserReportManager::onReportTick);
     m_timer->start(m_intervalMs);
     onReportTick();  // 立即发一拍状态帧，建立心跳
 
-    emit logMessage(QStringLiteral("[LASER][INIT] ready (9009状态心跳已启动，待右键引导光电跟踪后附带侦察帧)"));
+    emit logMessage(QStringLiteral("[LASER][INIT] ready (9009状态心跳已启动，侦察帧随航迹新点发送)"));
     return true;
 }
 
 void LaserReportManager::reportTrackPoint(const PointInfo& info)
 {
     if (info.type != PointType::Track) return;   // 仅常规航迹
-    m_latest.insert(static_cast<int>(info.batch), info);
+    const int batch = static_cast<int>(info.batch);
+    m_latest.insert(batch, info);
+
+    // 手动模式仅响应当前批号；自动模式将当前所有有效航迹组成同一帧快照。
+    // 这样 0x0300 的节拍直接跟随 TRAINFO 新点，而状态心跳仍独立维持固定周期。
+    if (m_enabled && (m_autoReportEnabled || batch == m_activeBatch)) {
+        sendReconForCurrentState();
+    }
 }
 
 void LaserReportManager::removeTrackPoint(int batch)
@@ -138,7 +150,8 @@ void LaserReportManager::setAutoReport(bool on)
                         .arg(LASER_MAX_TARGETS)
                         .arg(on ? QStringLiteral("已开启") : QStringLiteral("已关闭")));
     if (on && m_enabled) {
-        onReportTick();  // 立即发一拍
+        onReportTick();               // 立即建立/刷新状态心跳
+        sendReconForCurrentState();   // 操作切换时将已有航迹快照立即送出一次
     } else if (on) {
         emit logMessage(QStringLiteral("[LASER][OFFLINE] 自动上报已为测试航迹开启，等待激光 UDP 就绪后发送"));
     }
@@ -175,8 +188,9 @@ void LaserReportManager::startReport(int batch)
     }
 
     if (m_enabled) {
-        // 定时器在 init() 中已常驻运行（状态帧心跳）；此处立即发一拍，附带该目标侦察帧即时反馈
+        // 定时器仅维护状态心跳；切换目标时立即发送当前点，后续由新航迹点触发。
         onReportTick();
+        sendReconForCurrentState();
     } else {
         emit logMessage(QString("[LASER][OFFLINE] batch=%1 已标记为持续跟踪，等待激光 UDP 就绪后发送").arg(batch));
     }
@@ -206,16 +220,22 @@ void LaserReportManager::onReportTick()
 {
     if (!m_enabled || !m_socket) return;
 
-    // 1) 状态帧（隐含心跳）：每拍都发，与是否有目标无关
+    // 状态帧（隐含心跳）与是否有目标无关。侦察帧不可放在此处，
+    // 因为其有效时间应严格对应最新 TRAINFO 点的更新时间。
     sendStatusFrame();
+}
 
-    // 2) 侦察帧：优先级——自动上报开启→全部目标(最多10)；否则→单目标(若有)
+void LaserReportManager::sendReconForCurrentState()
+{
+    if (!m_enabled || !m_socket) return;
+
+    // 自动上报：每个任一航迹的新点均发送一次当前最多 10 个目标的完整快照。
+    // 这保留协议的多目标帧语义，并保证刚更新的点立即进入报文。
     if (m_autoReportEnabled) {
         QVector<PointInfo> targets;
         for (auto it = m_latest.cbegin(); it != m_latest.cend() && targets.size() < LASER_MAX_TARGETS; ++it) {
             targets.append(it.value());
         }
-        // 自动模式即使无目标也发空侦察帧（协议允许 targetCount=0）
         sendReconForTargets(targets, 0, QStringLiteral("AUTO"));
     } else if (m_activeBatch >= 0 && m_latest.contains(m_activeBatch)) {
         sendReconForTargets({m_latest.value(m_activeBatch)}, 0, QStringLiteral("RECON"));
@@ -299,14 +319,33 @@ bool LaserReportManager::sendReconForTargets(const QVector<PointInfo>& targets, 
                             .arg(m_socket->errorString()));
         return false;
     }
-    const int count = qMin(targets.size(), LASER_MAX_TARGETS);
-    QStringList batches;
-    for (int i = 0; i < count; ++i) batches << QString::number(targets.at(i).batch);
-    emit logMessage(QString("[LASER][%1] seq=%2 count=%3 cancel=%4 batches=[%5] bytes=%6 -> %7:%8")
-                        .arg(tag).arg(m_dataSeq).arg(count).arg(cancelFlag)
-                        .arg(batches.join(','))
-                        .arg(written)
-                        .arg(m_laserHost.toString()).arg(m_udpPort));
+    const bool isCancelFrame = cancelFlag != 0;
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+    const bool shouldLog = isCancelFrame
+        || (m_reconLogIntervalMs > 0
+            && (m_lastReconLogMs < 0 || nowMs - m_lastReconLogMs >= m_reconLogIntervalMs));
+    if (shouldLog) {
+        const int count = qMin(targets.size(), LASER_MAX_TARGETS);
+        QStringList batches;
+        for (int i = 0; i < count; ++i) {
+            batches << QString::number(targets.at(i).batch);
+        }
+        const QString suppressed = m_suppressedReconLogCount == 0
+            ? QString()
+            : QStringLiteral(" suppressed=%1").arg(m_suppressedReconLogCount);
+        emit logMessage(QString("[LASER][%1] seq=%2 count=%3 cancel=%4 batches=[%5] bytes=%6 -> %7:%8%9")
+                            .arg(tag).arg(m_dataSeq).arg(count).arg(cancelFlag)
+                            .arg(batches.join(','))
+                            .arg(written)
+                            .arg(m_laserHost.toString()).arg(m_udpPort)
+                            .arg(suppressed));
+        if (!isCancelFrame) {
+            m_lastReconLogMs = nowMs;
+            m_suppressedReconLogCount = 0;
+        }
+    } else if (m_reconLogIntervalMs > 0) {
+        ++m_suppressedReconLogCount;
+    }
     return true;
 }
 

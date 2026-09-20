@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-17 22:45:15
+ * @LastEditTime: 2026-09-20 18:52:02
  * @Description: 
  */
 /**
@@ -27,6 +27,7 @@
 #include <QPen>
 #include <QVariant>
 #include <QVarLengthArray>
+#include <limits>
 #include <QGraphicsSceneContextMenuEvent>
 #include <QGraphicsSceneHoverEvent>
 #include <QGraphicsSceneMouseEvent>
@@ -42,11 +43,10 @@ namespace {
 constexpr qreal kFocusedPointZ = INFO_Z + 20;
 constexpr qreal kFocusedLineZ = INFO_Z + 19;
 constexpr qreal kFocusedLabelZ = INFO_Z + 21;
-constexpr qreal kReportedPointZ = INFO_Z + 40;
-constexpr qreal kReportedLineZ = INFO_Z + 39;
-constexpr qreal kReportedLabelZ = INFO_Z + 41;
 constexpr qreal kFocusedLabelFontScale = 1.2;
 constexpr int kPpiRefreshIntervalMs = 16; // ~60 FPS when the GUI thread keeps up.
+
+const QColor kExternalReportLabelColor(0, 222, 166);
 
 quint64 makeTrackKey(PointType type, int batch)
 {
@@ -67,10 +67,6 @@ QColor displayTrackColor(const PointInfo& info)
 
 QColor displayedSeriesColor(const TrackSeries& series, const PointInfo& info)
 {
-    // 正在外部上报的普通航迹使用协同航迹色，避免与常规 DBT 航迹混淆。
-    if (series.externallyReported) {
-        return trackTypeColor(PointType::CooperativeTrackPointType);
-    }
     return series.hasCustomColor ? series.color : displayTrackColor(info);
 }
 
@@ -446,6 +442,13 @@ void DraggableLabel::setAnchorItem(QGraphicsItem* a, QGraphicsLineItem* t)
     if (tether) tether->setZValue(zValue()-1);  // 连线层级低于标签
 }
 
+void DraggableLabel::setAutoPosition(const QPointF& position)
+{
+    m_applyingAutoPosition = true;
+    setPos(position);
+    m_applyingAutoPosition = false;
+}
+
 void DraggableLabel::setFocused(bool focused)
 {
     if (m_focused == focused) {
@@ -456,14 +459,14 @@ void DraggableLabel::setFocused(bool focused)
     m_focused = focused;
 
     QFont nextFont = m_baseFont;
-    if (m_focused || m_externallyReported) {
+    if (m_focused) {
         const qreal pointSize = nextFont.pointSizeF();
         if (pointSize > 0.0) {
-            nextFont.setPointSizeF(pointSize * (m_focused ? kFocusedLabelFontScale : 1.35));
+            nextFont.setPointSizeF(pointSize * kFocusedLabelFontScale);
         } else {
             const int pixelSize = nextFont.pixelSize();
             if (pixelSize > 0) {
-                nextFont.setPixelSize(qRound(pixelSize * (m_focused ? kFocusedLabelFontScale : 1.35)));
+                nextFont.setPixelSize(qRound(pixelSize * kFocusedLabelFontScale));
             }
         }
         nextFont.setBold(true);
@@ -478,16 +481,14 @@ void DraggableLabel::setExternallyReported(bool reported)
         return;
     }
 
-    prepareGeometryChange();
     m_externallyReported = reported;
     QFont nextFont = m_baseFont;
-    if (m_focused || m_externallyReported) {
+    if (m_focused) {
         const qreal pointSize = nextFont.pointSizeF();
         if (pointSize > 0.0) {
-            nextFont.setPointSizeF(pointSize * (m_focused ? kFocusedLabelFontScale : 1.35));
+            nextFont.setPointSizeF(pointSize * kFocusedLabelFontScale);
         } else if (nextFont.pixelSize() > 0) {
-            nextFont.setPixelSize(qRound(nextFont.pixelSize()
-                                         * (m_focused ? kFocusedLabelFontScale : 1.35)));
+            nextFont.setPixelSize(qRound(nextFont.pixelSize() * kFocusedLabelFontScale));
         }
         nextFont.setBold(true);
     }
@@ -498,8 +499,8 @@ void DraggableLabel::setExternallyReported(bool reported)
 QRectF DraggableLabel::boundingRect() const
 {
     const QRectF textRect = QGraphicsTextItem::boundingRect();
-    // paint() 在高亮状态扩展 6/4 像素绘制背景；场景必须知晓该扩展区域。
-    return (m_focused || m_externallyReported)
+    // paint() 仅在关注状态扩展 6/4 像素绘制背景；场景必须知晓该扩展区域。
+    return m_focused
         ? textRect.adjusted(-6.0, -4.0, 6.0, 4.0) : textRect;
 }
 
@@ -514,6 +515,11 @@ QRectF DraggableLabel::boundingRect() const
  */
 QVariant DraggableLabel::itemChange(GraphicsItemChange change, const QVariant &value)
 {
+    if (change == ItemPositionHasChanged) {
+        if (!m_applyingAutoPosition) {
+            m_hasManualPosition = true;
+        }
+    }
     if (change == ItemPositionHasChanged && anchor && tether) {
         // 计算标签中心点在场景中的坐标
         QPointF p1 = mapToScene(boundingRect().center());
@@ -537,15 +543,14 @@ void DraggableLabel::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
 
 void DraggableLabel::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget)
 {
-    if (m_focused || m_externallyReported) {
+    if (m_focused) {
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing, true);
 
         // boundingRect() 已包含该边距；背景本身只围绕文字原始区域扩展一次。
         QRectF backgroundRect = QGraphicsTextItem::boundingRect().adjusted(-6.0, -4.0, 6.0, 4.0);
         QColor borderColor = defaultTextColor();
-        QColor fillColor = m_externallyReported
-            ? QColor(8, 45, 58, 238) : QColor(8, 18, 18, 230);
+        const QColor fillColor(8, 18, 18, 230);
         painter->setPen(QPen(borderColor, 1.5));
         painter->setBrush(QBrush(fillColor));
         painter->drawRoundedRect(backgroundRect, 4.0, 4.0);
@@ -938,7 +943,7 @@ void TrackManager::updateLatestInteractivePoint(quint64 trackKey)
     s.latestPoint->setColor(color);
     s.latestPoint->resize(mPointSizeRatio);
     s.latestPoint->setFocused(m_focusedBatches.contains(trackKey));
-    s.latestPoint->setExternallyReported(s.externallyReported);
+    s.latestPoint->setExternallyReported(false);
     s.latestPoint->updatePosition(latest.scenePos.x(), latest.scenePos.y());
     s.latestPoint->setVisible(latest.pointVisible);
 }
@@ -966,6 +971,71 @@ void TrackManager::updateNodeLineVisibility(TrackSeries& series)
     }
 }
 
+QPointF TrackManager::chooseLatestLabelPosition(quint64 trackKey, const QPointF& anchor,
+                                                 const DraggableLabel* label) const
+{
+    if (!label) {
+        return anchor + QPointF(30.0, -20.0);
+    }
+
+    const QRectF labelRect = label->boundingRect();
+    QVector<QPointF> candidates;
+    if (label->hasManualPosition()) {
+        // 实时新点到达后优先保留用户拖动位置；发生遮挡时仅在该位置附近避让。
+        const QPointF manualPosition = label->pos();
+        candidates = {
+            manualPosition,
+            manualPosition + QPointF(0.0, labelRect.height() + 10.0),
+            manualPosition - QPointF(0.0, labelRect.height() + 10.0),
+            manualPosition + QPointF(labelRect.width() + 14.0, 0.0),
+            manualPosition - QPointF(labelRect.width() + 14.0, 0.0)
+        };
+    } else {
+        const qreal leftOffset = -labelRect.width() - 30.0;
+        const qreal centeredOffset = -labelRect.width() * 0.5;
+        const QVector<QPointF> offsets = {
+            QPointF(30.0, -20.0),
+            QPointF(30.0, 18.0),
+            QPointF(leftOffset, -20.0),
+            QPointF(leftOffset, 18.0),
+            QPointF(centeredOffset, -labelRect.height() - 26.0),
+            QPointF(centeredOffset, 28.0)
+        };
+        for (const QPointF& offset : offsets) {
+            candidates.append(anchor + offset);
+        }
+    }
+
+    QPointF bestPosition = candidates.first();
+    qreal leastOverlapArea = std::numeric_limits<qreal>::max();
+    for (const QPointF& candidatePosition : candidates) {
+        const QRectF candidateRect = labelRect.translated(candidatePosition);
+        qreal overlapArea = 0.0;
+
+        for (auto it = mSeries.cbegin(); it != mSeries.cend(); ++it) {
+            if (it.key() == trackKey || !it->label || !it->label->isVisible()) {
+                continue;
+            }
+            const QRectF otherRect = it->label->sceneBoundingRect().adjusted(-4.0, -3.0, 4.0, 3.0);
+            if (!candidateRect.intersects(otherRect)) {
+                continue;
+            }
+            const QRectF intersection = candidateRect.intersected(otherRect);
+            overlapArea += intersection.width() * intersection.height();
+        }
+
+        if (qFuzzyIsNull(overlapArea)) {
+            return candidatePosition;
+        }
+        if (overlapArea < leastOverlapArea) {
+            leastOverlapArea = overlapArea;
+            bestPosition = candidatePosition;
+        }
+    }
+    // 六个候选位置均被占用时，选择重叠面积最小的一处，避免标签跳得过远。
+    return bestPosition;
+}
+
 void TrackManager::updateLatestLabel(quint64 trackKey, bool force)
 {
     auto it = mSeries.find(trackKey);
@@ -989,7 +1059,8 @@ void TrackManager::updateLatestLabel(quint64 trackKey, bool force)
         }
         return;
     }
-    const QColor labelColor = displayedSeriesColor(s, pi);
+    const QColor seriesColor = displayedSeriesColor(s, pi);
+    const QColor labelColor = s.externallyReported ? kExternalReportLabelColor : seriesColor;
     const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
     const bool labelExists = (s.label != nullptr);
 
@@ -1003,7 +1074,7 @@ void TrackManager::updateLatestLabel(quint64 trackKey, bool force)
         connect(s.label, &DraggableLabel::rightClicked,
                 this,    &TrackManager::labelRightClicked);
         s.labelLine = new QGraphicsLineItem();
-        QPen pen(labelColor);
+        QPen pen(seriesColor);
         pen.setStyle(Qt::DashLine);
         s.labelLine->setPen(pen);
         s.labelLine->setZValue(INFO_Z);
@@ -1018,7 +1089,6 @@ void TrackManager::updateLatestLabel(quint64 trackKey, bool force)
                              && !force
                              && m_labelRefreshIntervalMs > 0
                              && !m_focusedBatches.contains(trackKey)
-                             && !s.externallyReported
                              && (nowMs - s.lastLabelRefreshMs) < m_labelRefreshIntervalMs;
     if (shouldThrottle) {
         bool vis = s.visible && isSeriesRecognitionVisible(s) && inRange(pi.range);
@@ -1034,7 +1104,7 @@ void TrackManager::updateLatestLabel(quint64 trackKey, bool force)
 
     s.label->setDefaultTextColor(labelColor);
     s.label->setExternallyReported(s.externallyReported);
-    QPen pen(labelColor);
+    QPen pen(seriesColor);
     pen.setStyle(Qt::DashLine);
     s.labelLine->setPen(pen);
 
@@ -1052,13 +1122,13 @@ void TrackManager::updateLatestLabel(quint64 trackKey, bool force)
     }
     s.label->setPlainText(labelText);
 
-    // 初始放在最新点的右上方
+    // 在多个候选方位中选取不遮挡其他可见标签的位置。
     QPointF anchor = latest.scenePos;
-    QPointF labelPos = anchor + QPointF(30, -20);
+    const QPointF labelPos = chooseLatestLabelPosition(trackKey, anchor, s.label);
     if (s.label->scene() == nullptr) {
         mScene->addItem(s.label);
     }
-    s.label->setPos(labelPos);
+    s.label->setAutoPosition(labelPos);
 
     // 更新标签连线
     updateLineGeometry(s.labelLine, s.label->mapToScene(s.label->boundingRect().center()), anchor);
@@ -1093,20 +1163,13 @@ void TrackManager::refreshAll()
         updateLatestInteractivePoint(it.key());
         scheduleBatchRepaint(s);
 
-        // 最新点标签与其连线
+        // 地图、量程或坐标轴刷新会使场景坐标重新映射，此时恢复到最新航迹点附近。
+        // 普通实时航迹更新不清除此标记，因此仍优先保留用户拖动位置。
         if (s.nodes.size() > 0) {
-            auto& latest = s.nodes.last();
-            // 如果用户曾经拖动过 label，我们不改它位置，只更新 tether 线
-            if (s.label && s.labelLine) {
-                QPointF anchor = latest.scenePos;
-                updateLineGeometry(s.labelLine, s.label->mapToScene(s.label->boundingRect().center()), anchor);
-                bool vis = s.visible && isSeriesRecognitionVisible(s)
-                           && inRange(latest.info.range);
-                s.label->setVisible(vis);
-                s.labelLine->setVisible(vis);
-            } else {
-                updateLatestLabel(it.key(), true);
+            if (s.label) {
+                s.label->clearManualPosition();
             }
+            updateLatestLabel(it.key(), true);
         }
     }
 }
@@ -1200,7 +1263,6 @@ void TrackManager::setBatchExternalReporting(int batchID, bool reporting, const 
     it->externalReportText = normalizedText;
     updateBatchFocusStyle(trackKey);
     updateLatestLabel(trackKey, true);
-    scheduleBatchRepaint(it.value());
 }
 
 void TrackManager::setAllVisible(bool vis)
@@ -1286,26 +1348,22 @@ void TrackManager::updateBatchFocusStyle(quint64 trackKey)
 
     if (s.latestPoint) {
         s.latestPoint->setFocused(focused);
-        s.latestPoint->setExternallyReported(s.externallyReported);
-        s.latestPoint->setZValue(s.externallyReported ? kReportedPointZ
-                                                       : (focused ? kFocusedPointZ : POINT_Z));
+        s.latestPoint->setExternallyReported(false);
+        s.latestPoint->setZValue(focused ? kFocusedPointZ : POINT_Z);
     }
     if (s.batchItem) {
-        s.batchItem->setExternallyReported(s.externallyReported);
-        s.batchItem->setZValue(s.externallyReported ? kReportedLineZ
-                                                     : (focused ? kFocusedLineZ : LINE_Z));
+        s.batchItem->setExternallyReported(false);
+        s.batchItem->setZValue(focused ? kFocusedLineZ : LINE_Z);
         s.batchItem->update();
     }
 
     if (s.label) {
         s.label->setFocused(focused);
         s.label->setExternallyReported(s.externallyReported);
-        s.label->setZValue(s.externallyReported ? kReportedLabelZ
-                                                : (focused ? kFocusedLabelZ : INFO_Z));
+        s.label->setZValue(focused ? kFocusedLabelZ : INFO_Z);
     }
     if (s.labelLine) {
-        s.labelLine->setZValue(s.externallyReported ? kReportedLineZ
-                                                    : (focused ? kFocusedLineZ : INFO_Z));
+        s.labelLine->setZValue(focused ? kFocusedLineZ : INFO_Z);
     }
 }
 

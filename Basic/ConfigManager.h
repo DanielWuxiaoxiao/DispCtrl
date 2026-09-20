@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-17 22:45:14
+ * @LastEditTime: 2026-09-20 18:52:01
  * @Description: 
  */
 #ifndef CONFIGMANAGER_H
@@ -363,12 +363,17 @@ public:
     quint16 laserUdpPort(quint16 def = 9009) const {
         return static_cast<quint16>(getValue("laser.udp_port", def).toUInt());
     }
+    /// 9009 正常状态心跳发送周期；侦察帧由实际航迹新点触发，不使用此周期。
     int laserReportIntervalMs(int def = 1000) const {
         return getValue("laser.report_interval_ms", def).toInt();
     }
     /// 激光正常状态心跳的日志间隔；0 表示不打印正常心跳，发送错误始终记录。
     int laserHeartbeatLogIntervalMs(int def = 0) const {
         return getValue("laser.heartbeat_log_interval_ms", def).toInt();
+    }
+    /// 激光正常侦察帧日志间隔；0 表示不打印正常帧，取消和发送错误始终记录。
+    int laserReconLogIntervalMs(int def = 30000) const {
+        return getValue("laser.recon_log_interval_ms", def).toInt();
     }
     bool laserSaveTxt(bool def = true) const {
         return getValue("laser.save_txt", def).toBool();

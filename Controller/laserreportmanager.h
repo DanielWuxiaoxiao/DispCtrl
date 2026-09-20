@@ -3,12 +3,12 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-06-29 23:29:30 -0700
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-17 22:45:15
+ * @LastEditTime: 2026-09-20 18:52:01
  * @Description: 
  */
 /*
  * @Description: 激光侦察上报（独立模块，仅“激光终端”功能）
- *  - 右键航迹“引导光电跟踪(持续)”→ 对该单一目标按周期(默认1s)持续发送侦察帧给激光控制终端；
+ *  - 右键航迹“引导光电跟踪(持续)”→ 对该单一目标的每个 TRAINFO 新点发送侦察帧给激光控制终端；
  *  - 再次右键关闭或目标消批 → 停止（消批时补发一帧 cancelFlag=1）；
  *  - 每次“下发一个新目标”时把当时信息追加保存到本地 txt；
  *  - 由 config.toml [laser].enabled 控制；关闭时不创建、右键菜单也不出现该项；
@@ -64,7 +64,7 @@ signals:
     void reportingStateChanged();
 
 private slots:
-    void onReportTick();                            ///< 周期：发状态帧心跳 + 侦察帧
+    void onReportTick();                            ///< 周期：仅发状态帧心跳
     void onIncomingDatagram();                       ///< 接收激光端控制帧
 
 private:
@@ -72,6 +72,8 @@ private:
     QByteArray buildStatusFrame();                  ///< 状态帧(0x0200，隐含心跳)
     bool sendStatusFrame();
     bool sendReconForTargets(const QVector<PointInfo>& targets, unsigned char cancelFlag, const QString& tag);
+    /// 航迹新点或操作切换时发送当前模式所需的侦察快照，不由心跳定时器重复旧点。
+    void sendReconForCurrentState();
     void parseControlFrame(const QByteArray& datagram);  ///< 解析激光端控制帧并回响应
     void sendControlResponse(unsigned int cmdSeq, unsigned short result);
     void fillTargetInfo(LaserTargetInfo& t, const PointInfo& info, unsigned char cancelFlag);
@@ -92,9 +94,12 @@ private:
     QHostAddress m_radarHost;          ///< 雷达端本地绑定IP
     QHostAddress m_laserHost;          ///< 激光控制终端IP
     quint16      m_udpPort = 9009;     ///< 单端口双向
-    int          m_intervalMs = 1000;
+    int          m_intervalMs = 1000; ///< 9009 状态心跳发送周期，默认 1Hz
     int          m_heartbeatLogIntervalMs = 0; ///< 正常状态心跳日志周期；0=抑制
     qint64       m_lastHeartbeatLogMs = -1;
+    int          m_reconLogIntervalMs = 30000; ///< 正常侦察帧日志周期；0=抑制
+    qint64       m_lastReconLogMs = -1;
+    quint32      m_suppressedReconLogCount = 0; ///< 上次正常侦察帧摘要后未打印的帧数
     bool         m_saveTxt = true;
     QString      m_saveDir = "LaserReportLog";
 

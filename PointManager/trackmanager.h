@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-17 22:45:15
+ * @LastEditTime: 2026-09-20 18:52:02
  * @Description: 
  */
 /**
@@ -78,7 +78,12 @@ public:
     bool isFocused() const { return m_focused; }
     void setExternallyReported(bool reported);
 
-    /// 高亮标签的背景比文字区域大，必须纳入场景脏矩形，避免拖动后残留绘制。
+    /// 自动布局使用此接口移动，避免被误判为用户手动拖动。
+    void setAutoPosition(const QPointF& position);
+    bool hasManualPosition() const { return m_hasManualPosition; }
+    void clearManualPosition() { m_hasManualPosition = false; }
+
+    /// 仅“关注”状态绘制标签背景，必须纳入场景脏矩形，避免拖动后残留绘制。
     QRectF boundingRect() const override;
 
     /** @brief 绑定所属批次ID，右键菜单使用 */
@@ -120,6 +125,8 @@ private:
     QFont m_baseFont;                       ///< 默认字体
     bool m_focused = false;                 ///< 是否处于关注高亮态
     bool m_externallyReported = false;      ///< 是否处于外部上报强调态
+    bool m_hasManualPosition = false;       ///< 用户拖动后的临时固定位置
+    bool m_applyingAutoPosition = false;    ///< 抑制自动 setPos 被误记为手动拖动
 };
 
 /**
@@ -344,7 +351,7 @@ public:
 
     bool isBatchFocused(int batchID) const;
 
-    /// 标记普通航迹是否正在被总控或激光上报，并同步强调绘制和 PPI 标签。
+    /// 标记普通航迹是否正在被总控或激光上报；仅改变 PPI 标签文字状态。
     void setBatchExternalReporting(int batchID, bool reporting,
                                    const QString& reportText = QString());
 
@@ -403,6 +410,10 @@ private:
      * @details 更新指定航迹的动态标签显示和连线
      */
     void updateLatestLabel(quint64 trackKey, bool force = false);
+
+    /// 选择不遮挡其他可见航迹标签的候选位置；只在标签实际刷新时调用。
+    QPointF chooseLatestLabelPosition(quint64 trackKey, const QPointF& anchor,
+                                      const DraggableLabel* label) const;
 
     /**
      * @brief 更新节点可见性

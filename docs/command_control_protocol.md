@@ -270,4 +270,4 @@ UDP 套接字独占模块内部工作线程；DDA4 的 JSONL 序列化、立即 
 
 `packet_hex_log_enabled = false` 默认关闭。需要按字节联调时设为 `true`，日志会额外输出本机与当前总控间五类控制报文的十六进制内容；DDA4 的原始字节仍只进入 JSONL，避免高频航迹放大项目日志量。
 
-`dda4_log_interval_ms = 1000` 控制 DDA4 摘要日志周期；设为 `0` 可在短时字节联调中逐条输出。完整逐条 DDA4 仍始终写入 JSONL。
+`dda4_log_interval_ms = 10000` 控制 DDA4 摘要日志周期；仅 `dda4_normal_log_enabled = true` 时生效。设为 `0` 可在短时字节联调中逐条输出。完整逐条 DDA4 仍始终写入 JSONL。

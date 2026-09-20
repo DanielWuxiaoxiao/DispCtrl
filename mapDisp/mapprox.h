@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2025-09-17 09:54:43
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-12 12:22:58
+ * @LastEditTime: 2026-09-20 18:52:02
  * @Description: 
  */
 /**
@@ -28,6 +28,7 @@
 #include <QGraphicsSceneContextMenuEvent>
 #include <QtWebChannel>
 #include <QWebEngineView>
+#include <QUrl>
 
 /**
  * @class MapProxyWidget
@@ -108,13 +109,17 @@ private:
     double m_offsetRatioY = 0.0; ///< PPI中心相对地图中心的垂直偏移占容器高度比例（无量纲，免疫DPI/分辨率）
     MapEngine m_currentEngine;  ///< 当前地图引擎
     int m_currentMapType;       ///< 当前地图类型索引
-    bool m_initialLoadPending = true; ///< true until deferred initial load fires
+    bool m_initialLoadPending = true; ///< 启动时等待 WebEngine 视图具备有效尺寸
+    bool m_mapPageSyncPending = false; ///< 最新地图 HTML 页完成加载后需要执行一次状态刷新
+    QUrl m_expectedMapUrl; ///< 仅该 URL 的加载完成事件可以触发地图状态刷新
 
     /**
      * @brief 同步当前雷达状态到地图
      * @details 在地图切换后使用存储的雷达状态更新新地图的显示范围
      */
     void syncCurrentRadarState();
+    void loadInitialMapWhenReady();
+    void refreshLoadedMapState();
 
 public slots:
     /**

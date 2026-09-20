@@ -3,7 +3,7 @@
  * @Email: wuxiaoxiao@xidian.edu.cn
  * @Date: 2026-09-11 22:04:52
  * @LastEditors: wuxiaoxiao
- * @LastEditTime: 2026-09-18 23:42:17
+ * @LastEditTime: 2026-09-20 18:52:01
  * @Description: 
  */
 /* 指控通信模块独立配置读取。 */
@@ -81,7 +81,8 @@ struct CommandControlSettings {
     bool dda1NormalLogEnabled = false;
     // DDA4 的 JSONL 独立逐条落盘不受此项影响；本项只控制项目日志中的正常字段打印。
     bool dda4NormalLogEnabled = false;
-    int dda4LogIntervalMs = 1000;
+    // 仅在主动开启正常 DDA4 字段日志时使用；正常 2Hz 上报不能刷占显控日志。
+    int dda4LogIntervalMs = 10000;
     bool packetHexLogEnabled = false;
 };
 
