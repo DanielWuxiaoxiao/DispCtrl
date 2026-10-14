@@ -181,7 +181,7 @@ PointInfo TestTrackGenerator::makeTrackPoint(int trackIndex) const
     const double azimuthDeg = std::atan2(eastM, northM) * 180.0 / kPi;
     const double elevationDeg = std::atan2(upM, horizontalRangeM) * 180.0 / kPi;
 
-    PointInfo point;
+    PointInfo point{};
     point.type = PointType::Track;
     point.batch = m_firstBatch + static_cast<quint32>(trackIndex);
     point.statMethod = 0;               // 正常滤波更新，与普通 DBT 航迹一致。
@@ -213,7 +213,7 @@ void TestTrackGenerator::finishGeneration()
 void TestTrackGenerator::removeGeneratedTracks()
 {
     for (int trackIndex = 0; trackIndex < m_trackCount; ++trackIndex) {
-        PointInfo cancelled;
+        PointInfo cancelled{};
         cancelled.type = PointType::Track;
         cancelled.batch = m_firstBatch + static_cast<quint32>(trackIndex);
         cancelled.statMethod = 2;
@@ -222,4 +222,55 @@ void TestTrackGenerator::removeGeneratedTracks()
         emit trackGenerated(cancelled);
         LOG_INFO(QString("[TestTrack] 自动消批 sourceBatch=%1").arg(cancelled.batch));
     }
+}
+
+TestDetectionGenerator::TestDetectionGenerator(QObject* parent) : QObject(parent)
+{
+    connect(&m_timer, &QTimer::timeout, this, &TestDetectionGenerator::generateSample);
+}
+
+bool TestDetectionGenerator::start()
+{
+    if (m_running) { LOG_WARNING("[TestDetection][START] 忽略重复生成请求"); return false; }
+    m_count = qBound(1, CF_INS.testDetectionPointCount(1200), 10000);
+    m_timer.setInterval(qBound(100, CF_INS.testDetectionIntervalMs(500), 2000));
+    m_sample = 0; m_running = true; m_elapsed.start();
+    LOG_INFO(QStringLiteral("[TestDetection][START] samples=%1 pointsPerSample=10 intervalMs=%2 entry=detInfoProcess，未创建UDP或DD05")
+        .arg(m_count).arg(m_timer.interval()));
+    emit fallbackRadarPositionReady(CF_INS.latitude("latitude", 34.225249343),
+        CF_INS.longitude("longitude", 109.123922221), CF_INS.altitude("altitude", 781.48));
+    emit stateChanged(true);
+    generateSample();
+    if (m_running) m_timer.start();
+    return true;
+}
+
+bool TestDetectionGenerator::stop()
+{
+    if (!m_running) return false;
+    LOG_INFO(QStringLiteral("[TestDetection][STOP] samples=%1/%2 points=%3 reason=%4；旧检测点按显示容量淘汰")
+        .arg(m_sample).arg(m_count).arg(m_sample * 10).arg(m_sample >= m_count ? "COMPLETE" : "USER_STOP"));
+    m_timer.stop(); m_running = false; emit stateChanged(false); return true;
+}
+
+void TestDetectionGenerator::generateSample()
+{
+    if (!m_running) return;
+    for (int i = 0; i < 10; ++i) {
+        const auto& profile = kTrackProfiles[i];
+        PointInfo point{};
+        point.type = PointType::Detection;
+        point.batch = 0; // Detection points have no track batch; provenance is registered separately.
+        point.range = float(profile.initialRangeM + 15.0 * m_elapsed.elapsed() / 1000.0);
+        point.azimuth = normalizeAzimuth(profile.azimuthDeg); point.elevation = float(profile.elevationDeg);
+        point.altitute = float(point.range * std::sin(profile.elevationDeg * kPi / 180.0));
+        point.speed = 15; point.amp = 1; point.SNR = 24;
+        point.targetRecResult = profile.recognizedDrone ? 1 : 0;
+        point.targetConfidence = profile.recognizedDrone ? 0.99f : 0.85f;
+        emit detectionGenerated(point);
+    }
+    ++m_sample;
+    if (m_sample == 1 || m_sample % 100 == 0)
+        LOG_INFO(QStringLiteral("[TestDetection][PROGRESS] samples=%1/%2 points=%3").arg(m_sample).arg(m_count).arg(m_sample * 10));
+    if (m_sample >= m_count) stop();
 }

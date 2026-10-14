@@ -71,6 +71,15 @@ public:
     bool testTrackEnabled(bool def = false) const {
         return getValue("test_track.enabled", def).toBool();
     }
+    bool testDetectionEnabled(bool def = false) const {
+        return getValue("test_detection.enabled", def).toBool();
+    }
+    int testDetectionPointCount(int def = 1200) const {
+        return getValue("test_detection.point_count", def).toInt();
+    }
+    int testDetectionIntervalMs(int def = 500) const {
+        return getValue("test_detection.interval_ms", def).toInt();
+    }
 
     int testTrackCount(int def = 10) const {
         return getValue("test_track.track_count", def).toInt();
@@ -795,6 +804,11 @@ public:
 
     unsigned char dataSaveDataID(unsigned char def = 0) const {
         return getValue("params.datasave.dataID", def).toUInt();
+    }
+
+    // 独立外部设备配置读取，不复用指控或光电的配置命名空间。
+    QVariant electromagneticDeviceValue(const QString& key, const QVariant& fallback) const {
+        return getValue("electromagnetic_device." + key, fallback);
     }
 
 private:

@@ -103,6 +103,7 @@ void SubsystemNetworkMonitor::poll()
 {
     if (!CF_INS.healthNetworkEnabled(true)) {
         for (int endpoint = 0; endpoint < 2; ++endpoint) {
+            if (endpoint == kLaser && !CF_INS.laserReportEnabled(true)) continue;
             emit statusChanged(endpoint, false,
                                utf8Text("E69CACE69CBA25314950EFBC9AE7BD91E7BB9CE6A380E6B58BE5B7B2E585B3E997AD").arg(nameFor(endpoint)));
             publishPeerUnavailable(endpoint, utf8Text("E7BD91E7BB9CE6A380E6B58BE5B7B2E585B3E997AD"));
@@ -116,6 +117,13 @@ void SubsystemNetworkMonitor::poll()
     m_peerIp[kLaser] = CF_INS.laserCtrlIp("192.168.101.10").trimmed();
 
     for (int endpoint = 0; endpoint < 2; ++endpoint) {
+        if (endpoint == kLaser && !CF_INS.laserReportEnabled(true)) {
+            m_localReady[endpoint] = false;
+            m_pingRunning[endpoint] = false;
+            m_timeout[endpoint]->stop();
+            if (m_ping[endpoint]->state() != QProcess::NotRunning) m_ping[endpoint]->kill();
+            continue;
+        }
         const QString localError = localInterfaceError(m_localIp[endpoint]);
         m_localReady[endpoint] = localError.isEmpty();
         emit statusChanged(endpoint, m_localReady[endpoint],

@@ -131,8 +131,10 @@ void Controller::init()
     if (CF_INS.testTrackEnabled(false)) {
         // 生成器运行在 Controller 所在线程；定时产生的普通航迹直接进入既有下游信号。
         testTrackGenerator = new TestTrackGenerator(this);
-        connect(testTrackGenerator, &TestTrackGenerator::trackGenerated,
-                this, &Controller::traInfoProcess);
+        connect(testTrackGenerator, &TestTrackGenerator::trackGenerated, this, [this](PointInfo point) {
+            emit testPointGenerated(point);
+            emit traInfoProcess(point);
+        });
         // 不把预存位置伪装成 DD05；总控模块显式识别这是测试联调原点。
         connect(testTrackGenerator, &TestTrackGenerator::fallbackRadarPositionReady,
                 this, &Controller::testTrackFallbackRadarPositionReady);
@@ -141,6 +143,18 @@ void Controller::init()
         connect(testTrackGenerator, &TestTrackGenerator::generationFinished,
                 this, [this]() { emit testTrackGenerationStateChanged(false); });
         LOG_INFO("[Controller::init] 本地测试航迹功能已启用；按钮可在参数设置区启动生成");
+    }
+
+    if (CF_INS.testDetectionEnabled(false)) {
+        testDetectionGenerator = new TestDetectionGenerator(this);
+        connect(testDetectionGenerator, &TestDetectionGenerator::detectionGenerated, this, [this](PointInfo point) {
+            emit testPointGenerated(point);
+            emit detInfoProcess(point);
+        });
+        connect(testDetectionGenerator, &TestDetectionGenerator::fallbackRadarPositionReady,
+                this, &Controller::testDetectionFallbackRadarPositionReady);
+        connect(testDetectionGenerator, &TestDetectionGenerator::stateChanged,
+                this, &Controller::testDetectionGenerationStateChanged);
     }
 
     // === 建立信号槽连接 ===
@@ -208,6 +222,19 @@ bool Controller::stopTestTrackGeneration()
 bool Controller::isTestTrackGenerationRunning() const
 {
     return testTrackGenerator && testTrackGenerator->isRunning();
+}
+
+bool Controller::startTestDetectionGeneration()
+{
+    return testDetectionGenerator && testDetectionGenerator->start();
+}
+bool Controller::stopTestDetectionGeneration()
+{
+    return testDetectionGenerator && testDetectionGenerator->stop();
+}
+bool Controller::isTestDetectionGenerationRunning() const
+{
+    return testDetectionGenerator && testDetectionGenerator->isRunning();
 }
 
 bool Controller::sendExternalSystemControl(const QByteArray& frame512) {

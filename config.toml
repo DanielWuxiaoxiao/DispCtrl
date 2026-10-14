@@ -60,6 +60,34 @@ MONITOR_ID = 47878                   # 监控系统ID
 # Legacy GCS binary 0x52 track target report. Disabled by default.
 target_report_enabled = false
 
+# 电磁设备模拟交互：设备下发控制，显控上报检测点/航迹/状态。
+# 与 command_control、laser 完全独立。修改后重启生效。
+[electromagnetic_device]
+enabled = true
+ui_enabled = true
+local_ip = "192.168.64.4"
+local_port = 8022
+peer_ip = "192.168.64.8"
+peer_port = 6022
+local_device_id = "0xBB04"
+peer_device_id = "0xBB08"
+remote_control_enabled = true
+report_detections = true
+report_tracks = true
+# 自动下发独立于上报许可；关闭时仍可用鼠标手动下发。
+auto_report_tracks = false
+auto_report_detections = false
+report_status = true
+flush_interval_ms = 50
+status_interval_ms = 1000           # 每秒发编号7/9；未收到用默认值，收到后持续用最新缓存，不因超时停发
+receive_timeout_ms = 15000
+network_check_enabled = true
+network_poll_interval_ms = 5000
+# 本地日志复用 disp_ctrl_log_0..4.txt；高频数据按类别采样，不逐点打印。
+data_log_enabled = true
+data_log_interval_ms = 1000
+log_summary_interval_ms = 5000
+
 [network.edge_radar_report]
 # UDP JSON radar target/heartbeat report for edge-computing terminal.
 enabled = false
@@ -230,6 +258,12 @@ point_count = 1200                  # 每条航迹的点数；500ms 周期下持
 interval_ms = 500                   # 相邻测试采样周期(ms)；默认 500ms 即 2Hz，应与 DDA4 数据率一致
 speed_mps = 15.0                     # 每条测试航迹的真实速度(m/s)；位置按实际经过时间匀速积分
 first_batch = 101                   # 第 1 条测试航迹批号；默认依次使用 101～110，便于现场辨识
+
+[test_detection]
+# 测试点迹从 detInfoProcess 注入，不伪造 DD01 或 DD05。
+enabled = true
+point_count = 1200                  # 每轮采样次数，每次并行生成 10 个点迹
+interval_ms = 500                   # 与测试航迹相同的低频注入；支持独立启停
 
 # =============================================================================
 # 总控通信 Command-control UDP Protocol

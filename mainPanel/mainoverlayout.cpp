@@ -15,6 +15,7 @@
 #include "Controller/RadarDataManager.h"
 #include "Controller/controller.h"
 #include "CommandControl/commandcontrolmodule.h"
+#include "ElectromagneticDevice/devicemodule.h"
 #include "Controller/laserreportmanager.h"
 #include "Controller/raedatasetreader.h"
 #include "Controller/subsystemnetworkmonitor.h"
@@ -366,6 +367,8 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     connect(m_subsystemNetworkMonitor, &SubsystemNetworkMonitor::statusChanged, this,
             &MainOverLayOut::updateNetworkHealthStatus);
     m_subsystemNetworkMonitor->start();
+    LOG_INFO(QStringLiteral("[UI_FEATURES] config=%1 laser=%2 legacyGcsReport=%3（总控入口以模块enabled为准）")
+        .arg(CF_INS.getConfigFilePath()).arg(CF_INS.laserReportEnabled(true)).arg(CF_INS.gcsTargetReportEnabled(false)));
 
     m_commandControlButton = new QPushButton(ui->btnDataProcess->parentWidget());
     m_commandControlButton->setObjectName(QStringLiteral("commandControlButton"));
@@ -398,6 +401,20 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
             if (!active) {
                 appendExternalLog(QStringLiteral("[测试航迹] 本轮已完成，所有测试批次已自动消批"));
             }
+        });
+    }
+
+    if (CF_INS.testDetectionEnabled(false)) {
+        m_testDetectionButton = new QPushButton(ui->btnDataProcess->parentWidget());
+        m_testDetectionButton->setObjectName("testDetectionButton");
+        m_testDetectionButton->setText(QStringLiteral("生成测试点迹"));
+        m_testDetectionButton->setToolTip(QStringLiteral("通过检测点公共入口生成测试点迹；停止后已有点迹遵循显示数量上限淘汰"));
+        connect(m_testDetectionButton, &QPushButton::clicked, this, [] {
+            if (CON_INS->isTestDetectionGenerationRunning()) CON_INS->stopTestDetectionGeneration();
+            else CON_INS->startTestDetectionGeneration();
+        });
+        connect(CON_INS, &Controller::testDetectionGenerationStateChanged, this, [this](bool active) {
+            m_testDetectionButton->setText(active ? QStringLiteral("终止生成测试点迹") : QStringLiteral("生成测试点迹"));
         });
     }
 
@@ -1116,6 +1133,7 @@ MainOverLayOut::~MainOverLayOut() {
 
 void MainOverLayOut::setCommandControlModule(CommandControlModule* module)
 {
+    if (module && !module->isEnabled()) module = nullptr;
     if (m_commandControlModule) {
         disconnect(m_commandControlModule, &CommandControlModule::reportingStateChanged,
                    this, &MainOverLayOut::refreshExternalReportingIndicators);
@@ -1128,7 +1146,83 @@ void MainOverLayOut::setCommandControlModule(CommandControlModule* module)
     if (m_commandControlButton) {
         m_commandControlButton->setEnabled(module != nullptr);
     }
+    arrangeParamSettingsButtons();
     refreshExternalReportingIndicators();
+    LOG_INFO(QStringLiteral("[UI_FEATURES] 总控通信入口=%1").arg(module ? "显示" : "隐藏"));
+}
+
+void MainOverLayOut::setElectromagneticDeviceModule(ElectromagneticDeviceModule* module)
+{
+    m_electromagneticModule = module;
+    if (module) {
+        module->setInitialSoftwareStatus(currentSoftwareStatus());
+        connect(this, &MainOverLayOut::softwareStatusChanged, module,
+                &ElectromagneticDeviceModule::processSoftwareReport, Qt::UniqueConnection);
+        connect(this, &MainOverLayOut::electromagneticPanelStatusChanged, module,
+                &ElectromagneticDeviceModule::processBitReport, Qt::UniqueConnection);
+        if (m_bitReportTimes[0].isValid()) module->processBitReport(currentElectromagneticPanelStatus());
+    }
+    if (getPPIView()) getPPIView()->setElectromagneticDeviceModule(module);
+    if (!module || !module->isUiEnabled()) return;
+    if (!m_electromagneticButton) {
+        m_electromagneticButton = new QPushButton(ui->btnDataProcess->parentWidget());
+        m_electromagneticButton->setObjectName("electromagneticDeviceButton");
+        m_electromagneticButton->setText(QStringLiteral("电磁设备通信"));
+        connect(m_electromagneticButton, &QPushButton::clicked, this, [this] {
+            if (m_electromagneticModule) m_electromagneticModule->showWindow(this);
+        });
+    }
+    connect(module, &ElectromagneticDeviceModule::linkStateChanged, this, [this](bool ok, const QString& text) {
+        m_electromagneticLinkOk = ok;
+        m_electromagneticStatus = text;
+        if (m_electromagneticButton) m_electromagneticButton->setToolTip(text);
+        if (m_electromagneticHealthButton) {
+            m_electromagneticHealthButton->setText("电磁设备：" + text);
+            m_electromagneticHealthButton->setStyleSheet(ok
+                ? "QPushButton { background:#143c30; color:#66ffcc; border:1px solid #66ffcc; }"
+                : "QPushButton { background:#3c2020; color:#ff9090; border:1px solid #ff9090; }");
+        }
+    });
+    arrangeParamSettingsButtons();
+}
+
+void MainOverLayOut::applyElectromagneticControl(quint16 message, const QByteArray& payload)
+{
+    if (!ElectromagneticProtocol::validCommand(message, payload)) return;
+    const quint8 value = quint8(payload[0]);
+    switch (message) {
+    case 1:
+        // 外部协议固定阵面 0，保留其它阵面的当前开关。
+        m_batteryControlM.quadrant1 = value;
+        CON_INS->sendBCParam(m_batteryControlM);
+        break;
+    case 2:
+        m_tranRecControlM.recv = value;
+        m_tranRecControlM.tran = quint8(payload[1]);
+        m_isTransmitting = m_tranRecControlM.tran != 0;
+        CON_INS->sendTRParam(m_tranRecControlM);
+        if (m_commandControlModule) m_commandControlModule->setRadiationStatus(m_isTransmitting);
+        updateTransmitButton();
+        break;
+    case 3:
+        m_scanRange.workMode = value;
+        m_isStandby = false;
+        CON_INS->sendSRParam(m_scanRange);
+        updateStandbyButton();
+        break;
+    case 4:
+        m_beamControl.scene = value;
+        emit sig_SetBeamControlParam(m_beamControl);
+        break;
+    case 8: {
+        StartSysParam command; command.sta = value;
+        CON_INS->sendSysStart(command);
+        break;
+    }
+    default: return;
+    }
+    logCommand(QStringLiteral("电磁设备控制"), QStringLiteral("编号:%1 参数:%2")
+        .arg(message).arg(QString::fromLatin1(payload.toHex(' '))));
 }
 
 void MainOverLayOut::setLaserReportManager(LaserReportManager* module)
@@ -3104,6 +3198,7 @@ void MainOverLayOut::monitorParamRef(MonitorParam res) {
 
     // 更新系统整体状态
     m_systemNormal = normal;
+    emit softwareStatusChanged(currentSoftwareStatus());
 
     // 更新雷达系统按钮的样式
     if (normal) {
@@ -3125,6 +3220,16 @@ void MainOverLayOut::monitorParamRef(MonitorParam res) {
 
     // 如果健康管理窗口打开，更新显示
     updateHealthWindow();
+}
+
+MonitorParam MainOverLayOut::currentSoftwareStatus() const
+{
+    MonitorParam status;
+    status.dataProSta = static_cast<unsigned char>(m_dataProSta);
+    status.beamConSta = static_cast<unsigned char>(m_beamConSta);
+    status.sigProSta = static_cast<unsigned char>(m_sigProSta);
+    status.targetRecSta = static_cast<unsigned char>(m_targetRecSta);
+    return status;
 }
 
 void MainOverLayOut::onServoCtrlRet(ServoCtrlRet res) {
@@ -3180,6 +3285,13 @@ void MainOverLayOut::onBITReport(BITReport res) {
     QDateTime currentTime = QDateTime::currentDateTime();
     m_bitReportTimes[panelId] = currentTime;
     updateSubArrayPowerVisualState(panelId, res);
+    if (panelId == 0) {
+        const BITReport confirmed = currentElectromagneticPanelStatus();
+        const auto& state = m_subArrayPowerVisualStates[0];
+        if (m_electromagneticModule && state.consecutiveAllZeroReports == 1 && state.hasConfirmedStatus)
+            LOG_INFO("[电磁设备][SUBARRAY_UI] 首帧全零，保留UI已确认位图；连续100帧才更新为全零");
+        emit electromagneticPanelStatusChanged(confirmed);
+    }
     if (panelId == m_activeHealthPanel) {
         m_lastBITReport = res;
     }
@@ -3216,6 +3328,12 @@ void MainOverLayOut::onBITReport(BITReport res) {
 
     // 如果健康管理窗口打开，实时更新显示
     updateHealthWindow();
+}
+
+BITReport MainOverLayOut::currentElectromagneticPanelStatus() const
+{
+    const auto& state = m_subArrayPowerVisualStates[0];
+    return ElectromagneticProtocol::withConfirmedSubArrayPower(m_bitReports[0], state.normal, state.hasConfirmedStatus);
 }
 
 /**
@@ -3315,15 +3433,31 @@ void MainOverLayOut::onRadarSystemClicked() {
     };
     m_radarLocalNetworkBtn = makeNetworkButton();
     m_radarPeerNetworkBtn = makeNetworkButton();
-    m_laserLocalNetworkBtn = makeNetworkButton();
-    m_laserPeerNetworkBtn = makeNetworkButton();
+    m_laserLocalNetworkBtn = nullptr;
+    m_laserPeerNetworkBtn = nullptr;
     QGridLayout* networkGrid = new QGridLayout();
     networkGrid->setSpacing(8);
     networkGrid->addWidget(m_radarLocalNetworkBtn, 0, 0);
     networkGrid->addWidget(m_radarPeerNetworkBtn, 0, 1);
-    networkGrid->addWidget(m_laserLocalNetworkBtn, 1, 0);
-    networkGrid->addWidget(m_laserPeerNetworkBtn, 1, 1);
+    if (CF_INS.laserReportEnabled(true)) {
+        m_laserLocalNetworkBtn = makeNetworkButton();
+        m_laserPeerNetworkBtn = makeNetworkButton();
+        networkGrid->addWidget(m_laserLocalNetworkBtn, 1, 0);
+        networkGrid->addWidget(m_laserPeerNetworkBtn, 1, 1);
+    }
     mainLayout->addLayout(networkGrid);
+    if (m_electromagneticModule && m_electromagneticModule->isUiEnabled()) {
+        m_electromagneticHealthButton = new QPushButton(contentWidget);
+        m_electromagneticHealthButton->setText("电磁设备：" + m_electromagneticStatus);
+        m_electromagneticHealthButton->setMinimumHeight(38);
+        m_electromagneticHealthButton->setStyleSheet(m_electromagneticLinkOk
+            ? "QPushButton { background:#143c30; color:#66ffcc; border:1px solid #66ffcc; }"
+            : "QPushButton { background:#3c2020; color:#ff9090; border:1px solid #ff9090; }");
+        connect(m_electromagneticHealthButton.data(), &QPushButton::clicked, this, [this] {
+            m_electromagneticModule->showWindow(this);
+        });
+        mainLayout->addWidget(m_electromagneticHealthButton);
+    }
     for (int index = 0; index < 4; ++index) {
         applyNetworkHealthStatus(index);
     }
@@ -3556,6 +3690,8 @@ void MainOverLayOut::arrangeParamSettingsButtons()
     };
 
     QList<QPushButton*> allManagedButtons = managedButtons;
+    if (m_electromagneticButton) allManagedButtons.append(m_electromagneticButton);
+    if (m_testDetectionButton) allManagedButtons.append(m_testDetectionButton);
     if (m_testTrackButton) {
         allManagedButtons.append(m_testTrackButton);
     }
@@ -3576,7 +3712,10 @@ void MainOverLayOut::arrangeParamSettingsButtons()
         visibleButtons.append(ui->btnFreqControl);
     }
     visibleButtons.append(ui->btnBatteryControl);
-    visibleButtons.append(m_commandControlButton);
+    if (m_commandControlModule && m_commandControlModule->isEnabled())
+        visibleButtons.append(m_commandControlButton);
+    if (m_electromagneticButton) visibleButtons.append(m_electromagneticButton);
+    if (m_testDetectionButton) visibleButtons.append(m_testDetectionButton);
     if (m_testTrackButton) {
         visibleButtons.append(m_testTrackButton);
     }
@@ -3590,6 +3729,11 @@ void MainOverLayOut::arrangeParamSettingsButtons()
         ui->paramSettingsGrid->addWidget(btn, i / 2, i % 2);
     }
     const int rowCount = (visibleButtons.size() + 1) / 2;
+    // Remove stale empty-row space when a configuration/permission hides an entry.
+    for (int row = rowCount; row < ui->paramSettingsGrid->rowCount(); ++row) {
+        ui->paramSettingsGrid->setRowMinimumHeight(row, 0);
+        ui->paramSettingsGrid->setRowStretch(row, 0);
+    }
     for (int row = 0; row < rowCount; ++row) {
         ui->paramSettingsGrid->setRowMinimumHeight(row, 56);
         ui->paramSettingsGrid->setRowStretch(row, 1);

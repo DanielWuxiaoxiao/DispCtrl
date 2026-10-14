@@ -179,6 +179,9 @@ set(SRC_FILES
     CommandControl/commandcontroltransport.cpp # UDP 工作线程
     CommandControl/commandcontrolmodule.cpp    # 总控通信核心模块
     CommandControl/commandcontrolwindow.cpp    # 总控通信独立窗口
+    ElectromagneticDevice/deviceprotocol.cpp
+    ElectromagneticDevice/devicetransport.cpp
+    ElectromagneticDevice/devicemodule.cpp
     Controller/RadarDataManager.cpp            # 雷达数据统一管理器
     Controller/ErrorHandler.cpp                # 错误处理框架
     Controller/disp2sigmanager.cpp             # 显示到信号管理
@@ -278,6 +281,9 @@ set(HDR_FILES
     CommandControl/commandcontroltransport.h    # UDP 工作线程
     CommandControl/commandcontrolmodule.h       # 总控通信核心模块
     CommandControl/commandcontrolwindow.h       # 总控通信独立窗口
+    ElectromagneticDevice/deviceprotocol.h
+    ElectromagneticDevice/devicetransport.h
+    ElectromagneticDevice/devicemodule.h
     Controller/ascanmanager.h                  # A显数据UDP接收管理器
     Controller/beamschedulemanager.h           # 波束调度报告UDP接收管理器
     Controller/geofencemanager.h               # 电子围栏检测管理器
@@ -423,6 +429,32 @@ if(DISPCTRL_BUILD_TESTS)
     target_include_directories(track3d_coordinate_test PRIVATE "${CMAKE_SOURCE_DIR}")
     target_link_libraries(track3d_coordinate_test PRIVATE Qt5::Core Qt5::Test)
     add_test(NAME track3d_coordinate_test COMMAND track3d_coordinate_test)
+    add_executable(electromagnetic_protocol_test
+        tests/electromagneticprotocol_test.cpp
+        ElectromagneticDevice/deviceprotocol.cpp
+    )
+    target_include_directories(electromagnetic_protocol_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(electromagnetic_protocol_test PRIVATE Qt5::Core Qt5::Test)
+    add_test(NAME electromagnetic_protocol_test COMMAND electromagnetic_protocol_test)
+    add_executable(electromagnetic_reporting_test
+        tests/electromagneticreporting_test.cpp
+        Controller/testtrackgenerator.cpp
+        ElectromagneticDevice/devicemodule.cpp
+        ElectromagneticDevice/devicetransport.cpp
+        ElectromagneticDevice/deviceprotocol.cpp
+        Basic/log.cpp
+    )
+    target_include_directories(electromagnetic_reporting_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(electromagnetic_reporting_test PRIVATE Qt5::Widgets Qt5::Network Qt5::Test)
+    add_test(NAME electromagnetic_reporting_test COMMAND electromagnetic_reporting_test)
+    add_executable(subsystem_feature_flags_test
+        tests/subsystemfeatureflags_test.cpp
+        Controller/subsystemnetworkmonitor.cpp
+        Basic/log.cpp
+    )
+    target_include_directories(subsystem_feature_flags_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(subsystem_feature_flags_test PRIVATE Qt5::Core Qt5::Network Qt5::Test)
+    add_test(NAME subsystem_feature_flags_test COMMAND subsystem_feature_flags_test)
 endif()
 
 ##############################################################################

@@ -126,15 +126,18 @@ Data2DispManager::Data2DispManager(QObject *parent) : QObject(parent)
 
         QMetaObject::invokeMethod(self.data(), "dispatchTrackBatch", Qt::QueuedConnection,
                                   Q_ARG(QList<PointInfo>, tracks),
-                                  Q_ARG(int, data.size()));
+                                  Q_ARG(QByteArray, data));
     });
     connect(socket, &ThreadedUdpSocket::servoCtrlRet, CON_INS, &Controller::servoCtrlRet);
     connect(socket, &ThreadedUdpSocket::bitReport, CON_INS, &Controller::onBITReport);
     connect(this,&Data2DispManager::traInfoProcess,CON_INS, &Controller::traInfoProcess);
+    connect(this, &Data2DispManager::normalTrackFrameReady, CON_INS, &Controller::normalTrackFrameReady);
 }
 
-void Data2DispManager::dispatchTrackBatch(const QList<PointInfo>& tracks, int packetSize)
+void Data2DispManager::dispatchTrackBatch(const QList<PointInfo>& tracks, const QByteArray& frame)
 {
+    emit normalTrackFrameReady(frame);
+    const int packetSize = frame.size();
     for (const PointInfo& info : tracks) {
         emit traInfoProcess(info);
     }

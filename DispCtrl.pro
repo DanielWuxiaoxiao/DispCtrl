@@ -99,6 +99,7 @@ SOURCES += \
     Controller/edgeradarresultreceiver.cpp \
     Controller/totalcontrolmqttclient.cpp \
     Controller/laserreportmanager.cpp \
+    Controller/testtrackgenerator.cpp \
     Controller/subsystemnetworkmonitor.cpp \
     CommandControl/commandcontrolprotocol.cpp \
     CommandControl/commandcontrolconfig.cpp \
@@ -110,6 +111,9 @@ SOURCES += \
     CommandControl/commandcontroltransport.cpp \
     CommandControl/commandcontrolmodule.cpp \
     CommandControl/commandcontrolwindow.cpp \
+    ElectromagneticDevice/deviceprotocol.cpp \
+    ElectromagneticDevice/devicetransport.cpp \
+    ElectromagneticDevice/devicemodule.cpp \
     Controller/RadarDataManager.cpp \
     Controller/ErrorHandler.cpp \
     \
@@ -211,6 +215,7 @@ HEADERS += \
     Controller/edgerecognitionresult.h \
     Controller/edgeradarresultreceiver.h \
     Controller/laserreportmanager.h \
+    Controller/testtrackgenerator.h \
     Controller/subsystemnetworkmonitor.h \
     CommandControl/commandcontrolprotocol.h \
     CommandControl/commandcontrolconfig.h \
@@ -222,6 +227,9 @@ HEADERS += \
     CommandControl/commandcontroltransport.h \
     CommandControl/commandcontrolmodule.h \
     CommandControl/commandcontrolwindow.h \
+    ElectromagneticDevice/deviceprotocol.h \
+    ElectromagneticDevice/devicetransport.h \
+    ElectromagneticDevice/devicemodule.h \
     Controller/totalcontrolmqttclient.h \
     Controller/RadarDataManager.h \
     Controller/ErrorHandler.h \

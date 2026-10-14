@@ -29,6 +29,7 @@ public slots:
 
 signals:
     void detInfoProcess(PointInfo info);
+    void detectionFrameReady(QByteArray frame);
     void headingUpdated(double headingDeg);
 
 private:

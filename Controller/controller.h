@@ -61,6 +61,7 @@ class Disp2MonManager;    ///< 显示到监控管理器
 class Mon2DispManager;    ///< 监控到显示管理器
 class ExternalCtrlManager; ///< 外部雷控/调度链路管理器
 class TestTrackGenerator; ///< 本地测试航迹生成器
+class TestDetectionGenerator;
 
 // 便捷宏定义
 #define CON_INS Controller::getInstance()  ///< 控制器单例访问宏
@@ -151,6 +152,9 @@ public:
 
     /** @brief 当前是否正在生成本地测试航迹。 */
     bool isTestTrackGenerationRunning() const;
+    bool startTestDetectionGeneration();
+    bool stopTestDetectionGeneration();
+    bool isTestDetectionGenerationRunning() const;
 
     /**
      * @brief 将道路点经纬度分帧下发给数据处理模块
@@ -259,6 +263,9 @@ signals:
      * @param info 检测点信息结构
      */
     void detInfoProcess(PointInfo info);
+    // 完整业务帧供独立设备接口保留显示模型之外的原始字段。
+    void detectionFrameReady(QByteArray frame);
+    void normalTrackFrameReady(QByteArray frame);
 
     /**
      * @brief 航迹信息处理信号
@@ -271,12 +278,16 @@ signals:
      * @param active true=本轮生成中，false=已发送消批点并结束
      */
     void testTrackGenerationStateChanged(bool active);
+    void testDetectionGenerationStateChanged(bool active);
+    // Provenance/metadata only; consumers still send through the common point signals.
+    void testPointGenerated(PointInfo info);
 
     /**
      * @brief 本地测试航迹使用的预存雷达经纬高
      * @details 仅供需要真实雷达原点的外部上报模块使用；不冒充 DD05 阵面真值。
      */
     void testTrackFallbackRadarPositionReady(double latitude, double longitude, double altitude);
+    void testDetectionFallbackRadarPositionReady(double latitude, double longitude, double altitude);
 
     /**
      * @brief TBD 航迹信息处理信号
@@ -399,6 +410,7 @@ private:
     Mon2DispManager* monRecvMgr;   ///< 监控到显示管理器
     ExternalCtrlManager* extCtrlMgr; ///< 外部雷控/调度链路管理器
     TestTrackGenerator* testTrackGenerator = nullptr; ///< 可配置的本地普通航迹生成器
+    TestDetectionGenerator* testDetectionGenerator = nullptr;
 };
 
 #endif // CONTROLLER_H

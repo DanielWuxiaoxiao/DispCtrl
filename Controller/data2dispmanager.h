@@ -25,10 +25,11 @@ public:
     ~Data2DispManager();
 
 private slots:
-    void dispatchTrackBatch(const QList<PointInfo>& tracks, int packetSize);
+    void dispatchTrackBatch(const QList<PointInfo>& tracks, const QByteArray& frame);
 
 signals:
     void traInfoProcess(PointInfo info);
+    void normalTrackFrameReady(QByteArray frame);
 
 private:
     ThreadedUdpSocket* socket;

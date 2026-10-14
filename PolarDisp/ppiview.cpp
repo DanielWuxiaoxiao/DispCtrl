@@ -38,9 +38,11 @@
 #include "../Controller/edgeradarreporter.h"
 #include "../Controller/laserreportmanager.h"
 #include "../CommandControl/commandcontrolmodule.h"
+#include "../ElectromagneticDevice/devicemodule.h"
 #include "../cusWidgets/custommessagebox.h"
 
 #include <QMouseEvent>
+#include <QContextMenuEvent>
 #include <QMenu>
 #include <QCursor>
 #include <QDateTime>
@@ -1483,6 +1485,7 @@ void PPIView::setLaserReportManager(LaserReportManager* mgr)
 
 void PPIView::setCommandControlModule(CommandControlModule* module)
 {
+    if (module && !module->isEnabled()) module = nullptr;
     if (m_commandControlModule) {
         disconnect(m_commandControlModule, &CommandControlModule::reportingStateChanged,
                    this, &PPIView::refreshExternalReportingHighlights);
@@ -1504,6 +1507,13 @@ bool PPIView::isExternallyReporting(int batch) const
 QString PPIView::externalReportingText(int batch) const
 {
     QStringList states;
+    QString electromagneticText;
+    if (m_electromagneticModule && m_electromagneticModule->isUiEnabled()
+        && m_electromagneticModule->isManualReportActive(quint32(batch)))
+        electromagneticText = QStringLiteral("电磁手动下发");
+    else if (m_electromagneticModule && m_electromagneticModule->isUiEnabled()
+        && m_electromagneticModule->isAutoReportActive(quint32(batch)))
+        electromagneticText = QStringLiteral("电磁自动下发");
     const bool laserReporting = m_laserReportManager
         && (m_laserReportManager->isReporting(batch)
             || m_laserReportManager->isAutoReportingTrack(batch));
@@ -1518,7 +1528,17 @@ QString PPIView::externalReportingText(int batch) const
         }
     }
     // 激光与指控分别由独立模块维护；同批航迹允许同时处于两种上报状态。
+    if (!electromagneticText.isEmpty()) states.append(electromagneticText);
     return states.join(QStringLiteral(" + "));
+}
+
+void PPIView::setElectromagneticDeviceModule(ElectromagneticDeviceModule* module)
+{
+    if (m_electromagneticModule) disconnect(m_electromagneticModule, nullptr, this, nullptr);
+    m_electromagneticModule = module;
+    if (module) connect(module, &ElectromagneticDeviceModule::reportingStateChanged,
+                        this, &PPIView::refreshExternalReportingHighlights);
+    refreshExternalReportingHighlights();
 }
 
 void PPIView::refreshExternalReportingHighlight(int batch)
@@ -1539,6 +1559,7 @@ void PPIView::refreshExternalReportingHighlights()
 
 void PPIView::updateExternalQuickActionVisibility()
 {
+    m_laserReportEnabled = CF_INS.laserReportEnabled(true);
     const bool showLaser = m_laserReportEnabled;
     const bool showCommandControl = m_commandControlModule
         && m_commandControlModule->isEnabled();
@@ -1867,18 +1888,30 @@ void PPIView::onTrackLabelRightClicked(int batchID, PointType type)
     }
 
     QAction* commandControlAction = nullptr;
-    if (canReportExternally && m_commandControlModule) {
+    if (canReportExternally && m_commandControlModule && m_commandControlModule->isEnabled()) {
         const bool reporting = m_commandControlModule->isManualReportActive(batchID);
         commandControlAction = menu.addAction(reporting
             ? tr("关闭总控手动上报 [批次: %1]").arg(batchID)
             : tr("开启总控手动上报 [批次: %1]").arg(batchID));
     }
 
+    QAction* electromagneticAction = nullptr;
+    if (canReportExternally && m_electromagneticModule && m_electromagneticModule->isUiEnabled()) {
+        electromagneticAction = menu.addAction(m_electromagneticModule->isManualReportActive(quint32(batchID))
+            ? tr("关闭电磁设备手动下发 [批次: %1]").arg(batchID)
+            : tr("下发电磁设备(持续) [批次: %1]").arg(batchID));
+    }
     const bool focused = m_scene->track()->isBatchFocused(batchID);
     QAction* focusAction = menu.addAction(focused ? tr("取消关注") : tr("关注"));
     QAction* chosen = menu.exec(QCursor::pos());
 
     if (!chosen) return;
+
+    if (electromagneticAction && chosen == electromagneticAction) {
+        if (!m_electromagneticModule->toggleManualReport(quint32(batchID)))
+            CustomMessageBox::showWarning(this, tr("电磁设备下发"), tr("下发失败：请检查上报开关、雷达原点及当前航迹数据。"));
+        return;
+    }
 
     if (chosen == focusAction) {
         m_scene->track()->setBatchFocused(batchID, !focused);
@@ -1920,4 +1953,27 @@ void PPIView::onTrackLabelRightClicked(int batchID, PointType type)
                      .arg(m_activeGcsTargetBatches.size())
                      .arg(activeGcsTargetBatchSummary()));
     }
+}
+
+void PPIView::contextMenuEvent(QContextMenuEvent* event)
+{
+    if (!m_electromagneticModule || !m_electromagneticModule->isUiEnabled()) {
+        QGraphicsView::contextMenuEvent(event); return;
+    }
+    PointInfo info{};
+    const QPointF position = mapToScene(event->pos());
+    // Historical batched points must remain pickable; do not allocate per-point items.
+    if (m_scene && m_scene->track() && m_scene->track()->pointInfoAt(position, info)) {
+        onTrackLabelRightClicked(int(info.batch), PointType(info.type));
+        event->accept(); return;
+    }
+    if (m_electromagneticModule && m_electromagneticModule->isUiEnabled()
+        && m_scene && m_scene->det() && m_scene->det()->pointInfoAt(position, info)) {
+        QMenu menu(this);
+        auto* action = menu.addAction(tr("点迹下发电磁设备（单次）"));
+        if (menu.exec(event->globalPos()) == action && !m_electromagneticModule->sendDetection(info))
+            CustomMessageBox::showWarning(this, tr("电磁设备下发"), tr("下发失败：请检查上报开关、雷达原点，或重新选择最新点迹。"));
+        event->accept(); return;
+    }
+    QGraphicsView::contextMenuEvent(event);
 }

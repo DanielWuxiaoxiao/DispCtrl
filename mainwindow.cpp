@@ -51,6 +51,7 @@
 #include "Controller/laserreportmanager.h"
 #include "Controller/totalcontrolmqttclient.h"
 #include "CommandControl/commandcontrolmodule.h"
+#include "ElectromagneticDevice/devicemodule.h"
 
 /**
  * @brief FramelessMainWindow构造函数实现
@@ -213,6 +214,34 @@ void FramelessMainWindow::setupOverlayUI()
             CON_INS, &Controller::sendServoControl);
 
     // 初始化时同步一次雷达位置到地图
+    auto* electromagnetic = new ElectromagneticDeviceModule(this);
+    electromagnetic->init();
+    if (electromagnetic->isEnabled()) {
+        connect(CON_INS, &Controller::detectionFrameReady, electromagnetic,
+                &ElectromagneticDeviceModule::processDetectionFrame);
+        connect(CON_INS, &Controller::normalTrackFrameReady, electromagnetic,
+                &ElectromagneticDeviceModule::processTrackFrame);
+        connect(CON_INS, &Controller::detInfoProcess, electromagnetic,
+                &ElectromagneticDeviceModule::processDetectionPoint);
+        connect(CON_INS, &Controller::traInfoProcess, electromagnetic,
+                &ElectromagneticDeviceModule::processTrackPoint);
+        connect(CON_INS, &Controller::testTrackFallbackRadarPositionReady, electromagnetic,
+                &ElectromagneticDeviceModule::setTestRadarPosition);
+        connect(CON_INS, &Controller::testDetectionFallbackRadarPositionReady, electromagnetic,
+                &ElectromagneticDeviceModule::setTestRadarPosition);
+        connect(CON_INS, &Controller::testPointGenerated, electromagnetic,
+                &ElectromagneticDeviceModule::prepareTestPoint);
+        connect(CON_INS, &Controller::geoLocationUpdated, electromagnetic,
+                &ElectromagneticDeviceModule::updateRadarPosition);
+        connect(CON_INS, &Controller::targetClaRes, electromagnetic,
+                &ElectromagneticDeviceModule::processTargetClassification);
+        connect(electromagnetic, &ElectromagneticDeviceModule::controlRequested, m_overlayWidget,
+                &MainOverLayOut::applyElectromagneticControl);
+        connect(electromagnetic, &ElectromagneticDeviceModule::diagnosticLog, m_overlayWidget,
+                [this](const QString& text) { m_overlayWidget->appendExternalLog("[电磁设备] " + text); });
+        m_overlayWidget->setElectromagneticDeviceModule(electromagnetic);
+        LOG_INFO("[电磁设备][WIRE] traInfoProcess/detInfoProcess=发送业务入口；完整DD01/EE01=字段缓存；测试点迹原点通知与旧总控隔离");
+    }
     PPIView* ppiView = m_overlayWidget->getPPIView();
     if (ppiView) {
         // 使用PPIView的新计算方法获取地图显示参数（含PPI偏移比例）
@@ -295,7 +324,7 @@ void FramelessMainWindow::setupOverlayUI()
         connect(commandControl, &CommandControlModule::readyChanged, this,
                 [this, commandControl](bool) {
                     // 控制窗口和测试航迹状态不依赖 UDP 就绪；实际普通航迹发包仍由模块内部校验。
-                    m_overlayWidget->setCommandControlModule(commandControl);
+                    m_overlayWidget->setCommandControlModule(commandControl->isEnabled() ? commandControl : nullptr);
                 });
         commandControl->init();
         // PPI 的 F7/右键入口仅依赖配置开关显示；实际下发仍须校验 UDP 已就绪并已完成 DD33/DD34 登录。

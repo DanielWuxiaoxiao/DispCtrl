@@ -42,6 +42,7 @@
 #include <QDateTime>
 #include <QTableWidget>
 #include <QTimer>
+#include <QPointer>
 #include <array>
 #include <functional>
 #include <vector>
@@ -70,6 +71,7 @@ class QSplitter;
 class QToolButton;
 class SubsystemNetworkMonitor;
 class CommandControlModule;
+class ElectromagneticDeviceModule;
 class LaserReportManager;
 
 
@@ -181,12 +183,16 @@ public:
      */
     PPIView* getPPIView() const { return mView; }
     void setCommandControlModule(CommandControlModule* module);
+    void setElectromagneticDeviceModule(ElectromagneticDeviceModule* module);
+    MonitorParam currentSoftwareStatus() const;
+    BITReport currentElectromagneticPanelStatus() const;
     void setLaserReportManager(LaserReportManager* module);
     /// 激光快捷下发使用与健康管理窗口一致的双端网络可达性判定。
     bool isLaserNetworkReady() const;
     QString laserNetworkStatusText() const;
 
 public slots:
+    void applyElectromagneticControl(quint16 message, const QByteArray& payload);
     /**
      * @brief 清除航迹表格数据
      * @details 响应"显清"按钮，清除航迹列表和无人机航迹列表的所有数据
@@ -200,6 +206,8 @@ public slots:
     void appendExternalLog(const QString& text);
 
 signals:
+    void softwareStatusChanged(MonitorParam report);
+    void electromagneticPanelStatusChanged(BITReport report);
     // TWS/TAS模式设置信号
     void sig_SetScanRangeParam(const ScanRange param);
     void sig_SetBeamControlParam(const BeamControl param);
@@ -553,6 +561,11 @@ private:
     int m_targetRecSta;                  ///< 目标识别软件状态
     SubsystemNetworkMonitor* m_subsystemNetworkMonitor = nullptr;
     CommandControlModule* m_commandControlModule = nullptr;
+    ElectromagneticDeviceModule* m_electromagneticModule = nullptr;
+    QPushButton* m_electromagneticButton = nullptr;
+    QPointer<QPushButton> m_electromagneticHealthButton;
+    QString m_electromagneticStatus;
+    bool m_electromagneticLinkOk = false;
     LaserReportManager* m_laserReportManager = nullptr;
     std::array<bool, 4> m_networkHealthOk{};
     std::array<QString, 4> m_networkHealthText{};
@@ -587,6 +600,7 @@ private:
     QPushButton* m_laserPeerNetworkBtn = nullptr;
     QPushButton* m_commandControlButton = nullptr;
     QPushButton* m_testTrackButton = nullptr;
+    QPushButton* m_testDetectionButton = nullptr;
 
     // 数据存储管理窗口相关
     CusWindow* m_dataStorageWindow;      ///< 数据存储管理窗口指针

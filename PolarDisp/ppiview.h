@@ -33,6 +33,7 @@ class EdgeRadarReporter;
 class TotalControlMqttClient;
 class LaserReportManager;   ///< 激光侦察上报管理器（独立模块）
 class CommandControlModule;
+class ElectromagneticDeviceModule;
 
 // 前向声明 - 避免头文件循环依赖
 class PPIScene;           ///< PPI场景管理器
@@ -80,6 +81,7 @@ class QShortcut;
 class PPIView : public QGraphicsView {
     Q_OBJECT
 public:
+    void setElectromagneticDeviceModule(ElectromagneticDeviceModule* module);
     /**
      * @brief 构造函数
      * @param parent 父窗口指针
@@ -357,6 +359,7 @@ public slots:
     void onGeoLocationChanged(double latitude, double longitude, double altitude);
 
 protected:
+    void contextMenuEvent(QContextMenuEvent* event) override;
     /**
      * @brief 鼠标按下事件处理
      * @param e 鼠标事件对象
@@ -463,6 +466,7 @@ private:
     TotalControlMqttClient* m_totalControlMqttClient = nullptr; ///< 总控MQTT上报器（由外部注入，不拥有所有权）
     LaserReportManager* m_laserReportManager = nullptr; ///< 激光侦察上报器（由外部注入，不拥有所有权）
     CommandControlModule* m_commandControlModule = nullptr; ///< 总控通信模块（由外部注入，不拥有所有权）
+    ElectromagneticDeviceModule* m_electromagneticModule = nullptr;
     bool m_laserReportEnabled = true;        ///< 是否启用激光上报（关闭则右键菜单与 F6 无此项）
     // 仅缓存 Controller::traInfoProcess 的普通 DBT 最新点，不混入 PPI 回放航迹；用于 F6/F7 默认批号。
     QHash<int, PointInfo> m_currentNormalTracks;

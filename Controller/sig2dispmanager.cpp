@@ -30,6 +30,7 @@ sig2dispmanager::sig2dispmanager(QObject *parent) : QObject(parent)
     port = CF_INS.port("SIG_2_DISP_PORT1",SIG_2_DISP_PORT1);
     connect(socket, &ThreadedUdpSocket::detInfo, this, &sig2dispmanager::detInfoDecode);
     connect(this,&sig2dispmanager::detInfoProcess,CON_INS, &Controller::detInfoProcess);
+    connect(this, &sig2dispmanager::detectionFrameReady, CON_INS, &Controller::detectionFrameReady);
     connect(this,&sig2dispmanager::headingUpdated,CON_INS, &Controller::updateHeadingFromCtrlTable);
 }
 
@@ -105,7 +106,8 @@ void sig2dispmanager::detInfoDecode(QByteArray data)
     const detInfo* firstDet = detNum > 0
         ? reinterpret_cast<const detInfo*>(rawData)
         : nullptr;
-    PointInfo info;
+    emit detectionFrameReady(data);
+    PointInfo info{};
 
     for(int i =0; i<detNum; i++)
     {

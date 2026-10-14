@@ -61,4 +61,25 @@ private:
     QElapsedTimer m_elapsedTimer;
 };
 
+// Same low-frequency injection mechanism, but no track lifecycle or UDP traffic.
+class TestDetectionGenerator final : public QObject
+{
+    Q_OBJECT
+public:
+    explicit TestDetectionGenerator(QObject* parent = nullptr);
+    bool start();
+    bool stop();
+    bool isRunning() const { return m_running; }
+signals:
+    void detectionGenerated(PointInfo point);
+    void fallbackRadarPositionReady(double latitude, double longitude, double altitude);
+    void stateChanged(bool active);
+private:
+    void generateSample();
+    QTimer m_timer;
+    QElapsedTimer m_elapsed;
+    bool m_running = false;
+    int m_sample = 0, m_count = 1200;
+};
+
 #endif // TESTTRACKGENERATOR_H
