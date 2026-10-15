@@ -162,6 +162,49 @@ private slots:
         QCOMPARE(module.m_software, QByteArray::fromHex("01010003"));
         QVERIFY(module.m_lastSoftware >= 0);
     }
+    void configuredOriginWorksForRealPointsAndDd05Wins() {
+        ElectromagneticDeviceModule module;
+        auto p = point(); prepare(module, p);
+        module.m_originValid = false;
+        module.m_configOrigin = {120, 30, 100}; module.m_configOriginValid = true;
+        module.setAutoTracks(true); module.processTrackPoint(p);
+        QCOMPARE(module.m_pendingTracks.size(), 1);
+        QCOMPARE(module.originSource(p), QStringLiteral("CONFIG_FALLBACK"));
+        auto record = module.m_pendingTracks.value(42);
+        QCOMPARE(qFromLittleEndian<qint32>(reinterpret_cast<const uchar*>(record.constData()) + 33), qint32(117));
+        PointInfo det = p; det.type = PointType::Detection; det.batch = 0;
+        detInfo raw{}; raw.dis = det.range; raw.azi = det.azimuth; raw.ele = det.elevation;
+        raw.vel = det.speed; module.m_detectionMetadata.insert(module.detectionKey(det), raw);
+        QVERIFY(module.sendDetection(det)); // No test provenance or DD05 required.
+        module.updateRadarPosition(31, 121, 200); module.processTrackPoint(p);
+        QCOMPARE(module.originSource(p), QStringLiteral("DD05"));
+        record = module.m_pendingTracks.value(42);
+        QCOMPARE(qFromLittleEndian<qint32>(reinterpret_cast<const uchar*>(record.constData()) + 33), qint32(217));
+        module.m_originValid = false; module.m_configOriginValid = false;
+        Wgs84Coordinate::Lla origin;
+        QVERIFY(!module.originFor(p, origin));
+    }
+    void manualOriginOverridesDd05AndReencodesActiveTracks() {
+        ElectromagneticDeviceModule module;
+        auto p = point(); prepare(module, p); module.m_autoTracks = true;
+        module.processTrackPoint(p);
+        module.m_detections.enqueue(QByteArray(64, char(0)));
+        QVERIFY(module.setManualRadarPosition(32, 122, 300));
+        QCOMPARE(module.originSource(p), QStringLiteral("MANUAL"));
+        QVERIFY(module.m_detections.isEmpty());
+        auto record = module.m_pendingTracks.value(42);
+        QCOMPARE(qFromLittleEndian<qint32>(reinterpret_cast<const uchar*>(record.constData()) + 33), qint32(317));
+        module.updateRadarPosition(31, 121, 200);
+        Wgs84Coordinate::Lla origin; QString source;
+        QVERIFY(module.currentRadarOrigin(origin, source));
+        QCOMPARE(origin.latitudeDeg, 32.0); QCOMPARE(source, QStringLiteral("MANUAL"));
+        QVERIFY(!module.setManualRadarPosition(91, 120, 0));
+        QVERIFY(!module.setManualRadarPosition(30, 181, 0));
+        module.restoreAutomaticRadarPosition();
+        QCOMPARE(module.originSource(p), QStringLiteral("DD05"));
+        record = module.m_pendingTracks.value(42);
+        QCOMPARE(qFromLittleEndian<qint32>(reinterpret_cast<const uchar*>(record.constData()) + 33), qint32(217));
+    }
 };
 QTEST_GUILESS_MAIN(ElectromagneticReportingTest)
 #include "electromagneticreporting_test.moc"

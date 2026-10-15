@@ -318,6 +318,13 @@ void ThreadedUdpSocket::handleDatagram(const QByteArray& data, int senderPort) {
                 break;
             }
             case 0xDE02: {  // BIT 上报
+                // The common envelope check alone does not guarantee a complete BIT payload.
+                constexpr int minimumSize = sizeof(ProtocolFrame) + sizeof(BITReport) + sizeof(ProtocolEnd);
+                if (data.size() < minimumSize) {
+                    reportError("UDP_TRUNCATED_BIT", QString("BIT payload truncated: bytes=%1 required=%2 senderPort=%3")
+                                .arg(data.size()).arg(minimumSize).arg(senderPort));
+                    break;
+                }
                 BITReport info;
                 memcpy(&info, payload, sizeof(info));
 

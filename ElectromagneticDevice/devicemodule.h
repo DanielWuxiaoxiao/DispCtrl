@@ -32,6 +32,10 @@ public:
     bool toggleManualReport(quint32 batch);
     bool sendDetection(const PointInfo& point);
     void setInitialSoftwareStatus(MonitorParam report);
+    void showOriginDialog(QWidget* parent = nullptr);
+    bool setManualRadarPosition(double latitude, double longitude, double altitude);
+    void restoreAutomaticRadarPosition();
+    bool currentRadarOrigin(Wgs84Coordinate::Lla& origin, QString& source) const;
 public slots:
     void prepareTestPoint(PointInfo point);
     void processDetectionPoint(PointInfo point);
@@ -46,6 +50,7 @@ public slots:
     void processSoftwareReport(MonitorParam report);
     void processTargetClassification(TargetClaRes report);
 signals:
+    void radarOriginChanged();
     void reportingStateChanged();
     void outbound(const QList<QByteArray>& packets);
     void controlRequested(quint16 message, const QByteArray& payload);
@@ -63,6 +68,7 @@ private:
                          Queue, Transmit, Software, Receive, Sequence, Count };
     void warn(const QString& message, Warning category = Warning::General);
     void logSummary();
+    void refreshTrackCoordinates();
     void logPoint(const char* action, const PointInfo& point, const QByteArray& record, bool manual = false);
     QString rejectionReason(const PointInfo& point) const;
     bool isTestPoint(const PointInfo& point) const;
@@ -71,6 +77,7 @@ private:
     int numberValue(const QString& key, int fallback, int low, int high) const;
     bool flagValue(const QString& key, bool fallback) const;
     bool originFor(const PointInfo& point, Wgs84Coordinate::Lla& origin) const;
+    QString originSource(const PointInfo& point) const;
     QByteArray detectionKey(const PointInfo& point) const;
     QByteArray encodeDetection(const PointInfo& point) const;
     QByteArray encodeTrack(const PointInfo& point) const;
@@ -109,6 +116,10 @@ private:
     qint64 m_lastDetection = -1, m_lastTrack = -1, m_lastBit = -1, m_lastSoftware = -1;
     quint64 m_sent = 0, m_failed = 0, m_received = 0, m_rejected = 0, m_dropped = 0;
     Wgs84Coordinate::Lla m_origin;
+    Wgs84Coordinate::Lla m_configOrigin;
+    bool m_configOriginValid = false;
+    Wgs84Coordinate::Lla m_manualOrigin;
+    bool m_manualOriginValid = false;
     Wgs84Coordinate::Lla m_testOrigin;
     QMap<quint16, trackInfo> m_trackMetadata;
     QMap<quint16, QByteArray> m_testTrackKeys;

@@ -188,6 +188,8 @@ SOURCES += \
 HEADERS += \
     # 基础模块头文件
     Basic/ConfigManager.h \
+    Basic/diagnosticlogwindow.h \
+    Basic/pointinfovalidation.h \
     Basic/DispBasci.h \
     Basic/Protocol.h \
     Basic/wgs84coordinate.h \
@@ -233,6 +235,7 @@ HEADERS += \
     Controller/totalcontrolmqttclient.h \
     Controller/RadarDataManager.h \
     Controller/ErrorHandler.h \
+    Controller/errorloglimiter.h \
     \
     # 参数配置模块头文件
     paramWidget/batterycontrol.h \

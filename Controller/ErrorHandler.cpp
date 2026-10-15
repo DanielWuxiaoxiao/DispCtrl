@@ -34,13 +34,15 @@
  */
 
 #include "ErrorHandler.h"
+#include "errorloglimiter.h"
 #include "Basic/log.h"
 #include <QDebug>
 #include <QCoreApplication>
 #include <QMessageBox>
-#include <QHash>
-#include <QMutex>
+#include <QElapsedTimer>
 #include <QMutexLocker>
+
+#include <utility>
 
 // =============================================================================
 // LogErrorHandler - 日志错误处理器
@@ -65,6 +67,19 @@ public:
      *          - 对于Fatal错误，调用qFatal导致程序终止
      */
     void handleError(const ErrorInfo& error) override {
+        // Do not build/hash the complete dynamic point description for every
+        // rejected point. Different values belong to the same bounded error class.
+        static ErrorLogInternal::BoundedLogLimiter limiter;
+        static const QElapsedTimer clock = []() {
+            QElapsedTimer timer;
+            timer.start();
+            return timer;
+        }();
+        const auto decision = limiter.check(error, clock.elapsed());
+        if (!decision.shouldLog) {
+            return;
+        }
+
         // 构建标准化的日志消息格式：[级别][分类] 错误代码: 错误描述
         QString logMessage = QString("[%1][%2] %3: %4")
             .arg(QMetaEnum::fromType<ErrorSeverity>().valueToKey(static_cast<int>(error.severity)))
@@ -81,32 +96,10 @@ public:
             logMessage += QString(" [%1]").arg(contextItems.join(", "));
         }
 
-        if (error.severity < ErrorSeverity::Critical) {
-            struct DuplicateState {
-                qint64 lastLogMs = 0;
-                int suppressedCount = 0;
-            };
-
-            static QMutex s_mutex;
-            static QHash<QString, DuplicateState> s_states;
-            static const qint64 kSuppressWindowMs = 5000;
-
-            const qint64 nowMs = error.timestamp.toMSecsSinceEpoch();
-            QMutexLocker locker(&s_mutex);
-            DuplicateState& state = s_states[logMessage];
-
-            if (state.lastLogMs > 0 && (nowMs - state.lastLogMs) < kSuppressWindowMs) {
-                ++state.suppressedCount;
-                return;
-            }
-
-            if (state.suppressedCount > 0) {
-                logMessage += QString(" [suppressed %1 duplicates/%2ms]")
-                    .arg(state.suppressedCount)
-                    .arg(kSuppressWindowMs);
-                state.suppressedCount = 0;
-            }
-            state.lastLogMs = nowMs;
+        if (decision.suppressedCount > 0) {
+            logMessage += QString(" [suppressed %1 same-code errors/%2ms]")
+                .arg(decision.suppressedCount)
+                .arg(ErrorLogInternal::BoundedLogLimiter::kSuppressWindowMs);
         }
 
         // 根据严重级别选择合适的Qt日志输出函数
@@ -220,15 +213,28 @@ ErrorHandler& ErrorHandler::instance()
  * @param handler 处理器实例指针，ErrorHandler负责内存管理
  * @details 实现功能：
  *          - 支持为不同错误分类注册专门的处理器
- *          - 自动管理处理器内存，替换时会删除旧处理器
+ *          - 自动管理处理器内存，在途调用结束后释放被替换处理器
  *          - 允许运行时动态更改处理策略
  */
 void ErrorHandler::registerHandler(ErrorCategory category, IErrorHandler* handler)
 {
-    if (m_handlers.contains(category)) {
-        delete m_handlers[category];  // 删除旧的处理器，避免内存泄漏
+    std::shared_ptr<IErrorHandler> retiredHandler;
+    {
+        QMutexLocker locker(&m_stateMutex);
+        const auto current = m_handlers.find(category);
+        if (current != m_handlers.end() && current.value().get() == handler) {
+            return;
+        }
+
+        if (handler) {
+            std::shared_ptr<IErrorHandler> replacement(handler);
+            retiredHandler = m_handlers.value(category);
+            m_handlers.insert(category, std::move(replacement));
+        } else {
+            retiredHandler = m_handlers.take(category);
+        }
     }
-    m_handlers[category] = handler;
+    // Custom destructors may report another error; release outside the state lock.
 }
 
 /**
@@ -259,15 +265,24 @@ void ErrorHandler::reportError(const QString& code, const QString& message,
     error.timestamp = QDateTime::currentDateTime();
     error.context = context;
 
-    // 更新错误统计 - 用于错误分析和监控
-    m_errorCounts[category]++;
+    std::shared_ptr<IErrorHandler> handler;
+    {
+        QMutexLocker locker(&m_stateMutex);
+        // Saturate rather than overflowing signed counters during a long error storm.
+        int& count = m_errorCounts[category];
+        if (count < (std::numeric_limits<int>::max)()) {
+            ++count;
+        }
 
-    // 维护最近错误列表 - 保存最近的错误用于调试和分析
-    m_recentErrors.append(error);
-    if (m_recentErrors.size() > MAX_RECENT_ERRORS) {
-        m_recentErrors.removeFirst();  // 保持列表大小在限制范围内
+        m_recentErrors.append(error);
+        if (m_recentErrors.size() > MAX_RECENT_ERRORS) {
+            m_recentErrors.removeFirst();
+        }
+        handler = m_handlers.value(category);
     }
 
+    // Signals and handlers may re-enter reportError/registerHandler/getErrorStats.
+    // Never keep the state lock while invoking external code or writing a log.
     // 发送错误信号 - 允许其他组件监听和响应错误事件
     emit errorReported(error);
 
@@ -277,8 +292,8 @@ void ErrorHandler::reportError(const QString& code, const QString& message,
     }
 
     // 调用相应分类的错误处理器进行实际处理
-    if (m_handlers.contains(category)) {
-        m_handlers[category]->handleError(error);
+    if (handler) {
+        handler->handleError(error);
     }
 }
 
@@ -292,6 +307,7 @@ void ErrorHandler::reportError(const QString& code, const QString& message,
  */
 QMap<ErrorCategory, int> ErrorHandler::getErrorStats() const
 {
+    QMutexLocker locker(&m_stateMutex);
     return m_errorCounts;
 }
 

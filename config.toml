@@ -139,6 +139,7 @@ max_records_per_click = 200000
 # =============================================================================
 
 [radar]
+# 电磁上报备用原点：未收到有效DD05时，真实/测试检测点和航迹均可用以下经纬高解算；DD05优先。
 # 雷达位置配置（基于index.html中的默认值）
 longitude = 109.123922221                 # 雷达中心经度（西电99号楼）
 latitude = 34.225249343                   # 雷达中心纬度（西电99号楼）
@@ -470,8 +471,11 @@ algorithmSwitch = 7                  # 算法开关
 distanceProcessUpperLimitM = 5200
 
 [logging]
-# 是否打印 BIT(DE02) 正常字段；false 时正常 BIT 不进入项目/显控日志，仅协议异常帧打印，健康管理 UI 仍实时更新。
+# BIT 正常字段默认不打印；开启后仍按阵面限频。异常首条立即记录，重复按阵面/类别限频并计数。
 bit_report_normal_log_enabled = false
+# 文件日志间隔（ms），兼容旧配置缺省5000，有效范围1000~60000；不降低业务接收/扫描线频率。
+bit_report_normal_log_interval_ms = 5000
+bit_report_warning_log_interval_ms = 5000
 
 [params.datapro]
 # 数据处理参数 Data Processing Parameters

@@ -587,6 +587,7 @@ private:
 
     // 健康管理窗口相关
     CusWindow* m_healthWindow;           ///< 雷达系统健康管理窗口指针
+    QTimer* m_healthRefreshTimer = nullptr; ///< 仅合并控件刷新，不跳过原始状态处理
     QTabWidget* m_healthTabs = nullptr;  ///< 四个阵面健康信息页
     int m_activeHealthPanel = 0;
     QPushButton* m_sigProBtn;            ///< 信号处理状态按钮
@@ -657,6 +658,7 @@ private:
      * @details 根据最新的监控参数和BIT信息更新窗口控件
      */
     void updateHealthWindow();
+    void scheduleHealthWindowRefresh();
     void bindHealthPanel(int panelId);
     void updateSubArrayPowerVisualState(int panelId, const BITReport& report);
     void updateNetworkHealthStatus(int index, bool ok, const QString& text);

@@ -409,6 +409,7 @@ PPIView::PPIView(QWidget* parent)
 void PPIView::setupOverlay() {
     // 顶角信息使用 QLabel 作为 overlay，不随缩放
     radarInfoW = new mainviewTopLeft(this);
+    connect(radarInfoW, &mainviewTopLeft::overlaySizeChanged, this, &PPIView::layoutOverlay);
     pointInfo = new PointInfoW(this);
     mousePositionInfo = new MousePositionInfo(this);
     visualSettings = new PPIVisualSettings(this);
@@ -1536,6 +1537,7 @@ void PPIView::setElectromagneticDeviceModule(ElectromagneticDeviceModule* module
 {
     if (m_electromagneticModule) disconnect(m_electromagneticModule, nullptr, this, nullptr);
     m_electromagneticModule = module;
+    if (radarInfoW) radarInfoW->setElectromagneticDeviceModule(module);
     if (module) connect(module, &ElectromagneticDeviceModule::reportingStateChanged,
                         this, &PPIView::refreshExternalReportingHighlights);
     refreshExternalReportingHighlights();

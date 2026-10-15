@@ -10,11 +10,15 @@
 #define PVIEWTOPLEFT_H
 
 #include <QWidget>
+#include <QPointer>
 #include "Basic/Protocol.h"
 
 namespace Ui {
 class mainviewTopLeft;
 }
+class QPushButton;
+class QLabel;
+class ElectromagneticDeviceModule;
 
 class mainviewTopLeft : public QWidget
 {
@@ -29,6 +33,9 @@ public:
     double getLongitude() const;
     double getAltitude()  const;  // 高度，单位：米
     double getYaw()       const;  // 阵面偏航角（真北参考），单位：度
+    void setElectromagneticDeviceModule(ElectromagneticDeviceModule* module);
+signals:
+    void overlaySizeChanged();
 
 public slots:
     // 接收BIT上报信息，更新阵面偏航角
@@ -41,6 +48,10 @@ protected:
     void paintEvent(QPaintEvent* event) override; // 声明 paintEvent
 
 private:
+    void refreshElectromagneticOrigin();
+    QPointer<ElectromagneticDeviceModule> m_electromagneticModule;
+    QPushButton* m_originButton = nullptr;
+    QLabel* m_originLabel = nullptr;
     Ui::mainviewTopLeft *ui;
 };
 

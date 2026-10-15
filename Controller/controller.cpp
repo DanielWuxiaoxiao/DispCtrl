@@ -74,6 +74,9 @@ Controller::Controller(QObject* parent)
     , monRecvMgr(nullptr)
     , extCtrlMgr(nullptr) {
     // 成员指针初始化在init()中进行
+    m_bitLogClock.start();
+    m_bitWarningLogIntervalMs = CF_INS.bitReportWarningLogIntervalMs();
+    m_bitNormalLogIntervalMs = CF_INS.bitReportNormalLogIntervalMs();
 }
 
 /**
@@ -286,24 +289,39 @@ void Controller::updateHeadingFromCtrlTable(double headingDeg) {
 }
 
 void Controller::onBITReport(BITReport res) {
+    const bool validRadarId = res.radarId >= RADAR_ID_MIN && res.radarId <= RADAR_ID_MAX;
+    const std::size_t slot = validRadarId ? res.radarId - RADAR_ID_MIN : kBitLogSlots - 1;
+    const qint64 nowMs = m_bitLogClock.elapsed();
     if (res.mesID != 0xDE02) {
-        LOG_WARNING(QString("[Controller] BIT report mesID mismatch: 0x%1")
-                    .arg(res.mesID, 4, 16, QLatin1Char('0')));
+        const auto decision = m_bitMessageLogs[slot].sample(nowMs, m_bitWarningLogIntervalMs);
+        if (decision.write) {
+            LOG_WARNING(QString("[Controller] BIT report mesID mismatch: 0x%1 radarId=%2 suppressed=%3")
+                        .arg(res.mesID, 4, 16, QLatin1Char('0'))
+                        .arg(res.radarId).arg(qulonglong(decision.suppressed)));
+        }
     }
-    if (res.radarId < RADAR_ID_MIN || res.radarId > RADAR_ID_MAX) {
-        LOG_WARNING(QString("[Controller] Invalid radarId=%1 in BIT report")
-                    .arg(res.radarId));
+    if (!validRadarId) {
+        const auto decision = m_bitRadarIdLogs[slot].sample(nowMs, m_bitWarningLogIntervalMs);
+        if (decision.write) {
+            LOG_WARNING(QString("[Controller] Invalid radarId=%1 in BIT report suppressed=%2")
+                        .arg(res.radarId).arg(qulonglong(decision.suppressed)));
+        }
     }
     if (res.yaw > 36000 || res.scanAngle > 36000) {
-        LOG_WARNING(QString("[Controller] BIT angle exceeds protocol range: radarId=%1 yawRaw=%2 scanAngleRaw=%3")
-                    .arg(res.radarId)
-                    .arg(res.yaw)
-                    .arg(res.scanAngle));
+        const auto decision = m_bitAngleLogs[slot].sample(nowMs, m_bitWarningLogIntervalMs);
+        if (decision.write) {
+            LOG_WARNING(QString("[Controller] BIT angle exceeds protocol range: radarId=%1 yawRaw=%2 scanAngleRaw=%3 suppressed=%4")
+                        .arg(res.radarId).arg(res.yaw).arg(res.scanAngle)
+                        .arg(qulonglong(decision.suppressed)));
+        }
     }
 
     // 完整 BIT 正常帧的 39 字节字段很多且上报频繁，默认不构造日志字符串。
-    // 协议范围错误仍在上方无条件写 WARNING，且不会影响下游健康管理和扫描线更新。
-    if (CF_INS.bitReportNormalLogEnabled(false)) {
+    // 异常首条立即记录，后续按阵面/类别限频；绝不跳过下游逐帧状态与防抖。
+    const auto normalDecision = CF_INS.bitReportNormalLogEnabled(false)
+        ? m_bitNormalLogs[slot].sample(nowMs, m_bitNormalLogIntervalMs)
+        : DiagnosticLogWindow::Decision{};
+    if (normalDecision.write) {
         QString subArrayPower;
         for (int i = 0; i < static_cast<int>(sizeof(res.subArrayPower)); ++i) {
             if (i > 0) {
@@ -341,7 +359,7 @@ void Controller::onBITReport(BITReport res) {
                          "fpgaTempRaw=%6 fpgaTempDegC=%7 panelTempRaw=%8 panelTempDegC=%9 "
                          "yawRaw=%10 yawDeg=%11 yawNormDeg=%12 "
                          "subArrayPower=[%13] subArrayPowerNormal=%14/36 subArrayPowerFault=%15/36 "
-                         "scanAngleRaw=%16 scanAngleDeg=%17 scanAngleNormDeg=%18 reserve=[%19]")
+                         "scanAngleRaw=%16 scanAngleDeg=%17 scanAngleNormDeg=%18 reserve=[%19] suppressed=%20")
                      .arg(res.mesID, 4, 16, QLatin1Char('0'))
                      .arg(res.radarId)
                      .arg(static_cast<unsigned int>(res.bitGroup), 2, 16, QLatin1Char('0'))
@@ -360,7 +378,8 @@ void Controller::onBITReport(BITReport res) {
                      .arg(res.scanAngle)
                      .arg(scanAngleDeg, 0, 'f', 2)
                      .arg(normalizedScanAngleDeg, 0, 'f', 2)
-                     .arg(reserve));
+                     .arg(reserve)
+                     .arg(qulonglong(normalDecision.suppressed)));
     }
 
     // qDebug() << "[Controller] onBITReport called - yaw:" << res.yaw

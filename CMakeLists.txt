@@ -253,6 +253,7 @@ set(HDR_FILES
     Controller/mon2dispmanager.h               # 监控到显示管理器
     Controller/RadarDataManager.h            # 雷达数据管理器
     Controller/ErrorHandler.h                  # 错误处理框架
+    Controller/errorloglimiter.h               # 有界错误分类限频
     Controller/disp2sigmanager.h               # 显示到信号管理器
     Controller/disp2resmanager.h               # 显示到资源管理器
     Controller/res2dispmanager.h               # 资源到显示管理器
@@ -319,6 +320,8 @@ set(HDR_FILES
     Basic/log.h                               # 日志系统
     Basic/DispBasci.h                         # 显示基础定义
     Basic/ConfigManager.h                     # 配置管理器
+    Basic/diagnosticlogwindow.h                # 固定槽单调时钟日志限频
+    Basic/pointinfovalidation.h                # 检测点公开分发前校验
     Basic/authmanager.h                       # 管理者模式认证管理器
     Basic/OsmRoadParser.h                     # OSM道路数据解析器
 
@@ -423,6 +426,18 @@ option(DISPCTRL_BUILD_TESTS "Build focused DispCtrl QTest targets" OFF)
 if(DISPCTRL_BUILD_TESTS)
     enable_testing()
     find_package(Qt5 REQUIRED COMPONENTS Test)
+    add_executable(diagnostic_log_window_test tests/diagnosticlogwindow_test.cpp)
+    target_include_directories(diagnostic_log_window_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(diagnostic_log_window_test PRIVATE Qt5::Core Qt5::Test)
+    add_test(NAME diagnostic_log_window_test COMMAND diagnostic_log_window_test)
+    add_executable(error_log_limiter_test tests/errorloglimiter_test.cpp)
+    target_include_directories(error_log_limiter_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(error_log_limiter_test PRIVATE Qt5::Core Qt5::Test)
+    add_test(NAME error_log_limiter_test COMMAND error_log_limiter_test)
+    add_executable(point_info_validation_test tests/pointinfovalidation_test.cpp)
+    target_include_directories(point_info_validation_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(point_info_validation_test PRIVATE Qt5::Core Qt5::Test)
+    add_test(NAME point_info_validation_test COMMAND point_info_validation_test)
     add_executable(track3d_coordinate_test
         tests/track3dcoordinate_test.cpp
     )

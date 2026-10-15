@@ -91,9 +91,18 @@
 namespace {
 constexpr int kTrackTableRefreshIntervalMs = 50;
 constexpr int kLogFlushIntervalMs = 50;
+constexpr int kHealthRefreshIntervalMs = 100;
 constexpr bool kDefaultEnableSectorDisplay = false;
 constexpr int kTrackExternalReportingRole = Qt::UserRole + 1;
 constexpr int kTrackReportingBoundaryRole = Qt::UserRole + 2;
+
+void setStyleSheetIfChanged(QWidget* widget, const QString& style)
+{
+    // 相同 QSS 再次设置仍会触发控件重新抛光；状态刷新只修改实际变化的样式。
+    if (widget->styleSheet() != style) {
+        widget->setStyleSheet(style);
+    }
+}
 
 enum TrackTableColumn {
     TrackIdColumn = 0,
@@ -322,6 +331,12 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
 
     // 初始化健康管理窗口指针
     m_healthWindow = nullptr;
+    m_healthRefreshTimer = new QTimer(this);
+    m_healthRefreshTimer->setSingleShot(true);
+    m_healthRefreshTimer->setTimerType(Qt::PreciseTimer);
+    m_healthRefreshTimer->setInterval(kHealthRefreshIntervalMs);
+    connect(m_healthRefreshTimer, &QTimer::timeout,
+            this, &MainOverLayOut::updateHealthWindow);
     m_healthTabs = nullptr;
     m_activeHealthPanel = 0;
     m_sigProBtn = nullptr;
@@ -1103,6 +1118,7 @@ void MainOverLayOut::sendScanRangeParams() {
 }
 
 MainOverLayOut::~MainOverLayOut() {
+    m_healthRefreshTimer->stop();
     if (m_commandTimer) {
         m_commandTimer->stop();
     }
@@ -1176,12 +1192,7 @@ void MainOverLayOut::setElectromagneticDeviceModule(ElectromagneticDeviceModule*
         m_electromagneticLinkOk = ok;
         m_electromagneticStatus = text;
         if (m_electromagneticButton) m_electromagneticButton->setToolTip(text);
-        if (m_electromagneticHealthButton) {
-            m_electromagneticHealthButton->setText("电磁设备：" + text);
-            m_electromagneticHealthButton->setStyleSheet(ok
-                ? "QPushButton { background:#143c30; color:#66ffcc; border:1px solid #66ffcc; }"
-                : "QPushButton { background:#3c2020; color:#ff9090; border:1px solid #ff9090; }");
-        }
+        scheduleHealthWindowRefresh();
     });
     arrangeParamSettingsButtons();
 }
@@ -2150,6 +2161,10 @@ void MainOverLayOut::updateSubArrayPowerVisualState(int panelId, const BITReport
 
     // 上游偶发全零报文时不立即让 36 路电源闪红；连续 100 帧才确认整体故障。
     if (allZero) {
+        // 达到阈值后饱和；重复故障帧不再累加，也不重复输出确认日志。
+        if (visualState.consecutiveAllZeroReports >= kSubArrayPowerZeroFaultThreshold) {
+            return;
+        }
         ++visualState.consecutiveAllZeroReports;
         if (visualState.consecutiveAllZeroReports < kSubArrayPowerZeroFaultThreshold) {
             return;
@@ -2171,8 +2186,20 @@ void MainOverLayOut::updateSubArrayPowerVisualState(int panelId, const BITReport
     visualState.hasConfirmedStatus = true;
 }
 
+void MainOverLayOut::scheduleHealthWindowRefresh()
+{
+    if (!m_healthWindow || !m_healthWindow->isVisible()) {
+        return;
+    }
+    if (!m_healthRefreshTimer->isActive()) {
+        m_healthRefreshTimer->start();
+    }
+}
+
 void MainOverLayOut::updateHealthWindow()
 {
+    // 打开窗口和切页会立即刷新，并取消之前合并等待中的同一次刷新。
+    m_healthRefreshTimer->stop();
     // 如果窗口不存在或不可见，直接返回
     if (!m_healthWindow || !m_healthWindow->isVisible()) {
         return;
@@ -2180,6 +2207,16 @@ void MainOverLayOut::updateHealthWindow()
 
     for (int index = 0; index < 4; ++index) {
         applyNetworkHealthStatus(index);
+    }
+    if (m_electromagneticHealthButton) {
+        const QString text = "电磁设备：" + m_electromagneticStatus;
+        const QString style = m_electromagneticLinkOk
+            ? "QPushButton { background:#143c30; color:#66ffcc; border:1px solid #66ffcc; }"
+            : "QPushButton { background:#3c2020; color:#ff9090; border:1px solid #ff9090; }";
+        if (m_electromagneticHealthButton->text() != text)
+            m_electromagneticHealthButton->setText(text);
+        if (m_electromagneticHealthButton->styleSheet() != style)
+            m_electromagneticHealthButton->setStyleSheet(style);
     }
 
     // 定义按钮样式
@@ -2231,7 +2268,7 @@ void MainOverLayOut::updateHealthWindow()
             default: text = "信号处理 - 未知状态"; style = redStyle; break;
         }
         m_sigProBtn->setText(text);
-        m_sigProBtn->setStyleSheet(style);
+        setStyleSheetIfChanged(m_sigProBtn, style);
     }
 
     // 数据处理软件
@@ -2248,7 +2285,7 @@ void MainOverLayOut::updateHealthWindow()
             default: text = "数据处理 - 未知状态"; style = redStyle; break;
         }
         m_dataProBtn->setText(text);
-        m_dataProBtn->setStyleSheet(style);
+        setStyleSheetIfChanged(m_dataProBtn, style);
     }
 
     // 波束调度软件
@@ -2265,7 +2302,7 @@ void MainOverLayOut::updateHealthWindow()
             default: text = "波束调度 - 未知状态"; style = redStyle; break;
         }
         m_beamConBtn->setText(text);
-        m_beamConBtn->setStyleSheet(style);
+        setStyleSheetIfChanged(m_beamConBtn, style);
     }
 
     // 目标识别软件
@@ -2282,7 +2319,7 @@ void MainOverLayOut::updateHealthWindow()
             default: text = "目标识别 - 未知状态"; style = redStyle; break;
         }
         m_targetRecBtn->setText(text);
-        m_targetRecBtn->setStyleSheet(style);
+        setStyleSheetIfChanged(m_targetRecBtn, style);
     }
 
     // ===== 更新 BIT 状态 =====
@@ -2325,70 +2362,70 @@ void MainOverLayOut::updateHealthWindow()
     if (m_btnTxOpen) {
         bool isOpen = bitGroup & 0x80;
         m_btnTxOpen->setText(isOpen ? "阵面发射开启" : "阵面发射关闭");
-        m_btnTxOpen->setStyleSheet(isOpen ? smallGreenStyle : smallRedStyle);
+        setStyleSheetIfChanged(m_btnTxOpen, isOpen ? smallGreenStyle : smallRedStyle);
     }
 
     // 更新占空比状态
     if (m_btnDutyCycle) {
         bool hasAlarm = bitGroup & 0x40;
         m_btnDutyCycle->setText(hasAlarm ? "占空比报警" : "占空比正常");
-        m_btnDutyCycle->setStyleSheet(hasAlarm ? smallRedStyle : smallGreenStyle);
+        setStyleSheetIfChanged(m_btnDutyCycle, hasAlarm ? smallRedStyle : smallGreenStyle);
     }
 
     // 更新脉宽状态
     if (m_btnPulseWidth) {
         bool hasAlarm = bitGroup & 0x20;
         m_btnPulseWidth->setText(hasAlarm ? "脉宽报警" : "脉宽正常");
-        m_btnPulseWidth->setStyleSheet(hasAlarm ? smallRedStyle : smallGreenStyle);
+        setStyleSheetIfChanged(m_btnPulseWidth, hasAlarm ? smallRedStyle : smallGreenStyle);
     }
 
     // 更新阵面接收状态
     if (m_btnRxOpen) {
         bool isOpen = bitGroup & 0x10;
         m_btnRxOpen->setText(isOpen ? "阵面接收开启" : "阵面接收关闭");
-        m_btnRxOpen->setStyleSheet(isOpen ? smallGreenStyle : smallRedStyle);
+        setStyleSheetIfChanged(m_btnRxOpen, isOpen ? smallGreenStyle : smallRedStyle);
     }
 
     // 更新频率源状态
     if (m_btnFreqSrc) {
         bool isNormal = bitGroup & 0x08;
         m_btnFreqSrc->setText(isNormal ? "频率源正常" : "频率源异常");
-        m_btnFreqSrc->setStyleSheet(isNormal ? smallGreenStyle : smallRedStyle);
+        setStyleSheetIfChanged(m_btnFreqSrc, isNormal ? smallGreenStyle : smallRedStyle);
     }
 
     // 更新收发板状态
     if (m_btnDigBoard) {
         bool isLinked = bitGroup & 0x04;
         m_btnDigBoard->setText(isLinked ? "收发板建链" : "收发板断链");
-        m_btnDigBoard->setStyleSheet(isLinked ? smallGreenStyle : smallRedStyle);
+        setStyleSheetIfChanged(m_btnDigBoard, isLinked ? smallGreenStyle : smallRedStyle);
     }
 
     // 更新伺服状态
     if (m_btnServo) {
         bool isNormal = bitGroup & 0x02;
         m_btnServo->setText(isNormal ? "伺服正常" : "伺服异常");
-        m_btnServo->setStyleSheet(isNormal ? smallGreenStyle : smallRedStyle);
+        setStyleSheetIfChanged(m_btnServo, isNormal ? smallGreenStyle : smallRedStyle);
     }
 
     // 更新北斗状态
     if (m_btnBeidou) {
         bool isNormal = bitGroup & 0x01;
         m_btnBeidou->setText(isNormal ? "北斗正常" : "北斗异常");
-        m_btnBeidou->setStyleSheet(isNormal ? smallGreenStyle : smallRedStyle);
+        setStyleSheetIfChanged(m_btnBeidou, isNormal ? smallGreenStyle : smallRedStyle);
     }
 
     // 更新蓝牙状态
     if (m_btnBluetooth) {
         bool isNormal = powerState & 0x02;
         m_btnBluetooth->setText(isNormal ? "蓝牙正常" : "蓝牙异常");
-        m_btnBluetooth->setStyleSheet(isNormal ? smallGreenStyle : smallRedStyle);
+        setStyleSheetIfChanged(m_btnBluetooth, isNormal ? smallGreenStyle : smallRedStyle);
     }
 
     // 更新波控板电源状态
     if (m_btnPowerBoard) {
         bool isNormal = powerState & 0x01;
         m_btnPowerBoard->setText(isNormal ? "波控板电源正常" : "波控板电源异常");
-        m_btnPowerBoard->setStyleSheet(isNormal ? smallGreenStyle : smallRedStyle);
+        setStyleSheetIfChanged(m_btnPowerBoard, isNormal ? smallGreenStyle : smallRedStyle);
     }
 
     // ===== 更新 36 路子阵电源状态 =====
@@ -2407,13 +2444,13 @@ void MainOverLayOut::updateHealthWindow()
 
         if (!hasBitReport) {
             powerCell->setText(QString("电源%1\n未上报").arg(powerIndex + 1));
-            powerCell->setStyleSheet(smallYellowStyle);
+            setStyleSheetIfChanged(powerCell, smallYellowStyle);
             continue;
         }
 
         const bool isNormal = visualState.normal[powerIndex];
         powerCell->setText(QString("电源%1\n%2").arg(powerIndex + 1).arg(isNormal ? "正常" : "故障"));
-        powerCell->setStyleSheet(isNormal ? smallGreenStyle : smallRedStyle);
+        setStyleSheetIfChanged(powerCell, isNormal ? smallGreenStyle : smallRedStyle);
         if (isNormal) {
             ++normalPowerCount;
         } else {
@@ -2480,7 +2517,7 @@ void MainOverLayOut::updateNetworkHealthStatus(int index, bool ok, const QString
     }
     m_networkHealthOk[static_cast<size_t>(index)] = ok;
     m_networkHealthText[static_cast<size_t>(index)] = text;
-    applyNetworkHealthStatus(index);
+    scheduleHealthWindowRefresh();
 }
 
 void MainOverLayOut::applyNetworkHealthStatus(int index)
@@ -2503,7 +2540,7 @@ void MainOverLayOut::applyNetworkHealthStatus(int index)
         : QStringLiteral("QPushButton { background:#a02a2a; color:#ffffff; border:1px solid #ff6666; border-radius:5px; padding:7px; font-size:13px; }");
     button->setText(m_networkHealthText[static_cast<size_t>(index)]);
     button->setToolTip(m_networkHealthText[static_cast<size_t>(index)]);
-    button->setStyleSheet(style);
+    setStyleSheetIfChanged(button, style);
 }
 
 /**
@@ -3203,10 +3240,10 @@ void MainOverLayOut::monitorParamRef(MonitorParam res) {
     // 更新雷达系统按钮的样式
     if (normal) {
         // 正常状态 - 恢复原样式（清除自定义样式）
-        ui->radarsystem->setStyleSheet("");
+        setStyleSheetIfChanged(ui->radarsystem, QString());
     } else {
         // 异常状态 - 半透明红色背景 + 深红边框
-        ui->radarsystem->setStyleSheet(
+        setStyleSheetIfChanged(ui->radarsystem,
             "QToolButton#radarsystem {"
             "    background-color: rgba(255, 0, 0, 0.3);"  // 半透明红色背景
             "    border: 2px solid #cc0000;"               // 深红色边框
@@ -3218,8 +3255,8 @@ void MainOverLayOut::monitorParamRef(MonitorParam res) {
             "}");
     }
 
-    // 如果健康管理窗口打开，更新显示
-    updateHealthWindow();
+    // 状态和对外分发逐帧处理，只有可见控件刷新合并到 100 ms。
+    scheduleHealthWindowRefresh();
 }
 
 MonitorParam MainOverLayOut::currentSoftwareStatus() const
@@ -3273,8 +3310,7 @@ void MainOverLayOut::onServoCtrlRet(ServoCtrlRet res) {
 void MainOverLayOut::onBITReport(BITReport res) {
     // 保存最新的BIT报告（始终保存，用于健康管理窗口实时显示）
     if (res.radarId < RADAR_ID_MIN || res.radarId > RADAR_ID_MAX) {
-        LOG_WARNING(QString("[MainOverLayOut] Ignore BIT report with invalid radarId=%1")
-                    .arg(res.radarId));
+        // Controller 已按固定类别限频记录；此处不能再逐帧重复刷日志。
         return;
     }
 
@@ -3303,7 +3339,7 @@ void MainOverLayOut::onBITReport(BITReport res) {
         m_lastBITUpdateTime = currentTime;
     }
 
-    // 健康管理界面继续逐帧刷新；正常 BIT 摘要默认不写显控日志，
+    // 状态缓存继续逐帧维护，控件按100ms合并；正常 BIT 摘要默认不写显控日志，
     // 只有显式打开字段级联调日志时才按节流周期输出。
     if (shouldUpdate && CF_INS.bitReportNormalLogEnabled(false)) {
         const double fpgaTemp = res.fpgaTemp / 10.0;    // 0.1°
@@ -3326,8 +3362,8 @@ void MainOverLayOut::onBITReport(BITReport res) {
                                   .arg(subArrayInfo));
     }
 
-    // 如果健康管理窗口打开，实时更新显示
-    updateHealthWindow();
+    // 保留逐帧缓存、防抖和电磁状态分发，避免逐帧重设整页按钮样式。
+    scheduleHealthWindowRefresh();
 }
 
 BITReport MainOverLayOut::currentElectromagneticPanelStatus() const
@@ -3346,6 +3382,7 @@ void MainOverLayOut::onRadarSystemClicked() {
         m_healthWindow->show();
         m_healthWindow->raise();
         m_healthWindow->activateWindow();
+        updateHealthWindow();
         return;
     }
 
@@ -3358,6 +3395,7 @@ void MainOverLayOut::onRadarSystemClicked() {
 
     // 连接窗口关闭信号，清空指针
     connect(m_healthWindow, &QObject::destroyed, this, [this]() {
+        m_healthRefreshTimer->stop();
         m_healthWindow = nullptr;
         m_healthTabs = nullptr;
         m_activeHealthPanel = 0;

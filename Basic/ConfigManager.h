@@ -208,6 +208,9 @@ public:
     }
 
     // 雷达位置相关配置
+    QVariant radarValue(const QString& key, const QVariant& fallback = QVariant()) const {
+        return getValue("radar." + key, fallback);
+    }
     double latitude(const QString& key = "latitude", double def = 34.2311) const {
         return getValue("radar." + key, def).toDouble();
     }
@@ -716,9 +719,19 @@ public:
         return getValue("params.sigpro.distanceProcessUpperLimitM", def).toUInt();
     }
 
-    // BIT 正常帧默认不打印完整字段，错误帧始终使用 WARNING 输出。
+    // BIT 日志不改变逐帧业务；异常首条立即记录，同类后续按阵面限频。
     bool bitReportNormalLogEnabled(bool def = false) const {
         return getValue("logging.bit_report_normal_log_enabled", def).toBool();
+    }
+    int bitReportNormalLogIntervalMs() const {
+        bool ok = false;
+        const int value = getValue("logging.bit_report_normal_log_interval_ms", 5000).toInt(&ok);
+        return ok ? qBound(1000, value, 60000) : 5000;
+    }
+    int bitReportWarningLogIntervalMs() const {
+        bool ok = false;
+        const int value = getValue("logging.bit_report_warning_log_interval_ms", 5000).toInt(&ok);
+        return ok ? qBound(1000, value, 60000) : 5000;
     }
 
     // 数据处理参数保存/读取
@@ -1006,8 +1019,10 @@ private:
             content += "# 距离处理上限，单位 m；写入 AA06 原 10 字节预留区的前 2 字节，小端。\n";
             content += "distanceProcessUpperLimitM = 5200\n\n";
             content += "[logging]\n";
-            content += "# 是否打印每帧 BIT(DE02) 的完整正常字段；false 时仅打印异常帧。\n";
-            content += "bit_report_normal_log_enabled = false\n\n";
+            content += "# BIT 正常字段默认不打印；开启后仍按阵面限频。异常首条立即记录。\n";
+            content += "bit_report_normal_log_enabled = false\n";
+            content += "bit_report_normal_log_interval_ms = 5000\n";
+            content += "bit_report_warning_log_interval_ms = 5000\n\n";
 
             content += "[params.datapro]\n";
             content += "# 数据处理参数 Data Processing Parameters\n";

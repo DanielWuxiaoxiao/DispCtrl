@@ -43,6 +43,7 @@
 #include <QObject>
 #include <QTimer>
 #include <QMap>
+#include <QMutex>
 #include <QDateTime>
 #include <QVariant>
 #include <QMetaEnum>
@@ -216,11 +217,12 @@ public:
     /**
      * @brief 注册错误处理器
      * @param category 错误分类
-     * @param handler 处理器实例指针，ErrorHandler负责内存管理
+     * @param handler 处理器实例指针，ErrorHandler接管所有权；nullptr移除处理器
      * @details 允许为不同错误分类注册专门的处理器：
      *          - Network -> LogErrorHandler
      *          - UI -> UIErrorHandler  
      *          - 支持运行时动态更换处理策略
+     *          - 自定义处理器回调可能并发执行，需自行保护内部可变状态
      */
     void registerHandler(ErrorCategory category, IErrorHandler* handler);
     
@@ -328,7 +330,8 @@ private:
      */
     ErrorHandler(QObject* parent = nullptr);
     
-    QMap<ErrorCategory, IErrorHandler*> m_handlers;    ///< 错误处理器映射表
+    mutable QMutex m_stateMutex;                     ///< 仅保护状态，不覆盖信号或处理器回调
+    QMap<ErrorCategory, std::shared_ptr<IErrorHandler>> m_handlers; ///< 回调持有快照，替换不影响在途调用
     QList<ErrorInfo> m_recentErrors;                   ///< 最近错误历史记录
     QMap<ErrorCategory, int> m_errorCounts;            ///< 错误统计计数
     

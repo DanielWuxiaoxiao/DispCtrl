@@ -6,6 +6,11 @@
 #include <QLabel>
 #include <QVBoxLayout>
 #include <QCheckBox>
+#include <QDoubleSpinBox>
+#include <QFormLayout>
+#include <QDialogButtonBox>
+#include <QPushButton>
+#include <QLocale>
 #include <QDateTime>
 #include <QNetworkInterface>
 #include <QStandardPaths>
@@ -117,6 +122,14 @@ void ElectromagneticDeviceModule::init()
     m_dataLogEnabled = flagValue("data_log_enabled", true);
     m_logSummaryMs = numberValue("log_summary_interval_ms", 5000, 1000, 60000);
     m_logSampleMs = numberValue("data_log_interval_ms", 1000, 500, 60000);
+    bool lonOk = false, latOk = false, altOk = false;
+    m_configOrigin.longitudeDeg = CF_INS.radarValue("longitude").toDouble(&lonOk);
+    m_configOrigin.latitudeDeg = CF_INS.radarValue("latitude").toDouble(&latOk);
+    m_configOrigin.altitudeM = CF_INS.radarValue("altitude").toDouble(&altOk);
+    m_configOriginValid = lonOk && latOk && altOk && Wgs84Coordinate::isValid(m_configOrigin);
+    if (m_configOriginValid)
+        LOG_INFO("[电磁设备][ORIGIN_CONFIG] 已加载radar.longitude/latitude/altitude；真实点迹/航迹可使用，DD05到达后优先");
+    else warn(QStringLiteral("[ORIGIN_CONFIG] radar经纬高缺失或无效，备用原点不可用；等待有效DD05"), Warning::Origin);
     m_receiveTimeout = numberValue("receive_timeout_ms", 15000, 1000, 600000);
     m_statusInterval = numberValue("status_interval_ms", 1000, 100, 60000);
     const int flushMs = numberValue("flush_interval_ms", 50, 20, 1000);
@@ -236,7 +249,7 @@ void ElectromagneticDeviceModule::logPoint(const char* action, const PointInfo& 
             ? (m_autoTracks ? "AUTO+MANUAL" : "MANUAL_CONTINUOUS") : "AUTO"))
         .arg(point.range, 0, 'f', 2).arg(point.azimuth, 0, 'f', 3).arg(point.elevation, 0, 'f', 3)
         .arg(point.speed, 0, 'f', 2).arg(point.targetRecResult)
-        .arg(m_originValid ? "DD05" : (m_testOriginValid && isTestPoint(point) ? "TEST_FALLBACK" : "NONE"), coordinates, fields));
+        .arg(originSource(point), coordinates, fields));
 }
 
 void ElectromagneticDeviceModule::logSummary()
@@ -263,6 +276,7 @@ void ElectromagneticDeviceModule::updateRadarPosition(double latitude, double lo
         LOG_INFO("[电磁设备][ORIGIN] DD05 原点首次有效/发生变化；优先于测试原点（变化日志限频5秒，原点仍逐次更新）");
     }
     m_origin = origin; m_originValid = true;
+    if (changed) emit radarOriginChanged();
 }
 
 void ElectromagneticDeviceModule::processDetectionFrame(const QByteArray& frame)
@@ -343,13 +357,107 @@ void ElectromagneticDeviceModule::prepareTestPoint(PointInfo point)
 
 bool ElectromagneticDeviceModule::originFor(const PointInfo& point, Wgs84Coordinate::Lla& origin) const
 {
+    if (m_manualOriginValid) { origin = m_manualOrigin; return true; }
     if (m_originValid) { origin = m_origin; return true; }
+    if (m_configOriginValid) { origin = m_configOrigin; return true; }
     const bool testTrack = point.type == PointType::Track && point.batch <= 65535
         && m_testTrackKeys.contains(quint16(point.batch))
         && m_testTrackKeys.value(quint16(point.batch)) == detectionKey(point);
     const bool testDetection = point.type == PointType::Detection && m_testDetectionKeys.contains(detectionKey(point));
     if (m_testOriginValid && (testTrack || testDetection)) { origin = m_testOrigin; return true; }
     return false;
+}
+
+QString ElectromagneticDeviceModule::originSource(const PointInfo& point) const
+{
+    if (m_manualOriginValid) return QStringLiteral("MANUAL");
+    if (m_originValid) return QStringLiteral("DD05");
+    if (m_configOriginValid) return QStringLiteral("CONFIG_FALLBACK");
+    if (m_testOriginValid && isTestPoint(point)) return QStringLiteral("TEST_FALLBACK");
+    return QStringLiteral("NONE");
+}
+
+bool ElectromagneticDeviceModule::currentRadarOrigin(Wgs84Coordinate::Lla& origin, QString& source) const
+{
+    PointInfo point{};
+    source = originSource(point);
+    return originFor(point, origin);
+}
+
+void ElectromagneticDeviceModule::refreshTrackCoordinates()
+{
+    // UI operation only: re-encode cached latest tracks without inventing new source timestamps.
+    m_detections.clear(); m_manualDetections.clear(); // Old-origin pending detections must not be mixed with new ones.
+    for (auto it = m_trackPoints.cbegin(); it != m_trackPoints.cend(); ++it) {
+        const QByteArray record = encodeTrack(it.value());
+        if (record.isEmpty()) { m_pendingTracks.remove(it.key()); continue; }
+        m_lastTracks.insert(it.key(), record);
+        if (m_reportTracks && (m_autoTracks || m_manualTracks.contains(it.key()))) {
+            m_pendingTracks.insert(it.key(), record); m_reportedTracks.insert(it.key()); ++m_trackQueued;
+        } else if (m_pendingTracks.contains(it.key())) m_pendingTracks.remove(it.key());
+    }
+    // Already-dispatched UDP batches cannot be recalled; subsequent batches use the new origin.
+    emit radarOriginChanged();
+}
+
+bool ElectromagneticDeviceModule::setManualRadarPosition(double latitude, double longitude, double altitude)
+{
+    const Wgs84Coordinate::Lla origin{longitude, latitude, altitude};
+    if (!m_enabled || !Wgs84Coordinate::isValid(origin)) return false;
+    m_manualOrigin = origin; m_manualOriginValid = true;
+    refreshTrackCoordinates();
+    LOG_INFO(QStringLiteral("[电磁设备][ORIGIN_MANUAL] lon=%1 lat=%2 altitudeM=%3；本次运行有效，优先于DD05，未修改旧链路/配置文件")
+        .arg(longitude, 0, 'f', 7).arg(latitude, 0, 'f', 7).arg(altitude, 0, 'f', 3));
+    emit diagnosticLog(QStringLiteral("手动原点已生效：经度%1 纬度%2 高度%3m")
+        .arg(longitude, 0, 'f', 7).arg(latitude, 0, 'f', 7).arg(altitude, 0, 'f', 3));
+    return true;
+}
+
+void ElectromagneticDeviceModule::restoreAutomaticRadarPosition()
+{
+    m_manualOriginValid = false; refreshTrackCoordinates();
+    LOG_INFO("[电磁设备][ORIGIN_MANUAL] 已恢复自动原点，优先DD05，其次配置备用");
+    emit diagnosticLog(QStringLiteral("已恢复自动解算原点：DD05优先，配置经纬高备用"));
+}
+
+void ElectromagneticDeviceModule::showOriginDialog(QWidget* parent)
+{
+    if (!m_enabled || !m_uiEnabled) return;
+    QDialog dialog(parent);
+    dialog.setWindowTitle(QStringLiteral("电磁解算原点：手动配置经纬高"));
+    dialog.setStyleSheet("QDialog { background:#071b17; color:#66ffcc; } QLabel { color:#66ffcc; }"
+        "QDoubleSpinBox { background:#102820; color:#d9ffff; padding:6px; border:1px solid #00bfa5; }"
+        "QPushButton { background:#075a58; color:#d9ffff; padding:6px 12px; border:1px solid #00bfa5; }");
+    auto* layout = new QVBoxLayout(&dialog);
+    Wgs84Coordinate::Lla origin; QString source;
+    currentRadarOrigin(origin, source);
+    auto* hint = new QLabel(QStringLiteral("当前来源：%1\n只影响电磁目标解算；WGS84经纬度，海拔高度(m)。\n确认后手动值优先于DD05，仅本次运行有效。取消不修改。")
+        .arg(source), &dialog);
+    hint->setWordWrap(true); layout->addWidget(hint);
+    auto* form = new QFormLayout(); layout->addLayout(form);
+    auto makeInput = [&dialog, form](const QString& name, double minimum, double maximum, int decimals, double value) {
+        auto* input = new QDoubleSpinBox(&dialog); input->setLocale(QLocale::c());
+        input->setDecimals(decimals); input->setRange(minimum, maximum); input->setValue(value);
+        form->addRow(name, input); return input;
+    };
+    auto* longitude = makeInput(QStringLiteral("经度(°)"), -180, 180, 7, origin.longitudeDeg);
+    auto* latitude = makeInput(QStringLiteral("纬度(°)"), -90, 90, 7, origin.latitudeDeg);
+    auto* altitude = makeInput(QStringLiteral("海拔高度(m)"), -2147483648.0, 2147483647.0, 3, origin.altitudeM);
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    buttons->button(QDialogButtonBox::Ok)->setText(QStringLiteral("确认并生效"));
+    buttons->button(QDialogButtonBox::Cancel)->setText(QStringLiteral("取消"));
+    auto* automatic = buttons->addButton(QStringLiteral("恢复自动原点"), QDialogButtonBox::ResetRole);
+    layout->addWidget(buttons);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, [&] {
+        if (!longitude->hasAcceptableInput() || !latitude->hasAcceptableInput() || !altitude->hasAcceptableInput()) {
+            hint->setText(QStringLiteral("输入无效：经度-180～180°，纬度-90～90°，高度为有效数值。")); return;
+        }
+        longitude->interpretText(); latitude->interpretText(); altitude->interpretText();
+        if (setManualRadarPosition(latitude->value(), longitude->value(), altitude->value())) dialog.accept();
+    });
+    connect(automatic, &QPushButton::clicked, &dialog, [&] { restoreAutomaticRadarPosition(); dialog.accept(); });
+    dialog.exec();
 }
 
 QByteArray ElectromagneticDeviceModule::detectionKey(const PointInfo& point) const
@@ -740,10 +848,10 @@ void ElectromagneticDeviceModule::updateUi()
     const QString summary = QStringLiteral("网络:%1 / UDP:%2 / 协议接收:%3")
         .arg(m_networkEnabled ? (m_peerOk ? "可达" : "检测中/不可达") : "未检测",
              m_ready ? "就绪" : "未就绪", receivedRecently ? "有效报文" : "未收到/超时");
-    const QString linkLog = QStringLiteral("%1 localOk=%2 peerOk=%3 peerDetail=%4 DD05=%5 testOrigin=%6 detAlive=%7 trackAlive=%8")
+    const QString linkLog = QStringLiteral("%1 localOk=%2 peerOk=%3 peerDetail=%4 DD05=%5 testOrigin=%6 detAlive=%7 trackAlive=%8 configOrigin=%9 manualOrigin=%10")
         .arg(summary).arg(m_localOk).arg(m_peerOk).arg(m_peerText).arg(m_originValid).arg(m_testOriginValid)
         .arg(m_lastDetection >= 0 && now - m_lastDetection <= m_receiveTimeout)
-        .arg(m_lastTrack >= 0 && now - m_lastTrack <= m_receiveTimeout);
+        .arg(m_lastTrack >= 0 && now - m_lastTrack <= m_receiveTimeout).arg(m_configOriginValid).arg(m_manualOriginValid);
     if (linkLog != m_lastLinkLog) { m_lastLinkLog = linkLog; LOG_INFO("[电磁设备][LINK] " + linkLog); }
     emit statusChanged(summary);
     emit linkStateChanged(m_ready && (!m_networkEnabled || m_peerOk), summary);
@@ -760,9 +868,9 @@ void ElectromagneticDeviceModule::updateUi()
         .arg(receivedRecently ? "有效报文" : "未收到/超时", m_lastCommand));
     const bool detAlive = m_lastDetection >= 0 && now - m_lastDetection <= m_receiveTimeout;
     const bool trackAlive = m_lastTrack >= 0 && now - m_lastTrack <= m_receiveTimeout;
-    show(4, detAlive && trackAlive && (m_originValid || m_testOriginValid), QStringLiteral("检测数据源：%1；航迹数据源：%2；原点：%3；手动航迹 %4")
+    show(4, detAlive && trackAlive && (m_manualOriginValid || m_originValid || m_configOriginValid || m_testOriginValid), QStringLiteral("检测数据源：%1；航迹数据源：%2；原点：%3；手动航迹 %4")
         .arg(detAlive ? "有数据" : "未收到/超时", trackAlive ? "有数据" : "未收到/超时",
-             m_originValid ? "DD05 有效" : (m_testOriginValid ? "仅测试原点" : "未收到")).arg(m_manualTracks.size()));
+             m_manualOriginValid ? "手动原点" : (m_originValid ? "DD05 有效" : (m_configOriginValid ? "配置备用原点" : (m_testOriginValid ? "仅测试原点" : "未收到")))).arg(m_manualTracks.size()));
     show(5, m_failed == 0, QStringLiteral("发送成功 %1 / 失败 %2；有效接收 %3；拒绝 %4；检测丢弃 %5；待发 检测 %6 / 航迹 %7")
         .arg(m_sent).arg(m_failed).arg(m_received).arg(m_rejected).arg(m_dropped)
         .arg(m_detections.size() + m_manualDetections.size()).arg(m_pendingTracks.size()));

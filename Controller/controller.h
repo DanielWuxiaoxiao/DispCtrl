@@ -42,8 +42,11 @@
 #pragma once
 #include <QObject>
 #include <QByteArray>
+#include <QElapsedTimer>
+#include <array>
 #include "Basic/Protocol.h"
 #include "Basic/ConfigManager.h"
+#include "Basic/diagnosticlogwindow.h"
 
 // 前向声明 - 各子系统管理器
 class Disp2ResManager;    ///< 显示到资源管理器
@@ -394,6 +397,16 @@ public slots:
     void onBITReport(BITReport res);
 
 private:
+    // Four real panels plus one shared invalid-ID bucket: bounded even for bad input.
+    static constexpr std::size_t kBitLogSlots = RADAR_ID_MAX - RADAR_ID_MIN + 2;
+    QElapsedTimer m_bitLogClock;
+    std::array<DiagnosticLogWindow, kBitLogSlots> m_bitMessageLogs;
+    std::array<DiagnosticLogWindow, kBitLogSlots> m_bitRadarIdLogs;
+    std::array<DiagnosticLogWindow, kBitLogSlots> m_bitAngleLogs;
+    std::array<DiagnosticLogWindow, kBitLogSlots> m_bitNormalLogs;
+    int m_bitWarningLogIntervalMs = 5000;
+    int m_bitNormalLogIntervalMs = 5000;
+
     // === 子系统管理器实例 ===
     Disp2ResManager* resMgr;       ///< 显示到资源管理器
     Res2DispManager* resRecvMgr;   ///< 资源到显示管理器

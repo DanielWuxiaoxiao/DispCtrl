@@ -8,8 +8,10 @@
  */
 #include "sig2dispmanager.h"
 #include "Basic/log.h"
+#include "Basic/pointinfovalidation.h"
 #include "UDP/threadudpsocket.h"
 #include "controller.h"
+#include "ErrorHandler.h"
 #include "RadarDataManager.h"  // 雷达数据管理器头文件
 #include <QThread>
 #include <optional>
@@ -89,8 +91,9 @@ void sig2dispmanager::detInfoDecode(QByteArray data)
     rawData += controlLen;
     auto radarId = *reinterpret_cast<const unsigned char*>(rawData);
     if (radarId < RADAR_ID_MIN || radarId > RADAR_ID_MAX) {
-        LOG_WARNING(QString("[Sig2DispManager] Invalid radarId=%1 in detection frame")
-                    .arg(radarId));
+        ERROR_HANDLER.reportError(QStringLiteral("DD01_INVALID_RADAR_ID"),
+            QString("[Sig2DispManager] Invalid radarId=%1 in detection frame").arg(radarId),
+            ErrorSeverity::Warning, ErrorCategory::DataProcessing);
     }
     rawData += sizeof(unsigned char);
     // 读取点迹数量
@@ -108,10 +111,15 @@ void sig2dispmanager::detInfoDecode(QByteArray data)
         : nullptr;
     emit detectionFrameReady(data);
     PointInfo info{};
+    PointInfo firstRejectedPoint{};
+    int rejectedPointCount = 0;
+    int firstRejectedIndex = -1;
 
     for(int i =0; i<detNum; i++)
     {
-    auto detPointInfo = reinterpret_cast<const detInfo*>(rawData);
+        auto detPointInfo = reinterpret_cast<const detInfo*>(rawData);
+        // Advance even when this record is rejected; later valid points survive.
+        rawData += sizeof(detInfo);
 
         info.type = PointType::Detection;
         info.range = detPointInfo->dis;
@@ -125,13 +133,42 @@ void sig2dispmanager::detInfoDecode(QByteArray data)
         info.targetRecResult = detPointInfo->targetRecResult;
         info.radarId = radarId;
 
+        if (!isValidDetectionPointInfo(info)) {
+            if (rejectedPointCount == 0) {
+                firstRejectedPoint = info;
+                firstRejectedIndex = i;
+            }
+            ++rejectedPointCount;
+            continue;
+        }
+
         // 使用新的统一数据管理器
         RADAR_DATA_MGR.processDetection(info);
 
         // 保持原有的信号发射以兼容现有代码
         emit detInfoProcess(info);
+    }
 
-        rawData += sizeof(detInfo);
+    if (rejectedPointCount > 0) {
+        // One report per affected frame, with a fixed code for bounded 5 s
+        // aggregation; never write a synchronous warning for every bad point.
+        ERROR_HANDLER.reportError(QStringLiteral("DD01_INVALID_DETECTION"),
+            QStringLiteral("[Sig2DispManager] Rejected invalid detection records: radarId=%1 "
+                           "rejected=%2 accepted=%3 firstIndex=%4 range=%5 azimuth=%6 "
+                           "elevation=%7 height=%8 snr=%9 speed=%10 amp=%11 confidence=%12")
+                .arg(radarId)
+                .arg(rejectedPointCount)
+                .arg(static_cast<int>(detNum) - rejectedPointCount)
+                .arg(firstRejectedIndex)
+                .arg(firstRejectedPoint.range)
+                .arg(firstRejectedPoint.azimuth)
+                .arg(firstRejectedPoint.elevation)
+                .arg(firstRejectedPoint.altitute)
+                .arg(firstRejectedPoint.SNR)
+                .arg(firstRejectedPoint.speed)
+                .arg(firstRejectedPoint.amp)
+                .arg(firstRejectedPoint.targetConfidence),
+            ErrorSeverity::Warning, ErrorCategory::DataProcessing);
     }
 
     static quint64 s_detFrameLogCount = 0;
