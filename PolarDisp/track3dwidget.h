@@ -7,6 +7,7 @@
 #include <QHash>
 #include <QObject>
 #include <QSet>
+#include <QSize>
 #include <QVariantList>
 #include <QVariantMap>
 #include <QWidget>
@@ -29,10 +30,14 @@ public:
 public slots:
     void pageReady();
     void reportError(const QString& message);
+    void reportViewport(int width, int height, int canvasWidth, int canvasHeight,
+                        const QString& details);
 
 signals:
     void pageReadyReported();
     void errorReported(const QString& message);
+    void viewportReported(int width, int height, int canvasWidth, int canvasHeight,
+                          const QString& details);
 
     void snapshotChanged(const QVariantList& tracks, const QVariantMap& state);
     void trackDeltaChanged(const QVariantList& upserts, const QStringList& removals);
@@ -72,6 +77,9 @@ private slots:
     void flushPendingUpdates();
     void onPageReady();
     void onPageError(const QString& message);
+    void onViewportReported(int width, int height, int canvasWidth, int canvasHeight,
+                            const QString& details);
+    void onLoadStarted();
     void onLoadFinished(bool ok);
 
 private:
@@ -90,6 +98,7 @@ private:
     void setRendererActive(bool active);
     void updateTrackCountLabel();
     void logInvalidPoint(const PointInfo& info);
+    void startPageReadyWatchdog();
     void handleRendererFailure(const QString& reason);
     void showRendererFailurePage(const QString& reason);
 
@@ -100,6 +109,9 @@ private:
     QWebChannel* m_webChannel = nullptr;
     Track3DBridge* m_bridge = nullptr;
     QTimer* m_flushTimer = nullptr;
+    QTimer* m_pageReadyTimer = nullptr;
+    QSize m_lastViewportSize;
+    QSize m_lastCanvasSize;
 
     QHash<quint64, PointInfo> m_latestTracks;
     QHash<quint64, QVariantMap> m_pendingUpserts;
@@ -119,6 +131,7 @@ private:
     bool m_rendererActive = false;
     bool m_snapshotRequired = true;
     bool m_reloadAttempted = false;
+    bool m_failurePending = false;
     bool m_showingFailurePage = false;
     qint64 m_lastInvalidPointLogMs = 0;
 };

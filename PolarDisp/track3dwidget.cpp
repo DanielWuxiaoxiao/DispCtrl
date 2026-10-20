@@ -2,11 +2,13 @@
 #include "track3dcoordinate.h"
 
 #include "../Basic/DispBasci.h"
+#include "../Basic/diagnosticlogwindow.h"
 #include "../Basic/log.h"
 #include "../Basic/offlinerae.h"
 
 #include <QColor>
 #include <QDateTime>
+#include <QElapsedTimer>
 #include <QHideEvent>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -26,6 +28,8 @@
 namespace {
 
 constexpr int kWebUpdateIntervalMs = 50;
+constexpr int kPageReadyTimeoutMs = 10000;
+constexpr int kConsoleLogIntervalMs = 5000;
 constexpr qint64 kInvalidPointLogIntervalMs = 5000;
 const QUrl kTrack3DPageUrl(QStringLiteral("qrc:///track3d/index.html"));
 
@@ -33,6 +37,57 @@ bool fuzzyEqual(double lhs, double rhs)
 {
     return qAbs(lhs - rhs) <= 1e-6;
 }
+
+QString diagnosticText(const QString& message)
+{
+    QString text = message.left(2048);
+    text.replace(QLatin1Char('\r'), QLatin1Char(' '));
+    text.replace(QLatin1Char('\n'), QLatin1Char(' '));
+    // The shared logger suppresses every line containing the uppercase ANGLE
+    // token; preserve the renderer identity without losing viewport diagnostics.
+    text.replace(QStringLiteral("ANGLE"), QStringLiteral("Angle"));
+    return text;
+}
+
+class Track3DPage final : public QWebEnginePage
+{
+public:
+    explicit Track3DPage(QObject* parent)
+        : QWebEnginePage(parent)
+    {
+        m_consoleClock.start();
+    }
+
+protected:
+    void javaScriptConsoleMessage(JavaScriptConsoleMessageLevel level,
+                                  const QString& message, int lineNumber,
+                                  const QString& sourceId) override
+    {
+        if (level == QWebEnginePage::InfoMessageLevel) {
+            return;
+        }
+        DiagnosticLogWindow& window = level == QWebEnginePage::ErrorMessageLevel
+            ? m_errorLogs : m_warningLogs;
+        const auto decision = window.sample(m_consoleClock.elapsed(), kConsoleLogIntervalMs);
+        if (!decision.write) {
+            return;
+        }
+        const QString diagnostic = QStringLiteral("[Track3DWidget][CONSOLE] level=%1 source=%2:%3 message=%4 suppressed=%5")
+            .arg(level == QWebEnginePage::ErrorMessageLevel ? "error" : "warning")
+            .arg(diagnosticText(sourceId).left(256)).arg(lineNumber)
+            .arg(diagnosticText(message)).arg(qulonglong(decision.suppressed));
+        if (level == QWebEnginePage::ErrorMessageLevel) {
+            LOG_ERROR(diagnostic);
+        } else {
+            LOG_WARNING(diagnostic);
+        }
+    }
+
+private:
+    QElapsedTimer m_consoleClock;
+    DiagnosticLogWindow m_warningLogs;
+    DiagnosticLogWindow m_errorLogs;
+};
 
 }
 
@@ -49,6 +104,12 @@ void Track3DBridge::pageReady()
 void Track3DBridge::reportError(const QString& message)
 {
     emit errorReported(message);
+}
+
+void Track3DBridge::reportViewport(int width, int height, int canvasWidth, int canvasHeight,
+                                 const QString& details)
+{
+    emit viewportReported(width, height, canvasWidth, canvasHeight, details);
 }
 
 Track3DWidget::Track3DWidget(QWidget* parent)
@@ -88,6 +149,7 @@ Track3DWidget::Track3DWidget(QWidget* parent)
     mainLayout->addWidget(toolbar);
 
     m_webView = new QWebEngineView(this);
+    m_webView->setPage(new Track3DPage(m_webView));
     m_webView->setObjectName(QStringLiteral("Track3DWebView"));
     m_webView->setContextMenuPolicy(Qt::NoContextMenu);
     m_webView->settings()->setAttribute(QWebEngineSettings::WebGLEnabled, true);
@@ -101,6 +163,22 @@ Track3DWidget::Track3DWidget(QWidget* parent)
     m_flushTimer = new QTimer(this);
     m_flushTimer->setSingleShot(true);
     m_flushTimer->setInterval(kWebUpdateIntervalMs);
+    m_pageReadyTimer = new QTimer(this);
+    m_pageReadyTimer->setSingleShot(true);
+    m_pageReadyTimer->setTimerType(Qt::PreciseTimer);
+    m_pageReadyTimer->setInterval(kPageReadyTimeoutMs);
+    connect(m_pageReadyTimer, &QTimer::timeout, this, [this]() {
+        if (isVisible() && m_rendererActive && !m_pageReady) {
+            // WebEngine can pause requestAnimationFrame while its top-level
+            // window is minimized, without delivering a child hideEvent.
+            if (window() && window()->isMinimized()) {
+                m_pageReadyTimer->start();
+                return;
+            }
+            handleRendererFailure(QStringLiteral("3D page did not become ready within %1 ms")
+                                  .arg(kPageReadyTimeoutMs));
+        }
+    });
 
     connect(m_flushTimer, &QTimer::timeout,
             this, &Track3DWidget::flushPendingUpdates);
@@ -112,6 +190,10 @@ Track3DWidget::Track3DWidget(QWidget* parent)
             this, &Track3DWidget::onPageReady);
     connect(m_bridge, &Track3DBridge::errorReported,
             this, &Track3DWidget::onPageError);
+    connect(m_bridge, &Track3DBridge::viewportReported,
+            this, &Track3DWidget::onViewportReported);
+    connect(m_webView, &QWebEngineView::loadStarted,
+            this, &Track3DWidget::onLoadStarted);
     connect(m_webView, &QWebEngineView::loadFinished,
             this, &Track3DWidget::onLoadFinished);
     connect(m_webView->page(), &QWebEnginePage::renderProcessTerminated,
@@ -330,6 +412,7 @@ void Track3DWidget::showEvent(QShowEvent* event)
 {
     QWidget::showEvent(event);
     setRendererActive(true);
+    startPageReadyWatchdog();
     if (m_pageReady) {
         sendSnapshot();
     }
@@ -339,6 +422,7 @@ void Track3DWidget::hideEvent(QHideEvent* event)
 {
     QWidget::hideEvent(event);
     setRendererActive(false);
+    m_pageReadyTimer->stop();
     m_snapshotRequired = true;
     m_pendingUpserts.clear();
     m_pendingRemovals.clear();
@@ -457,10 +541,11 @@ void Track3DWidget::logInvalidPoint(const PointInfo& info)
 
 void Track3DWidget::onPageReady()
 {
-    if (m_showingFailurePage) {
+    if (m_showingFailurePage || m_failurePending) {
         return;
     }
     m_pageReady = true;
+    m_pageReadyTimer->stop();
     emit m_bridge->activeChanged(m_rendererActive);
     if (m_rendererActive) {
         sendSnapshot();
@@ -470,7 +555,53 @@ void Track3DWidget::onPageReady()
 
 void Track3DWidget::onPageError(const QString& message)
 {
-    LOG_ERROR(QString("[Track3DWidget] JavaScript error: %1").arg(message));
+    // A restored context is informational, not another renderer failure.
+    if (message.trimmed().compare(QStringLiteral("WebGL context restored"), Qt::CaseInsensitive) == 0) {
+        LOG_INFO("[Track3DWidget] WebGL context restored");
+        return;
+    }
+    handleRendererFailure(QStringLiteral("JavaScript error: %1").arg(diagnosticText(message)));
+}
+
+void Track3DWidget::onViewportReported(int width, int height, int canvasWidth, int canvasHeight,
+                                     const QString& details)
+{
+    if (m_showingFailurePage || m_failurePending) {
+        return;
+    }
+    const QSize viewportSize(width, height);
+    const QSize canvasSize(canvasWidth, canvasHeight);
+    if (viewportSize == m_lastViewportSize && canvasSize == m_lastCanvasSize) {
+        return;
+    }
+    m_lastViewportSize = viewportSize;
+    m_lastCanvasSize = canvasSize;
+    LOG_INFO(QStringLiteral("[Track3DWidget][VIEWPORT] root=%1x%2 canvas=%3x%4 details=%5")
+        .arg(width).arg(height).arg(canvasWidth).arg(canvasHeight).arg(diagnosticText(details)));
+}
+
+void Track3DWidget::startPageReadyWatchdog()
+{
+    if (isVisible() && m_rendererActive && !m_pageReady
+        && !m_showingFailurePage && !m_failurePending && !m_pageReadyTimer->isActive()) {
+        m_pageReadyTimer->start();
+    }
+}
+
+void Track3DWidget::onLoadStarted()
+{
+    if (m_showingFailurePage) {
+        return;
+    }
+    m_pageReady = false;
+    m_snapshotRequired = true;
+    m_flushTimer->stop();
+    m_pendingUpserts.clear();
+    m_pendingRemovals.clear();
+    m_lastViewportSize = QSize();
+    m_lastCanvasSize = QSize();
+    m_pageReadyTimer->stop();
+    startPageReadyWatchdog();
 }
 
 void Track3DWidget::onLoadFinished(bool ok)
@@ -480,15 +611,25 @@ void Track3DWidget::onLoadFinished(bool ok)
     }
     if (!ok) {
         handleRendererFailure(QStringLiteral("failed to load qrc 3D page"));
+    } else {
+        // HTML load success alone says nothing about WebGL/bridge initialization.
+        startPageReadyWatchdog();
     }
 }
 
 void Track3DWidget::handleRendererFailure(const QString& reason)
 {
+    // One failure can produce a JS error, load failure and process termination.
+    // Coalesce these until the one permitted reload has actually started.
+    if (m_showingFailurePage || m_failurePending) {
+        return;
+    }
+    m_failurePending = true;
     m_pageReady = false;
     m_snapshotRequired = true;
     m_flushTimer->stop();
-    LOG_ERROR(QString("[Track3DWidget] %1").arg(reason));
+    m_pageReadyTimer->stop();
+    LOG_ERROR(QString("[Track3DWidget] %1").arg(diagnosticText(reason)));
 
     if (!m_reloadAttempted) {
         m_reloadAttempted = true;
@@ -497,7 +638,10 @@ void Track3DWidget::handleRendererFailure(const QString& reason)
                 return;
             }
             LOG_WARNING("[Track3DWidget] Reloading 3D page after renderer failure");
+            m_failurePending = false;
             m_webView->load(kTrack3DPageUrl);
+            // loadStarted normally arms this; also cover an early load failure.
+            startPageReadyWatchdog();
         });
         return;
     }
@@ -508,6 +652,10 @@ void Track3DWidget::handleRendererFailure(const QString& reason)
 void Track3DWidget::showRendererFailurePage(const QString& reason)
 {
     m_showingFailurePage = true;
+    m_failurePending = true;
+    m_pageReady = false;
+    m_flushTimer->stop();
+    m_pageReadyTimer->stop();
     const QString html = QStringLiteral(
         "<!doctype html><html><head><meta charset='utf-8'></head>"
         "<body style='margin:0;background:#0a1010;color:#66ffcc;font-family:Microsoft YaHei,sans-serif;"

@@ -17,7 +17,6 @@ namespace Ui {
 class mainviewTopLeft;
 }
 class QPushButton;
-class QLabel;
 class ElectromagneticDeviceModule;
 
 class mainviewTopLeft : public QWidget
@@ -48,10 +47,8 @@ protected:
     void paintEvent(QPaintEvent* event) override; // 声明 paintEvent
 
 private:
-    void refreshElectromagneticOrigin();
     QPointer<ElectromagneticDeviceModule> m_electromagneticModule;
     QPushButton* m_originButton = nullptr;
-    QLabel* m_originLabel = nullptr;
     Ui::mainviewTopLeft *ui;
 };
 

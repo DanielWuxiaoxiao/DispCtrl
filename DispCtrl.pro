@@ -85,6 +85,8 @@ SOURCES += \
     Controller/disp2datamanager.cpp \
     Controller/disp2monmanager.cpp \
     Controller/disp2photomanager.cpp \
+    PhotoelectricV2/module.cpp \
+    ZhoushanOptical/zhoushanmodule.cpp \
     Controller/disp2resmanager.cpp \
     Controller/res2dispmanager.cpp \
     Controller/disp2sigmanager.cpp \
@@ -203,6 +205,10 @@ HEADERS += \
     Controller/disp2datamanager.h \
     Controller/disp2monmanager.h \
     Controller/disp2photomanager.h \
+    PhotoelectricV2/module.h \
+    PhotoelectricV2/protocol.h \
+    ZhoushanOptical/zhoushanmodule.h \
+    ZhoushanOptical/protocol.h \
     Controller/disp2resmanager.h \
     Controller/res2dispmanager.h \
     Controller/disp2sigmanager.h \
@@ -285,6 +291,7 @@ HEADERS += \
     # 自定义组件模块头文件
     cusWidgets/custommessagebox.h \
     cusWidgets/cuswindow.h \
+    cusWidgets/windowgeometry.h \
     cusWidgets/detachablewidget.h \
     cusWidgets/customcombobox.h \
     cusWidgets/customspinbox.h \

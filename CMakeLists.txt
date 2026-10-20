@@ -182,6 +182,8 @@ set(SRC_FILES
     ElectromagneticDevice/deviceprotocol.cpp
     ElectromagneticDevice/devicetransport.cpp
     ElectromagneticDevice/devicemodule.cpp
+    PhotoelectricV2/module.cpp
+    ZhoushanOptical/zhoushanmodule.cpp
     Controller/RadarDataManager.cpp            # 雷达数据统一管理器
     Controller/ErrorHandler.cpp                # 错误处理框架
     Controller/disp2sigmanager.cpp             # 显示到信号管理
@@ -258,6 +260,10 @@ set(HDR_FILES
     Controller/disp2resmanager.h               # 显示到资源管理器
     Controller/res2dispmanager.h               # 资源到显示管理器
     Controller/disp2photomanager.h             # 显示到照片管理器
+    PhotoelectricV2/module.h
+    PhotoelectricV2/protocol.h
+    ZhoushanOptical/zhoushanmodule.h
+    ZhoushanOptical/protocol.h
     Controller/disp2monmanager.h               # 显示到监控管理器
     Controller/disp2datamanager.h              # 显示到数据管理器
     Controller/data2dispmanager.h              # 数据到显示管理器
@@ -293,6 +299,7 @@ set(HDR_FILES
     # 自定义组件头文件 - UI扩展控件
     cusWidgets/detachablewidget.h              # 可分离窗口部件
     cusWidgets/cuswindow.h                     # 自定义窗口
+    cusWidgets/windowgeometry.h                # 多屏窗口几何选择
     cusWidgets/custommessagebox.h              # 自定义消息框
     cusWidgets/customcombobox.h                # 自定义ComboBox组件
     cusWidgets/customspinbox.h                 # 自定义SpinBox组件
@@ -426,6 +433,35 @@ option(DISPCTRL_BUILD_TESTS "Build focused DispCtrl QTest targets" OFF)
 if(DISPCTRL_BUILD_TESTS)
     enable_testing()
     find_package(Qt5 REQUIRED COMPONENTS Test)
+    add_executable(zhoushan_optical_protocol_test tests/zhoushanopticalprotocol_test.cpp)
+    target_include_directories(zhoushan_optical_protocol_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(zhoushan_optical_protocol_test PRIVATE Qt5::Core Qt5::Test)
+    add_test(NAME zhoushan_optical_protocol_test COMMAND zhoushan_optical_protocol_test)
+    add_executable(zhoushan_optical_module_test tests/zhoushanopticalmodule_test.cpp
+        ZhoushanOptical/zhoushanmodule.cpp ZhoushanOptical/zhoushanmodule.h Basic/log.cpp cusWidgets/cuswindow.cpp)
+    target_include_directories(zhoushan_optical_module_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(zhoushan_optical_module_test PRIVATE Qt5::Core Qt5::Widgets Qt5::Network Qt5::Test)
+    add_test(NAME zhoushan_optical_module_test COMMAND zhoushan_optical_module_test)
+    add_executable(optical_indication_ui_test tests/opticalindicationui_test.cpp
+        ZhoushanOptical/zhoushanmodule.cpp ZhoushanOptical/zhoushanmodule.h Basic/log.cpp cusWidgets/cuswindow.cpp)
+    target_include_directories(optical_indication_ui_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(optical_indication_ui_test PRIVATE Qt5::Core Qt5::Widgets Qt5::Network Qt5::Test)
+    add_test(NAME optical_indication_ui_test COMMAND optical_indication_ui_test)
+    set_tests_properties(optical_indication_ui_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    add_executable(photoelectric_v2_protocol_test tests/photoelectricv2protocol_test.cpp)
+    target_include_directories(photoelectric_v2_protocol_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(photoelectric_v2_protocol_test PRIVATE Qt5::Core Qt5::Test)
+    add_test(NAME photoelectric_v2_protocol_test COMMAND photoelectric_v2_protocol_test)
+    add_executable(photoelectric_v2_module_test tests/photoelectricv2module_test.cpp
+        PhotoelectricV2/module.cpp PhotoelectricV2/module.h Basic/log.cpp
+        cusWidgets/cuswindow.cpp cusWidgets/custommessagebox.cpp)
+    target_include_directories(photoelectric_v2_module_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(photoelectric_v2_module_test PRIVATE Qt5::Core Qt5::Network Qt5::Widgets Qt5::Test)
+    add_test(NAME photoelectric_v2_module_test COMMAND photoelectric_v2_module_test)
+    add_executable(window_geometry_test tests/windowgeometry_test.cpp)
+    target_include_directories(window_geometry_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(window_geometry_test PRIVATE Qt5::Core Qt5::Test)
+    add_test(NAME window_geometry_test COMMAND window_geometry_test)
     add_executable(diagnostic_log_window_test tests/diagnosticlogwindow_test.cpp)
     target_include_directories(diagnostic_log_window_test PRIVATE "${CMAKE_SOURCE_DIR}")
     target_link_libraries(diagnostic_log_window_test PRIVATE Qt5::Core Qt5::Test)

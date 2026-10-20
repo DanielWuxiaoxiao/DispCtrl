@@ -12,7 +12,11 @@ body {
 
 #scene-root {
     position: absolute;
-    inset: 0;
+    /* Qt 5.14 embeds Chromium 77: the newer inset shorthand is ignored. */
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
     overflow: hidden;
     background: radial-gradient(circle at 50% 45%, #102020 0%, #0a1010 62%, #070c0c 100%);
 }
@@ -29,7 +33,6 @@ body {
     left: 10px;
     bottom: 9px;
     display: flex;
-    gap: 12px;
     align-items: center;
     padding: 5px 9px;
     border: 1px solid rgba(0, 255, 136, 0.45);
@@ -37,6 +40,10 @@ body {
     color: #66ffcc;
     font-size: 12px;
     pointer-events: none;
+}
+
+#axis-legend > span + span {
+    margin-left: 12px;
 }
 
 #axis-legend .axis-x {
@@ -87,7 +94,10 @@ body {
 
 #status-overlay {
     position: absolute;
-    inset: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
     z-index: 30;
     display: flex;
     align-items: center;

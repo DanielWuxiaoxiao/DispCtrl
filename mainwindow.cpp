@@ -49,6 +49,8 @@
 #include "Controller/edgeradarreporter.h"
 #include "Controller/edgeradarresultreceiver.h"
 #include "Controller/laserreportmanager.h"
+#include "PhotoelectricV2/module.h"
+#include "ZhoushanOptical/zhoushanmodule.h"
 #include "Controller/totalcontrolmqttclient.h"
 #include "CommandControl/commandcontrolmodule.h"
 #include "ElectromagneticDevice/devicemodule.h"
@@ -264,6 +266,36 @@ void FramelessMainWindow::setupOverlayUI()
                 &MainOverLayOut::appendExternalLog);
         if (edgeReporter->init()) {
             ppiView->setEdgeRadarReporter(edgeReporter);
+        }
+
+        if (CF_INS.zhoushanOpticalEnabled()) {
+            if (CF_INS.photoelectricV2ConfiguredEnabled() || CF_INS.laserConfiguredEnabled(true)) {
+                const QString message = QStringLiteral("[ZS-OPT][CONFIG][CONFLICT] 多种光电协议同时开启：仅启用TCP目标指示，9009/10100不创建；请在config.toml关闭其它开关");
+                LOG_WARNING(message); m_overlayWidget->appendExternalLog(message);
+            }
+            auto* optical = new ZhoushanOptical::Module(this);
+            connect(optical, &ZhoushanOptical::Module::logMessage, this, [](const QString& text) { LOG_INFO(text); });
+            connect(optical, &ZhoushanOptical::Module::logMessage, m_overlayWidget, &MainOverLayOut::appendExternalLog);
+            connect(CON_INS, &Controller::traInfoProcess, optical, &ZhoushanOptical::Module::processTrack);
+            connect(CON_INS, &Controller::geoLocationUpdated, optical, &ZhoushanOptical::Module::updateRadarPosition);
+            ppiView->setZhoushanOpticalModule(optical);
+            m_overlayWidget->setZhoushanOpticalModule(optical);
+            optical->init();
+        }
+
+        if (CF_INS.photoelectricV2Enabled()) {
+            if (CF_INS.laserConfiguredEnabled(true)) {
+                const QString message = QStringLiteral("[PE-V2][CONFIG][CONFLICT] V2与laser均开启：仅启用V2，9009不创建；请设置[laser].enabled=false");
+                LOG_WARNING(message); m_overlayWidget->appendExternalLog(message);
+            }
+            auto* optical = new PhotoelectricV2::Module(this);
+            connect(optical, &PhotoelectricV2::Module::logMessage, this, [](const QString& text) { LOG_INFO(text); });
+            connect(optical, &PhotoelectricV2::Module::logMessage, m_overlayWidget, &MainOverLayOut::appendExternalLog);
+            connect(CON_INS, &Controller::traInfoProcess, optical, &PhotoelectricV2::Module::processTrack);
+            connect(CON_INS, &Controller::geoLocationUpdated, optical, &PhotoelectricV2::Module::updateRadarPosition);
+            ppiView->setPhotoelectricV2Module(optical);
+            m_overlayWidget->setPhotoelectricV2Module(optical);
+            optical->init();
         }
 
         // 激光侦察上报（独立模块，默认由 config.toml 开启）。关闭时不创建网络资源；

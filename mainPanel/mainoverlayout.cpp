@@ -17,6 +17,8 @@
 #include "CommandControl/commandcontrolmodule.h"
 #include "ElectromagneticDevice/devicemodule.h"
 #include "Controller/laserreportmanager.h"
+#include "PhotoelectricV2/module.h"
+#include "ZhoushanOptical/zhoushanmodule.h"
 #include "Controller/raedatasetreader.h"
 #include "Controller/subsystemnetworkmonitor.h"
 #include "PointManager/detmanager.h"
@@ -1256,6 +1258,31 @@ bool MainOverLayOut::isLaserNetworkReady() const
         && m_networkHealthOk[SubsystemNetworkMonitor::LaserPeer];
 }
 
+void MainOverLayOut::setPhotoelectricV2Module(PhotoelectricV2::Module* module)
+{
+    m_opticalV2 = module;
+    if (!module) return;
+    m_opticalStatus = module->statusText();
+    connect(module, &PhotoelectricV2::Module::statusChanged, this, [this](bool ok, const QString& text) {
+        m_opticalLinkOk = ok; m_opticalStatus = text; scheduleHealthWindowRefresh();
+    });
+    connect(module, &PhotoelectricV2::Module::reportingStateChanged, this, [this] {
+        refreshExternalReportingIndicators();
+    });
+}
+
+void MainOverLayOut::setZhoushanOpticalModule(ZhoushanOptical::Module* module)
+{
+    m_zhoushanOptical = module;
+    if (!module) return;
+    m_zhoushanStatus = module->statusText();
+    connect(module, &ZhoushanOptical::Module::statusChanged, this, [this](bool ok, const QString& text) {
+        m_zhoushanStatus = text; m_zhoushanLinkOk = ok; scheduleHealthWindowRefresh();
+    });
+    connect(module, &ZhoushanOptical::Module::reportingStateChanged,
+            this, &MainOverLayOut::refreshExternalReportingIndicators);
+}
+
 QString MainOverLayOut::laserNetworkStatusText() const
 {
     return QStringLiteral("本机激光网口：%1；激光终端：%2")
@@ -1983,6 +2010,12 @@ QString MainOverLayOut::externalControlStatus(const PointInfo& info) const
     const bool laserReporting = m_laserReportManager
         && (m_laserReportManager->isReporting(batch)
             || m_laserReportManager->isAutoReportingTrack(batch));
+    if (m_opticalV2 && m_opticalV2->isReporting(batch)) {
+        return commandControlStatus.isEmpty() ? QStringLiteral("光电V2") : commandControlStatus + QStringLiteral("/光电V2");
+    }
+    if (m_zhoushanOptical && m_zhoushanOptical->isReporting(batch)) {
+        return commandControlStatus.isEmpty() ? QStringLiteral("光电目指") : commandControlStatus + QStringLiteral("/光电目指");
+    }
     if (!commandControlStatus.isEmpty() && laserReporting) {
         return commandControlStatus + QStringLiteral("/激光");
     }
@@ -2205,8 +2238,20 @@ void MainOverLayOut::updateHealthWindow()
         return;
     }
 
-    for (int index = 0; index < 4; ++index) {
+    for (int index = 0; index < int(m_networkHealthText.size()); ++index) {
         applyNetworkHealthStatus(index);
+    }
+    if (m_opticalHealthButton) {
+        m_opticalHealthButton->setText(m_opticalStatus);
+        setStyleSheetIfChanged(m_opticalHealthButton, m_opticalLinkOk
+            ? QStringLiteral("QPushButton { background:#143c30; color:#66ffcc; border:1px solid #66ffcc; }")
+            : QStringLiteral("QPushButton { background:#3c2020; color:#ff9090; border:1px solid #ff9090; }"));
+    }
+    if (m_zhoushanHealthButton) {
+        m_zhoushanHealthButton->setText(m_zhoushanStatus);
+        setStyleSheetIfChanged(m_zhoushanHealthButton, m_zhoushanLinkOk
+            ? QStringLiteral("QPushButton { background:#143c30; color:#66ffcc; border:1px solid #66ffcc; }")
+            : QStringLiteral("QPushButton { background:#3c2020; color:#ff9090; border:1px solid #ff9090; }"));
     }
     if (m_electromagneticHealthButton) {
         const QString text = "电磁设备：" + m_electromagneticStatus;
@@ -2528,6 +2573,10 @@ void MainOverLayOut::applyNetworkHealthStatus(int index)
     case SubsystemNetworkMonitor::LaserLocal: button = m_laserLocalNetworkBtn; break;
     case SubsystemNetworkMonitor::RadarPeer: button = m_radarPeerNetworkBtn; break;
     case SubsystemNetworkMonitor::LaserPeer: button = m_laserPeerNetworkBtn; break;
+    case SubsystemNetworkMonitor::OpticalLocal: button = m_opticalLocalNetworkBtn; break;
+    case SubsystemNetworkMonitor::OpticalPeer: button = m_opticalPeerNetworkBtn; break;
+    case SubsystemNetworkMonitor::ZhoushanLocal: button = m_zhoushanLocalNetworkBtn; break;
+    case SubsystemNetworkMonitor::ZhoushanPeer: button = m_zhoushanPeerNetworkBtn; break;
     default: return;
     }
     if (!button) {
@@ -3407,6 +3456,10 @@ void MainOverLayOut::onRadarSystemClicked() {
         m_radarPeerNetworkBtn = nullptr;
         m_laserLocalNetworkBtn = nullptr;
         m_laserPeerNetworkBtn = nullptr;
+        m_opticalLocalNetworkBtn = nullptr;
+        m_opticalPeerNetworkBtn = nullptr;
+        m_zhoushanLocalNetworkBtn = nullptr;
+        m_zhoushanPeerNetworkBtn = nullptr;
         m_btnTxOpen = nullptr;
         m_btnDutyCycle = nullptr;
         m_btnPulseWidth = nullptr;
@@ -3484,6 +3537,26 @@ void MainOverLayOut::onRadarSystemClicked() {
         networkGrid->addWidget(m_laserPeerNetworkBtn, 1, 1);
     }
     mainLayout->addLayout(networkGrid);
+    if (m_opticalV2) {
+        m_opticalLocalNetworkBtn = makeNetworkButton();
+        m_opticalPeerNetworkBtn = makeNetworkButton();
+        networkGrid->addWidget(m_opticalLocalNetworkBtn, 2, 0);
+        networkGrid->addWidget(m_opticalPeerNetworkBtn, 2, 1);
+        m_opticalHealthButton = new QPushButton(m_opticalStatus, contentWidget);
+        m_opticalHealthButton->setMinimumHeight(38);
+        connect(m_opticalHealthButton.data(), &QPushButton::clicked, this, [this] { m_opticalV2->showWindow(this); });
+        mainLayout->addWidget(m_opticalHealthButton);
+    }
+    if (m_zhoushanOptical) {
+        m_zhoushanLocalNetworkBtn = makeNetworkButton();
+        m_zhoushanPeerNetworkBtn = makeNetworkButton();
+        networkGrid->addWidget(m_zhoushanLocalNetworkBtn, 3, 0);
+        networkGrid->addWidget(m_zhoushanPeerNetworkBtn, 3, 1);
+        m_zhoushanHealthButton = new QPushButton(m_zhoushanStatus, contentWidget);
+        m_zhoushanHealthButton->setMinimumHeight(38);
+        connect(m_zhoushanHealthButton.data(), &QPushButton::clicked, this, [this] { m_zhoushanOptical->showWindow(this); });
+        mainLayout->addWidget(m_zhoushanHealthButton);
+    }
     if (m_electromagneticModule && m_electromagneticModule->isUiEnabled()) {
         m_electromagneticHealthButton = new QPushButton(contentWidget);
         m_electromagneticHealthButton->setText("电磁设备：" + m_electromagneticStatus);
@@ -3496,7 +3569,7 @@ void MainOverLayOut::onRadarSystemClicked() {
         });
         mainLayout->addWidget(m_electromagneticHealthButton);
     }
-    for (int index = 0; index < 4; ++index) {
+    for (int index = 0; index < int(m_networkHealthText.size()); ++index) {
         applyNetworkHealthStatus(index);
     }
 

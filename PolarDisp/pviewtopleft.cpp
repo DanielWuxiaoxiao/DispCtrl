@@ -13,7 +13,6 @@
 #include "Basic/ConfigManager.h"
 #include "ElectromagneticDevice/devicemodule.h"
 #include <QPushButton>
-#include <QLabel>
 
 mainviewTopLeft::mainviewTopLeft(QWidget *parent) :
     QWidget(parent),
@@ -54,31 +53,13 @@ void mainviewTopLeft::setElectromagneticDeviceModule(ElectromagneticDeviceModule
     if (visible && !m_originButton) {
         m_originButton = new QPushButton(QStringLiteral("手动配置经纬高"), this);
         m_originButton->setObjectName("electromagneticOriginButton");
-        m_originButton->setToolTip(QStringLiteral("配置电磁目标解算原点，不改变旧指控/激光原点"));
         m_originButton->setStyleSheet("QPushButton { background:#075a58; color:#d9ffff; padding:5px; border:1px solid #00bfa5; }");
         ui->gridLayout->addWidget(m_originButton, 5, 0, 1, 2);
-        m_originLabel = new QLabel(this);
-        m_originLabel->setStyleSheet("color:#66ffcc; font-size:11px;");
-        ui->gridLayout->addWidget(m_originLabel, 6, 0, 1, 2);
         connect(m_originButton, &QPushButton::clicked, this, [this] {
             if (m_electromagneticModule) m_electromagneticModule->showOriginDialog(this);
         });
     }
-    if (m_originButton) { m_originButton->setVisible(visible); m_originLabel->setVisible(visible); }
-    if (visible) connect(module, &ElectromagneticDeviceModule::radarOriginChanged,
-                         this, &mainviewTopLeft::refreshElectromagneticOrigin);
-    refreshElectromagneticOrigin();
-}
-
-void mainviewTopLeft::refreshElectromagneticOrigin()
-{
-    if (m_originLabel && m_electromagneticModule) {
-        Wgs84Coordinate::Lla origin; QString source;
-        if (m_electromagneticModule->currentRadarOrigin(origin, source))
-            m_originLabel->setText(QStringLiteral("电磁原点 [%1]\n经 %2°\n纬 %3°  高 %4m")
-                .arg(source).arg(origin.longitudeDeg, 0, 'f', 7).arg(origin.latitudeDeg, 0, 'f', 7).arg(origin.altitudeM, 0, 'f', 3));
-        else m_originLabel->setText(QStringLiteral("电磁解算原点：未设置"));
-    }
+    if (m_originButton) m_originButton->setVisible(visible);
     adjustSize(); emit overlaySizeChanged();
 }
 

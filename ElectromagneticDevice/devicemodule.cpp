@@ -424,16 +424,17 @@ void ElectromagneticDeviceModule::showOriginDialog(QWidget* parent)
 {
     if (!m_enabled || !m_uiEnabled) return;
     QDialog dialog(parent);
-    dialog.setWindowTitle(QStringLiteral("电磁解算原点：手动配置经纬高"));
+    dialog.setWindowTitle(QStringLiteral("手动配置经纬高"));
     dialog.setStyleSheet("QDialog { background:#071b17; color:#66ffcc; } QLabel { color:#66ffcc; }"
         "QDoubleSpinBox { background:#102820; color:#d9ffff; padding:6px; border:1px solid #00bfa5; }"
         "QPushButton { background:#075a58; color:#d9ffff; padding:6px 12px; border:1px solid #00bfa5; }");
     auto* layout = new QVBoxLayout(&dialog);
     Wgs84Coordinate::Lla origin; QString source;
     currentRadarOrigin(origin, source);
-    auto* hint = new QLabel(QStringLiteral("当前来源：%1\n只影响电磁目标解算；WGS84经纬度，海拔高度(m)。\n确认后手动值优先于DD05，仅本次运行有效。取消不修改。")
-        .arg(source), &dialog);
-    hint->setWordWrap(true); layout->addWidget(hint);
+    auto* hint = new QLabel(&dialog);
+    hint->setWordWrap(true);
+    hint->hide();
+    layout->addWidget(hint);
     auto* form = new QFormLayout(); layout->addLayout(form);
     auto makeInput = [&dialog, form](const QString& name, double minimum, double maximum, int decimals, double value) {
         auto* input = new QDoubleSpinBox(&dialog); input->setLocale(QLocale::c());
@@ -444,14 +445,16 @@ void ElectromagneticDeviceModule::showOriginDialog(QWidget* parent)
     auto* latitude = makeInput(QStringLiteral("纬度(°)"), -90, 90, 7, origin.latitudeDeg);
     auto* altitude = makeInput(QStringLiteral("海拔高度(m)"), -2147483648.0, 2147483647.0, 3, origin.altitudeM);
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
-    buttons->button(QDialogButtonBox::Ok)->setText(QStringLiteral("确认并生效"));
+    buttons->button(QDialogButtonBox::Ok)->setText(QStringLiteral("确定"));
     buttons->button(QDialogButtonBox::Cancel)->setText(QStringLiteral("取消"));
-    auto* automatic = buttons->addButton(QStringLiteral("恢复自动原点"), QDialogButtonBox::ResetRole);
+    auto* automatic = buttons->addButton(QStringLiteral("恢复自动"), QDialogButtonBox::ResetRole);
     layout->addWidget(buttons);
     connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
     connect(buttons, &QDialogButtonBox::accepted, &dialog, [&] {
         if (!longitude->hasAcceptableInput() || !latitude->hasAcceptableInput() || !altitude->hasAcceptableInput()) {
-            hint->setText(QStringLiteral("输入无效：经度-180～180°，纬度-90～90°，高度为有效数值。")); return;
+            hint->setText(QStringLiteral("请输入有效的经纬度和高度。"));
+            hint->show();
+            return;
         }
         longitude->interpretText(); latitude->interpretText(); altitude->interpretText();
         if (setManualRadarPosition(latitude->value(), longitude->value(), altitude->value())) dialog.accept();

@@ -32,6 +32,8 @@
 class EdgeRadarReporter;
 class TotalControlMqttClient;
 class LaserReportManager;   ///< 激光侦察上报管理器（独立模块）
+namespace PhotoelectricV2 { class Module; }
+namespace ZhoushanOptical { class Module; }
 class CommandControlModule;
 class ElectromagneticDeviceModule;
 
@@ -169,6 +171,8 @@ public:
     void setEdgeRadarReporter(EdgeRadarReporter* reporter);
     void setTotalControlMqttClient(TotalControlMqttClient* client);
     void setLaserReportManager(LaserReportManager* mgr);
+    void setPhotoelectricV2Module(PhotoelectricV2::Module* module);
+    void setZhoushanOpticalModule(ZhoushanOptical::Module* module);
     void setCommandControlModule(CommandControlModule* module);
 
 public slots:
@@ -416,6 +420,8 @@ private:
     int requestExternalReportBatch(const QString& title, const QString& prompt);
     int preferredExternalReportBatch() const;
     bool startLaserReportForBatch(int batch);
+    bool startPhotoelectricV2Report(int batch);
+    bool startZhoushanOpticalReport(int batch);
     bool startCommandControlReportForBatch(quint32 batch);
 
     // 核心组件
@@ -442,6 +448,7 @@ private:
     PPIVisualSettings* visualSettings = nullptr;     ///< 右下角PPI视觉设置组件
     QFrame* m_externalQuickActionPanel = nullptr;    ///< 激光/总控快捷下发入口
     QPushButton* m_laserQuickReportButton = nullptr;
+    QPushButton* m_opticalControlButton = nullptr;
     QPushButton* m_commandControlQuickReportButton = nullptr;
     QShortcut* m_laserQuickReportShortcut = nullptr;
     QShortcut* m_commandControlQuickReportShortcut = nullptr;
@@ -465,6 +472,8 @@ private:
     EdgeRadarReporter* m_edgeRadarReporter = nullptr; ///< JSON雷达数据上报器（由外部注入，不拥有所有权）
     TotalControlMqttClient* m_totalControlMqttClient = nullptr; ///< 总控MQTT上报器（由外部注入，不拥有所有权）
     LaserReportManager* m_laserReportManager = nullptr; ///< 激光侦察上报器（由外部注入，不拥有所有权）
+    PhotoelectricV2::Module* m_opticalV2 = nullptr;
+    ZhoushanOptical::Module* m_zhoushanOptical = nullptr;
     CommandControlModule* m_commandControlModule = nullptr; ///< 总控通信模块（由外部注入，不拥有所有权）
     ElectromagneticDeviceModule* m_electromagneticModule = nullptr;
     bool m_laserReportEnabled = true;        ///< 是否启用激光上报（关闭则右键菜单与 F6 无此项）

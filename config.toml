@@ -224,7 +224,7 @@ extra_chromium_flags = ""            # 追加自定义Chromium参数(空格分�
 # enabled=false 时不创建模块，右键菜单和 PPI“激光(F6)”快捷入口均不出现；默认开启。
 # =============================================================================
 [laser]
-enabled = true                      # 激光上报总开关（默认开启；关闭时右键和 PPI F6 入口均不显示）
+enabled = false                      # 激光上报总开关（默认开启；关闭时右键和 PPI F6 入口均不显示）
 radar_ip = "192.168.101.9"           # 雷达端本地绑定IP（9009发送源端）
 laser_ctrl_ip = "192.168.101.10"     # 激光控制终端IP
 udp_port = 9009                      # 雷达192.168.101.9:9009 → 激光192.168.101.10:9009
@@ -234,6 +234,45 @@ heartbeat_log_interval_ms = 0        # 正常9009状态心跳日志间隔(ms)；
 recon_log_interval_ms = 30000
 save_txt = true                      # 是否把每次“下发新目标”的信息保存到本地txt
 save_dir = "LaserReportLog"          # txt保存目录（相对程序运行目录）
+
+# 光电V2.0：与上面的9009激光协议独立，共用F6但不同时运行。
+# 启用时把[laser].enabled设为false；误同时开启时V2优先并记录冲突。
+# 本端是系统指控：接收光电目标/状态/终端心跳，向设备21001发送引导/设备控制。
+[photoelectric_v2]
+enabled = false
+local_ip = "192.168.101.14"
+peer_ip = "192.168.101.10"
+target_port = 10100                 # 本地目标接收，文档允许10100/10200/10300
+status_port = 11100                 # 本地状态/终端心跳接收，文档允许11100/11200/11300
+control_local_port = 10101          # 本机控制发送源端口，文档未规定，可由现场调整
+control_port = 21001                # 光电设备控制接收端口
+peer_target_port = 0               # 0=不限制对端目标源端口；仍严格校验对端IP和设备ID
+peer_status_port = 0               # 0=不限制对端状态源端口
+device_id = 1                       # 必须与光电设备编号一致
+terminal_id = 0                     # 无厂商转发终端时为0
+guidance_interval_ms = 1000         # 持续引导最新点；每目标一帧，不改变旧9009节拍
+receive_timeout_ms = 5000
+track_timeout_ms = 10000            # 普通航迹无更新超时后停止引导，不伪造消批协议
+max_tracks = 1024                   # 有界最新点缓存；范围1..4096
+log_interval_ms = 5000              # 正常收发及同类错误日志限频
+
+# 舟山光电：仅《舟山光电》第6节目标指示及其响应，不发送第5节侦察数据。
+# 显控为TCP服务端，光电主动连接。与9009激光、10100光电V2互斥，共用F6。
+# 误同时开启的优先级：舟山 > 光电V2 > 9009，并明确记录冲突。
+[zhoushan_optical]
+enabled = false
+local_ip = "192.168.101.14"
+peer_ip = "192.168.101.10"           # 只接受该IP的光电TCP连接，源端口不限制
+listen_port = 9010                  # 文档端口自定；独立于9009和10100，可按现场修改
+sender_id = 1100                    # 文档指控ID，十进制
+receiver_id = 3101                  # 文档31XX光电设备ID，十进制
+indication_type = 1                 # 1=目标提示(持续最新点)，2=确认请求(每次人工下发仅1次)
+report_interval_ms = 1000           # 类型1提示的最小发送间隔；每次最多1条待响应请求
+response_timeout_ms = 3000
+track_timeout_ms = 10000
+max_tracks = 1024                   # 只缓存普通航迹最新点，范围1..4096
+time_basis = "local"                # 8字节时标采用local/utc；须与光电约定一致
+log_interval_ms = 5000
 
 # =============================================================================
 # 健康管理网络状态 Network Health
@@ -273,7 +312,7 @@ interval_ms = 500                   # 与测试航迹相同的低频注入；支
 # =============================================================================
 [command_control]
 # 是否启用总控 UDP 通信模块；默认开启。false 时不创建组播、单播、记录、控制窗口及 PPI F7 入口。
-enabled = true
+enabled = false
 # 雷达/显控端本机 IPv4；用于绑定 UDP 套接字及写入 DD33 登录请求，需与总控同网段可达。
 local_ip = "192.30.106.13"
 # 本机 UDP 绑定端口；DD33 中同时上报该端口，合法范围 1～65535。

@@ -11,6 +11,16 @@
 namespace {
 constexpr int kRadar = 0;
 constexpr int kLaser = 1;
+constexpr int kOptical = 2;
+constexpr int kZhoushan = 3;
+// Preserve the first four legacy indices; new endpoints have adjacent local/peer indices.
+int localIndex(int endpoint) { return endpoint >= kOptical ? endpoint * 2 : endpoint; }
+int peerIndex(int endpoint) { return endpoint >= kOptical ? endpoint * 2 + 1 : endpoint + 2; }
+bool enabled(int endpoint) {
+    return endpoint == kRadar || (endpoint == kLaser && CF_INS.laserReportEnabled(true))
+        || (endpoint == kOptical && CF_INS.photoelectricV2Enabled())
+        || (endpoint == kZhoushan && CF_INS.zhoushanOpticalEnabled());
+}
 
 QString utf8Text(const char* hex)
 {
@@ -20,14 +30,16 @@ QString utf8Text(const char* hex)
 
 QString nameFor(int endpoint)
 {
-    return endpoint == kRadar ? utf8Text("E998B5E99DA2") : utf8Text("E6BF80E58589");
+    return endpoint == kRadar ? utf8Text("E998B5E99DA2")
+        : endpoint == kLaser ? utf8Text("E6BF80E58589")
+        : endpoint == kOptical ? QStringLiteral("光电V2") : QStringLiteral("光电");
 }
 }
 
 SubsystemNetworkMonitor::SubsystemNetworkMonitor(QObject* parent)
     : QObject(parent)
 {
-    for (int endpoint = 0; endpoint < 2; ++endpoint) {
+    for (int endpoint = 0; endpoint < 4; ++endpoint) {
         m_ping[endpoint] = new QProcess(this);
         m_timeout[endpoint] = new QTimer(this);
         m_timeout[endpoint]->setSingleShot(true);
@@ -102,9 +114,9 @@ QString SubsystemNetworkMonitor::localInterfaceError(const QString& ip) const
 void SubsystemNetworkMonitor::poll()
 {
     if (!CF_INS.healthNetworkEnabled(true)) {
-        for (int endpoint = 0; endpoint < 2; ++endpoint) {
-            if (endpoint == kLaser && !CF_INS.laserReportEnabled(true)) continue;
-            emit statusChanged(endpoint, false,
+        for (int endpoint = 0; endpoint < 4; ++endpoint) {
+            if (!enabled(endpoint)) continue;
+            emit statusChanged(localIndex(endpoint), false,
                                utf8Text("E69CACE69CBA25314950EFBC9AE7BD91E7BB9CE6A380E6B58BE5B7B2E585B3E997AD").arg(nameFor(endpoint)));
             publishPeerUnavailable(endpoint, utf8Text("E7BD91E7BB9CE6A380E6B58BE5B7B2E585B3E997AD"));
         }
@@ -115,9 +127,13 @@ void SubsystemNetworkMonitor::poll()
     m_peerIp[kRadar] = CF_INS.healthRadarPeerIp().trimmed();
     m_localIp[kLaser] = CF_INS.laserRadarIp("192.168.101.9");
     m_peerIp[kLaser] = CF_INS.laserCtrlIp("192.168.101.10").trimmed();
+    m_localIp[kOptical] = CF_INS.photoelectricV2Value("local_ip", "192.168.101.14").toString().trimmed();
+    m_peerIp[kOptical] = CF_INS.photoelectricV2Value("peer_ip", "192.168.101.10").toString().trimmed();
+    m_localIp[kZhoushan] = CF_INS.zhoushanOpticalValue("local_ip", "192.168.101.14").toString().trimmed();
+    m_peerIp[kZhoushan] = CF_INS.zhoushanOpticalValue("peer_ip", "192.168.101.10").toString().trimmed();
 
-    for (int endpoint = 0; endpoint < 2; ++endpoint) {
-        if (endpoint == kLaser && !CF_INS.laserReportEnabled(true)) {
+    for (int endpoint = 0; endpoint < 4; ++endpoint) {
+        if (!enabled(endpoint)) {
             m_localReady[endpoint] = false;
             m_pingRunning[endpoint] = false;
             m_timeout[endpoint]->stop();
@@ -126,7 +142,7 @@ void SubsystemNetworkMonitor::poll()
         }
         const QString localError = localInterfaceError(m_localIp[endpoint]);
         m_localReady[endpoint] = localError.isEmpty();
-        emit statusChanged(endpoint, m_localReady[endpoint],
+        emit statusChanged(localIndex(endpoint), m_localReady[endpoint],
             utf8Text("E69CACE69CBA25314950202532EFBC9A2533")
                 .arg(nameFor(endpoint), m_localIp[endpoint],
                      m_localReady[endpoint] ? utf8Text("E6ADA3E5B8B8") : localError));
@@ -176,7 +192,7 @@ void SubsystemNetworkMonitor::finishPing(int endpoint, bool reachable, const QSt
 
     if (reachable) {
         m_consecutiveFailures[endpoint] = 0;
-        emit statusChanged(endpoint + 2, true,
+        emit statusChanged(peerIndex(endpoint), true,
             utf8Text("2531E8BF9EE68EA5202532EFBC9A50494E47E6ADA3E5B8B8")
                 .arg(nameFor(endpoint), m_peerIp[endpoint]));
         return;
@@ -185,7 +201,7 @@ void SubsystemNetworkMonitor::finishPing(int endpoint, bool reachable, const QSt
     // 与 RadarAPP 保持相同的三次失败去抖，避免一次ICMP丢包把状态翻红。
     m_consecutiveFailures[endpoint] = qMin(3, m_consecutiveFailures[endpoint] + 1);
     const bool stableFailure = m_consecutiveFailures[endpoint] >= 3;
-    emit statusChanged(endpoint + 2, false,
+    emit statusChanged(peerIndex(endpoint), false,
         stableFailure
             ? utf8Text("2531E8BF9EE68EA5202532EFBC9AE4B88DE58FAFE8BEBEEFBC882533EFBC89")
                   .arg(nameFor(endpoint), m_peerIp[endpoint], reason)
@@ -203,7 +219,7 @@ void SubsystemNetworkMonitor::publishPeerUnavailable(int endpoint, const QString
         m_ping[endpoint]->kill();
     }
     const QString peer = m_peerIp[endpoint].isEmpty() ? utf8Text("E69CAAE9858DE7BDAE") : m_peerIp[endpoint];
-    emit statusChanged(endpoint + 2, false,
+    emit statusChanged(peerIndex(endpoint), false,
         utf8Text("2531E8BF9EE68EA5202532EFBC9A2533")
             .arg(nameFor(endpoint), peer, reason));
 }

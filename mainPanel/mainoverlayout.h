@@ -73,6 +73,8 @@ class SubsystemNetworkMonitor;
 class CommandControlModule;
 class ElectromagneticDeviceModule;
 class LaserReportManager;
+namespace PhotoelectricV2 { class Module; }
+namespace ZhoushanOptical { class Module; }
 
 
 namespace Ui {
@@ -187,6 +189,8 @@ public:
     MonitorParam currentSoftwareStatus() const;
     BITReport currentElectromagneticPanelStatus() const;
     void setLaserReportManager(LaserReportManager* module);
+    void setPhotoelectricV2Module(PhotoelectricV2::Module* module);
+    void setZhoushanOpticalModule(ZhoushanOptical::Module* module);
     /// 激光快捷下发使用与健康管理窗口一致的双端网络可达性判定。
     bool isLaserNetworkReady() const;
     QString laserNetworkStatusText() const;
@@ -567,8 +571,16 @@ private:
     QString m_electromagneticStatus;
     bool m_electromagneticLinkOk = false;
     LaserReportManager* m_laserReportManager = nullptr;
-    std::array<bool, 4> m_networkHealthOk{};
-    std::array<QString, 4> m_networkHealthText{};
+    std::array<bool, 8> m_networkHealthOk{};
+    std::array<QString, 8> m_networkHealthText{};
+    ZhoushanOptical::Module* m_zhoushanOptical = nullptr;
+    QPointer<QPushButton> m_zhoushanHealthButton;
+    QString m_zhoushanStatus;
+    bool m_zhoushanLinkOk = false;
+    PhotoelectricV2::Module* m_opticalV2 = nullptr;
+    QPointer<QPushButton> m_opticalHealthButton;
+    QString m_opticalStatus;
+    bool m_opticalLinkOk = false;
     static constexpr int kRadarPanelCount = 4;
     BITReport m_lastBITReport;           ///< 当前选中阵面的BIT上报信息
     std::array<BITReport, kRadarPanelCount> m_bitReports{};
@@ -599,6 +611,10 @@ private:
     QPushButton* m_radarPeerNetworkBtn = nullptr;
     QPushButton* m_laserLocalNetworkBtn = nullptr;
     QPushButton* m_laserPeerNetworkBtn = nullptr;
+    QPushButton* m_opticalLocalNetworkBtn = nullptr;
+    QPushButton* m_opticalPeerNetworkBtn = nullptr;
+    QPushButton* m_zhoushanLocalNetworkBtn = nullptr;
+    QPushButton* m_zhoushanPeerNetworkBtn = nullptr;
     QPushButton* m_commandControlButton = nullptr;
     QPushButton* m_testTrackButton = nullptr;
     QPushButton* m_testDetectionButton = nullptr;

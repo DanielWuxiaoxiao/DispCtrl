@@ -324,7 +324,7 @@ public:
     }
 
     bool photoelectricTxEnabled(bool def = false) const {
-        return systemFlag("enable_photoelectric_tx", def);
+        return !zhoushanOpticalEnabled() && !photoelectricV2Enabled() && systemFlag("enable_photoelectric_tx", def);
     }
 
     bool photoelectricHeartbeatEnabled(bool def = false) const {
@@ -363,9 +363,26 @@ public:
     }
 
     // ===== 激光侦察上报配置（独立模块，默认开启；关闭时右键菜单无此项）=====
-    bool laserReportEnabled(bool def = true) const {
-        return getValue("laser.enabled", def).toBool();
+    bool photoelectricV2Enabled() const {
+        return !zhoushanOpticalEnabled() && photoelectricV2ConfiguredEnabled();
     }
+    bool photoelectricV2ConfiguredEnabled() const {
+        return getValue("photoelectric_v2.enabled", false).toString().trimmed().toLower() == "true";
+    }
+    bool zhoushanOpticalEnabled() const {
+        return getValue("zhoushan_optical.enabled", false).toString().trimmed().toLower() == "true";
+    }
+    QVariant zhoushanOpticalValue(const QString& key, const QVariant& fallback) const {
+        return getValue("zhoushan_optical." + key, fallback);
+    }
+    QVariant photoelectricV2Value(const QString& key, const QVariant& fallback) const {
+        return getValue("photoelectric_v2." + key, fallback);
+    }
+    bool laserReportEnabled(bool def = true) const {
+        // Both protocols share F6. V2 wins deterministically on a conflicting config.
+        return !zhoushanOpticalEnabled() && !photoelectricV2Enabled() && getValue("laser.enabled", def).toBool();
+    }
+    bool laserConfiguredEnabled(bool def = true) const { return getValue("laser.enabled", def).toBool(); }
     QString laserRadarIp(const QString& def = "192.168.101.9") const {
         return getValue("laser.radar_ip", def).toString();
     }

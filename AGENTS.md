@@ -124,6 +124,7 @@ For performance investigation, prefer sampling profilers over logs or breakpoint
 - Keep functions short and single-purpose.
 - Prefer existing project patterns over new abstractions.
 - Add comments only to explain why, not what.
+- WebEngine pages must remain compatible with Qt 5.14's Chromium 77. Do not rely on newer CSS/JavaScript without a fallback (for example, use explicit `top/right/bottom/left`, not only `inset`). A successful HTML/WebChannel load is not proof of a valid canvas or rendered first frame.
 
 ### Protocol / Data Parsing
 

@@ -10,6 +10,14 @@
     var pendingErrors = [];
     var active = true;
     var renderPending = false;
+    var sceneInitialized = false;
+    var firstFrameRendered = false;
+    var readyReported = false;
+    var startupFailed = false;
+    var viewportWidth = 0;
+    var viewportHeight = 0;
+    var lastViewportSignature = '';
+    var viewportDetailsReported = false;
     var tracks = new Map();
     var pointObjects = [];
     var gridGroup = null;
@@ -33,32 +41,79 @@
     var renderer;
     var controls;
     var raycaster;
-    var pointer = new THREE.Vector2();
+    var pointer;
 
     function reportError(message) {
         var text = String(message || 'unknown JavaScript error');
         if (bridge) {
             bridge.reportError(text);
-        } else {
+        } else if (pendingErrors.length < 10) {
             pendingErrors.push(text);
         }
+        // The native page console also captures failures before WebChannel exists.
+        console.error('[Track3D] ' + text);
     }
 
     function showError(message) {
+        if (!statusOverlay) return;
         statusOverlay.textContent = message;
         statusOverlay.classList.add('error');
         statusOverlay.style.display = 'flex';
     }
 
+    function failInitialization(error) {
+        if (startupFailed) return;
+        startupFailed = true;
+        active = false;
+        showError('3D渲染初始化或执行失败');
+        reportError(error && error.stack ? error.stack : String(error));
+    }
+
+    function reportViewport() {
+        if (!bridge || !bridge.reportViewport || !renderer) return;
+        var canvas = renderer.domElement;
+        var signature = [root.clientWidth, root.clientHeight, canvas.width, canvas.height].join('|');
+        if (signature === lastViewportSignature) return;
+        lastViewportSignature = signature;
+        var details = '';
+        if (!viewportDetailsReported) {
+            details = 'userAgent=' + navigator.userAgent;
+            try {
+                var gl = renderer.getContext();
+                details += '; WebGL=' + gl.getParameter(gl.VERSION)
+                    + '; renderer=' + gl.getParameter(gl.RENDERER);
+            } catch (ignored) {
+                details += '; WebGL details unavailable';
+            }
+            viewportDetailsReported = true;
+        }
+        bridge.reportViewport(root.clientWidth, root.clientHeight, canvas.width, canvas.height, details);
+    }
+
+    function notifyPageReady() {
+        if (!bridge || readyReported || !firstFrameRendered || startupFailed) return;
+        readyReported = true;
+        reportViewport();
+        bridge.pageReady();
+        statusOverlay.style.display = 'none';
+    }
+
     function requestRender() {
-        if (!active || renderPending || !renderer) {
+        if (!active || renderPending || !renderer || !sceneInitialized || startupFailed
+            || viewportWidth <= 0 || viewportHeight <= 0) {
             return;
         }
         renderPending = true;
         window.requestAnimationFrame(function () {
             renderPending = false;
-            if (active && renderer) {
-                renderer.render(scene, camera);
+            if (active && renderer && !startupFailed && viewportWidth > 0 && viewportHeight > 0) {
+                try {
+                    renderer.render(scene, camera);
+                    firstFrameRendered = true;
+                    notifyPageReady();
+                } catch (error) {
+                    failInitialization(error);
+                }
             }
         });
     }
@@ -71,15 +126,23 @@
     }
 
     function resizeRenderer() {
-        if (!renderer) {
+        if (!renderer || !camera) {
             return;
         }
-        var width = Math.max(1, root.clientWidth);
-        var height = Math.max(1, root.clientHeight);
+        var width = root.clientWidth;
+        var height = root.clientHeight;
+        viewportWidth = width;
+        viewportHeight = height;
+        if (width <= 0 || height <= 0) {
+            // Hidden tabs can have no layout yet. Never claim a 1px canvas is ready.
+            reportViewport();
+            return;
+        }
         camera.aspect = width / height;
         camera.updateProjectionMatrix();
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         renderer.setSize(width, height, false);
+        reportViewport();
         requestRender();
     }
 
@@ -424,33 +487,45 @@
     }
 
     function connectBridge() {
+        if (typeof QWebChannel === 'undefined' || typeof qt === 'undefined'
+            || !qt.webChannelTransport) {
+            throw new Error('Qt WebChannel transport or local qwebchannel.js is unavailable');
+        }
         new QWebChannel(qt.webChannelTransport, function (channel) {
-            bridge = channel.objects.track3dBridge;
-            bridge.snapshotChanged.connect(applySnapshot);
-            bridge.trackDeltaChanged.connect(applyDelta);
-            bridge.sceneStateChanged.connect(applyState);
-            bridge.clearRequested.connect(clearTracks);
-            bridge.resetViewRequested.connect(resetCamera);
-            bridge.activeChanged.connect(function (nextActive) {
-                active = Boolean(nextActive);
-                if (!active) {
-                    hideTooltip();
-                } else {
-                    resizeRenderer();
-                    requestRender();
-                }
-            });
+            try {
+                bridge = channel.objects.track3dBridge;
+                if (!bridge) throw new Error('track3dBridge is not registered');
+                bridge.snapshotChanged.connect(applySnapshot);
+                bridge.trackDeltaChanged.connect(applyDelta);
+                bridge.sceneStateChanged.connect(applyState);
+                bridge.clearRequested.connect(clearTracks);
+                bridge.resetViewRequested.connect(resetCamera);
+                bridge.activeChanged.connect(function (nextActive) {
+                    active = Boolean(nextActive);
+                    if (!active) {
+                        hideTooltip();
+                    } else {
+                        resizeRenderer();
+                        requestRender();
+                    }
+                });
 
-            pendingErrors.forEach(function (message) {
-                bridge.reportError(message);
-            });
-            pendingErrors = [];
-            bridge.pageReady();
-            statusOverlay.style.display = 'none';
+                pendingErrors.forEach(function (message) {
+                    bridge.reportError(message);
+                });
+                pendingErrors = [];
+                // Connect first so even a missing Three.js/WebGL failure reaches C++.
+                initialize();
+            } catch (error) {
+                failInitialization(error);
+            }
         });
     }
 
     function initialize() {
+        if (typeof THREE === 'undefined') throw new Error('Local Three.js resource did not load');
+        if (typeof THREE.OrbitControls !== 'function') throw new Error('Local OrbitControls resource did not load');
+        pointer = new THREE.Vector2();
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0x0a1010);
 
@@ -474,41 +549,39 @@
         renderer.domElement.addEventListener('mouseleave', hideTooltip, { passive: true });
         renderer.domElement.addEventListener('webglcontextlost', function (event) {
             event.preventDefault();
-            showError('WebGL上下文已丢失');
-            reportError('WebGL context lost');
+            failInitialization(new Error('WebGL context lost'));
         }, false);
         renderer.domElement.addEventListener('webglcontextrestored', function () {
-            statusOverlay.style.display = 'none';
-            reportError('WebGL context restored');
+            console.info('[Track3D] WebGL context restored');
+            if (startupFailed) return; // Native one-shot recovery owns a lost context.
             rebuildAxes();
             rebuildPoints();
+            resizeRenderer();
         }, false);
 
         pointsGroup = new THREE.Group();
         scene.add(pointsGroup);
         resetCamera();
         rebuildAxes();
+        sceneInitialized = true;
         resizeRenderer();
 
         if (window.ResizeObserver) {
             new ResizeObserver(resizeRenderer).observe(root);
-        } else {
-            window.addEventListener('resize', resizeRenderer, { passive: true });
         }
-        connectBridge();
+        window.addEventListener('resize', resizeRenderer, { passive: true });
     }
 
     window.addEventListener('error', function (event) {
-        reportError(event.message + ' @ ' + event.filename + ':' + event.lineno);
+        failInitialization(event.message + ' @ ' + event.filename + ':' + event.lineno);
     });
     window.addEventListener('unhandledrejection', function (event) {
-        reportError('Unhandled promise rejection: ' + event.reason);
+        failInitialization('Unhandled promise rejection: ' + event.reason);
     });
 
     try {
-        initialize();
+        connectBridge();
     } catch (error) {
-        showError('3D渲染初始化失败');
-        reportError(error && error.stack ? error.stack : String(error));
+        failInitialization(error);
     }
 }());

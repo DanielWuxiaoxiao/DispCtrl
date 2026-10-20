@@ -7,12 +7,14 @@
  * @Description: 
  */
 #include "cuswindow.h"
+#include "windowgeometry.h"
 #include <QHBoxLayout>
 #include <QStyle>
 #include <QApplication>
 #include <QScreen>
 #include <QPainter>
 #include <QCursor>
+#include <QWindow>
 
 static constexpr int BORDER_WIDTH = 8;
 
@@ -78,18 +80,7 @@ CusWindow::CusWindow(const QString& title, const QIcon& icon, QWidget* parent)
     m_maxBtn->setIcon(QIcon(":/resources/icon/full.png"));
     m_maxBtn->setIconSize(QSize(20, 20));
     m_maxBtn->setToolTip("最大化/还原窗口");
-    connect(m_maxBtn, &QPushButton::clicked, this, [this](){
-        if (!m_maximized) {
-            m_restoreRect = geometry();
-            setGeometry(QApplication::primaryScreen()->availableGeometry());
-            m_maximized = true;
-            m_maxBtn->setIcon(QIcon(":/resources/icon/win.png")); // 切换为还原图标
-        } else {
-            setGeometry(m_restoreRect);
-            m_maximized = false;
-            m_maxBtn->setIcon(QIcon(":/resources/icon/full.png")); // 切换为最大化图标
-        }
-    });
+    connect(m_maxBtn, &QPushButton::clicked, this, &CusWindow::toggleMaximized);
 
     m_closeBtn = new QPushButton(titleBar);
     m_closeBtn->setObjectName("cCloseBtn");
@@ -128,6 +119,32 @@ CusWindow::CusWindow(const QString& title, const QIcon& icon, QWidget* parent)
     };
     enableMouseTracking(this);
     m_rubberBand = nullptr;
+}
+
+void CusWindow::toggleMaximized()
+{
+    if (m_maximized) {
+        setGeometry(m_restoreRect);
+        m_maximized = false;
+        m_maxBtn->setIcon(QIcon(":/resources/icon/full.png"));
+        return;
+    }
+
+    const QList<QScreen*> screens = QGuiApplication::screens();
+    QVector<CusWindowGeometry::Screen> geometries;
+    geometries.reserve(screens.size());
+    for (QScreen* screen : screens) {
+        geometries.append({screen->geometry(), screen->availableGeometry()});
+    }
+    QScreen* nativeScreen = windowHandle() ? windowHandle()->screen() : QGuiApplication::primaryScreen();
+    const QRect target = CusWindowGeometry::maximizedGeometry(
+        frameGeometry(), geometries, screens.indexOf(nativeScreen));
+    if (!target.isValid()) return;
+
+    m_restoreRect = geometry();
+    setGeometry(target);
+    m_maximized = true;
+    m_maxBtn->setIcon(QIcon(":/resources/icon/win.png"));
 }
 
 void CusWindow::setContentWidget(QWidget* w) {

@@ -37,6 +37,8 @@
 #include "../Controller/totalcontrolmqttclient.h"
 #include "../Controller/edgeradarreporter.h"
 #include "../Controller/laserreportmanager.h"
+#include "PhotoelectricV2/module.h"
+#include "ZhoushanOptical/zhoushanmodule.h"
 #include "../CommandControl/commandcontrolmodule.h"
 #include "../ElectromagneticDevice/devicemodule.h"
 #include "../cusWidgets/custommessagebox.h"
@@ -432,6 +434,15 @@ void PPIView::setupOverlay() {
     m_commandControlQuickReportButton = new QPushButton(tr("总控主动上报 (F7)"), m_externalQuickActionPanel);
     m_commandControlQuickReportButton->setToolTip(tr("输入普通航迹批号，开启总控 DDA4 手动上报"));
     quickActionLayout->addWidget(m_laserQuickReportButton);
+    if (CF_INS.photoelectricV2Enabled() || CF_INS.zhoushanOpticalEnabled()) {
+        m_opticalControlButton = new QPushButton(CF_INS.zhoushanOpticalEnabled()
+            ? tr("光电目指状态") : tr("光电V2控制"), m_externalQuickActionPanel);
+        quickActionLayout->addWidget(m_opticalControlButton);
+        connect(m_opticalControlButton, &QPushButton::clicked, this, [this] {
+            if (m_zhoushanOptical) m_zhoushanOptical->showWindow(this);
+            else if (m_opticalV2) m_opticalV2->showWindow(this);
+        });
+    }
     quickActionLayout->addWidget(m_commandControlQuickReportButton);
     connect(m_laserQuickReportButton, &QPushButton::clicked,
             this, &PPIView::showLaserQuickReportDialog);
@@ -1484,6 +1495,24 @@ void PPIView::setLaserReportManager(LaserReportManager* mgr)
     refreshExternalReportingHighlights();
 }
 
+void PPIView::setPhotoelectricV2Module(PhotoelectricV2::Module* module)
+{
+    if (m_opticalV2) disconnect(m_opticalV2, nullptr, this, nullptr);
+    m_opticalV2 = module;
+    if (module) connect(module, &PhotoelectricV2::Module::reportingStateChanged,
+                        this, &PPIView::refreshExternalReportingHighlights);
+    updateExternalQuickActionVisibility(); refreshExternalReportingHighlights();
+}
+
+void PPIView::setZhoushanOpticalModule(ZhoushanOptical::Module* module)
+{
+    if (m_zhoushanOptical) disconnect(m_zhoushanOptical, nullptr, this, nullptr);
+    m_zhoushanOptical = module;
+    if (module) connect(module, &ZhoushanOptical::Module::reportingStateChanged,
+                        this, &PPIView::refreshExternalReportingHighlights);
+    updateExternalQuickActionVisibility(); refreshExternalReportingHighlights();
+}
+
 void PPIView::setCommandControlModule(CommandControlModule* module)
 {
     if (module && !module->isEnabled()) module = nullptr;
@@ -1508,6 +1537,8 @@ bool PPIView::isExternallyReporting(int batch) const
 QString PPIView::externalReportingText(int batch) const
 {
     QStringList states;
+    if (m_zhoushanOptical && m_zhoushanOptical->isReporting(batch)) states.append(QStringLiteral("光电目指"));
+    if (m_opticalV2 && m_opticalV2->isReporting(batch)) states.append(QStringLiteral("光电V2引导中"));
     QString electromagneticText;
     if (m_electromagneticModule && m_electromagneticModule->isUiEnabled()
         && m_electromagneticModule->isManualReportActive(quint32(batch)))
@@ -1562,11 +1593,20 @@ void PPIView::refreshExternalReportingHighlights()
 void PPIView::updateExternalQuickActionVisibility()
 {
     m_laserReportEnabled = CF_INS.laserReportEnabled(true);
-    const bool showLaser = m_laserReportEnabled;
+    const bool showOptical = CF_INS.photoelectricV2Enabled();
+    const bool showZhoushan = CF_INS.zhoushanOpticalEnabled();
+    const bool showLaser = m_laserReportEnabled || showOptical || showZhoushan;
     const bool showCommandControl = m_commandControlModule
         && m_commandControlModule->isEnabled();
     if (m_laserQuickReportButton) {
         m_laserQuickReportButton->setVisible(showLaser);
+        m_laserQuickReportButton->setText(showZhoushan ? tr("光电 (F6)") : showOptical ? tr("光电V2 (F6)") : tr("激光 (F6)"));
+        m_laserQuickReportButton->setToolTip(showZhoushan ? tr("向光电发送目标指示") : showOptical
+            ? tr("输入普通航迹批号，向光电V2设备持续下发0x3400") : tr("激光9009持续跟踪"));
+    }
+    if (m_opticalControlButton) {
+        m_opticalControlButton->setVisible(showOptical || showZhoushan);
+        m_opticalControlButton->setText(showZhoushan ? tr("光电目指状态") : tr("光电V2控制"));
     }
     if (m_commandControlQuickReportButton) {
         m_commandControlQuickReportButton->setVisible(showCommandControl);
@@ -1726,6 +1766,16 @@ bool PPIView::startCommandControlReportForBatch(quint32 batch)
 
 void PPIView::showLaserQuickReportDialog()
 {
+    if (CF_INS.zhoushanOpticalEnabled()) {
+        const int batch = requestExternalReportBatch(tr("光电目标指示"), tr("普通航迹批号："));
+        if (batch >= 0) startZhoushanOpticalReport(batch);
+        return;
+    }
+    if (CF_INS.photoelectricV2Enabled()) {
+        const int batch = requestExternalReportBatch(tr("光电V2持续引导"), tr("普通航迹批号："));
+        if (batch >= 0) startPhotoelectricV2Report(batch);
+        return;
+    }
     if (!m_laserReportEnabled) {
         CustomMessageBox::showWarning(this, tr("激光下发不可用"),
                                       tr("激光下发功能已在 config.toml 的 [laser].enabled 中关闭。"));
@@ -1735,6 +1785,22 @@ void PPIView::showLaserQuickReportDialog()
     if (batch >= 0) {
         startLaserReportForBatch(batch);
     }
+}
+
+bool PPIView::startPhotoelectricV2Report(int batch)
+{
+    if (m_opticalV2 && m_opticalV2->startReport(batch)) return true;
+    CustomMessageBox::showWarning(this, tr("光电V2下发失败"),
+        tr("请检查V2 UDP绑定、雷达经纬高和当前普通航迹；详情见PE-V2日志。"));
+    return false;
+}
+
+bool PPIView::startZhoushanOpticalReport(int batch)
+{
+    if (m_zhoushanOptical && m_zhoushanOptical->startReport(batch)) return true;
+    CustomMessageBox::showWarning(this, tr("光电下发失败"),
+        tr("请检查光电TCP是否已连接、当前普通航迹和雷达经纬高；详情见ZS-OPT日志。"));
+    return false;
 }
 
 void PPIView::showCommandControlQuickReportDialog()
@@ -1872,6 +1938,18 @@ void PPIView::onTrackLabelRightClicked(int batchID, PointType type)
     // 激光持续跟踪入口只由 [laser].enabled 控制；即使 UDP 或光电网络未就绪也保留入口，
     // 用户点击后给出明确原因，便于现场检查网口，而不是把功能误判为被关闭。
     QAction* laserAction = nullptr;      // 单目标持续上报开关
+    QAction* opticalAction = nullptr;
+    QAction* zhoushanAction = nullptr;
+    if (canReportExternally && m_zhoushanOptical) {
+        zhoushanAction = menu.addAction(m_zhoushanOptical->isSelected(batchID)
+            ? tr("停止光电目指 [批次: %1]").arg(batchID)
+            : tr("下发光电目标指示 [批次: %1]").arg(batchID));
+    }
+    if (canReportExternally && m_opticalV2) {
+        opticalAction = menu.addAction(m_opticalV2->isReporting(batchID)
+            ? tr("停止光电V2手动引导 [批次: %1]").arg(batchID)
+            : tr("下发光电V2(持续) [批次: %1]").arg(batchID));
+    }
     QAction* laserAutoAction = nullptr;  // 自动上报(全部目标)开关
     if (canReportExternally && m_laserReportEnabled) {
         const bool reporting = m_laserReportManager
@@ -1908,6 +1986,22 @@ void PPIView::onTrackLabelRightClicked(int batchID, PointType type)
     QAction* chosen = menu.exec(QCursor::pos());
 
     if (!chosen) return;
+
+    if (opticalAction && chosen == opticalAction) {
+        if (m_opticalV2->isReporting(batchID)) {
+            // Automatic mode belongs to the control window and is not a manual subscription.
+            if (m_opticalV2->isAutoReport())
+                CustomMessageBox::showWarning(this, tr("光电V2"), tr("当前为自动引导，请在光电V2控制窗口关闭自动引导。"));
+            else m_opticalV2->stopReport();
+        } else startPhotoelectricV2Report(batchID);
+        return;
+    }
+
+    if (zhoushanAction && chosen == zhoushanAction) {
+        if (m_zhoushanOptical->isSelected(batchID)) m_zhoushanOptical->stopReport();
+        else startZhoushanOpticalReport(batchID);
+        return;
+    }
 
     if (electromagneticAction && chosen == electromagneticAction) {
         if (!m_electromagneticModule->toggleManualReport(quint32(batchID)))
