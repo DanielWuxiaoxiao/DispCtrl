@@ -63,22 +63,9 @@ TWSModeDialog::TWSModeDialog(QWidget *parent) :
 
     setupConnections();
 
-    // =========================================================================
-    // 非管理者模式：隐藏"方位间隔"和"波形参数配置"控件
-    // =========================================================================
-    if (!AuthManager::instance().isAdminMode()) {
-        // 从GridLayout中移除并隐藏方位间隔控件
-        hideFromGrid(ui->gridLayout_sector, ui->label_azistep);
-        hideFromGrid(ui->gridLayout_sector, ui->azistep);
-        // 将积累脉冲数移到空出的位置，消除左侧空隙
-        ui->gridLayout_sector->removeWidget(ui->label_pulsenum);
-        ui->gridLayout_sector->removeWidget(ui->pulseNum1);
-        ui->gridLayout_sector->addWidget(ui->label_pulsenum, 2, 0);
-        ui->gridLayout_sector->addWidget(ui->pulseNum1, 2, 1);
-
-        // 隐藏波形参数配置组（QVBoxLayout自动收缩）
-        ui->groupWaveform->hide();
-    }
+    connect(&AuthManager::instance(), &AuthManager::modeChanged,
+            this, &TWSModeDialog::applyPermissions);
+    applyPermissions(AuthManager::instance().isAdminMode());
 
     // 窗口居中显示（在所有控件显隐设置之后，adjustSize自动计算正确尺寸）
     centerWidgetOnScreen(this);
@@ -87,6 +74,27 @@ TWSModeDialog::TWSModeDialog(QWidget *parent) :
 TWSModeDialog::~TWSModeDialog()
 {
     delete ui;
+}
+
+void TWSModeDialog::applyPermissions(bool admin)
+{
+    auto* grid = ui->gridLayout_sector;
+    grid->removeWidget(ui->label_azistep);
+    grid->removeWidget(ui->azistep);
+    grid->removeWidget(ui->label_pulsenum);
+    grid->removeWidget(ui->pulseNum1);
+    if (admin) {
+        grid->addWidget(ui->label_azistep, 2, 0);
+        grid->addWidget(ui->azistep, 2, 1);
+    }
+    grid->addWidget(ui->label_pulsenum, 2, admin ? 2 : 0);
+    grid->addWidget(ui->pulseNum1, 2, admin ? 4 : 1);
+    ui->label_azistep->setVisible(admin);
+    ui->azistep->setVisible(admin);
+    ui->groupWaveform->setVisible(admin);
+    grid->invalidate();
+    if (layout()) layout()->invalidate();
+    updateGeometry();
 }
 
 void TWSModeDialog::setupConnections()

@@ -14,6 +14,7 @@
 #include "cusWidgets/custommessagebox.h"
 #include <QPushButton>
 #include <QGridLayout>
+#include <QPointer>
 #include <algorithm>
 
 waveAndSample::waveAndSample(QWidget *parent) :
@@ -21,6 +22,15 @@ waveAndSample::waveAndSample(QWidget *parent) :
     ui(new Ui::waveAndSample)
 {
     ui->setupUi(this);
+    // Preserve the original grid slots before user mode removes advanced widgets.
+    for (int index = 0; index < ui->gridLayout->count(); ++index) {
+        int row = 0, column = 0, rowSpan = 0, columnSpan = 0;
+        ui->gridLayout->getItemPosition(index, &row, &column, &rowSpan, &columnSpan);
+        auto* widget = ui->gridLayout->itemAt(index)->widget();
+        if (widget && row >= 4 && row <= 20) {
+            m_waveformWidgets.append({widget, row, column, rowSpan, columnSpan});
+        }
+    }
     setMinimumWidth(1200);
 
     setWindowTitle(tr("波形及采样控制"));
@@ -68,39 +78,55 @@ waveAndSample::waveAndSample(QWidget *parent) :
         lineEdit->setMinimumHeight(32);
     }
 
-    // =========================================================================
-    // 非管理者模式：隐藏"方位间隔"和"波形参数配置"相关控件
-    // =========================================================================
-    if (!AuthManager::instance().isAdminMode()) {
-        // 从GridLayout中移除并隐藏方位间隔控件
-        hideFromGrid(ui->gridLayout, ui->label_26);
-        hideFromGrid(ui->gridLayout, ui->azistep);
-        // 将积累脉冲数移到空出的位置，消除左侧空隙
-        ui->gridLayout->removeWidget(ui->label);
-        ui->gridLayout->removeWidget(ui->pulseNum1);
-        ui->gridLayout->addWidget(ui->label, 2, 0);
-        ui->gridLayout->addWidget(ui->pulseNum1, 2, 1);
-
-        // 隐藏波形参数配置区域（grid rows 4~20 的所有控件）
-        QGridLayout* grid = ui->gridLayout;
-        if (grid) {
-            for (int row = 4; row <= 20; ++row) {
-                for (int col = 0; col < grid->columnCount(); ++col) {
-                    QLayoutItem* item = grid->itemAtPosition(row, col);
-                    if (item && item->widget()) {
-                        hideFromGrid(grid, item->widget());
-                    }
-                }
-            }
+    connect(&AuthManager::instance(), &AuthManager::modeChanged, this, [this](bool admin) {
+        applyPermissions(admin);
+        if (!admin) {
+            // The standalone waveform window is developer-only; revoke open instances too.
+            QPointer<QWidget> host = window();
+            if (host) host->close();
         }
-    }
+    });
+    applyPermissions(AuthManager::instance().isAdminMode());
 
     // 窗口居中显示（在所有控件显隐设置之后，adjustSize自动计算正确尺寸）
     centerWidgetOnScreen(this);
 }
 
+void waveAndSample::applyPermissions(bool admin)
+{
+    auto* grid = ui->gridLayout;
+    grid->removeWidget(ui->label_26);
+    grid->removeWidget(ui->azistep);
+    grid->removeWidget(ui->label);
+    grid->removeWidget(ui->pulseNum1);
+    if (admin) {
+        grid->addWidget(ui->label_26, 2, 0);
+        grid->addWidget(ui->azistep, 2, 1);
+    }
+    grid->addWidget(ui->label, 2, admin ? 2 : 0);
+    grid->addWidget(ui->pulseNum1, 2, admin ? 4 : 1);
+    ui->label_26->setVisible(admin);
+    ui->azistep->setVisible(admin);
+    for (const auto& position : m_waveformWidgets) {
+        grid->removeWidget(position.widget);
+        if (admin) {
+            grid->addWidget(position.widget, position.row, position.column,
+                            position.rowSpan, position.columnSpan);
+            position.widget->show();
+        } else {
+            hideFromGrid(grid, position.widget);
+        }
+    }
+    ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(admin);
+    if (ui->saveButton) ui->saveButton->setEnabled(admin);
+    grid->invalidate();
+    if (layout()) layout()->invalidate();
+    updateGeometry();
+}
+
 void waveAndSample::onAccept()
 {
+    if (!AuthManager::instance().isAdminMode()) return;
     BeamControl param;
     param.flagNum = 0;
 
@@ -243,9 +269,15 @@ void waveAndSample::restoreParam(const BeamControl &param)
 
 void waveAndSample::onSaveToConfig()
 {
-    // 弹出确认对话框
-    if (!CustomMessageBox::showConfirm(this, tr("确认保存"),
-                                       tr("是否将当前波形参数保存到配置文件？\n下次启动将自动加载这些参数。"))) {
+    if (!AuthManager::instance().isAdminMode()) return;
+    // A mode change may delete this host while the nested confirmation loop runs.
+    QPointer<waveAndSample> self(this);
+    QPointer<CustomMessageBox> confirmation = new CustomMessageBox(this);
+    const int result = confirmation->showDialog(
+        tr("确认保存"), tr("是否将当前波形参数保存到配置文件？\n下次启动将自动加载这些参数。"),
+        CustomMessageBox::Confirm, CustomMessageBox::YesNo);
+    if (confirmation) confirmation->deleteLater();
+    if (!self || result != QDialog::Accepted || !AuthManager::instance().isAdminMode()) {
         return;
     }
 
@@ -283,13 +315,14 @@ void waveAndSample::onSaveToConfig()
                                ui->elestep3->text().toFloat() / 0.01f);
 
     // 保存到文件
-    if (CF_INS.save()) {
-        CustomMessageBox::showInfo(this, tr("保存成功"),
-                                  tr("波形参数已保存到配置文件！\n下次启动将自动加载这些参数。"));
-    } else {
-        CustomMessageBox::showWarning(this, tr("保存失败"),
-                                     tr("无法保存配置文件，请检查文件权限。"));
-    }
+    const bool saved = CF_INS.save();
+    QPointer<CustomMessageBox> message = new CustomMessageBox(this);
+    message->showDialog(saved ? tr("保存成功") : tr("保存失败"),
+                        saved ? tr("波形参数已保存到配置文件！\n下次启动将自动加载这些参数。")
+                              : tr("无法保存配置文件，请检查文件权限。"),
+                        saved ? CustomMessageBox::Info : CustomMessageBox::Warning,
+                        CustomMessageBox::Ok);
+    if (message) message->deleteLater();
 }
 
 waveAndSample::~waveAndSample()

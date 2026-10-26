@@ -411,11 +411,14 @@ private slots:
 
 private:
     void setupResizableMainLayout();
+    void onModeSwitchClicked();
+    void refreshModeControls();
     void setupOfflineRaeButtons();
     void drawOfflineRaeDataset(const QString& filePath, const QString& datasetName);
     QString resolveRuntimePath(const QString& path) const;
 
     Ui::MainOverLayOut *ui;           ///< UI界面对象指针
+    QPushButton* m_modeSwitchButton = nullptr;
     PPIView* mView;                   ///< PPI雷达显示视图
     PPIScene* mScene;                 ///< PPI雷达场景管理器
     ZoomViewWidget* m_zoomView;       ///< 缩放视图控制器

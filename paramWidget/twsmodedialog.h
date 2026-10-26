@@ -45,6 +45,7 @@ private:
     static unsigned char PRTs[];
 
     void setupConnections();
+    void applyPermissions(bool admin);
     void updateSampleParams(int waveIndex, int beamNum);
 };
 

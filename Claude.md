@@ -45,7 +45,7 @@ DispCtrl/
 ├── Basic/              # 基础设施
 │   ├── Protocol.h/cpp      # 协议结构体定义（小端、1B对齐）
 │   ├── ConfigManager.h     # TOML 配置单例（CF_INS宏访问）
-│   ├── authmanager.h       # 认证管理
+│   ├── authmanager.h/cpp   # 用户/开发者模式与认证通知
 │   ├── bindThread.h        # 线程绑定工具
 │   ├── log.h/cpp           # 统一日志系统
 │   ├── mathUtil.h          # 数学工具（极坐标转换等）
@@ -382,6 +382,7 @@ ExternalCtrlManager::externalCtrlLog(QString)     // 日志
 ### 4. 数据流连接修复（2025-10-24，详见 `.azure/dataflow_fix_summary.md`）
 - PPIScene：`Controller::detInfoProcess/traInfoProcess → DetManager/TrackManager::add*Point`（`ppisscene.cpp`）。
 - 航迹表格：`traInfoProcess → MainOverLayOut::updateTrackList/updateDroneTrackList`（`mainoverlayout.cpp`）。
+- 当前航迹管理/无人机/TBD/协同表共用列序：`ID、距离、方位、高度、速度、类型、SNR、幅度、俯仰`。幅度直接显示上报`PointInfo.amp`（1位小数，不追加换算）；暂不显示“指控”列，外部上报排序/行强调仍从模块实时状态获取，不得覆盖幅度单元格。
 - 扇区：`det/traInfoProcess → Sector{Det,Track}Manager::add*Point`（`mainoverlayout.cpp`）。
 
 ### 5. 数据存储管理（datasaveui，2026-01-26）
@@ -413,8 +414,15 @@ ExternalCtrlManager::externalCtrlLog(QString)     // 日志
 
 ### 10. 参数保存到 config.toml（2026-01-21）
 - "保存参数"按钮 → `CustomMessageBox::showConfirm` → `CF_INS.saveXxxParam(...)` + `CF_INS.save()` → 成功/失败弹窗；下次启动构造中用 `CF_INS.xxxParam(默认值)` 恢复。
-- 已支持段落 `[params.*]`：`servo`(cmd,speed,az)、`scanrange`(workMode)、`beamcontrol`(freqID,type,3波形)、`sigpro`(16参)、`datapro`(15参)、`datasave`(saveSwitch,dataID)。
+- 已支持段落 `[params.*]`：`servo`(cmd,speed,az)、`scanrange`(workMode)、`beamcontrol`(freqID,type,3波形)、`sigpro`(原16参及距离上限/高度下界)、`datapro`(15参)、`datasave`(saveSwitch,dataID)。
+- AA06 负载保持32字节：距离上限为第23～24字节 unsigned short，高度处理下界为第25～26字节 signed short，均小端、1 m量化，剩余6字节填0。`heightProcessLowerLimitM` 默认0，允许负值，UI保存/下发校验 -32768～32767；配置缺省或非法时回退0。该值仅控制信号处理算法，不改变显示高度范围，不在显控侧追加姿态或地理坐标转换。
 - `.ui` 在 `QDialogButtonBox` 前加 `QPushButton name="saveButton"`。
+
+### 11. 用户/开发者模式（2026-10-22）
+- 每次启动直接进入用户模式，不再弹出模式选择或登录框。版本号右侧显示当前模式按钮；用户模式点击后打开深色用户名/密码验证框，沿用原有本地凭据；验证成功才升级，错误或取消保持用户模式。开发者模式点击直接降为用户模式。
+- `Basic/authmanager.*` 为 GUI 线程的 `QObject` 单例，保留 `isAdminMode()` 兼容接口，以 `modeChanged(bool)` 通知已打开的界面。CMake/qmake 必须编译新增实现并对该头文件执行 MOC，不能再按纯头文件类处理。
+- 模式变化即时重新排布主界面参数按钮，并刷新 TAS/TWS 的方位步进及波形高级项；重新升级时恢复原布局和原输入值，不移动已打开窗口。降为用户模式时关闭开发者专用的“波形及采样控制”宿主，保存/下发入口再次检查权限。嵌套确认框采用堆对象及 `QPointer` 防止宿主销毁后继续访问。
+- 切换只影响本次进程的界面权限，不写配置、不保存密码、不自动下发设备控制或重置参数；下次启动仍是用户模式。这是沿用现有本地界面权限机制，不替代操作系统级安全隔离。
 
 ---
 
@@ -600,6 +608,7 @@ delete ui;
 ```
 
 - 分离窗口共用 `CusWindow`：最大化按当前窗口与各屏幕的重叠面积选屏，并使用目标屏幕的 `availableGeometry`；不可直接强制主屏。坐标全程使用 Qt 全局逻辑坐标（可能为负），不要额外乘屏幕缩放倍数。还原矩形在最大化前保存，分离/重附加所有权不变。
+- 跨兄弟对象的UI信号必须以实际UI接收对象为连接上下文，不能以仍存活的父窗口为上下文再捕获已销毁的子UI。模块析构停止工作不得重新通知UI就绪状态；停止记录/线程仍需完整执行。健康/存储窗口的destroyed回调会访问覆盖层成员，必须在覆盖层派生成员析构前同步销毁窗口。
 
 ### 5. .ui 文件修改后需重新构建
 修改 `.ui` 后需 cmake 重新构建才能生成 `ui_xxx.h`，让用户自行执行。
@@ -1121,6 +1130,28 @@ dataToScene            # RangeAzimuth坐标转换
 - **光电目指操作员界面**：将第6节链路的详情窗口从纯文本改为状态卡+对照表，正文/表格22px、分区标题24px，深色/青绿风格沿用健康管理。上方显示TCP连接、当前目标/下发状态及雷达/光电端点，使用绿/红/黄区分在线、故障和等待；下方固定10×4表格并列“最近下发/当前批次回传/上一批次回传”，显示批号、类型、响应状态值及解释、经纬高、报文/本机时间、设备ID、匹配结果。移除“仅第6节”等面向开发者的正文，停止按钮统一为“停止下发”，无活动目标时禁用。
 - **数据真实性与刷新**：工作线程确认本机TCP写入后才更新最近下发表格，保留对应写入快照，避免将待发送坐标显示成已发送；不将本机入队当作对端执行。回传沿用两批次有界模型和会话/顺序校验，不改变协议、F6/右键选择、消批和单目标规则。表格单元格复用，仅可见/值变化时更新；关闭重开保留记录。窗口在通用CusWindow首次adjustSize后按所在屏幕设置初始尺寸，支持滚动和列宽调整，大字不因缩窗变小。
 - **验证**：扩展UI QTest源码检查22px字体、状态卡、四列表格、无开发说明、真实回传字段映射、两批次轮换、单元格复用、停止禁用和关闭重开。使用Qt5.14 MOC及MSVC `/Zs`静态语法检查，不自动完整构建；尚未运行QTest或实机视觉验收。
+
+### v5.84 (2026-10-22)
+
+- **航迹列表显示幅度**：将所有共用航迹列表的第8列从“指控”替换为“幅度”，绑定上报`PointInfo.amp`并沿用1位小数格式，列数/俯仰位置/手动列宽不变。分类结果触发普通航迹复制到无人机表时同步幅度；排序和外部上报状态刷新不再向第8列写入状态文字，保留既有上报行排序、强调及实际通信功能。
+- **验证边界**：针对列序、幅度绑定、分类复制和状态刷新路径进行静态检查；不自动完整构建，界面实机验证由本机编译后执行。
+
+### v5.85 (2026-10-22)
+
+- **转储确认退出期访问冲突**：Windows事件及`DispCtrl.exe.20168.dmp`与同批EXE/COFF核对，RVA `0xDFF3E` 为`arrangeParamSettingsButtons`解引用已置空的ui。实际链为总控模块析构→stopNetwork→readyChanged(false)→以主窗口为context的lambda→已销毁覆盖层。改为覆盖层context及捕获，模块析构用`stopNetwork(false)`不通知UI，仍正常封口/flush记录和退出线程。配置总控false原先仍可触发，不能靠关闭配置规避。主窗口成员指针显式初始化，避免初次show引发的延迟回调读未初始化成员。
+- **窗口生命周期与阶段日志**：覆盖层析构早期断开总控信号，在成员仍有效时同步删除健康/存储子窗口，避免destroyed回调访问已析构计时器/数组。新增健康/存储开窗阶段、覆盖层析构和应用退出来源日志；正常运行不增加逐点日志。没有修改四阵面协议、显示缓存、BIT过滤或GPU配置。
+- **证据边界与验证**：已证实关闭销毁链，不将其直接等同于用户描述的首次开窗触发原因；WebGL警告、非法UDP包及积压日志也不能单独定因。新增`command_control_lifecycle_test`源码覆盖无网络模块析构不通知、接收UI先于模块销毁；Qt5.14 MOC及修改源码/测试的MSVC `/Zs`语法检查、针对性源路径检查通过。未自动完整构建、运行QTest或实机复现。复测与转储对应方法见`docs/window_open_crash_investigation.md`。
+
+### v5.86 (2026-10-22)
+
+- **启动与运行期模式切换**：取消启动模式/登录弹窗，固定用户模式；版本号右侧新增当前模式按钮。升级通过独立深色验证框校验原有账号密码，失败可重试/取消；开发者模式点击直接降级。认证状态只驻留内存，不写配置或记录密码。
+- **权限即时生效**：`AuthManager` 新增 QObject 模式变更信号，主参数按钮即时显隐重排，已打开 TAS/TWS 高级项可反复显隐恢复且不丢输入、不重置窗口位置。降级关闭波形控制窗口并禁止其保存/下发，确认对话框使用受保护的实例生命周期；模式切换本身不发送 UDP。同步 CMake/qmake 和新增 `auth_mode_test` 测试源码。
+- **验证边界**：针对默认用户、错误/取消、正确认证与重复通知补充 QTest 源码；使用 Qt5.14 MOC、MSVC `/Zs` 和源路径检查验证。未自动完整构建、执行 QTest 或实机 UI 操作，仍需本机编译后验收。
+
+### v5.87 (2026-10-26)
+
+- **AA06 高度处理下界**：信号处理窗口在距离上限右侧增加有符号整数高度下界，单位m、默认0，允许 -32768～32767；下发及保存都校验。复用预留第25～26字节，保留6字节清零和32字节负载，加入编译期长度/偏移断言。仍经原Controller→资源调度下发链路，不调整其余参数、门限量化或通信端点。
+- **配置及验证**：`params.sigpro.heightProcessLowerLimitM` 支持启动恢复、保存及缺省/非法回退，同步仓库默认配置和自动配置模板，旧配置无需补字段。新增 `sigpro_param_test` 源码覆盖默认帧、正负高度及short两端边界字节，校验原字段不移位及预留清零；进行UIC/MOC、MSVC `/Zs`及文档/配置静态检查，不自动完整构建或执行QTest，实际信号处理联调需本机验收。
 
 **文档结束**
 

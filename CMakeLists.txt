@@ -212,6 +212,7 @@ set(SRC_FILES
     cusWidgets/detachablewidget.cpp            # 可分离窗口部件
     cusWidgets/cuswindow.cpp                   # 自定义窗口
     cusWidgets/custommessagebox.cpp            # 自定义消息框
+    cusWidgets/developerlogindialog.cpp        # 运行时开发者模式验证
     cusWidgets/customcombobox.cpp              # 自定义ComboBox组件
     cusWidgets/customspinbox.cpp               # 自定义SpinBox组件
     cusWidgets/customspinboxstyle.cpp          # 自定义SpinBox样式
@@ -234,6 +235,7 @@ set(SRC_FILES
 
     # 基础模块 - 系统基础功能
     Basic/log.cpp                              # 日志系统
+    Basic/authmanager.cpp                      # 用户/开发者模式状态和通知
     Basic/Protocol.cpp                         # 通信协议定义
     Basic/OsmRoadParser.cpp                    # OSM道路数据解析器
 )
@@ -301,6 +303,7 @@ set(HDR_FILES
     cusWidgets/cuswindow.h                     # 自定义窗口
     cusWidgets/windowgeometry.h                # 多屏窗口几何选择
     cusWidgets/custommessagebox.h              # 自定义消息框
+    cusWidgets/developerlogindialog.h           # 运行时开发者模式验证
     cusWidgets/customcombobox.h                # 自定义ComboBox组件
     cusWidgets/customspinbox.h                 # 自定义SpinBox组件
     cusWidgets/customspinboxstyle.h            # 自定义SpinBox样式
@@ -433,6 +436,31 @@ option(DISPCTRL_BUILD_TESTS "Build focused DispCtrl QTest targets" OFF)
 if(DISPCTRL_BUILD_TESTS)
     enable_testing()
     find_package(Qt5 REQUIRED COMPONENTS Test)
+    add_executable(sigpro_param_test tests/sigproparam_test.cpp)
+    target_include_directories(sigpro_param_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(sigpro_param_test PRIVATE Qt5::Core Qt5::Test)
+    add_test(NAME sigpro_param_test COMMAND sigpro_param_test)
+    add_executable(auth_mode_test tests/authmode_test.cpp Basic/authmanager.cpp Basic/authmanager.h
+        cusWidgets/developerlogindialog.cpp cusWidgets/developerlogindialog.h)
+    target_include_directories(auth_mode_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(auth_mode_test PRIVATE Qt5::Core Qt5::Widgets Qt5::Test)
+    add_test(NAME auth_mode_test COMMAND auth_mode_test)
+    set_tests_properties(auth_mode_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    add_executable(command_control_lifecycle_test tests/commandcontrol_lifecycle_test.cpp
+        CommandControl/commandcontrolmodule.cpp CommandControl/commandcontrolmodule.h
+        CommandControl/commandcontrolprotocol.cpp CommandControl/commandcontrolconfig.cpp
+        CommandControl/commandcontrolnetworkmonitor.cpp CommandControl/commandcontrolnetworkmonitor.h
+        CommandControl/ntptimesync.cpp CommandControl/ntptimesync.h
+        CommandControl/commandcontrolrecordstore.cpp CommandControl/commandcontroltrackreportstore.cpp
+        CommandControl/commandcontrolrecordwriter.cpp CommandControl/commandcontrolrecordwriter.h
+        CommandControl/commandcontroltransport.cpp CommandControl/commandcontroltransport.h
+        CommandControl/commandcontrolwindow.cpp CommandControl/commandcontrolwindow.h Basic/log.cpp)
+    target_include_directories(command_control_lifecycle_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(command_control_lifecycle_test PRIVATE Qt5::Core Qt5::Widgets Qt5::Network Qt5::Test)
+    if(WIN32)
+        target_link_libraries(command_control_lifecycle_test PRIVATE advapi32)
+    endif()
+    add_test(NAME command_control_lifecycle_test COMMAND command_control_lifecycle_test)
     add_executable(zhoushan_optical_protocol_test tests/zhoushanopticalprotocol_test.cpp)
     target_include_directories(zhoushan_optical_protocol_test PRIVATE "${CMAKE_SOURCE_DIR}")
     target_link_libraries(zhoushan_optical_protocol_test PRIVATE Qt5::Core Qt5::Test)

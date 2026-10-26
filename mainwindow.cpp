@@ -41,6 +41,7 @@
 #include "Basic/log.h"
 #include <QVBoxLayout>
 #include <QTimer>
+#include <QCloseEvent>
 #include "mapDisp/mapprox.h"
 #include "mainPanel/mainoverlayout.h"
 #include "Controller/controller.h"
@@ -353,10 +354,12 @@ void FramelessMainWindow::setupOverlayUI()
                 &PPIView::removeCommandControlReplayTrack);
         connect(commandControl, &CommandControlModule::replayTracksCleared, ppiView,
                 &PPIView::clearCommandControlReplayLegend);
-        connect(commandControl, &CommandControlModule::readyChanged, this,
-                [this, commandControl](bool) {
+        auto* overlay = m_overlayWidget;
+        // The overlay can be destroyed before this parent deletes the module.
+        connect(commandControl, &CommandControlModule::readyChanged, overlay,
+                [overlay, commandControl](bool) {
                     // 控制窗口和测试航迹状态不依赖 UDP 就绪；实际普通航迹发包仍由模块内部校验。
-                    m_overlayWidget->setCommandControlModule(commandControl->isEnabled() ? commandControl : nullptr);
+                    overlay->setCommandControlModule(commandControl->isEnabled() ? commandControl : nullptr);
                 });
         commandControl->init();
         // PPI 的 F7/右键入口仅依赖配置开关显示；实际下发仍须校验 UDP 已就绪并已完成 DD33/DD34 登录。
@@ -403,4 +406,10 @@ void FramelessMainWindow::resizeEvent(QResizeEvent *event)
             m_overlayWidget->setGeometry(0, 0, width(), height());
         }
     });
+}
+
+void FramelessMainWindow::closeEvent(QCloseEvent* event)
+{
+    LOG_INFO("[AppLifecycle] main window close event");
+    QMainWindow::closeEvent(event);
 }

@@ -429,6 +429,26 @@
               </property>
             </widget>
           </item>
+          <item row="9" column="2">
+            <widget class="QLabel" name="heightProcessLowerLimitLabel">
+              <property name="text">
+                <string>高度处理下界(m)</string>
+              </property>
+              <property name="alignment">
+                <set>Qt::AlignCenter</set>
+              </property>
+            </widget>
+          </item>
+          <item row="9" column="3">
+            <widget class="QLineEdit" name="heightProcessLowerLimit">
+              <property name="text">
+                <string>0</string>
+              </property>
+              <property name="toolTip">
+                <string>AA06 第25～26字节，有符号short，小端，1米量化；范围 -32768～32767米。</string>
+              </property>
+            </widget>
+          </item>
         </layout>
       </item>
       <item>

@@ -187,7 +187,7 @@ private:
     void stopRecordWriter();
     void startTimeSync();
     void startNetworkMonitor();
-    void stopNetwork();
+    void stopNetwork(bool notifyReady = true);
     void setStatus(const QString& text);
     CommandControlProtocol::Header nextHeader(quint16 type, quint32 receiverId,
                                                bool requestReceipt, quint8 priority);

@@ -150,7 +150,8 @@ void 类名::onSaveToConfig()
 
 **UI字段**：
 - 噪声、门限、CFAR参数等（参考 `SigProParam` 结构体）。
-- 距离处理上限：单位 m，保存键 `params.sigpro.distanceProcessUpperLimitM`；使用 AA06 原 10 字节预留区的前 2 字节（`unsigned short`、小端、1 m 量化），默认 5200 m，剩余 8 字节保持为 0。
+- 距离处理上限：单位 m，保存键 `params.sigpro.distanceProcessUpperLimitM`；AA06 第23～24字节（`unsigned short`、小端、1 m 量化），默认 5200 m。
+- 高度处理下界：单位 m，保存键 `params.sigpro.heightProcessLowerLimitM`；AA06 第25～26字节（有符号 `short`、小端、1 m 量化），默认 0 m。允许 -32768～32767，界面下发/保存拒绝非法输入；旧配置缺省 0，配置越界或解析失败回退 0。剩余6字节填0，负载总长仍为32字节。高度基准由信号处理端解释，显控不做经纬高或姿态换算。
 
 ### 4. dataprocessui.cpp/h - 数据处理参数
 

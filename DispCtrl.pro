@@ -78,6 +78,7 @@ SOURCES += \
     # 基础模块 - 协议定义、日志系统、配置管理
     Basic/Protocol.cpp \
     Basic/log.cpp \
+    Basic/authmanager.cpp \
     \
     # 控制模块 - 各种管理器和控制逻辑
     Controller/controller.cpp \
@@ -165,6 +166,7 @@ SOURCES += \
     \
     # 自定义组件模块 - UI控件
     cusWidgets/custommessagebox.cpp \
+    cusWidgets/developerlogindialog.cpp \
     cusWidgets/cuswindow.cpp \
     cusWidgets/detachablewidget.cpp \
     cusWidgets/customcombobox.cpp \
@@ -197,6 +199,7 @@ HEADERS += \
     Basic/wgs84coordinate.h \
     Basic/bindThread.h \
     Basic/log.h \
+    Basic/authmanager.h \
     Basic/mathUtil.h \
     \
     # 控制模块头文件
@@ -290,6 +293,7 @@ HEADERS += \
     \
     # 自定义组件模块头文件
     cusWidgets/custommessagebox.h \
+    cusWidgets/developerlogindialog.h \
     cusWidgets/cuswindow.h \
     cusWidgets/windowgeometry.h \
     cusWidgets/detachablewidget.h \

@@ -67,6 +67,7 @@ private:
     static unsigned char PRTs[];
 
     void setupConnections();
+    void applyPermissions(bool admin);
     void updateSampleParams(int waveIndex, int beamNum);
     void updateServoCenterAngle();  // TAS模式：自动计算并更新伺服中心角度
 };

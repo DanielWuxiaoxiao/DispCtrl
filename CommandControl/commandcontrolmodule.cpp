@@ -279,7 +279,8 @@ CommandControlModule::CommandControlModule(QObject* parent)
 
 CommandControlModule::~CommandControlModule()
 {
-    stopNetwork();
+    // Flush recording and join workers, but never re-enter UI during destruction.
+    stopNetwork(false);
     delete m_window;
     m_window = nullptr;
 }
@@ -536,7 +537,7 @@ void CommandControlModule::onTransportSendResult(quint16 messageType, bool succe
     }
 }
 
-void CommandControlModule::stopNetwork()
+void CommandControlModule::stopNetwork(bool notifyReady)
 {
     m_linkTimer.stop();
     m_equipmentStatusTimer.stop();
@@ -567,7 +568,7 @@ void CommandControlModule::stopNetwork()
         m_transport = nullptr;
     }
     m_ready = false;
-    emit readyChanged(false);
+    if (notifyReady) emit readyChanged(false);
 }
 
 void CommandControlModule::setStatus(const QString& text)

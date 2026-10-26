@@ -32,6 +32,7 @@
 #include "cusWidgets/customcombobox.h"
 #include "cusWidgets/custommessagebox.h"
 #include "cusWidgets/cuswindow.h"
+#include "cusWidgets/developerlogindialog.h"
 #include "cusWidgets/detachablewidget.h"
 #include "cusWidgets/frozentablewidget.h"
 // 参数配置对话框头文件
@@ -114,7 +115,7 @@ enum TrackTableColumn {
     TrackSpeedColumn,
     TrackTypeColumn,
     TrackSnrColumn,
-    TrackControlColumn,
+    TrackAmplitudeColumn,
     TrackElevationColumn,
     TrackTableColumnCount
 };
@@ -283,6 +284,7 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     m_sigProParam.clutterIter = CF_INS.sigProClutterIter(19);
     m_sigProParam.algorithmSwitch = CF_INS.sigProAlgorithmSwitch(7);
     m_sigProParam.distanceProcessUpperLimitM = CF_INS.sigProDistanceProcessUpperLimitM(5200);
+    m_sigProParam.heightProcessLowerLimitM = CF_INS.sigProHeightProcessLowerLimitM(0);
 
     // 数据处理参数
     m_dataProParam.startWinLen = CF_INS.dataProStartWinLen(4);
@@ -736,11 +738,34 @@ void MainOverLayOut::topRightSet() {
     ui->SubtitleLabel->setText(APP_VERSION_STR);
     ui->SubtitleLabel->setToolTip("软件版本号");
 
+    ui->verticalLayout_6->removeWidget(ui->SubtitleLabel);
+    auto* modeRow = new QHBoxLayout;
+    modeRow->setSpacing(10);
+    modeRow->addWidget(ui->SubtitleLabel, 0, Qt::AlignVCenter);
+    m_modeSwitchButton = new QPushButton(ui->SubtitleLabel->parentWidget());
+    m_modeSwitchButton->setObjectName(QStringLiteral("modeSwitchButton"));
+    m_modeSwitchButton->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+    m_modeSwitchButton->setStyleSheet(QStringLiteral(
+        "QPushButton#modeSwitchButton { color:#66FFCC; background:#123630; border:1px solid #66CCAA; "
+        "border-radius:5px; font-size:15px; padding:3px 10px; min-height:24px; }"
+        "QPushButton#modeSwitchButton:hover { background:#195046; }"));
+    modeRow->addWidget(m_modeSwitchButton, 0, Qt::AlignVCenter);
+    modeRow->addStretch();
+    ui->verticalLayout_6->addLayout(modeRow);
+    connect(m_modeSwitchButton, &QPushButton::clicked, this, &MainOverLayOut::onModeSwitchClicked);
+    connect(&AuthManager::instance(), &AuthManager::modeChanged, this, [this](bool) {
+        refreshModeControls();
+        arrangeParamSettingsButtons();
+        LOG_INFO(QStringLiteral("[UI_MODE] switched to %1").arg(AuthManager::instance().isAdminMode() ? "developer" : "user"));
+    });
+    refreshModeControls();
+
     connect(ui->minButton, &QPushButton::clicked, CON_INS, &Controller::minimizeWindow);
     connect(ui->CloseButton, &QPushButton::clicked, this, [this]() {
         // 使用 nullptr 作为父窗口，避免在 quit 时对话框与主窗口的释放顺序冲突
         if (CustomMessageBox::showConfirm(nullptr, "退出确认", "是否确认退出程序？")) {
             // 延迟退出，确保对话框完全关闭后再退出
+            LOG_INFO("[AppLifecycle] quit requested by main close button");
             QTimer::singleShot(0, qApp, &QApplication::quit);
         }
     });
@@ -1120,10 +1145,19 @@ void MainOverLayOut::sendScanRangeParams() {
 }
 
 MainOverLayOut::~MainOverLayOut() {
+    LOG_INFO("[UI_LIFECYCLE][MainOverLayOut] destroy begin");
+    disconnect(&AuthManager::instance(), nullptr, this, nullptr);
+    if (m_commandControlModule) {
+        disconnect(m_commandControlModule, nullptr, this, nullptr);
+    }
     m_healthRefreshTimer->stop();
     if (m_commandTimer) {
         m_commandTimer->stop();
     }
+    // destroyed 回调会访问计时器和健康页缓存，必须在派生成员析构前执行。
+    // 直接销毁也会移除待处理的 DeferredDelete，不运行嵌套事件循环。
+    delete m_healthWindow;
+    delete m_dataStorageWindow;
     if (CON_INS) {
         disconnect(CON_INS, nullptr, this, nullptr);
         // 断开连接到扇区显示子对象的信号，避免析构时回调已释放对象
@@ -1147,6 +1181,7 @@ MainOverLayOut::~MainOverLayOut() {
         delete ui;
         ui = nullptr;
     }
+    LOG_INFO("[UI_LIFECYCLE][MainOverLayOut] destroy end");
 }
 
 void MainOverLayOut::setCommandControlModule(CommandControlModule* module)
@@ -1401,7 +1436,7 @@ void MainOverLayOut::setupTrackTable(QTableWidget* tableWidget, FrozenColumnHelp
     if (!tableWidget) return;
 
     QStringList headers;
-    headers << "ID" << "距离" << "方位" << "高度" << "速度" << "类型" << "SNR" << "指控" << "俯仰";
+    headers << "ID" << "距离" << "方位" << "高度" << "速度" << "类型" << "SNR" << "幅度" << "俯仰";
 
     tableWidget->setColumnCount(headers.size());
     tableWidget->setHorizontalHeaderLabels(headers);
@@ -1460,8 +1495,8 @@ void MainOverLayOut::fitTrackTableColumnsToViewport(QTableWidget* tableWidget)
     tableWidget->setProperty("trackColumnsFitting", true);
     tableWidget->setColumnWidth(TrackIdColumn, idWidth);
     int assignedWidth = idWidth;
-    for (int column = TrackRangeColumn; column <= TrackControlColumn; ++column) {
-        const int width = column == TrackControlColumn
+    for (int column = TrackRangeColumn; column <= TrackAmplitudeColumn; ++column) {
+        const int width = column == TrackAmplitudeColumn
             ? qMax(48, viewportWidth - assignedWidth) : qMax(48, commonWidth);
         tableWidget->setColumnWidth(column, width);
         assignedWidth += width;
@@ -1658,6 +1693,7 @@ void MainOverLayOut::updateTargetClassification(unsigned int batchID, int target
         info.altitute = trackTable->item(ordinaryTrackRow, TrackHeightColumn)->text().toFloat();
         info.speed = trackTable->item(ordinaryTrackRow, TrackSpeedColumn)->text().toFloat();
         info.SNR = trackTable->item(ordinaryTrackRow, TrackSnrColumn)->text().toFloat();
+        info.amp = trackTable->item(ordinaryTrackRow, TrackAmplitudeColumn)->text().toFloat();
         info.type = PointType::Track;
         info.targetRecResult = 1;
 
@@ -1878,8 +1914,8 @@ int MainOverLayOut::addOrUpdateTrackRow(QTableWidget* tableWidget, const PointIn
     }
     ensureItem(TrackTypeColumn)->setText(recResultStr);
     ensureItem(TrackSnrColumn)->setText(QString::number(info.SNR, 'f', 1));
+    ensureItem(TrackAmplitudeColumn)->setText(QString::number(info.amp, 'f', 1));
     const QString controlStatus = externalControlStatus(info);
-    ensureItem(TrackControlColumn)->setText(controlStatus);
     ensureItem(TrackElevationColumn)->setText(QString::number(info.elevation, 'f', 1));
 
     applyTrackRowAppearance(tableWidget, row, info.type, controlStatus);
@@ -1938,8 +1974,7 @@ void MainOverLayOut::sortTrackTable(QTableWidget* tableWidget) {
         PointInfo infoB;
         infoB.batch = batchB;
         infoB.type = b.type;
-        // 不相信行内缓存的“指控”文本；状态变化和批量表刷新跨事件循环时，
-        // 直接从总控/激光模块取状态，保证上报行一定优先排序。
+        // 上报状态直接从模块读取，不依赖表格显示列，保证上报行优先排序。
         const bool reportingA = isExternalControlStatus(externalControlStatus(infoA));
         const bool reportingB = isExternalControlStatus(externalControlStatus(infoB));
         if (reportingA != reportingB) {
@@ -1978,9 +2013,6 @@ void MainOverLayOut::sortTrackTable(QTableWidget* tableWidget) {
         info.batch = rowData.columns.value(TrackIdColumn).toUInt();
         info.type = rowData.type;
         const QString controlStatus = externalControlStatus(info);
-        if (QTableWidgetItem* statusItem = tableWidget->item(i, TrackControlColumn)) {
-            statusItem->setText(controlStatus);
-        }
         applyTrackRowAppearance(tableWidget, i, rowData.type, controlStatus);
         const bool reporting = isExternalControlStatus(controlStatus);
         const bool startsUnreportedGroup = i > 0 && previousRowReporting && !reporting;
@@ -2082,12 +2114,6 @@ void MainOverLayOut::refreshExternalReportingIndicators()
             info.batch = idItem->text().toUInt();
             info.type = idItem->data(Qt::UserRole).toUInt();
             const QString status = externalControlStatus(info);
-            QTableWidgetItem* statusItem = tableWidget->item(row, TrackControlColumn);
-            if (!statusItem) {
-                statusItem = new QTableWidgetItem();
-                tableWidget->setItem(row, TrackControlColumn, statusItem);
-            }
-            statusItem->setText(status);
             applyTrackRowAppearance(tableWidget, row, info.type, status);
         }
         sortTrackTable(tableWidget);
@@ -2748,22 +2774,26 @@ void MainOverLayOut::onTASModeClicked() {
  * @details 配置数据保存和删除参数
  */
 void MainOverLayOut::onDataStorageClicked() {
+    LOG_INFO("[UI_WINDOW][DataStorage] open entered");
     // 如果窗口已经存在，直接显示并激活
     if (m_dataStorageWindow && m_dataStorageDialog) {
+        LOG_INFO("[UI_WINDOW][DataStorage] reuse; before show");
         m_dataStorageWindow->show();
         m_dataStorageWindow->raise();
         m_dataStorageWindow->activateWindow();
+        LOG_INFO("[UI_WINDOW][DataStorage] shown");
         return;
     }
 
     // 创建新窗口
     m_dataStorageWindow =
         new CusWindow("数据存储管理", QIcon(":/resources/icon/radararray.png"), this);
-    // 不设置Qt::WA_DeleteOnClose，使用手动管理
+    // CusWindow 已启用 WA_DeleteOnClose，关闭时由 destroyed 回调清空持有指针。
 
     m_dataStorageDialog = new DataSaveUI(m_dataStorageWindow);
     m_dataStorageDialog->setWindowFlags(Qt::Widget);
     m_dataStorageWindow->setContentWidget(m_dataStorageDialog);
+    LOG_INFO("[UI_WINDOW][DataStorage] content ready");
 
     // 连接数据存储参数发送
     connect(m_dataStorageDialog, &DataSaveUI::setParam, this, [this](DataSet param) {
@@ -2796,9 +2826,12 @@ void MainOverLayOut::onDataStorageClicked() {
     connect(m_dataStorageWindow, &CusWindow::destroyed, this, [this]() {
         m_dataStorageWindow = nullptr;
         m_dataStorageDialog = nullptr;
+        LOG_INFO("[UI_WINDOW][DataStorage] destroyed");
     });
 
+    LOG_INFO("[UI_WINDOW][DataStorage] before show");
     m_dataStorageWindow->show();
+    LOG_INFO("[UI_WINDOW][DataStorage] shown");
 }
 
 // ============ 参数设置槽函数实现 ============
@@ -2862,6 +2895,10 @@ void MainOverLayOut::onSignalProcessClicked() {
    * @details 配置频率控制和波形参数
    */
 void MainOverLayOut::onFreqControlClicked() {
+    if (!AuthManager::instance().isAdminMode()) {
+        LOG_WARNING("[UI_MODE] blocked developer-only waveform window in user mode");
+        return;
+    }
     // 创建自定义窗口，使用雷达图标
     CusWindow* window =
         new CusWindow("波形及采样控制", QIcon(":/resources/icon/radararray.png"), this);
@@ -3426,11 +3463,14 @@ BITReport MainOverLayOut::currentElectromagneticPanelStatus() const
  * @details 显示信号处理、数据处理、波束调度、目标识别四个子系统的运行状态，实时更新
  */
 void MainOverLayOut::onRadarSystemClicked() {
+    LOG_INFO("[UI_WINDOW][Health] open entered");
     // 如果窗口已存在，则直接显示
     if (m_healthWindow) {
+        LOG_INFO("[UI_WINDOW][Health] reuse; before show");
         m_healthWindow->show();
         m_healthWindow->raise();
         m_healthWindow->activateWindow();
+        LOG_INFO("[UI_WINDOW][Health] shown");
         updateHealthWindow();
         return;
     }
@@ -3475,6 +3515,7 @@ void MainOverLayOut::onRadarSystemClicked() {
         for (auto& widgets : m_healthPanelWidgets) {
             widgets = HealthPanelWidgets{};
         }
+        LOG_INFO("[UI_WINDOW][Health] destroyed");
     });
 
     // 创建内容Widget
@@ -3689,8 +3730,11 @@ void MainOverLayOut::onRadarSystemClicked() {
 
     // 设置内容
     m_healthWindow->setContentWidget(contentWidget);
+    LOG_INFO("[UI_WINDOW][Health] content ready");
 
+    LOG_INFO("[UI_WINDOW][Health] before show");
     m_healthWindow->show();
+    LOG_INFO("[UI_WINDOW][Health] shown");
 
     // 首次更新显示（窗口显示后允许 updateHealthWindow 刷新缓存数据）
     updateHealthWindow();
@@ -3786,6 +3830,24 @@ void MainOverLayOut::enterWorkingModeIfStandby()
     }
 
     ui->btnRadarStandby->click();
+}
+
+void MainOverLayOut::onModeSwitchClicked()
+{
+    if (AuthManager::instance().isAdminMode()) {
+        AuthManager::instance().setAdminMode(false);
+        return;
+    }
+    DeveloperLoginDialog dialog(this);
+    dialog.exec();
+}
+
+void MainOverLayOut::refreshModeControls()
+{
+    if (!m_modeSwitchButton) return;
+    const bool developer = AuthManager::instance().isAdminMode();
+    m_modeSwitchButton->setText(developer ? QStringLiteral("开发者模式") : QStringLiteral("用户模式"));
+    m_modeSwitchButton->setToolTip(developer ? QStringLiteral("点击切换为用户模式") : QStringLiteral("点击验证并进入开发者模式"));
 }
 
 void MainOverLayOut::arrangeParamSettingsButtons()

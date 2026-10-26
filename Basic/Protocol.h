@@ -12,6 +12,7 @@
 #include <string.h>
 #include <QList>
 #include <QMetaType>
+#include <cstddef>
 #pragma pack(1)
 
 //优先是config.json中的默认值，其次是这里的constexpr值
@@ -478,9 +479,10 @@ typedef struct _SigProParam
     unsigned char clutterIter;
     unsigned char algorithmSwitch;  //0关 1开 D0杂波感知 D1副瓣匿影 D2 近区补盲
     // 原预留区的前 2 字节：距离处理上限，单位 1 m，小端；默认 5200 m。
-    // 该字段从预留区复用，后续 reserve 仍紧随其后，整个 AA06 报文保持 32 字节不变。
+    // 距离和高度字段均复用预留区，整个 AA06 报文保持 32 字节不变。
     unsigned short distanceProcessUpperLimitM;
-    unsigned char reserve[8];       // 原预留区剩余 8 字节，发送时必须为 0。
+    short heightProcessLowerLimitM; // 有符号高度处理下界，1 m 量化，小端，默认 0 m。
+    unsigned char reserve[6];       // 原预留区剩余 6 字节，发送时必须为 0。
 
     _SigProParam()  //default value
     {
@@ -503,9 +505,14 @@ typedef struct _SigProParam
         clutterIter = 19;
         algorithmSwitch = 7;
         distanceProcessUpperLimitM = 5200;
+        heightProcessLowerLimitM = 0;
     }
 }SigProParam;
 static_assert(sizeof(SigProParam) == 32, "AA06 signal-processing parameter layout must remain 32 bytes");
+static_assert(offsetof(SigProParam, distanceProcessUpperLimitM) == 22, "AA06 distance offset changed");
+static_assert(sizeof(short) == 2 && offsetof(SigProParam, heightProcessLowerLimitM) == 24,
+              "AA06 signed height must occupy bytes 25-26");
+static_assert(offsetof(SigProParam, reserve) == 26, "AA06 reserved bytes must start at byte 27");
 
 typedef struct _DataProParam
 {

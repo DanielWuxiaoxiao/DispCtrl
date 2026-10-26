@@ -508,6 +508,8 @@ clutterIter = 19                      # 杂波迭代
 algorithmSwitch = 7                  # 算法开关
 # 距离处理上限（m）；AA06 原 10 字节预留区前 2 字节，unsigned short、小端、1m 量化。
 distanceProcessUpperLimitM = 5200
+# 高度处理下界（m）；AA06 第25~26字节，short、小端、1m量化，范围 -32768~32767。
+heightProcessLowerLimitM = 0
 
 [logging]
 # BIT 正常字段默认不打印；开启后仍按阵面限频。异常首条立即记录，重复按阵面/类别限频并计数。

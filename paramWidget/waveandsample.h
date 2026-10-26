@@ -10,6 +10,7 @@
 #define WAVEANDSAMPLE_H
 
 #include <QDialog>
+#include <QVector>
 #include "Basic/Protocol.h"
 
 namespace Ui {
@@ -43,6 +44,15 @@ private slots:
     void onSaveToConfig();
 
 private:
+    struct GridWidgetPosition {
+        QWidget* widget;
+        int row;
+        int column;
+        int rowSpan;
+        int columnSpan;
+    };
+    void applyPermissions(bool admin);
+    QVector<GridWidgetPosition> m_waveformWidgets;
     Ui::waveAndSample *ui;
 };
 

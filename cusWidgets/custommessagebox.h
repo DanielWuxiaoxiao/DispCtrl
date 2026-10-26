@@ -152,6 +152,17 @@ public:
     static bool getInteger(QWidget *parent, const QString &title, const QString &prompt,
                            int minimum, int maximum, int &value);
 
+    /**
+     * @brief 显示对话框
+     * @param title 对话框标题
+     * @param text 消息内容
+     * @param type 消息类型
+     * @param buttons 按钮类型
+     * @return 用户点击的按钮结果代码
+     * @details 核心对话框显示方法，处理所有类型的消息框
+     */
+    int showDialog(const QString &title, const QString &text, MessageType type, ButtonType buttons);
+
 private:
     QLabel *m_titleLabel;         ///< 标题显示标签
     QLabel *m_textLabel;          ///< 消息内容显示标签
@@ -170,16 +181,6 @@ private:
      */
     void applyStyle();
     
-    /**
-     * @brief 显示对话框
-     * @param title 对话框标题
-     * @param text 消息内容
-     * @param type 消息类型
-     * @param buttons 按钮类型
-     * @return 用户点击的按钮结果代码
-     * @details 核心对话框显示方法，处理所有类型的消息框
-     */
-    int showDialog(const QString &title, const QString &text, MessageType type, ButtonType buttons);
 };
 
 #endif // CUSTOMMESSAGEBOX_H

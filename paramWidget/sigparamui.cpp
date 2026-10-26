@@ -36,6 +36,7 @@ sigParamUI::sigParamUI(QWidget *parent) :
     ui->buttonBox->button(QDialogButtonBox::Cancel)->setText(tr("取消"));
     // AA06 字段是 unsigned short，限制输入范围以避免下发时发生截断。
     ui->distanceProcessUpperLimit->setValidator(new QIntValidator(0, 65535, this));
+    ui->heightProcessLowerLimit->setValidator(new QIntValidator(-32768, 32767, this));
 
     // 连接保存按钮
     if (ui->saveButton) {
@@ -71,6 +72,14 @@ void sigParamUI::onAccept()
         return;
     }
     param.distanceProcessUpperLimitM = static_cast<unsigned short>(distanceLimit);
+    bool heightLimitOk = false;
+    const int heightLimit = ui->heightProcessLowerLimit->text().toInt(&heightLimitOk);
+    if (!heightLimitOk || heightLimit < -32768 || heightLimit > 32767) {
+        CustomMessageBox::showWarning(this, tr("参数无效"),
+                                      tr("高度处理下界必须是 -32768～32767 米的整数。"));
+        return;
+    }
+    param.heightProcessLowerLimitM = static_cast<short>(heightLimit);
     if(ui->cluttersense->checkState() == Qt::Checked)
         param.algorithmSwitch |= 1;
     else
@@ -124,6 +133,7 @@ void sigParamUI::restoreParam(const SigProParam &param)
     ui->clutterrefresh->setText(QString::number(param.clutterUnitWin));
     ui->clutteriter->setText(QString::number(param.clutterIter));
     ui->distanceProcessUpperLimit->setText(QString::number(param.distanceProcessUpperLimitM));
+    ui->heightProcessLowerLimit->setText(QString::number(param.heightProcessLowerLimitM));
 
     if(param.algorithmSwitch & 1)
     {
@@ -178,6 +188,14 @@ void sigParamUI::onSaveToConfig()
         return;
     }
 
+    bool heightLimitOk = false;
+    const int heightLimit = ui->heightProcessLowerLimit->text().toInt(&heightLimitOk);
+    if (!heightLimitOk || heightLimit < -32768 || heightLimit > 32767) {
+        CustomMessageBox::showWarning(this, tr("参数无效"),
+                                      tr("高度处理下界必须是 -32768～32767 米的整数，未保存配置。"));
+        return;
+    }
+
     // 保存信号处理参数到配置（修正：参数顺序必须与 ConfigManager::saveSigProParam 一致）
     CF_INS.saveSigProParam(
         ui->noise->text().toFloat() / 0.01f,           // 第1个参数：noise
@@ -196,7 +214,8 @@ void sigParamUI::onSaveToConfig()
         ui->clutterrefresh->text().toShort(),          // 第14个参数：clutterUnitWin
         ui->clutteriter->text().toShort(),             // 第15个参数：clutterIter
         algorithmSwitch,                               // 第16个参数：algorithmSwitch
-        static_cast<unsigned short>(distanceLimit)       // 第17个参数：距离处理上限（m）
+        static_cast<unsigned short>(distanceLimit),      // 第17个参数：距离处理上限（m）
+        static_cast<short>(heightLimit)                  // 第18个参数：高度处理下界（m）
     );
 
     // 保存到文件

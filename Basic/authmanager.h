@@ -13,15 +13,18 @@
  */
 #ifndef AUTHMANAGER_H
 #define AUTHMANAGER_H
+#include <QObject>
+#include <QString>
 
 /**
  * @brief 管理者模式单例
  *
- * 在启动时通过登录对话框设置管理者模式状态，
- * 各对话框根据 isAdminMode() 决定是否隐藏高级控件。
+ * 启动固定为用户模式，仅人工验证成功后启用开发者模式。
+ * 保留 isAdminMode 命名兼容已有参数窗口，模式变更仅刷新UI权限。
  */
-class AuthManager
+class AuthManager final : public QObject
 {
+    Q_OBJECT
 public:
     static AuthManager& instance()
     {
@@ -33,7 +36,11 @@ public:
     bool isAdminMode() const { return m_isAdminMode; }
 
     /** 设置管理者模式 */
-    void setAdminMode(bool admin) { m_isAdminMode = admin; }
+    void setAdminMode(bool admin);
+    bool enterDeveloperMode(const QString& username, const QString& password);
+
+signals:
+    void modeChanged(bool developerMode);
 
 private:
     AuthManager() = default;

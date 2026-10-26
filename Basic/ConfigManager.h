@@ -664,7 +664,7 @@ public:
                         unsigned char dopProWin, unsigned char dopRefWin, unsigned char MTDWinType,
                         unsigned char clutterMode, unsigned char clutterChannelWidth,
                         unsigned char clutterUnitWin, unsigned char clutterIter, unsigned char algorithmSwitch,
-                        unsigned short distanceProcessUpperLimitM) {
+                        unsigned short distanceProcessUpperLimitM, short heightProcessLowerLimitM = 0) {
         saveValue("params.sigpro.noise", noise);
         saveValue("params.sigpro.thresh1", thresh1);
         saveValue("params.sigpro.thresh2", thresh2);
@@ -682,6 +682,7 @@ public:
         saveValue("params.sigpro.clutterIter", clutterIter);
         saveValue("params.sigpro.algorithmSwitch", algorithmSwitch);
         saveValue("params.sigpro.distanceProcessUpperLimitM", distanceProcessUpperLimitM);
+        saveValue("params.sigpro.heightProcessLowerLimitM", heightProcessLowerLimitM);
     }
 
     unsigned short sigProNoise(unsigned short def = 350) const {
@@ -734,6 +735,15 @@ public:
     }
     unsigned short sigProDistanceProcessUpperLimitM(unsigned short def = 5200) const {
         return getValue("params.sigpro.distanceProcessUpperLimitM", def).toUInt();
+    }
+    short sigProHeightProcessLowerLimitM(short def = 0) const {
+        bool ok = false;
+        const qlonglong value = getValue("params.sigpro.heightProcessLowerLimitM", def).toLongLong(&ok);
+        if (!ok || value < -32768 || value > 32767) {
+            qWarning() << "[ConfigManager] invalid params.sigpro.heightProcessLowerLimitM; using" << def;
+            return def;
+        }
+        return static_cast<short>(value);
     }
 
     // BIT 日志不改变逐帧业务；异常首条立即记录，同类后续按阵面限频。
@@ -1034,7 +1044,9 @@ private:
             content += "clutterIter = 0\n";
             content += "algorithmSwitch = 0\n\n";
             content += "# 距离处理上限，单位 m；写入 AA06 原 10 字节预留区的前 2 字节，小端。\n";
-            content += "distanceProcessUpperLimitM = 5200\n\n";
+            content += "distanceProcessUpperLimitM = 5200\n";
+            content += "# 高度处理下界，单位 m；AA06 第 25~26 字节，有符号 short，小端。\n";
+            content += "heightProcessLowerLimitM = 0\n\n";
             content += "[logging]\n";
             content += "# BIT 正常字段默认不打印；开启后仍按阵面限频。异常首条立即记录。\n";
             content += "bit_report_normal_log_enabled = false\n";

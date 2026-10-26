@@ -145,6 +145,7 @@ protected:
      * @details 确保覆盖层始终与主窗口大小保持一致（跨平台兼容）
      */
     void resizeEvent(QResizeEvent *event) override;
+    void closeEvent(QCloseEvent *event) override;
 
 private:
     // === 初始化方法 ===
@@ -174,8 +175,8 @@ private:
     void setupOverlayUI();
 
     // === 成员变量 ===
-    MainOverLayOut *m_overlayWidget; ///< 上层控制覆盖层组件
-    MapProxyWidget *m_map;           ///< 底层地图显示组件
+    MainOverLayOut *m_overlayWidget = nullptr; ///< 上层控制覆盖层组件
+    MapProxyWidget *m_map = nullptr;           ///< 底层地图显示组件
 };
 
 #endif // MAINWINDOW_H
