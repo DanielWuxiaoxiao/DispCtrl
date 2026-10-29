@@ -40,6 +40,7 @@ Tbd2DispManager::Tbd2DispManager(QObject *parent) : QObject(parent)
     connect(socket, &ThreadedUdpSocket::tbdInfo, this, &Tbd2DispManager::tbdInfoDecode);
     connect(socket, &ThreadedUdpSocket::servoCtrlRet, CON_INS, &Controller::servoCtrlRet);
     connect(socket, &ThreadedUdpSocket::bitReport, CON_INS, &Controller::onBITReport);
+    connect(socket, &ThreadedUdpSocket::bitReferenceReport, CON_INS, &Controller::onBITReferenceReport);
     connect(this, &Tbd2DispManager::tbdInfoProcess, CON_INS, &Controller::tbdInfoProcess);
 }
 

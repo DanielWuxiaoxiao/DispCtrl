@@ -15,6 +15,7 @@
 #include <QPaintEvent>
 #include <QFontMetrics>
 #include <algorithm>
+#include "Basic/uifontscale.h"
 
 // ─── StatsChart ───────────────────────────────────────────────────────────────
 
@@ -22,7 +23,7 @@ StatsChart::StatsChart(QWidget* parent)
     : QWidget(parent)
 {
     setMinimumHeight(120);
-    setStyleSheet("background: #0d0d0d;");
+    setStyleSheet(UiFontScale::style("background: #0d0d0d;"));
 }
 
 void StatsChart::setWindowSec(int seconds)
@@ -76,14 +77,14 @@ void StatsChart::paintEvent(QPaintEvent*)
         int y = marginT + chartH - i * chartH / 4;
         p.drawLine(marginL, y, W - marginR, y);
         p.setPen(QColor(0x44, 0x44, 0x44));
-        p.setFont(QFont("Consolas", 9));
+        p.setFont(UiFontScale::pointFont("Consolas", 9));
         p.drawText(0, y - 6, marginL - 2, 14, Qt::AlignRight, QString::number(i * yMax / 4));
         p.setPen(QPen(QColor(0x22, 0x22, 0x22)));
     }
 
     // X轴标签（每10s一格）
     p.setPen(QColor(0x55, 0x55, 0x55));
-    p.setFont(QFont("Consolas", 8));
+    p.setFont(UiFontScale::pointFont("Consolas", 8));
     p.drawText(marginL, H - marginB + 4, chartW, 20, Qt::AlignLeft,
                QStringLiteral("-%1s").arg(m_samples.size()));
     p.drawText(marginL, H - marginB + 4, chartW, 20, Qt::AlignRight,
@@ -110,7 +111,7 @@ void StatsChart::paintEvent(QPaintEvent*)
     }
 
     // 图例
-    p.setFont(QFont("Consolas", 9));
+    p.setFont(UiFontScale::pointFont("Consolas", 9));
     int lx = marginL + 4;
     for (const auto& spec : lines) {
         p.setPen(spec.color);
@@ -132,19 +133,19 @@ StatsPanel::StatsPanel(QWidget* parent)
     auto mkTitleLbl = [&](const QString& text, const QString& color) {
         auto* l = new QLabel(text, this);
         l->setAlignment(Qt::AlignCenter);
-        l->setStyleSheet(QStringLiteral("color:%1; font-size:11px; font-weight:bold;").arg(color));
+        l->setStyleSheet(UiFontScale::style(QStringLiteral("color:%1; font-size:11px; font-weight:bold;").arg(color)));
         return l;
     };
     auto mkValLbl = [&](const QString& color) {
         auto* l = new QLabel(QStringLiteral("0"), this);
         l->setAlignment(Qt::AlignCenter);
-        l->setStyleSheet(QStringLiteral("color:%1; font-size:28px; font-family:Consolas; font-weight:bold;").arg(color));
+        l->setStyleSheet(UiFontScale::style(QStringLiteral("color:%1; font-size:28px; font-family:Consolas; font-weight:bold;").arg(color)));
         return l;
     };
     auto mkRateLbl = [&]() {
         auto* l = new QLabel(QStringLiteral("0/s"), this);
         l->setAlignment(Qt::AlignCenter);
-        l->setStyleSheet(QStringLiteral("color:#888; font-size:11px;"));
+        l->setStyleSheet(UiFontScale::style(QStringLiteral("color:#888; font-size:11px;")));
         return l;
     };
 
@@ -227,9 +228,9 @@ void StatsPanel::onSecondTick()
 
 void StatsPanel::applyStyle()
 {
-    setStyleSheet(
+    setStyleSheet(UiFontScale::style(
         "StatsPanel { background: #0a0a0a; }"
         "QWidget { background: #0a0a0a; }"
         "QLabel  { background: transparent; }"
-    );
+    ));
 }

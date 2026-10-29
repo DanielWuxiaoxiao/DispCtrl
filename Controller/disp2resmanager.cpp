@@ -153,6 +153,11 @@ void Disp2ResManager::sendSPParam(SigProParam param)
     sendParam(reinterpret_cast<char *>(&param),sizeof(param));
 }
 
+void Disp2ResManager::sendRadarPositionControl(RadarPositionControl param)
+{
+    sendParam(reinterpret_cast<char*>(&param), sizeof(param));
+}
+
 void Disp2ResManager::sendDPParam(DataProParam param)
 {
     LOG_DEBUG(QString("[Disp2ResManager] sendDPParam called, commCount: %1").arg(commCount));

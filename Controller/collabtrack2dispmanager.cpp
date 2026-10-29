@@ -41,6 +41,7 @@ CollabTrack2DispManager::CollabTrack2DispManager(QObject *parent) : QObject(pare
             this, &CollabTrack2DispManager::cooperativeTrackDecode);
     connect(socket, &ThreadedUdpSocket::servoCtrlRet, CON_INS, &Controller::servoCtrlRet);
     connect(socket, &ThreadedUdpSocket::bitReport, CON_INS, &Controller::onBITReport);
+    connect(socket, &ThreadedUdpSocket::bitReferenceReport, CON_INS, &Controller::onBITReferenceReport);
     connect(this, &CollabTrack2DispManager::cooperativeTrackProcess,
             CON_INS, &Controller::cooperativeTrackProcess);
 }

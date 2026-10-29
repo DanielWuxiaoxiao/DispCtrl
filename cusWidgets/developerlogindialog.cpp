@@ -7,6 +7,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QVBoxLayout>
+#include "Basic/uifontscale.h"
 
 DeveloperLoginDialog::DeveloperLoginDialog(QWidget* parent) : QDialog(parent)
 {
@@ -15,7 +16,7 @@ DeveloperLoginDialog::DeveloperLoginDialog(QWidget* parent) : QDialog(parent)
     setWindowIcon(QIcon(":/resources/icon/radararray.png"));
     setWindowModality(Qt::ApplicationModal);
     setMinimumWidth(420);
-    setStyleSheet(QStringLiteral(
+    setStyleSheet(UiFontScale::style(QStringLiteral(
         "QDialog#DeveloperLoginDialog { background:#101818; }"
         "QDialog#DeveloperLoginDialog QLabel { color:#D9FFFF; font-size:18px; }"
         "QDialog#DeveloperLoginDialog QLabel#DeveloperLoginError { color:#FF9B9B; }"
@@ -23,7 +24,7 @@ DeveloperLoginDialog::DeveloperLoginDialog(QWidget* parent) : QDialog(parent)
         "border:1px solid #66CCAA; border-radius:4px; padding:6px; }"
         "QDialog#DeveloperLoginDialog QPushButton { color:#66FFCC; background:#123630; font-size:18px; "
         "border:1px solid #66FFCC; border-radius:5px; padding:6px 16px; min-height:28px; }"
-        "QDialog#DeveloperLoginDialog QPushButton:hover { background:#195046; }"));
+        "QDialog#DeveloperLoginDialog QPushButton:hover { background:#195046; }")));
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(24, 20, 24, 20);
     layout->setSpacing(14);

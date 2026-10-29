@@ -14,13 +14,14 @@
 #include <QPainter>
 #include <QPaintEvent>
 #include <cmath>
+#include "Basic/uifontscale.h"
 
 // ─── AScanPlot ───────────────────────────────────────────────────────────────
 
 AScanPlot::AScanPlot(QWidget* parent) : QWidget(parent)
 {
     setMinimumHeight(160);
-    setStyleSheet("background: #0d0d0d;");
+    setStyleSheet(UiFontScale::style("background: #0d0d0d;"));
 }
 
 void AScanPlot::setData(int /*pointNum*/, float rangeResM, float cfar,
@@ -61,7 +62,7 @@ void AScanPlot::paintEvent(QPaintEvent*)
     auto toY = [&](float v) { return mT + cH - static_cast<int>((v - m_yLo) / yRange * cH); };
 
     // Y轴网格 & 刻度
-    p.setFont(QFont("Consolas", 8));
+    p.setFont(UiFontScale::pointFont("Consolas", 8));
     for (int tick = 0; tick <= 4; ++tick) {
         float v = m_yLo + tick * yRange / 4;
         int   y = toY(v);
@@ -83,7 +84,7 @@ void AScanPlot::paintEvent(QPaintEvent*)
                    QString::number(km, 'f', 1));
     }
     p.setPen(QColor(0x55, 0x55, 0x55));
-    p.setFont(QFont("Consolas", 9));
+    p.setFont(UiFontScale::pointFont("Consolas", 9));
     p.drawText(W - mR - 22, H - 4, QStringLiteral("km"));
 
     // CFAR 门限（橙色虚线）
@@ -91,7 +92,7 @@ void AScanPlot::paintEvent(QPaintEvent*)
     p.setPen(QPen(QColor(0xff, 0x88, 0x00), 1.5, Qt::DashLine));
     p.drawLine(mL, yCfar, W - mR, yCfar);
     p.setPen(QColor(0xff, 0x88, 0x00));
-    p.setFont(QFont("Consolas", 8));
+    p.setFont(UiFontScale::pointFont("Consolas", 8));
     p.drawText(mL + 2, yCfar - 12, 60, 12, Qt::AlignLeft,
                QStringLiteral("CFAR %1dB").arg(static_cast<int>(m_cfar)));
 
@@ -118,7 +119,7 @@ void AScanPlot::paintEvent(QPaintEvent*)
     if (m_showPC) {
         p.fillRect(lx, ly + 4, 16, 2, QColor(0x44, 0x88, 0xff));
         p.setPen(QColor(0x44, 0x88, 0xff));
-        p.setFont(QFont("Consolas", 9));
+        p.setFont(UiFontScale::pointFont("Consolas", 9));
         p.drawText(lx + 20, ly, 60, 14, Qt::AlignLeft, QStringLiteral("PC后"));
         lx += 75;
     }
@@ -136,7 +137,7 @@ AScanWidget::AScanWidget(QWidget* parent)
 {
     // 工具栏
     m_lblInfo = new QLabel(QStringLiteral("A显  方位: --°  量程: --"), this);
-    m_lblInfo->setStyleSheet("color:#ff8800; font-family:Consolas; font-size:12px;");
+    m_lblInfo->setStyleSheet(UiFontScale::style("color:#ff8800; font-family:Consolas; font-size:12px;"));
 
     m_chkPC  = new QCheckBox(QStringLiteral("PC后"), this);
     m_chkMTD = new QCheckBox(QStringLiteral("MTD后"), this);
@@ -187,9 +188,9 @@ void AScanWidget::onAScanData(const AScanFrame& frame,
 
 void AScanWidget::applyStyle()
 {
-    setStyleSheet(
+    setStyleSheet(UiFontScale::style(
         "AScanWidget { background: #0a0a0a; }"
         "QCheckBox { color:#aaa; font-size:12px; }"
         "QCheckBox::indicator:checked { background:#44ff88; border:1px solid #44ff88; }"
-    );
+    ));
 }

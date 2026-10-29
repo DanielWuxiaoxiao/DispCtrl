@@ -16,6 +16,7 @@
 #include <QMessageBox>
 #include <QFile>
 #include <QTextStream>
+#include "Basic/uifontscale.h"
 
 LogPanel::LogPanel(QWidget* parent)
     : QWidget(parent)
@@ -36,7 +37,7 @@ LogPanel::LogPanel(QWidget* parent)
     toolbar->setContentsMargins(4, 2, 4, 2);
     toolbar->setSpacing(6);
     auto* filterLbl = new QLabel(QStringLiteral("过滤:"), this);
-    filterLbl->setStyleSheet("color:#aaa; font-size:12px;");
+    filterLbl->setStyleSheet(UiFontScale::style("color:#aaa; font-size:12px;"));
     toolbar->addWidget(filterLbl);
     toolbar->addWidget(m_filterCombo);
     toolbar->addStretch();
@@ -85,7 +86,7 @@ void LogPanel::addLog(LogType type, const QString& text)
 
         auto* item = new QListWidgetItem(line);
         item->setForeground(typeColor(type));
-        item->setFont(QFont(QStringLiteral("Consolas"), 10));
+        item->setFont(UiFontScale::pointFont(QStringLiteral("Consolas"), 10));
         m_list->addItem(item);
         m_list->scrollToBottom();
     }
@@ -168,7 +169,7 @@ void LogPanel::rebuildDisplay()
         QString line = QStringLiteral("[%1] [%2] %3").arg(ts, lbl, e.text);
         auto* item = new QListWidgetItem(line);
         item->setForeground(typeColor(e.type));
-        item->setFont(QFont(QStringLiteral("Consolas"), 10));
+        item->setFont(UiFontScale::pointFont(QStringLiteral("Consolas"), 10));
         m_list->addItem(item);
     }
     m_list->scrollToBottom();
@@ -176,7 +177,7 @@ void LogPanel::rebuildDisplay()
 
 void LogPanel::applyStyle()
 {
-    setStyleSheet(
+    setStyleSheet(UiFontScale::style(
         "LogPanel { background: #0a0a0a; }"
         "QListWidget { background: #0d0d0d; border: 1px solid #333; color: #ccc; }"
         "QListWidget::item:selected { background: #1a2a3a; }"
@@ -188,7 +189,7 @@ void LogPanel::applyStyle()
         "              padding: 2px 10px; border-radius: 3px; font-size:12px; }"
         "QPushButton:hover { background: #2c3c2c; }"
         "QLabel { color: #ccc; font-size: 12px; }"
-    );
+    ));
 }
 
 QString LogPanel::typeLabel(LogType t)

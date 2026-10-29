@@ -215,9 +215,9 @@ void Module::init()
 void Module::updateRadarPosition(double latitude, double longitude, double altitude)
 {
     Wgs84Coordinate::Lla origin{longitude, latitude, altitude};
-    if (!Wgs84Coordinate::isValid(origin)) { logLimited("ORIGIN_INVALID", "DD05经纬高非法，保留之前有效原点"); return; }
+    if (!Wgs84Coordinate::isValid(origin)) { logLimited("ORIGIN_INVALID", "显控有效经纬高非法，保留之前有效原点"); return; }
     m_origin = origin; m_originValid = true;
-    if (!m_dd05) emit logMessage("[PE-V2][ORIGIN] 切换到真实DD05原点");
+    if (!m_dd05) emit logMessage("[PE-V2][ORIGIN] 使用显控统一原点（UI > GPS > 开机默认）");
     m_dd05 = true;
 }
 void Module::processTrack(const PointInfo& point)

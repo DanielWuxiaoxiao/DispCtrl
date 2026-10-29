@@ -2035,7 +2035,7 @@ void CommandControlModule::updateRadarPosition(double latitude, double longitude
 {
     if (!std::isfinite(latitude) || !std::isfinite(longitude) || !std::isfinite(altitude)
         || latitude < -90.0 || latitude > 90.0 || longitude < -180.0 || longitude > 180.0) {
-        LOG_WARNING(QString("[CommandControl][DD05] 丢弃无效阵面经纬高 lon=%1 lat=%2 alt=%3")
+        LOG_WARNING(QString("[CommandControl][ORIGIN] 丢弃无效显控经纬高 lon=%1 lat=%2 alt=%3")
                     .arg(longitude, 0, 'f', 8)
                     .arg(latitude, 0, 'f', 8)
                     .arg(altitude, 0, 'f', 2));
@@ -2048,7 +2048,7 @@ void CommandControlModule::updateRadarPosition(double latitude, double longitude
     m_hasRadarPosition = true;
     m_hasLiveRadarPosition = true;
     m_missingPositionLogged = false;
-    LOG_INFO(QString("[CommandControl][DD05] 阵面经纬高真值已更新 lon=%1 lat=%2 alt=%3")
+    LOG_INFO(QString("[CommandControl][ORIGIN] 显控有效经纬高已更新（UI > GPS > 开机默认） lon=%1 lat=%2 alt=%3")
              .arg(longitude, 0, 'f', 8)
              .arg(latitude, 0, 'f', 8)
              .arg(altitude, 0, 'f', 2));

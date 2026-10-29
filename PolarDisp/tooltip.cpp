@@ -12,6 +12,7 @@
 #include <QtMath>
 #include "Basic/DispBasci.h"
 #include <QFont>
+#include "Basic/uifontscale.h"
 
 Q_GLOBAL_STATIC(Tooltip, ToolTipInstance)
 Tooltip::Tooltip(QGraphicsItem* parent)
@@ -29,7 +30,7 @@ Tooltip::Tooltip(QGraphicsItem* parent)
 
     // 设置字体
     QFont font = m_text->font();
-    font.setPointSize(8);
+    font.setPixelSize(UiFontScale::pointPixels(8));
     font.setWeight(QFont::Bold);
     m_text->setFont(font);
 

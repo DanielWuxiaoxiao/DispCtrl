@@ -10,27 +10,16 @@
 #include "polaraxis.h"
 #include "../Basic/ConfigManager.h"
 #include "../Basic/log.h"
+#include "../Basic/radarreference.h"
 #include <QColor>
-#include <QConicalGradient>
-#include <QFont>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPen>
+#include <QWidget>
 #include <QtMath>
 #include <cmath>
 
 namespace {
-
-QColor panelColor(int panelId)
-{
-    static const std::array<QColor, 4> colors = {
-        QColor(255, 107, 107),
-        QColor(255, 209, 102),
-        QColor(77, 171, 247),
-        QColor(199, 125, 255)
-    };
-    return colors[panelId % static_cast<int>(colors.size())];
-}
 
 QPointF polarPoint(double radius, double azimuthDeg)
 {
@@ -61,6 +50,7 @@ ScanLayer::ScanLayer(PolarAxis* axis, QGraphicsItem* parent)
       m_direction(1), m_mode(Loop)
 {
     const int defaultPanelCount = CF_INS.defaultPanelCount();
+    m_multiPanelMode = defaultPanelCount > 1;
     for (int panelId = 0; panelId < kPanelCount; ++panelId) {
         m_panels[panelId].enabled = panelId < defaultPanelCount;
     }
@@ -70,6 +60,10 @@ ScanLayer::ScanLayer(PolarAxis* axis, QGraphicsItem* parent)
 
     m_timer = new QTimer(this);
     connect(m_timer, &QTimer::timeout, this, &ScanLayer::advanceSweep);
+    if (m_axis) connect(m_axis, &PolarAxis::rangeChanged, this, [this] {
+        update();
+        emit markersChanged();
+    });
 }
 
 QRectF ScanLayer::boundingRect() const
@@ -80,102 +74,125 @@ QRectF ScanLayer::boundingRect() const
 
 void ScanLayer::paint(QPainter* painter,
                       const QStyleOptionGraphicsItem*,
-                      QWidget*)
+                      QWidget* widget)
 {
     if (!m_axis) {
         return;
     }
 
     const double radius = m_axis->rangeToPixel(m_axis->maxRange());
-    const double span = sweepSpan();
+    if (!std::isfinite(radius) || radius <= 0.0) return;
     painter->save();
     painter->setRenderHint(QPainter::Antialiasing);
 
-    auto drawAfterglow = [this, painter, radius](const QPainterPath& scanAreaPath,
-                                                  double currentAngle) {
-        constexpr double afterglowAngle = 60.0;
-        const double qtCurrentAngle = 90.0 - currentAngle;
-        QPainterPath afterglowPath;
-        afterglowPath.moveTo(0, 0);
-        QConicalGradient gradient(0, 0, 0);
-        if (m_direction > 0) {
-            afterglowPath.arcTo(-radius, -radius, 2.0 * radius, 2.0 * radius,
-                                qtCurrentAngle, afterglowAngle);
-            gradient.setAngle(qtCurrentAngle);
-            gradient.setColorAt(0.0, QColor(0, 255, 0, 180));
-            gradient.setColorAt(0.02, QColor(0, 255, 0, 150));
-            gradient.setColorAt(0.05, QColor(0, 255, 0, 100));
-            gradient.setColorAt(0.10, QColor(0, 255, 0, 60));
-            gradient.setColorAt(0.15, QColor(0, 255, 0, 30));
-            gradient.setColorAt(0.20, QColor(0, 255, 0, 10));
-            gradient.setColorAt(0.25, QColor(0, 255, 0, 0));
-        } else {
-            afterglowPath.arcTo(-radius, -radius, 2.0 * radius, 2.0 * radius,
-                                qtCurrentAngle - afterglowAngle, afterglowAngle);
-            gradient.setAngle(qtCurrentAngle - afterglowAngle);
-            gradient.setColorAt(0.0, QColor(0, 255, 0, 0));
-            gradient.setColorAt(0.05, QColor(0, 255, 0, 10));
-            gradient.setColorAt(0.10, QColor(0, 255, 0, 30));
-            gradient.setColorAt(0.15, QColor(0, 255, 0, 60));
-            gradient.setColorAt(0.18, QColor(0, 255, 0, 100));
-            gradient.setColorAt(0.20, QColor(0, 255, 0, 150));
-            gradient.setColorAt(0.22, QColor(0, 255, 0, 180));
-        }
-        afterglowPath.closeSubpath();
-        painter->save();
-        painter->setClipPath(scanAreaPath);
-        painter->setBrush(gradient);
-        painter->setPen(Qt::NoPen);
-        painter->drawPath(afterglowPath);
-        painter->restore();
-    };
+    const QPainterPath scanAreas = coveragePath();
+    painter->fillPath(scanAreas, QColor(0, 255, 136, 30));
+    painter->setPen(QPen(QColor(0, 255, 136, 120), 3.0));
+    painter->setBrush(Qt::NoBrush);
+    painter->drawPath(scanAreas);
 
-    // TAS is a panel-local command. Each enabled array receives the same
-    // angular span, rotated by its fixed 0/90/180/270-degree installation
-    // direction. Live BIT data is deliberately not used for the sector: its
-    // yaw/scan angle only indicates the instantaneous scan line.
+    QPen boundaryPen(QColor(255, 70, 70), 2.0, Qt::DashLine);
+    boundaryPen.setCosmetic(true);
+    painter->setPen(boundaryPen);
+    for (const auto& line : tasBoundaryLines()) if (!line.isNull()) painter->drawLine(line);
+
+    // Main-view markers are above its fixed QWidget controls; other scene views draw here.
+    if (!widget || !widget->property("scanMarkerOverlayActive").toBool()) {
+        for (const auto& path : markerPaths()) paintMarker(painter, path);
+    }
+
+    painter->restore();
+}
+
+QPainterPath ScanLayer::coveragePath() const
+{
+    QPainterPath scanAreas;
+    const double radius = m_axis ? m_axis->rangeToPixel(m_axis->maxRange()) : 0;
+    if (!std::isfinite(radius) || radius <= 0) return scanAreas;
+    const double span = m_multiPanelMode ? 90.0 : sweepSpan();
+    // Fixed physical IDs: disabled panels must not renumber the remaining normals.
+    scanAreas.setFillRule(Qt::WindingFill);
     for (int panelId = 0; panelId < kPanelCount; ++panelId) {
         const PanelState& panel = m_panels[panelId];
         if (!panel.enabled) {
             continue;
         }
 
-        const double rangeStart = normalizeAngle(m_fixedStart + panelInstallationHeading(panelId));
-        const QPainterPath scanAreaPath = sectorPath(radius, rangeStart, span);
-        const QColor color = panelColor(panelId);
-        QColor sectorFill = color;
-        sectorFill.setAlpha(30);
-        QColor sectorBoundary = color;
-        sectorBoundary.setAlpha(120);
-        painter->fillPath(scanAreaPath, sectorFill);
-        painter->setPen(QPen(sectorBoundary, 3.0));
-        painter->setBrush(Qt::NoBrush);
-        painter->drawPath(scanAreaPath);
-
-        if (!panel.received) {
-            continue;
-        }
-
-        const double globalScan = normalizeAngle(panel.scanAngleDeg);
-        drawAfterglow(scanAreaPath, globalScan);
-
-        QPen scanPen(color, 4.0, Qt::SolidLine);
-        painter->setPen(scanPen);
-        painter->drawLine(QPointF(0, 0), polarPoint(radius, globalScan));
-
-        QFont labelFont = painter->font();
-        labelFont.setPointSizeF(qMax(8.0, labelFont.pointSizeF()));
-        painter->setFont(labelFont);
-        painter->setPen(color);
-        painter->drawText(
-            polarPoint(radius * 0.78, globalScan) + QPointF(5.0, -5.0),
-            QStringLiteral("阵面%1 扫描%2° / 北%3°")
-                .arg(panelId + 1)
-                .arg(panel.scanAngleDeg, 0, 'f', 1)
-                .arg(globalScan, 0, 'f', 1));
+        // A manual installation yaw defines the panel normal (sector centre), not its edge.
+        const double rangeStart = (m_multiPanelMode || m_manualReferenceYaw)
+            ? normalizeAngle(RadarReference::panelHeading(m_referenceYawDeg, panelId) - span * 0.5)
+            : normalizeAngle(m_fixedStart + panelInstallationHeading(panelId));
+        scanAreas.addPath(sectorPath(radius, rangeStart, span));
     }
+    return scanAreas;
+}
 
-    painter->restore();
+std::array<QLineF, 2> ScanLayer::tasBoundaryLines() const
+{
+    std::array<QLineF, 2> lines{};
+    if (!m_multiPanelMode || !m_hasTasRange) return lines;
+    const double radius = m_axis ? m_axis->rangeToPixel(m_axis->maxRange()) : 0;
+    if (!std::isfinite(radius) || radius <= 0) return lines;
+    lines[0] = QLineF(QPointF(), polarPoint(radius, m_tasStartDeg));
+    lines[1] = QLineF(QPointF(), polarPoint(radius, m_tasEndDeg));
+    return lines;
+}
+
+void ScanLayer::setMultiPanelMode(bool enabled)
+{
+    if (m_multiPanelMode == enabled) return;
+    m_multiPanelMode = enabled;
+    update();
+}
+
+std::array<QLineF, 4> ScanLayer::markerLines() const
+{
+    std::array<QLineF, 4> lines{};
+    const double radius = m_axis ? m_axis->rangeToPixel(m_axis->maxRange()) : 0.0;
+    if (!std::isfinite(radius) || radius <= 0.0) return lines;
+    const double innerRadius = qMax(0.0, radius - MarkerLength);
+    for (std::size_t i = 0; i < m_panels.size(); ++i) {
+        const auto& panel = m_panels[i];
+        if (!panel.enabled || !panel.received) continue;
+        const double angle = normalizeAngle(panel.scanAngleDeg);
+        lines[i] = QLineF(polarPoint(innerRadius, angle), polarPoint(radius, angle));
+    }
+    return lines;
+}
+
+std::array<QPainterPath, 4> ScanLayer::markerPaths() const
+{
+    std::array<QPainterPath, 4> paths;
+    const double radius = m_axis ? m_axis->rangeToPixel(m_axis->maxRange()) : 0.0;
+    if (!std::isfinite(radius) || radius <= 0) return paths;
+    const double centreRadius = qMax(radius / 2, radius - MarkerWidth / 2);
+    const QRectF arcRect(-centreRadius, -centreRadius, 2 * centreRadius, 2 * centreRadius);
+    for (std::size_t id = 0; id < m_panels.size(); ++id) {
+        const auto& panel = m_panels[id];
+        if (!panel.enabled || !panel.received) continue;
+        const double angle = normalizeAngle(panel.scanAngleDeg);
+        const double start = 90.0 - angle + MarkerAngleWidth / 2; // Qt arcs: east=0, CCW positive.
+        auto& path = paths[id];
+        path.arcMoveTo(arcRect, start);
+        path.arcTo(arcRect, start, -MarkerAngleWidth);
+    }
+    return paths;
+}
+
+void ScanLayer::paintMarker(QPainter* painter, const QPainterPath& path)
+{
+    if (path.isEmpty()) return;
+    QLinearGradient gradient(path.pointAtPercent(0), path.pointAtPercent(1));
+    gradient.setColorAt(0, QColor(255, 0, 0, 0));
+    gradient.setColorAt(0.25, QColor(255, 0, 0, 180));
+    gradient.setColorAt(0.5, QColor(255, 0, 0, 255));
+    gradient.setColorAt(0.75, QColor(255, 0, 0, 180));
+    gradient.setColorAt(1, QColor(255, 0, 0, 0));
+    QPen pen(QBrush(gradient), MarkerWidth, Qt::SolidLine, Qt::RoundCap);
+    pen.setCosmetic(true); // Five logical display pixels, independent of view zoom.
+    painter->setPen(pen);
+    painter->setBrush(Qt::NoBrush);
+    painter->drawPath(path);
 }
 
 void ScanLayer::advanceSweep()
@@ -225,6 +242,17 @@ void ScanLayer::setHeadingAngle(double deg)
     m_panels[0].yawDeg = 0.0;
     m_panels[0].scanAngleDeg = deg;
     update();
+    emit markersChanged();
+}
+
+void ScanLayer::setReferenceYaw(bool manual, double yawDeg)
+{
+    if (!std::isfinite(yawDeg)) return;
+    const double yaw = normalizeAngle(yawDeg);
+    if (m_manualReferenceYaw == manual && m_referenceYawDeg == yaw) return;
+    m_manualReferenceYaw = manual;
+    m_referenceYawDeg = yaw;
+    update();
 }
 
 void ScanLayer::onBITReport(BITReport report)
@@ -246,6 +274,7 @@ void ScanLayer::onBITReport(BITReport report)
         m_useRealTimeAngle = true;
     }
     update();
+    emit markersChanged();
 }
 
 void ScanLayer::setPanelEnableState(BatteryControlM param)
@@ -276,6 +305,7 @@ void ScanLayer::setPanelEnableState(BatteryControlM param)
 
     if (changed) {
         update();
+        emit markersChanged();
     }
 }
 
@@ -288,6 +318,8 @@ void ScanLayer::setSweepSpeed(int msPerStep)
 
 void ScanLayer::setSweepRange(double startDeg, double endDeg)
 {
+    if (!std::isfinite(startDeg) || !std::isfinite(endDeg)) return;
+    m_tasStartDeg = startDeg; m_tasEndDeg = endDeg; m_hasTasRange = true;
     auto normalizeForRange = [](double deg) {
         while (deg < 0) deg += 360;
         while (deg > 360) deg -= 360;
@@ -299,7 +331,7 @@ void ScanLayer::setSweepRange(double startDeg, double endDeg)
     double span = normEnd - normStart;
     if (span < 0) span += 360;
 
-    LOG_INFO(QString("[ScanLayer] TAS local scan range updated: inputStart=%1 inputEnd=%2 "
+    LOG_INFO(QString("[ScanLayer] TAS display boundary updated: inputStart=%1 inputEnd=%2 "
                      "normalizedStart=%3 normalizedEnd=%4 span=%5")
                  .arg(startDeg, 0, 'f', 2)
                  .arg(endDeg, 0, 'f', 2)

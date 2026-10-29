@@ -39,6 +39,7 @@ class ElectromagneticDeviceModule;
 
 // 前向声明 - 避免头文件循环依赖
 class PPIScene;           ///< PPI场景管理器
+class ScanMarkerOverlay;
 class mainviewTopLeft;    ///< 左上角雷达信息显示组件
 class PointInfoW;         ///< 右上角点信息显示组件
 class MousePositionInfo;  ///< 鼠标位置信息显示组件
@@ -426,6 +427,7 @@ private:
 
     // 核心组件
     PPIScene* m_scene;                ///< PPI场景对象指针
+    ScanMarkerOverlay* m_scanMarkerOverlay = nullptr;
 
     // 交互控制
     bool m_rubberBandZoom = true;     ///< 橡皮筋缩放功能开关

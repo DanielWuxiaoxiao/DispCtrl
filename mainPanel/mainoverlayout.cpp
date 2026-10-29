@@ -90,11 +90,12 @@
 #include "paramWidget/waveandsample.h"
 #include "screenrecorderwidget.h"
 #include "Basic/authmanager.h"
+#include "Basic/tascontrolformat.h"
+#include "Basic/uifontscale.h"
 
 namespace {
 constexpr int kTrackTableRefreshIntervalMs = 50;
 constexpr int kLogFlushIntervalMs = 50;
-constexpr int kHealthRefreshIntervalMs = 100;
 constexpr bool kDefaultEnableSectorDisplay = false;
 constexpr int kTrackExternalReportingRole = Qt::UserRole + 1;
 constexpr int kTrackReportingBoundaryRole = Qt::UserRole + 2;
@@ -102,8 +103,9 @@ constexpr int kTrackReportingBoundaryRole = Qt::UserRole + 2;
 void setStyleSheetIfChanged(QWidget* widget, const QString& style)
 {
     // 相同 QSS 再次设置仍会触发控件重新抛光；状态刷新只修改实际变化的样式。
-    if (widget->styleSheet() != style) {
-        widget->setStyleSheet(style);
+    const QString appliedStyle = UiFontScale::style(style);
+    if (widget->styleSheet() != appliedStyle) {
+        widget->setStyleSheet(appliedStyle);
     }
 }
 
@@ -195,6 +197,10 @@ quint64 makeTrackTableUpdateKey(unsigned type, unsigned int batch)
 
 MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::MainOverLayOut) {
     ui->setupUi(this);
+    // Scope the slightly larger text to these pages, including dynamically added test buttons.
+    const QString controlButtonFont = UiFontScale::style(QStringLiteral("QPushButton { font-size:16px; }"));
+    ui->tab_4->setStyleSheet(controlButtonFont);
+    ui->tab->setStyleSheet(controlButtonFont);
     setupResizableMainLayout();
 
     // ========== 屏幕自适应：动态覆盖 UI 中的固定尺寸 ==========
@@ -335,12 +341,6 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
 
     // 初始化健康管理窗口指针
     m_healthWindow = nullptr;
-    m_healthRefreshTimer = new QTimer(this);
-    m_healthRefreshTimer->setSingleShot(true);
-    m_healthRefreshTimer->setTimerType(Qt::PreciseTimer);
-    m_healthRefreshTimer->setInterval(kHealthRefreshIntervalMs);
-    connect(m_healthRefreshTimer, &QTimer::timeout,
-            this, &MainOverLayOut::updateHealthWindow);
     m_healthTabs = nullptr;
     m_activeHealthPanel = 0;
     m_sigProBtn = nullptr;
@@ -369,18 +369,27 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     m_btnBluetooth = nullptr;
     m_btnPowerBoard = nullptr;
     m_tempLabel = nullptr;
-    m_angleLabel = nullptr;
 
     // 初始化雷达控制状态
     m_isTransmitting = false;  // 默认发射关闭
     m_isStandby = true;        // 默认待机模式
 
     // 连接健康管理信号
-    connect(CON_INS, &Controller::monitorParamSend, this, &MainOverLayOut::monitorParamRef);
+    connect(CON_INS, &Controller::radarPanelPositionRequested, this, [this](const QString& text) {
+        logCommand(QStringLiteral("下发雷达阵面经纬高姿态"), text);
+    });
+    connect(CON_INS, &Controller::healthSoftwareSnapshot, this, &MainOverLayOut::monitorParamRef);
+    connect(CON_INS, &Controller::healthFaultSummary, this, [this](const QString& text) {
+        logCommand(QStringLiteral("健康异常"), text);
+    });
+    connect(CON_INS, &Controller::healthWindowFlushed, this, [this] {
+        flushStatusUi();
+        if (m_healthUiDirty) updateHealthWindow();
+    });
 
     // 连接伺服回送与BIT上报
     connect(CON_INS, &Controller::servoCtrlRet, this, &MainOverLayOut::onServoCtrlRet);
-    connect(CON_INS, &Controller::bitReport, this, &MainOverLayOut::onBITReport);
+    connect(CON_INS, &Controller::healthBitSnapshot, this, &MainOverLayOut::onBITReport);
 
     m_subsystemNetworkMonitor = new SubsystemNetworkMonitor(this);
     connect(m_subsystemNetworkMonitor, &SubsystemNetworkMonitor::statusChanged, this,
@@ -745,10 +754,10 @@ void MainOverLayOut::topRightSet() {
     m_modeSwitchButton = new QPushButton(ui->SubtitleLabel->parentWidget());
     m_modeSwitchButton->setObjectName(QStringLiteral("modeSwitchButton"));
     m_modeSwitchButton->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
-    m_modeSwitchButton->setStyleSheet(QStringLiteral(
+    m_modeSwitchButton->setStyleSheet(UiFontScale::style(QStringLiteral(
         "QPushButton#modeSwitchButton { color:#66FFCC; background:#123630; border:1px solid #66CCAA; "
         "border-radius:5px; font-size:15px; padding:3px 10px; min-height:24px; }"
-        "QPushButton#modeSwitchButton:hover { background:#195046; }"));
+        "QPushButton#modeSwitchButton:hover { background:#195046; }")));
     modeRow->addWidget(m_modeSwitchButton, 0, Qt::AlignVCenter);
     modeRow->addStretch();
     ui->verticalLayout_6->addLayout(modeRow);
@@ -852,12 +861,12 @@ void MainOverLayOut::mainPView() {
     displayTabWidget->setObjectName("DisplayTabWidget");
 
     // 页签保留足够宽度，避免高 DPI 或较窄布局下中文标题被挤压。
-    displayTabWidget->setStyleSheet(
+    displayTabWidget->setStyleSheet(UiFontScale::style(
         "QTabWidget#DisplayTabWidget QTabBar::tab { "
         "    min-width: 58px; "
         "    padding: 4px 12px; "
         "}"
-    );
+    ));
 
     // 将扇区显示包装为可分离的widget
     // DetachableWidget* sectorDetachable = new DetachableWidget(
@@ -1077,12 +1086,12 @@ void MainOverLayOut::setupRangeSettings() {
     // rangeLayout->addStretch();
 
     // 设置tab的样式，与其他tab保持一致的背景
-    rangeTab->setStyleSheet(R"(
+    rangeTab->setStyleSheet(UiFontScale::style(R"(
         QWidget {
             background: rgba(16, 24, 24, 0.8);
             border-radius: 8px;
         }
-    )");
+    )"));
 
     // 连接"设置"按钮点击信号，打开详细设置对话框
     connect(m_azElRangeWidget, &AzElRangeWidget::settingsButtonClicked,
@@ -1150,7 +1159,6 @@ MainOverLayOut::~MainOverLayOut() {
     if (m_commandControlModule) {
         disconnect(m_commandControlModule, nullptr, this, nullptr);
     }
-    m_healthRefreshTimer->stop();
     if (m_commandTimer) {
         m_commandTimer->stop();
     }
@@ -2181,88 +2189,24 @@ void MainOverLayOut::bindHealthPanel(int panelId)
     m_btnBluetooth = widgets.bluetooth;
     m_btnPowerBoard = widgets.powerBoard;
     m_tempLabel = widgets.tempLabel;
-    m_angleLabel = widgets.angleLabel;
     m_lastBITReport = m_bitReports[panelId];
 }
 
-void MainOverLayOut::updateSubArrayPowerVisualState(int panelId, const BITReport& report)
-{
-    if (panelId < 0 || panelId >= kRadarPanelCount) {
-        return;
-    }
 
-    SubArrayPowerVisualState& visualState = m_subArrayPowerVisualStates[panelId];
-    bool allNormal = true;
-    bool allZero = true;
-    std::array<bool, 36> reportedState{};
-    for (int powerIndex = 0; powerIndex < 36; ++powerIndex) {
-        const int byteIndex = powerIndex / 8;
-        const int bitIndex = powerIndex % 8;
-        const bool isNormal = (report.subArrayPower[byteIndex] & (1U << bitIndex)) != 0;
-        reportedState[powerIndex] = isNormal;
-        allNormal = allNormal && isNormal;
-        allZero = allZero && !isNormal;
-    }
-
-    // 完整正常位图（FF FF FF FF 0F）立即恢复绿色，避免正常恢复被延迟。
-    if (allNormal) {
-        const bool recoveredFromConfirmedFault = visualState.hasConfirmedStatus
-            && visualState.consecutiveAllZeroReports >= kSubArrayPowerZeroFaultThreshold;
-        visualState.normal = reportedState;
-        visualState.consecutiveAllZeroReports = 0;
-        visualState.hasConfirmedStatus = true;
-        if (recoveredFromConfirmedFault) {
-            LOG_INFO(QString("[MainOverLayOut] 阵面%1 子阵电源全正常，已从全零故障状态恢复")
-                         .arg(panelId + 1));
-        }
-        return;
-    }
-
-    // 上游偶发全零报文时不立即让 36 路电源闪红；连续 100 帧才确认整体故障。
-    if (allZero) {
-        // 达到阈值后饱和；重复故障帧不再累加，也不重复输出确认日志。
-        if (visualState.consecutiveAllZeroReports >= kSubArrayPowerZeroFaultThreshold) {
-            return;
-        }
-        ++visualState.consecutiveAllZeroReports;
-        if (visualState.consecutiveAllZeroReports < kSubArrayPowerZeroFaultThreshold) {
-            return;
-        }
-
-        if (visualState.consecutiveAllZeroReports == kSubArrayPowerZeroFaultThreshold) {
-            visualState.normal.fill(false);
-            visualState.hasConfirmedStatus = true;
-            LOG_WARNING(QString("[MainOverLayOut] 阵面%1 连续收到%2帧子阵电源全零报文，确认36路电源故障")
-                        .arg(panelId + 1)
-                        .arg(kSubArrayPowerZeroFaultThreshold));
-        }
-        return;
-    }
-
-    // 非全零的部分位图是有效的逐路状态，立即显示并中断全零防抖计数。
-    visualState.normal = reportedState;
-    visualState.consecutiveAllZeroReports = 0;
-    visualState.hasConfirmedStatus = true;
-}
 
 void MainOverLayOut::scheduleHealthWindowRefresh()
 {
-    if (!m_healthWindow || !m_healthWindow->isVisible()) {
-        return;
-    }
-    if (!m_healthRefreshTimer->isActive()) {
-        m_healthRefreshTimer->start();
-    }
+    m_healthUiDirty = true;
 }
 
 void MainOverLayOut::updateHealthWindow()
 {
-    // 打开窗口和切页会立即刷新，并取消之前合并等待中的同一次刷新。
-    m_healthRefreshTimer->stop();
+    // Periodic refresh comes only from Controller's complete 5-second window.
     // 如果窗口不存在或不可见，直接返回
     if (!m_healthWindow || !m_healthWindow->isVisible()) {
         return;
     }
+    m_healthUiDirty = false;
 
     for (int index = 0; index < int(m_networkHealthText.size()); ++index) {
         applyNetworkHealthStatus(index);
@@ -2286,8 +2230,7 @@ void MainOverLayOut::updateHealthWindow()
             : "QPushButton { background:#3c2020; color:#ff9090; border:1px solid #ff9090; }";
         if (m_electromagneticHealthButton->text() != text)
             m_electromagneticHealthButton->setText(text);
-        if (m_electromagneticHealthButton->styleSheet() != style)
-            m_electromagneticHealthButton->setStyleSheet(style);
+        setStyleSheetIfChanged(m_electromagneticHealthButton, style);
     }
 
     // 定义按钮样式
@@ -2554,24 +2497,18 @@ void MainOverLayOut::updateHealthWindow()
 
     // ===== 更新温度和角度信息 =====
     if (m_tempLabel) {
-        QString tempInfo = QString("FPGA温度: %1°C  |  阵面温度: %2°C")
+        QString tempInfo = QString("FPGA温度: %1°C  |  阵面温度: %2°C  |  阵面偏航: %3°")
                                .arg(m_lastBITReport.fpgaTemp * 0.1, 0, 'f', 1)
-                               .arg(m_lastBITReport.panelTemp * 0.1, 0, 'f', 1);
-        m_tempLabel->setText(tempInfo);
-    }
-
-    if (m_angleLabel) {
-        QString angleInfo = QString("阵面偏航: %1°  |  扫描角度: %2°")
-                                .arg(m_lastBITReport.yaw * 0.01, 0, 'f', 2)
-                                .arg(m_lastBITReport.scanAngle * 0.01, 0, 'f', 2);
-        m_angleLabel->setText(angleInfo);
+                               .arg(m_lastBITReport.panelTemp * 0.1, 0, 'f', 1)
+                               .arg(m_lastBITReport.yaw * 0.01, 0, 'f', 2);
+        if (m_tempLabel->text() != tempInfo) m_tempLabel->setText(tempInfo);
     }
 
     QLabel* lastUpdateLabel = m_healthPanelWidgets[m_activeHealthPanel].lastUpdateLabel;
     if (lastUpdateLabel) {
         const QDateTime& reportTime = m_bitReportTimes[m_activeHealthPanel];
         if (reportTime.isValid()) {
-            lastUpdateLabel->setText(QString("阵面 %1 最后 BIT 上报: %2")
+            lastUpdateLabel->setText(QString("阵面 %1 状态汇总时间: %2")
                                      .arg(m_activeHealthPanel + 1)
                                      .arg(reportTime.toString("yyyy-MM-dd HH:mm:ss")));
         } else {
@@ -2731,34 +2668,27 @@ void MainOverLayOut::onTASModeClicked() {
     // 连接信号 - 按顺序发送三个配置，同时保存到内存
     connect(tasDialog, &TASModeDialog::setScanRange, this, [this](const ScanRange param) {
         m_scanRange = param;  // 保存到内存
-        logCommand("TAS - 工作模式设置", QString("工作模式: %1").arg(param.workMode == 0 ? "TWS" : "TAS"));
+        const QString details = TasControl::scanDetails(param);
+        logCommand("TAS - 工作模式下发请求", details);
+        LOG_INFO(QStringLiteral("[TAS][SUBMIT] %1").arg(details));
         // 发送工作模式配置到数据处理端
         emit sig_SetScanRangeParam(param);
     });
 
     connect(tasDialog, &TASModeDialog::setBeamControl, this, [this](const BeamControl param) {
         m_beamControl = param;  // 保存到内存
-        logCommand("TAS - 波形采样设置", QString("频率: 9.%1GHz, 方位中心: %2°")
-            .arg(param.freqID)
-            .arg(param.aziStart * 0.01));
+        const QString details = TasControl::beamDetails(param);
+        logCommand("TAS - 波形采样下发请求", details);
+        LOG_INFO(QStringLiteral("[TAS][SUBMIT] %1").arg(details));
         // 发送波形及采样控制配置
         emit sig_SetBeamControlParam(param);
     });
 
     connect(tasDialog, &TASModeDialog::setServoControl, this, [this](const ServoControlParam param) {
         m_servoControlParam = param;  // 保存到内存
-        QString cmdText;
-        switch(param.cmd) {
-            case 0: cmdText = "方位停转"; break;
-            case 1: cmdText = "方位转动"; break;
-            case 2: cmdText = "方位寻位"; break;
-            case 3: cmdText = "方位归北"; break;
-            default: cmdText = "未知"; break;
-        }
-        logCommand("TAS - 伺服控制", QString("指令: %1, 速度: %2秒/转, 角度: %3°")
-            .arg(cmdText)
-            .arg(param.speed)
-            .arg(param.az * 0.01));
+        const QString details = TasControl::servoDetails(param);
+        logCommand("TAS - 伺服下发请求", details);
+        LOG_INFO(QStringLiteral("[TAS][SUBMIT] %1").arg(details));
         // 发送伺服控制配置
         emit sig_SetServoControlParam(param);
         enterWorkingModeIfStandby();
@@ -2799,9 +2729,12 @@ void MainOverLayOut::onDataStorageClicked() {
     connect(m_dataStorageDialog, &DataSaveUI::setParam, this, [this](DataSet param) {
         QString action;
         if (param.ifsave) {
-            action = QString("数据存储 - ID:%1, 开关:%2")
+            action = QString("数据存储 - ID:%1, 开关:%2, 确认波束:%3, 跟踪波束:%4, 搜索波束:%5, 检测点迹:%6")
                 .arg(param.save.dataID)
-                .arg(param.save.saveSwitch ? "开启" : "关闭");
+                .arg(param.save.saveSwitch ? "开启" : "关闭")
+                .arg(param.save.confirmBeam).arg(param.save.trackBeam)
+                .arg(param.save.searchBeam).arg(param.save.detection);
+            LOG_INFO("[CC01][SUBMIT][16B] " + action);
         } else if (param.ifdel) {
             action = QString("数据删除 - ID:%1").arg(param.del.dataID);
         } else if (param.ifoffline) {
@@ -3229,120 +3162,39 @@ void MainOverLayOut::cmdTimeOut() {
  * @details 接收来自Controller的监控参数，更新系统健康状态和UI显示
  */
 void MainOverLayOut::monitorParamRef(MonitorParam res) {
-    bool normal = true;
-
-    // 处理信号处理软件状态
     m_sigProSta = res.sigProSta;
-    switch (res.sigProSta) {
-        case 0:  // 正常
-            break;
-        case 1:  // 异常
-            normal = false;
-            break;
-        case 2:  // 启动成功
-            logCommand("信号处理软件启动成功", "");
-            break;
-        case 3:  // 启动失败
-            logCommand("信号处理软件启动失败", "");
-            break;
-        case 4:  // 关闭成功
-            logCommand("信号处理软件关闭成功", "");
-            break;
-        case 5:  // 关闭失败
-            logCommand("信号处理软件关闭失败", "");
-            break;
-    }
-
-    // 处理数据处理软件状态
     m_dataProSta = res.dataProSta;
-    switch (res.dataProSta) {
-        case 0:  // 正常
-            break;
-        case 1:  // 异常
-            normal = false;
-            break;
-        case 2:  // 启动成功
-            logCommand("数据处理软件启动成功", "");
-            break;
-        case 3:  // 启动失败
-            logCommand("数据处理软件启动失败", "");
-            break;
-        case 4:  // 关闭成功
-            logCommand("数据处理软件关闭成功", "");
-            break;
-        case 5:  // 关闭失败
-            logCommand("数据处理软件关闭失败", "");
-            break;
-    }
-
-    // 处理波束调度软件状态
     m_beamConSta = res.beamConSta;
-    switch (res.beamConSta) {
-        case 0:  // 正常
-            break;
-        case 1:  // 异常
-            normal = false;
-            break;
-        case 2:  // 启动成功
-            logCommand("波束调度软件启动成功", "");
-            break;
-        case 3:  // 启动失败
-            logCommand("波束调度软件启动失败", "");
-            break;
-        case 4:  // 关闭成功
-            logCommand("波束调度软件关闭成功", "");
-            break;
-        case 5:  // 关闭失败
-            logCommand("波束调度软件关闭失败", "");
-            break;
-    }
-
-    // 处理目标识别软件状态
     m_targetRecSta = res.targetRecSta;
-    switch (res.targetRecSta) {
-        case 0:  // 正常
-            break;
-        case 1:  // 异常
-            normal = false;
-            break;
-        case 2:  // 启动成功
-            logCommand("目标识别软件启动成功", "");
-            break;
-        case 3:  // 启动失败
-            logCommand("目标识别软件启动失败", "");
-            break;
-        case 4:  // 关闭成功
-            logCommand("目标识别软件关闭成功", "");
-            break;
-        case 5:  // 关闭失败
-            logCommand("目标识别软件关闭失败", "");
-            break;
-    }
-
-    // 更新系统整体状态
-    m_systemNormal = normal;
+    // This is already a 5-second snapshot; failed startup/shutdown are faults too.
+    m_systemNormal = !HealthStateWindow::softwareFault(res.sigProSta) && !HealthStateWindow::softwareFault(res.dataProSta)
+        && !HealthStateWindow::softwareFault(res.beamConSta) && !HealthStateWindow::softwareFault(res.targetRecSta);
     emit softwareStatusChanged(currentSoftwareStatus());
-
-    // 更新雷达系统按钮的样式
-    if (normal) {
-        // 正常状态 - 恢复原样式（清除自定义样式）
-        setStyleSheetIfChanged(ui->radarsystem, QString());
-    } else {
-        // 异常状态 - 半透明红色背景 + 深红边框
-        setStyleSheetIfChanged(ui->radarsystem,
-            "QToolButton#radarsystem {"
-            "    background-color: rgba(255, 0, 0, 0.3);"  // 半透明红色背景
-            "    border: 2px solid #cc0000;"               // 深红色边框
-            "    border-radius: 5px;"
-            "}"
-            "QToolButton#radarsystem:hover {"
-            "    background-color: rgba(255, 0, 0, 0.5);"  // hover时稍微深一点
-            "    border: 2px solid #ff0000;"
-            "}");
-    }
-
-    // 状态和对外分发逐帧处理，只有可见控件刷新合并到 100 ms。
+    m_softwareUiPending = true;
     scheduleHealthWindowRefresh();
+}
+
+void MainOverLayOut::flushStatusUi()
+{
+    // Called once after Controller has delivered the complete 5-second window.
+    if (m_softwareUiPending) {
+        setStyleSheetIfChanged(ui->radarsystem, m_systemNormal ? QString() : QStringLiteral(
+            "QToolButton#radarsystem { background-color:rgba(255,0,0,0.3); border:2px solid #cc0000; border-radius:5px; }"
+            "QToolButton#radarsystem:hover { background-color:rgba(255,0,0,0.5); border:2px solid #ff0000; }"));
+        m_softwareUiPending = false;
+    }
+    if (m_servoUiPending) {
+        const auto& res = m_latestServoUi;
+        if (!m_servoFaultLogClock.isValid()) m_servoFaultLogClock.start();
+        // Do not use changing feedback angles in the key: drift is not a new failure.
+        if (m_servoFaultLogGate.sample(0, quint64(res.cmd) + 1, m_servoFaultLogClock.elapsed())) {
+            const QString text = QStringLiteral("5秒窗口 伺服失败 cmd=%1 speed=%2 az=%3°")
+                .arg(servoCommandText(res.cmd)).arg(res.speed).arg(res.azCur * 0.01, 0, 'f', 2);
+            logCommand(QStringLiteral("健康异常"), text);
+            LOG_WARNING("[HEALTH][SERVO_FAULT] " + text);
+        }
+        m_servoUiPending = false;
+    }
 }
 
 MonitorParam MainOverLayOut::currentSoftwareStatus() const
@@ -3356,100 +3208,25 @@ MonitorParam MainOverLayOut::currentSoftwareStatus() const
 }
 
 void MainOverLayOut::onServoCtrlRet(ServoCtrlRet res) {
-    auto resultText =
-        QString("%1").arg(res.result == 0 ? "失败" : (res.result == 1 ? "成功" : "执行中"));
-    QString cmdText;
-    switch (res.cmd) {
-        case 0:
-            cmdText = "停转";
-            break;
-        case 1:
-            cmdText = "转动";
-            break;
-        case 2:
-            cmdText = "寻位";
-            break;
-        case 3:
-            cmdText = "归北";
-            break;
-        default:
-            cmdText = QString("未知(%1)").arg(res.cmd);
-            break;
+    if (res.result == 0) {
+        m_latestServoUi = res;
+        m_servoUiPending = true;
     }
-
-    const double az = res.azCur / 100.0;  // 0.01°
-    // 伺服信息不再显示到状态面板（已删除标签）
-    // ui->stalabel1->setText("伺服命令");
-    // ui->stamsg1->setText(QString("%1 | %2").arg(cmdText, resultText));
-    // ui->stalabel2->setText("伺服速度(秒/转)");
-    // ui->stamsg2->setText(QString::number(res.speed));
-    // ui->stalabel3->setText("当前方位(°)");
-    // ui->stamsg3->setText(QString::number(az, 'f', 2));
-
-    logCommand("伺服回送", QString("cmd=%1 result=%2 speed=%3 az=%4°")
-                               .arg(cmdText)
-                               .arg(resultText)
-                               .arg(res.speed)
-                               .arg(QString::number(az, 'f', 2)));
 }
 
-void MainOverLayOut::onBITReport(BITReport res) {
-    // 保存最新的BIT报告（始终保存，用于健康管理窗口实时显示）
-    if (res.radarId < RADAR_ID_MIN || res.radarId > RADAR_ID_MAX) {
-        // Controller 已按固定类别限频记录；此处不能再逐帧重复刷日志。
-        return;
-    }
-
+void MainOverLayOut::onBITReport(BITReport res, bool powerConfirmed, int consecutiveZeroFrames) {
+    if (res.radarId < RADAR_ID_MIN || res.radarId > RADAR_ID_MAX) return;
     const int panelId = static_cast<int>(res.radarId);
     m_bitReports[panelId] = res;
-
-    // 检查是否需要更新日志和界面（1分钟更新一次）
-    QDateTime currentTime = QDateTime::currentDateTime();
-    m_bitReportTimes[panelId] = currentTime;
-    updateSubArrayPowerVisualState(panelId, res);
-    if (panelId == 0) {
-        const BITReport confirmed = currentElectromagneticPanelStatus();
-        const auto& state = m_subArrayPowerVisualStates[0];
-        if (m_electromagneticModule && state.consecutiveAllZeroReports == 1 && state.hasConfirmedStatus)
-            LOG_INFO("[电磁设备][SUBARRAY_UI] 首帧全零，保留UI已确认位图；连续100帧才更新为全零");
-        emit electromagneticPanelStatusChanged(confirmed);
-    }
-    if (panelId == m_activeHealthPanel) {
-        m_lastBITReport = res;
-    }
-    bool shouldUpdate = false;
-
-    if (!m_lastBITUpdateTime.isValid() ||
-        m_lastBITUpdateTime.secsTo(currentTime) >= BIT_UPDATE_INTERVAL_SEC) {
-        shouldUpdate = true;
-        m_lastBITUpdateTime = currentTime;
-    }
-
-    // 状态缓存继续逐帧维护，控件按100ms合并；正常 BIT 摘要默认不写显控日志，
-    // 只有显式打开字段级联调日志时才按节流周期输出。
-    if (shouldUpdate && CF_INS.bitReportNormalLogEnabled(false)) {
-        const double fpgaTemp = res.fpgaTemp / 10.0;    // 0.1°
-        const double panelTemp = res.panelTemp / 10.0;  // 0.1°
-        const double yaw = res.yaw / 100.0;             // 0.01°
-        const QString powerState = res.powerState ? "正常" : "异常";
-
-        QString subArrayInfo;
-        for (int i = 0; i < 5; ++i) {
-            subArrayInfo += QString("%1").arg(res.subArrayPower[i]);
-            if (i != 4) subArrayInfo += ",";
-        }
-
-        logCommand("BIT上报", QString("阵面ID=%1 power=%2 fpga=%3°C panel=%4°C yaw=%5° sub=%6")
-                                  .arg(panelId + 1)
-                                  .arg(powerState)
-                                  .arg(QString::number(fpgaTemp, 'f', 1))
-                                  .arg(QString::number(panelTemp, 'f', 1))
-                                  .arg(QString::number(yaw, 'f', 2))
-                                  .arg(subArrayInfo));
-    }
-
-    // 保留逐帧缓存、防抖和电磁状态分发，避免逐帧重设整页按钮样式。
+    m_bitReportTimes[panelId] = QDateTime::currentDateTime();
+    auto& power = m_subArrayPowerVisualStates[panelId];
+    power.hasConfirmedStatus = powerConfirmed;
+    power.consecutiveAllZeroReports = consecutiveZeroFrames;
+    for (int i = 0; i < 36; ++i) power.normal[i] = (res.subArrayPower[i / 8] & (1U << (i % 8))) != 0;
+    if (panelId == 0) emit electromagneticPanelStatusChanged(currentElectromagneticPanelStatus());
+    if (panelId == m_activeHealthPanel) m_lastBITReport = res;
     scheduleHealthWindowRefresh();
+    // Health page refresh is driven only after the complete 5-second window is delivered.
 }
 
 BITReport MainOverLayOut::currentElectromagneticPanelStatus() const
@@ -3484,7 +3261,6 @@ void MainOverLayOut::onRadarSystemClicked() {
 
     // 连接窗口关闭信号，清空指针
     connect(m_healthWindow, &QObject::destroyed, this, [this]() {
-        m_healthRefreshTimer->stop();
         m_healthWindow = nullptr;
         m_healthTabs = nullptr;
         m_activeHealthPanel = 0;
@@ -3511,7 +3287,6 @@ void MainOverLayOut::onRadarSystemClicked() {
         m_btnBluetooth = nullptr;
         m_btnPowerBoard = nullptr;
         m_tempLabel = nullptr;
-        m_angleLabel = nullptr;
         for (auto& widgets : m_healthPanelWidgets) {
             widgets = HealthPanelWidgets{};
         }
@@ -3526,7 +3301,7 @@ void MainOverLayOut::onRadarSystemClicked() {
 
     // ===== 软件状态区域 =====
     QLabel* softwareLabel = new QLabel("软件运行状态", contentWidget);
-    softwareLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #66ffcc;");
+    softwareLabel->setStyleSheet(UiFontScale::style("font-size: 18px; font-weight: bold; color: #66ffcc;"));
     mainLayout->addWidget(softwareLabel);
 
     // 创建四个软件状态按钮
@@ -3554,7 +3329,7 @@ void MainOverLayOut::onRadarSystemClicked() {
     // ===== 分系统网络状态 =====
     mainLayout->addSpacing(4);
     QLabel* networkLabel = new QLabel("分系统网络状态", contentWidget);
-    networkLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #66ffcc;");
+    networkLabel->setStyleSheet(UiFontScale::style("font-size: 18px; font-weight: bold; color: #66ffcc;"));
     mainLayout->addWidget(networkLabel);
 
     auto makeNetworkButton = [contentWidget]() {
@@ -3602,9 +3377,9 @@ void MainOverLayOut::onRadarSystemClicked() {
         m_electromagneticHealthButton = new QPushButton(contentWidget);
         m_electromagneticHealthButton->setText("电磁设备：" + m_electromagneticStatus);
         m_electromagneticHealthButton->setMinimumHeight(38);
-        m_electromagneticHealthButton->setStyleSheet(m_electromagneticLinkOk
+        m_electromagneticHealthButton->setStyleSheet(UiFontScale::style(m_electromagneticLinkOk
             ? "QPushButton { background:#143c30; color:#66ffcc; border:1px solid #66ffcc; }"
-            : "QPushButton { background:#3c2020; color:#ff9090; border:1px solid #ff9090; }");
+            : "QPushButton { background:#3c2020; color:#ff9090; border:1px solid #ff9090; }"));
         connect(m_electromagneticHealthButton.data(), &QPushButton::clicked, this, [this] {
             m_electromagneticModule->showWindow(this);
         });
@@ -3617,15 +3392,15 @@ void MainOverLayOut::onRadarSystemClicked() {
     // ===== 四个阵面 BIT 状态页 =====
     mainLayout->addSpacing(20);
     QLabel* bitLabel = new QLabel("阵面健康状态", contentWidget);
-    bitLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #66ffcc;");
+    bitLabel->setStyleSheet(UiFontScale::style("font-size: 18px; font-weight: bold; color: #66ffcc;"));
     mainLayout->addWidget(bitLabel);
 
     m_healthTabs = new QTabWidget(contentWidget);
     m_healthTabs->setDocumentMode(true);
     m_healthTabs->setMinimumHeight(430);
-    m_healthTabs->setStyleSheet(
+    m_healthTabs->setStyleSheet(UiFontScale::style(
         "QTabBar::tab { min-width: 72px; padding: 6px 10px; }"
-    );
+    ));
 
     for (int panelId = 0; panelId < kRadarPanelCount; ++panelId) {
         QWidget* panelPage = new QWidget(m_healthTabs);
@@ -3634,7 +3409,7 @@ void MainOverLayOut::onRadarSystemClicked() {
         panelLayout->setSpacing(10);
 
         QLabel* panelTitle = new QLabel(QString("阵面 %1 BIT 状态").arg(panelId + 1), panelPage);
-        panelTitle->setStyleSheet("font-size: 16px; font-weight: bold; color: #66ffcc;");
+        panelTitle->setStyleSheet(UiFontScale::style("font-size: 16px; font-weight: bold; color: #66ffcc;"));
         panelLayout->addWidget(panelTitle);
 
         QGridLayout* bitGrid = new QGridLayout();
@@ -3673,7 +3448,7 @@ void MainOverLayOut::onRadarSystemClicked() {
         QVBoxLayout* subArrayLayout = new QVBoxLayout();
         subArrayLayout->setSpacing(6);
         QLabel* subArrayTitle = new QLabel("子阵电源状态（6×6）", panelPage);
-        subArrayTitle->setStyleSheet("font-size: 14px; font-weight: bold; color: #66ffcc;");
+        subArrayTitle->setStyleSheet(UiFontScale::style("font-size: 14px; font-weight: bold; color: #66ffcc;"));
         subArrayLayout->addWidget(subArrayTitle);
 
         QGridLayout* subArrayGrid = new QGridLayout();
@@ -3693,7 +3468,7 @@ void MainOverLayOut::onRadarSystemClicked() {
         }
         subArrayLayout->addLayout(subArrayGrid);
         widgets.subArrayPowerSummaryLabel = new QLabel("未收到子阵电源 BIT 上报", panelPage);
-        widgets.subArrayPowerSummaryLabel->setStyleSheet("font-size: 12px; color: #999999;");
+        widgets.subArrayPowerSummaryLabel->setStyleSheet(UiFontScale::style("font-size: 12px; color: #999999;"));
         subArrayLayout->addWidget(widgets.subArrayPowerSummaryLabel);
 
         QHBoxLayout* panelStatusLayout = new QHBoxLayout();
@@ -3702,16 +3477,12 @@ void MainOverLayOut::onRadarSystemClicked() {
         panelStatusLayout->addLayout(subArrayLayout, 2);
         panelLayout->addLayout(panelStatusLayout);
 
-        widgets.tempLabel = new QLabel("温度信息加载中...", panelPage);
-        widgets.tempLabel->setStyleSheet("font-size: 14px; color: #ffffff; padding: 8px;");
+        widgets.tempLabel = new QLabel("温度/偏航信息加载中...", panelPage);
+        widgets.tempLabel->setStyleSheet(UiFontScale::style("font-size: 14px; color: #ffffff; padding: 8px;"));
         panelLayout->addWidget(widgets.tempLabel);
 
-        widgets.angleLabel = new QLabel("角度信息加载中...", panelPage);
-        widgets.angleLabel->setStyleSheet("font-size: 14px; color: #ffffff; padding: 8px;");
-        panelLayout->addWidget(widgets.angleLabel);
-
         widgets.lastUpdateLabel = new QLabel("等待 BIT 上报...", panelPage);
-        widgets.lastUpdateLabel->setStyleSheet("font-size: 12px; color: #999999; padding: 8px;");
+        widgets.lastUpdateLabel->setStyleSheet(UiFontScale::style("font-size: 12px; color: #999999; padding: 8px;"));
         panelLayout->addWidget(widgets.lastUpdateLabel);
         panelLayout->addStretch();
 
@@ -3852,6 +3623,32 @@ void MainOverLayOut::refreshModeControls()
 
 void MainOverLayOut::arrangeParamSettingsButtons()
 {
+    const bool multiPanelMode = CF_INS.defaultPanelCount() > 1;
+    const QList<QPushButton*> radarButtons = {
+        ui->btnStartSoftware, ui->btnStopSoftware, ui->btnTWSMode, ui->btnTASMode,
+        ui->btnDataStorage, ui->btnServoNorth, ui->btnRadarStandby, ui->btnTransmitControl
+    };
+    for (auto* button : radarButtons) {
+        ui->radarControlGrid->removeWidget(button);
+        button->hide();
+    }
+    int visibleRadarCount = 0;
+    for (auto* button : radarButtons) {
+        if (multiPanelMode && (button == ui->btnTWSMode || button == ui->btnServoNorth)) continue;
+        ui->radarControlGrid->addWidget(button, visibleRadarCount / 2, visibleRadarCount % 2);
+        button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+        button->show();
+        ++visibleRadarCount;
+    }
+    const int radarRows = (visibleRadarCount + 1) / 2;
+    for (int row = 0; row < ui->radarControlGrid->rowCount(); ++row) {
+        ui->radarControlGrid->setRowMinimumHeight(row, 0);
+        ui->radarControlGrid->setRowStretch(row, row < radarRows ? 1 : 0);
+    }
+    for (int column = 0; column < ui->radarControlGrid->columnCount(); ++column) {
+        ui->radarControlGrid->setColumnMinimumWidth(column, 0);
+        ui->radarControlGrid->setColumnStretch(column, column < 2 ? 1 : 0);
+    }
     const QList<QPushButton*> managedButtons = {
         ui->btnDataProcess,
         ui->btnSignalProcess,
@@ -3922,7 +3719,7 @@ void MainOverLayOut::updateTransmitButton()
     if (m_isTransmitting) {
         // 发射开启：绿色背景，文本为"关闭发射"
         ui->btnTransmitControl->setText("关闭发射");
-        ui->btnTransmitControl->setStyleSheet(
+        ui->btnTransmitControl->setStyleSheet(UiFontScale::style(
             "QPushButton {"
             "    background-color: #00ff00;"
             "    color: #101818;"
@@ -3935,11 +3732,11 @@ void MainOverLayOut::updateTransmitButton()
             "}"
             "QPushButton:pressed {"
             "    background-color: #00cc00;"
-            "}");
+            "}"));
     } else {
         // 发射关闭：红色背景，文本为"开启发射"
         ui->btnTransmitControl->setText("开启发射");
-        ui->btnTransmitControl->setStyleSheet(
+        ui->btnTransmitControl->setStyleSheet(UiFontScale::style(
             "QPushButton {"
             "    background-color: #ff0000;"
             "    color: #ffffff;"
@@ -3952,7 +3749,7 @@ void MainOverLayOut::updateTransmitButton()
             "}"
             "QPushButton:pressed {"
             "    background-color: #cc0000;"
-            "}");
+            "}"));
     }
 }
 
@@ -3965,7 +3762,7 @@ void MainOverLayOut::updateStandbyButton()
     if (m_isStandby) {
         // 待机模式：红色背景，文本为"进入工作"
         ui->btnRadarStandby->setText("进入工作");
-        ui->btnRadarStandby->setStyleSheet(
+        ui->btnRadarStandby->setStyleSheet(UiFontScale::style(
             "QPushButton {"
             "    background-color: #ff0000;"
             "    color: #ffffff;"
@@ -3979,11 +3776,11 @@ void MainOverLayOut::updateStandbyButton()
             "}"
             "QPushButton:pressed {"
             "    background-color: #cc0000;"
-            "}");
+            "}"));
     } else {
         // 工作模式：绿色背景，文本为"进入待机"
         ui->btnRadarStandby->setText("进入待机");
-        ui->btnRadarStandby->setStyleSheet(
+        ui->btnRadarStandby->setStyleSheet(UiFontScale::style(
             "QPushButton {"
             "    background-color: #00ff00;"
             "    color: #101818;"
@@ -3997,7 +3794,7 @@ void MainOverLayOut::updateStandbyButton()
             "}"
             "QPushButton:pressed {"
             "    background-color: #00cc00;"
-            "}");
+            "}"));
     }
 }
 
@@ -4219,14 +4016,14 @@ void MainOverLayOut::applyScaledSizes() {
     ui->setTab->setMinimumWidth(leftMinW);
     ui->setTab->setMaximumWidth(QWIDGETSIZE_MAX);
     ui->setTab->setMaximumHeight(setTabH);
-    ui->setTab->setStyleSheet(QString(
+    ui->setTab->setStyleSheet(UiFontScale::style(QString(
         "QTabBar::tab { min-width: %1px; padding: 6px 10px; }"
-    ).arg(ScaleHelper::uiScaled(compact ? 104 : 116)));
+    ).arg(ScaleHelper::uiScaled(compact ? 104 : 116))));
     ui->trackTab->setMinimumWidth(leftMinW);
     ui->trackTab->setMaximumWidth(QWIDGETSIZE_MAX);
-    ui->trackTab->setStyleSheet(QString(
+    ui->trackTab->setStyleSheet(UiFontScale::style(QString(
         "QTabBar::tab { min-width: %1px; padding: 6px 10px; }"
-    ).arg(ScaleHelper::uiScaled(compact ? 142 : 156)));
+    ).arg(ScaleHelper::uiScaled(compact ? 142 : 156))));
 
     // --- 右侧 P显/扇区显示面板 ---
     const int rightMinW = ScaleHelper::uiScaled(compact ? 300 : 340);

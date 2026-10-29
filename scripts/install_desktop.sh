@@ -22,8 +22,8 @@ AUTOSTART_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/autostart"
 AUTOSTART_FILE="${AUTOSTART_DIR}/${DESKTOP_FILE}"
 
 case "${1:-}" in
-    ''|--uninstall|-u) ;;
-    *) echo "Usage: bash $0 [--uninstall]" >&2; exit 2 ;;
+    ''|--auto|--uninstall|-u) ;;
+    *) echo "Usage: bash $0 [--auto|--uninstall]" >&2; exit 2 ;;
 esac
 
 DESKTOP_PATH=""
@@ -54,26 +54,57 @@ for candidate in "${SCRIPT_DIR}/bin/resources/icon/radararray.png" \
 done
 
 mkdir -p "$DESKTOP_DIR"
-cat > "${DESKTOP_DIR}/${DESKTOP_FILE}" <<DESKTOP_EOF
+# Desktop values and the Exec command use separate escaping rules.
+desktop_value() {
+    local value="$1"
+    value=${value//\\/\\\\}
+    value=${value//$'\n'/\\n}
+    value=${value//$'\r'/\\r}
+    value=${value//$'\t'/\\t}
+    printf '%s' "$value"
+}
+exec_path=${RUN_SCRIPT//\\/\\\\}
+exec_path=${exec_path//\"/\\\"}
+exec_path=${exec_path//\$/\\\$}
+exec_path=${exec_path//\`/\\\`}
+exec_path=${exec_path//%/%%}
+entry_tmp=$(mktemp "${DESKTOP_DIR}/.dispctrl.XXXXXX")
+trap 'rm -f -- "$entry_tmp"' EXIT
+cat > "$entry_tmp" <<DESKTOP_EOF
 [Desktop Entry]
 Type=Application
 Name=${APP_NAME}
+Name[zh_CN]=雷达显控 ${APP_VERSION:-}
 Comment=${APP_COMMENT}
-Exec="${RUN_SCRIPT}"
-Icon=${ICON_PATH}
+Exec=$(desktop_value "\"${exec_path}\"")
+Icon=$(desktop_value "$ICON_PATH")
 Terminal=false
 Categories=Science;Engineering;Qt;
 StartupNotify=true
 StartupWMClass=DispCtrl
 DESKTOP_EOF
+if ! cmp -s "$entry_tmp" "${DESKTOP_DIR}/${DESKTOP_FILE}"; then
+    mv -f -- "$entry_tmp" "${DESKTOP_DIR}/${DESKTOP_FILE}"
+fi
 
 if [[ "$DESKTOP_PATH" != "$HOME" ]]; then
     mkdir -p "$DESKTOP_PATH"
-    cp "${DESKTOP_DIR}/${DESKTOP_FILE}" "${DESKTOP_PATH}/"
-    chmod +x "${DESKTOP_PATH}/${DESKTOP_FILE}"
-    if command -v gio >/dev/null 2>&1 && ! gio set "${DESKTOP_PATH}/${DESKTOP_FILE}" metadata::trusted true 2>/dev/null; then
-        echo "Desktop entry created; if required, right-click it and choose Allow Launching."
+    if ! cmp -s "${DESKTOP_DIR}/${DESKTOP_FILE}" "${DESKTOP_PATH}/${DESKTOP_FILE}"; then
+        cp "${DESKTOP_DIR}/${DESKTOP_FILE}" "${DESKTOP_PATH}/"
+        chmod +x "${DESKTOP_PATH}/${DESKTOP_FILE}"
+        if command -v gio >/dev/null 2>&1 && ! gio set "${DESKTOP_PATH}/${DESKTOP_FILE}" metadata::trusted true 2>/dev/null; then
+            echo "Desktop entry created; if required, right-click it and choose Allow Launching."
+        fi
     fi
+fi
+
+# First-run registration never prompts or enables/disables login autostart.
+if [[ "${1:-}" = --auto ]]; then
+    if [[ -f "$AUTOSTART_FILE" ]] && ! cmp -s "${DESKTOP_DIR}/${DESKTOP_FILE}" "$AUTOSTART_FILE"; then
+        cp "${DESKTOP_DIR}/${DESKTOP_FILE}" "$AUTOSTART_FILE"
+    fi
+    command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$DESKTOP_DIR" 2>/dev/null || true
+    exit 0
 fi
 
 # Autostart uses the normal desktop user/session, never a system service.

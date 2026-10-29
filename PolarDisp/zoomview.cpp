@@ -43,6 +43,7 @@
 #include <QPen>
 #include <QBrush>
 #include <QFont>
+#include "Basic/uifontscale.h"
 
 /**
  * @brief 工具栏构造函数
@@ -364,7 +365,7 @@ void ZoomView::mousePressEvent(QMouseEvent* event) {
         // 距离文本
         m_distanceText = m_scene->addText("");
         QFont f = m_distanceText->font();
-        f.setPointSize(10);
+        f.setPixelSize(UiFontScale::pointPixels(10));
         f.setBold(true);
         m_distanceText->setFont(f);
         m_distanceText->setDefaultTextColor(Qt::yellow);

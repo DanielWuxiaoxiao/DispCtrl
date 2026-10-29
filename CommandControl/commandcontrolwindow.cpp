@@ -27,6 +27,7 @@
 #include <QTableWidgetItem>
 #include <QSignalBlocker>
 #include <QVBoxLayout>
+#include "Basic/uifontscale.h"
 
 namespace {
 
@@ -362,7 +363,7 @@ void CommandControlWindow::applyNetworkStatus(QPushButton* button, int index)
         : QStringLiteral("QPushButton { background:#a02a2a; color:#ffffff; border:1px solid #ff6666; border-radius:5px; padding:7px; font-size:13px; }");
     button->setText(text);
     button->setToolTip(text);
-    button->setStyleSheet(style);
+    button->setStyleSheet(UiFontScale::style(style));
 }
 
 void CommandControlWindow::applyAutoReportRange()
@@ -411,7 +412,7 @@ void CommandControlWindow::applyLoginStatus()
         : QStringLiteral("QPushButton { background:#a02a2a; color:#ffffff; border:1px solid #ff6666; border-radius:5px; padding:7px; font-size:13px; }");
     m_loginStatusButton->setText(text);
     m_loginStatusButton->setToolTip(m_module->statusText());
-    m_loginStatusButton->setStyleSheet(style);
+    m_loginStatusButton->setStyleSheet(UiFontScale::style(style));
 }
 
 void CommandControlWindow::refreshPeers()

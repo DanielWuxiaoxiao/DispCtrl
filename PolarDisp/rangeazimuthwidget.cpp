@@ -28,6 +28,7 @@
 #include <QHBoxLayout>
 #include <QResizeEvent>
 #include <QDebug>
+#include "Basic/uifontscale.h"
 
 // ===== RangeAzimuthToolBar 实现 =====
 
@@ -66,7 +67,7 @@ RangeAzimuthToolBar::RangeAzimuthToolBar(QWidget* parent)
 
     // QLabel* noteLabel = new QLabel("(距离范围自动同步主视图)", this);
     // noteLabel->setObjectName("RangeAzimuthNoteLabel");
-    // noteLabel->setStyleSheet("color: #888; font-size: 11px;");
+    // noteLabel->setStyleSheet(UiFontScale::style("color: #888; font-size: 11px;"));
     // layout->addWidget(noteLabel);
 
     // 添加弹性空间
@@ -102,7 +103,7 @@ RangeAzimuthView::RangeAzimuthView(SectorScene* scene, QWidget* parent)
     setObjectName("RangeAzimuthView");
 
     // 设置背景
-    setStyleSheet("background: #1a1a1a;");
+    setStyleSheet(UiFontScale::style("background: #1a1a1a;"));
 }
 
 void RangeAzimuthView::resizeEvent(QResizeEvent* event)

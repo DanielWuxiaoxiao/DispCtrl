@@ -63,8 +63,8 @@ target_report_enabled = false
 # 电磁设备模拟交互：设备下发控制，显控上报检测点/航迹/状态。
 # 与 command_control、laser 完全独立。修改后重启生效。
 [electromagnetic_device]
-enabled = true
-ui_enabled = true
+enabled = false
+ui_enabled = false
 local_ip = "192.168.64.4"
 local_port = 8022
 peer_ip = "192.168.64.8"
@@ -121,6 +121,8 @@ publish_interval_ms = 4000
 # system = follow system DPI scaling; fallback for high-DPI systems that require OS scaling
 dpi_policy = "fixed"
 # Internal UI scale applied on top of resolution layout. Supported range: 0.70-1.60.
+# Includes global/local Qt font styles and painter labels; restart after editing bin/config.toml.
+# 1920x1200 uses the compact layout; try 0.85 if smaller text is preferred.
 ui_scale = 1.0
 
 # =============================================================================
@@ -140,12 +142,18 @@ max_records_per_click = 200000
 
 [radar]
 # 电磁上报备用原点：未收到有效DD05时，真实/测试检测点和航迹均可用以下经纬高解算；DD05优先。
-# 雷达位置配置（基于index.html中的默认值）
+# ID0阵面开机默认值；经纬高采用最新有效UI/GPS更新，手动姿态保持、不被BIT覆盖。
+# “确定”仅当前运行生效；“保存本地”写入以上开机默认值。电磁专用原点窗口独立。
 longitude = 109.123922221                 # 雷达中心经度（西电99号楼）
 latitude = 34.225249343                   # 雷达中心纬度（西电99号楼）
 altitude = 781.48                     # 雷达海拔高度（米）
 azimuth = 0.0                        # 阵面指北角（度）
 pitch = 15.0                         # 俯仰角/倾角（度）
+gps_max_horizontal_deviation_m = 100.0 # 相对最近有效GPS样本中位数的最大水平偏移
+gps_max_altitude_deviation_m = 50.0    # 最大高程偏移；非法/全零/偏离样本不进入最近100点滑动均值
+reference_debug_log_enabled = true   # 调试文件日志，不进入UI日志；现场定位后可关闭
+reference_debug_log_interval_ms = 5000 # 每ID至少5秒一条，不逐包打印
+reference_debug_log_samples = true   # 附带均值输入窗口（最旧到最新），可离线复算
 roll = 0.0                           # 横滚角（度）
 
 [polarDisp.range]
@@ -160,7 +168,7 @@ max = 5                              # 最大显示距离（千米）
 [map]
 # 地图基本配置
 engine = 1                           # 地图引擎：0=OSM(MapLibre+PMTiles,WGS84), 1=高德(AMap,GCJ-02)
-default_type = 0                     # 默认无地图；各引擎类型不同，详见下方说明。
+default_type = 3                     # 同步Windows发布配置：卫星图；离线底图需另行提供map16S瓦片。
 # OSM引擎类型: 0=无地图, 1=路网图, 2=雷达暗绿, 3=暗色标准, 4=全要素
 # 高德引擎类型: 0=无地图, 1=路网图, 2=标准图, 3=卫星图
 
@@ -512,9 +520,9 @@ distanceProcessUpperLimitM = 5200
 heightProcessLowerLimitM = 0
 
 [logging]
-# BIT 正常字段默认不打印；开启后仍按阵面限频。异常首条立即记录，重复按阵面/类别限频并计数。
+# 兼容保留此开关；正常BIT不再记录，即使设true。健康异常按5秒窗口汇总，协议校验异常独立限频。
 bit_report_normal_log_enabled = false
-# 文件日志间隔（ms），兼容旧配置缺省5000，有效范围1000~60000；不降低业务接收/扫描线频率。
+# 文件校验异常间隔（ms），实际最小5000；不降低实时扫描线/姿态更新频率。
 bit_report_normal_log_interval_ms = 5000
 bit_report_warning_log_interval_ms = 5000
 
@@ -559,10 +567,10 @@ interpolation_step = 30
 
 [displayConfig]
 # 检测点显示配置 Detection Point Display Configuration
-max_points = 1000                    # 最大检测点数量
-max_track_points = 200               # 单批航迹最大点数
+max_points = 100                     # 最大检测点数量（同步Windows发布配置）
+max_track_points = 300               # 单批航迹最大点数（同步Windows发布配置）
 # P显和阵面开启控制的初始阵面数量（1~4，默认仅阵面1；不自动下发阵面开关命令）
-default_panel_count = 1
+default_panel_count = 4
 iftbd = false                        # 是否启用TBD航迹接收与显示
 ifxietong = false                    # 是否启用协同航迹接收与显示
 sector_display_enabled = false       # Create the sector display widget

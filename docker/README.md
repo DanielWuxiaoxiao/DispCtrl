@@ -62,6 +62,25 @@ From Windows PowerShell:
 .\docker\build_ubuntu.ps1 -Target 1804 -Jobs 4
 ```
 
+If PowerShell blocks scripts, use a process-local override (no permanent policy change):
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\docker\build_ubuntu.ps1 -Target 1804 -Jobs 4
+```
+
+The workflow reuses an existing local `dispctrl-builder-1804` image and matching
+offline dependency images by default. It still compiles the current working
+tree in a clean container; an old release archive is never used as the new
+application binary. This avoids downloading Qt again for application-only
+changes. The current `container_build.sh` is read from the source mount, so
+older builder images without the newer entrypoint remain usable.
+
+To explicitly refresh the toolchain/dependency images, add `-RebuildImage`
+(or `--rebuild-image` for the Bash entrypoint). Missing images are built
+automatically. In Qt 5.15.2's aqt repository, `qtconnectivity`, `qtserialport`
+and `qt3d` are default archives, not optional `-m` module names. Checksum
+failures during a fresh download must not be bypassed.
+
 `1804` is the recommended target for one package that supports both Ubuntu
 18.04, Ubuntu 20.04, Ubuntu 22.04, and Ubuntu 24.04. It also builds matching offline `.deb` runtime bundles
 into the release package. `2004` is an alias for the same 18.04-compatible
@@ -124,6 +143,13 @@ The package intentionally does not bundle glibc, the dynamic loader, X11
 display services, or OpenGL/DRM GPU drivers. Those pieces must match the
 target operating system and graphics hardware.
 
+From V6.0, the first normal-user graphical-session launch of `run.sh` registers
+the application menu and desktop entries with the packaged radar icon and version.
+Registration is idempotent, preserves existing login-autostart choices, and is
+bounded to five seconds. It does not run as root or in a headless session.
+Use `DISPCTRL_INSTALL_DESKTOP=0 ./run.sh` to opt out. GNOME may still require
+"Allow Launching" or desktop-icon support; this does not prevent menu registration.
+
 The package-root `README.md` and `readme.txt` contain the target-side sequence:
 verify checksum, extract, optionally install offline dependencies, check the
 package, start it, then optionally install application-menu/desktop/autostart
@@ -131,6 +157,13 @@ entries. The desktop installer is current-user only and must not be run with
 `sudo`.
 
 ## Notes
+
+- V6.1 copies canonical runtime assets through `scripts/copy_runtime_resources.sh`:
+  config.toml, all HTML/AMap files, styles and icons. The package includes an
+  immutable-resource SHA256 manifest checked by check_package.sh; config.toml
+  remains operator-editable. Field recordings, data.txt, OSM and offline tile
+  directories are excluded even if present locally. A separate tile dataset is
+  needed for offline basemaps. Never import Windows Qt DLL/.pak files into Linux.
 
 - The first Docker build downloads the Ubuntu toolchain and Qt WebEngine, so it
   takes noticeably longer. Later builds reuse Docker cache.

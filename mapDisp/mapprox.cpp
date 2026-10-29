@@ -14,7 +14,38 @@
 #include <QTimer>
 #include <QDir>
 #include <QUrlQuery>
+#include <QElapsedTimer>
+#include <QFileInfo>
+#include <QRegularExpression>
 #include "../Basic/ConfigManager.h"
+#include "Basic/uifontscale.h"
+#include "Basic/diagnosticlogwindow.h"
+
+namespace {
+class MapPage final : public QWebEnginePage {
+public:
+    explicit MapPage(QObject* parent) : QWebEnginePage(parent) { m_clock.start(); }
+protected:
+    void javaScriptConsoleMessage(JavaScriptConsoleMessageLevel level, const QString& message,
+                                  int line, const QString& source) override {
+        if (level == InfoMessageLevel) return;
+        auto& window = level == ErrorMessageLevel ? m_errors : m_warnings;
+        const auto decision = window.sample(m_clock.elapsed(), 5000);
+        if (!decision.write) return;
+        QString text = message.left(1024);
+        text.replace(QRegularExpression(QStringLiteral("(?i)(key|token|password|scode|secret)=([^&\\s]+)")),
+                     QStringLiteral("\\1=<redacted>"));
+        text.replace(QLatin1Char('\n'), QLatin1Char(' '));
+        text.replace(QStringLiteral("ANGLE"), QStringLiteral("Angle"));
+        const QString location = QUrl(source).adjusted(QUrl::RemoveQuery | QUrl::RemoveFragment).toString();
+        LOG_WARNING(QStringLiteral("[MAP][JS] level=%1 source=%2:%3 message=%4 suppressed=%5")
+            .arg(int(level)).arg(location.left(256)).arg(line).arg(text).arg(qulonglong(decision.suppressed)));
+    }
+private:
+    QElapsedTimer m_clock;
+    DiagnosticLogWindow m_errors, m_warnings;
+};
+}
 
 MapProxyWidget::MapProxyWidget()
 {
@@ -45,21 +76,24 @@ MapProxyWidget::MapProxyWidget()
 
     //创建地图view
     mView = new QWebEngineView();
+    mView->setPage(new MapPage(mView));
+    mView->page()->setBackgroundColor(Qt::black);
+    mView->setStyleSheet(UiFontScale::style("background-color: black;"));
+    m_loadWatchdog = new QTimer(this);
+    m_loadWatchdog->setSingleShot(true);
+    connect(m_loadWatchdog, &QTimer::timeout, this, [this] {
+        if (!mView) return;
+        LOG_ERROR(QStringLiteral("[MAP][LOAD_TIMEOUT] type=%1 url=%2 viewport=%3x%4; native black fallback")
+            .arg(m_currentMapType).arg(m_expectedMapUrl.toString()).arg(mView->width()).arg(mView->height()));
+        m_mapPageSyncPending = false;
+        mView->stop();
+        mView->hide();
+    });
 
     if (!tilesAvailable) {
-        // 瓦片文件夹不存在，设置为透明黑色背景
-        LOG_WARNING("Map tile directories not found. Setting transparent black background.");
-        mView->setStyleSheet("background-color: rgba(16, 24, 24, 0.9);");
-        mView->setHtml("<html><body style='background-color: rgba(16, 24, 24, 0.9); margin: 0; padding: 0;'></body></html>");
-        return;
+        // Missing optional tiles must not skip HTML/WebChannel initialization.
+        LOG_WARNING("Optional map tiles not found; missing offline basemaps will use black.html with WebChannel initialized.");
     }
-
-    // 瓦片存在，继续正常加载地图
-    // 根据初始引擎选择HTML文件
-    QString htmlFile;
-    // 仅使用高德离线 HTML 路径
-    htmlFile = appDir + "/indexNoL.html";
-    LOG_DEBUG(QString("Map HTML file: %1").arg(htmlFile));
 
     // 从配置文件读取WebEngine调试设置
     if (CF_INS.webEngineDebugEnabled()) {
@@ -83,19 +117,35 @@ MapProxyWidget::MapProxyWidget()
 
     // URL 参数可完成首帧定位；页面加载完成后仍要直接刷新一次地图。
     // 这样不依赖 WebChannel 注册完成的先后，也避免卫星瓦片在首次布局尚未稳定时保持空白。
+    connect(mView, &QWebEngineView::loadStarted, this, [this] {
+        LOG_INFO(QStringLiteral("[MAP][LOAD_STARTED] type=%1 url=%2 viewport=%3x%4")
+            .arg(m_currentMapType).arg(mView->url().toString()).arg(mView->width()).arg(mView->height()));
+    });
     connect(mView, &QWebEngineView::loadFinished, this, [this](bool success) {
+        LOG_INFO(QStringLiteral("[MAP][LOAD_FINISHED] ok=%1 type=%2 url=%3 expected=%4 viewport=%5x%6")
+            .arg(success).arg(m_currentMapType).arg(mView->url().toString()).arg(m_expectedMapUrl.toString())
+            .arg(mView->width()).arg(mView->height()));
         if (!m_mapPageSyncPending || mView->url() != m_expectedMapUrl) {
             return;
         }
 
         m_mapPageSyncPending = false;
+        m_loadWatchdog->stop();
         if (!success) {
-            LOG_ERROR(QString("Map HTML load failed: %1").arg(m_expectedMapUrl.toString()));
+            LOG_ERROR(QString("[MAP][LOAD_FAILED] %1; native black fallback").arg(m_expectedMapUrl.toString()));
+            mView->hide();
             return;
         }
-        if (m_currentMapType == 0) {
-            return;
-        }
+        const QUrl expected = m_expectedMapUrl;
+        QPointer<MapProxyWidget> self(this);
+        mView->page()->runJavaScript(QStringLiteral(
+            "JSON.stringify({ready:document.readyState,w:innerWidth,h:innerHeight,"
+            "htmlBackground:getComputedStyle(document.documentElement).backgroundColor,"
+            "bodyBackground:document.body?getComputedStyle(document.body).backgroundColor:'none',"
+            "hasMap:typeof map!=='undefined'})"), [self, expected](const QVariant& value) {
+            if (!self || self->m_expectedMapUrl != expected) return;
+            LOG_INFO(QStringLiteral("[MAP][DOM] %1").arg(value.toString().left(1024)));
+        });
 
         QTimer::singleShot(0, this, &MapProxyWidget::refreshLoadedMapState);
     });
@@ -103,9 +153,12 @@ MapProxyWidget::MapProxyWidget()
     // 渲染进程崩溃监控（外场黑屏排查用）：WebEngine 渲染/ GPU 进程一旦终止，地图区域立即变黑。
     // 记录终止状态与退出码，便于判断是否需要切换 gl_backend(angle→desktop→software)。
     connect(mView->page(), &QWebEnginePage::renderProcessTerminated, this,
-            [](QWebEnginePage::RenderProcessTerminationStatus status, int exitCode) {
-                LOG_ERROR(QString("[WebEngine] 渲染进程终止! status=%1 exitCode=%2 —— 这通常是地图黑屏的直接原因"
-                                  "(多为GPU/驱动崩溃)，请尝试切换 config.toml 的 webengine.gl_backend：angle→desktop→software")
+            [this](QWebEnginePage::RenderProcessTerminationStatus status, int exitCode) {
+                m_loadWatchdog->stop();
+                m_initialLoadPending = false;
+                m_mapPageSyncPending = false;
+                if (mView) mView->hide();
+                LOG_ERROR(QString("[WebEngine] 渲染进程终止! status=%1 exitCode=%2；请结合[WEBENGINE_CONFIG]排查沙箱/系统调用与图形后端兼容性")
                               .arg(static_cast<int>(status))
                               .arg(exitCode));
             });
@@ -115,8 +168,8 @@ MapProxyWidget::MapProxyWidget()
 
     // 构造函数中不加载地图HTML——此时QWebEngineView还未加入布局，容器尺寸为0，
     // AMap在零尺寸容器中初始化会导致瓦片不渲染。
-    // 先显示黑色占位页，延迟到布局完成后再加载实际地图。
-    mView->setHtml("<html><body style='background-color: black; margin: 0; padding: 0;'></body></html>");
+    // 地图等待布局；无地图仍实际加载 black.html，不以 Qt 黑底代替网页。
+    // 页面背景与中央容器黑底仅用于覆盖加载期间或明确失败后的空白。
 
     // 等待视图实际拥有可用尺寸后再加载；不能以固定 500ms 猜测 WebEngine 的布局状态。
     // 此期间的 chooseMap 调用只保存用户选择，首次加载时统一使用最终的类型。
@@ -125,11 +178,16 @@ MapProxyWidget::MapProxyWidget()
 
 void MapProxyWidget::loadInitialMapWhenReady()
 {
-    if (!m_initialLoadPending) {
+    if (!m_initialLoadPending || !mView) {
         return;
     }
 
-    if (!mView || !mView->isVisible() || mView->width() <= 1 || mView->height() <= 1) {
+    if (m_currentMapType == 0) {
+        chooseMap(0);
+        return;
+    }
+
+    if (!mView->isVisible() || mView->width() <= 1 || mView->height() <= 1) {
         QTimer::singleShot(50, this, &MapProxyWidget::loadInitialMapWhenReady);
         return;
     }
@@ -140,36 +198,46 @@ void MapProxyWidget::loadInitialMapWhenReady()
 
 void MapProxyWidget::chooseMap(int index)
 {
+    if (!mView) return;
+    if (index < 0 || index > 4) index = 0;
+    const bool needsLayout = mView->isHidden();
     m_currentMapType = index;
+
+    const QString appDir = QCoreApplication::applicationDirPath();
+    m_effectiveMapType = index;
+    if (index >= 1 && index <= 3) {
+        const QStringList tileDirs{QStringLiteral("mapNoL"), QStringLiteral("map16"), QStringLiteral("map16S")};
+        const QString tilePath = appDir + QLatin1Char('/') + tileDirs.at(index - 1);
+        const QDir tiles(tilePath);
+        if (!tiles.exists() || tiles.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot).isEmpty()) {
+            m_effectiveMapType = 0;
+            LOG_WARNING(QStringLiteral("[MAP][TILES_MISSING] requested=%1 path=%2 missing/empty; loading black.html")
+                .arg(index).arg(tilePath));
+        }
+    }
+    const QStringList pages{QStringLiteral("black.html"), QStringLiteral("indexNoL.html"),
+                            QStringLiteral("index.html"), QStringLiteral("indexS.html"), QStringLiteral("index3d.html")};
+    const QString htmlFile = appDir + QLatin1Char('/') + pages.at(m_effectiveMapType);
+    const QFileInfo file(htmlFile);
+    if (!file.isFile() || !file.isReadable() || file.size() == 0) {
+        m_initialLoadPending = false;
+        m_mapPageSyncPending = false;
+        m_expectedMapUrl = QUrl();
+        m_loadWatchdog->stop();
+        mView->stop();
+        mView->hide();
+        LOG_ERROR(QStringLiteral("[MAP][FILE_MISSING] type=%1 path=%2; native black fallback").arg(index).arg(htmlFile));
+        return;
+    }
+    // black.html has no map canvas: load it even before layout to exercise WebEngine.
+    if (m_effectiveMapType == 0) m_initialLoadPending = false;
+    else if (needsLayout) m_initialLoadPending = true;
+    mView->show();
 
     // 启动期间widget还未布局完成，仅记录类型，等待延迟加载触发
     if (m_initialLoadPending) {
+        QTimer::singleShot(0, this, &MapProxyWidget::loadInitialMapWhenReady);
         return;
-    }
-
-    QString appDir = QCoreApplication::applicationDirPath();
-
-    // 检查瓦片文件夹是否存在
-    QStringList requiredTileDirs = {"mapNoL", "map16", "map16S"};
-    bool tilesAvailable = false;
-    for (const QString& tileDir : requiredTileDirs) {
-        QDir dir(appDir + "/" + tileDir);
-        if (dir.exists()) { tilesAvailable = true; break; }
-    }
-    if (!tilesAvailable) {
-        LOG_WARNING("AMap tiles not available. Cannot switch map.");
-        mView->setHtml("<html><body style='background-color: rgba(16, 24, 24, 0.9); margin: 0; padding: 0;'></body></html>");
-        return;
-    }
-
-    QString htmlFile;
-    switch (index) {
-        case 0: htmlFile = appDir + "/black.html"; break;
-        case 1: htmlFile = appDir + "/indexNoL.html"; break;
-        case 2: htmlFile = appDir + "/index.html"; break;
-        case 3: htmlFile = appDir + "/indexS.html"; break;
-        case 4: htmlFile = appDir + "/index3d.html"; break;
-        default: htmlFile = appDir + "/indexNoL.html"; break;
     }
 
     // 通过URL查询参数把当前中心坐标传给HTML，页面初始化时直接定位，避免闪回默认点
@@ -184,6 +252,7 @@ void MapProxyWidget::chooseMap(int index)
     baseUrl.setQuery(query);
     m_expectedMapUrl = baseUrl;
     m_mapPageSyncPending = true;
+    m_loadWatchdog->start(10000);
     mView->setUrl(baseUrl);
 
     LOG_DEBUG(QString("Map switched: AMap, typeIndex=%1").arg(index));
@@ -260,7 +329,7 @@ void MapProxyWidget::syncCurrentRadarState()
 
 void MapProxyWidget::refreshLoadedMapState()
 {
-    if (!mView || !mView->page() || m_currentMapType == 0) {
+    if (!mView || !mView->page() || m_effectiveMapType == 0) {
         return;
     }
 

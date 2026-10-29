@@ -54,7 +54,7 @@ sig2dispmanager2::sig2dispmanager2(QObject *parent) : QObject(parent)
     connect(socket, &ThreadedUdpSocket::dataSaveOK, CON_INS, &Controller::dataSaveOK);
     connect(socket, &ThreadedUdpSocket::dataDelOK, CON_INS, &Controller::dataDelOK);
     connect(socket, &ThreadedUdpSocket::offLineStat, CON_INS, &Controller::offLineStat);
-    connect(socket, &ThreadedUdpSocket::geoLocationReport, CON_INS, &Controller::geoLocationUpdated);
+    connect(socket, &ThreadedUdpSocket::geoLocationReport, CON_INS, &Controller::updateRadarGeoLocation);
 }
 
 void sig2dispmanager::detInfoDecode(QByteArray data)

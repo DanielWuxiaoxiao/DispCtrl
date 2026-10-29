@@ -375,7 +375,7 @@ typedef struct _ScanRange
 typedef struct _BeamControl
 {
     unsigned short mesID;
-    unsigned char freqID;  //0-7: 9.0GHz~9.8GHz (默认5:9.4GHz)
+    unsigned char freqID;  // 固定频点0/10/.../80对应9.0~9.8GHz；TAS随机跳频=90(0x5A)。
     unsigned char type;  // 1 线性负调频，2 线性正调频（默认）
     int aziStart;      // 0.01°量化 (默认-4500)
     int aziEnd;        // 0.01°量化 (默认4500)
@@ -445,6 +445,12 @@ typedef struct _BeamControl
         elestep3 = 400;  // 4°
     }
 }BeamControl;
+static_assert(sizeof(BeamControl) == 54, "AA05 payload must be 54 bytes including message ID");
+static_assert(offsetof(BeamControl, aziStart) == 4 && offsetof(BeamControl, aziEnd) == 8,
+              "AA05 azimuth limits must remain 32-bit at bytes 5-8 and 9-12");
+static_assert(offsetof(BeamControl, beam1Flag) == 18 && offsetof(BeamControl, beam2Flag) == 30
+              && offsetof(BeamControl, beam3Flag) == 42 && offsetof(BeamControl, elestep3) == 52,
+              "AA05 waveform blocks must remain at bytes 19,31,43");
 
 // TWS模式参数结构体（整合三个子参数）
 typedef struct _TWSModeParam
@@ -514,6 +520,34 @@ static_assert(sizeof(short) == 2 && offsetof(SigProParam, heightProcessLowerLimi
               "AA06 signed height must occupy bytes 25-26");
 static_assert(offsetof(SigProParam, reserve) == 26, "AA06 reserved bytes must start at byte 27");
 
+// AA08: IDs 0..3 are fixed physical panel order; all fields use little-endian pack(1).
+struct RadarPanelPosition {
+    quint8 radarId;
+    qint64 latitudeE9;
+    qint64 longitudeE9;
+    qint32 altitudeCm;
+    quint32 headingMilliDeg;
+    qint32 pitchMilliDeg;
+    qint16 rollCentiDeg;
+};
+struct RadarPositionControl {
+    quint16 mesID;
+    RadarPanelPosition panels[4];
+    quint8 reserve[16];
+    RadarPositionControl() {
+        memset(this, 0, sizeof(*this));
+        mesID = 0xAA08;
+        for (int i = 0; i < 4; ++i) panels[i].radarId = static_cast<quint8>(i);
+    }
+};
+static_assert(sizeof(RadarPanelPosition) == 31, "AA08 panel record must be 31 bytes");
+static_assert(offsetof(RadarPanelPosition, latitudeE9) == 1 && offsetof(RadarPanelPosition, longitudeE9) == 9
+              && offsetof(RadarPanelPosition, altitudeCm) == 17 && offsetof(RadarPanelPosition, headingMilliDeg) == 21
+              && offsetof(RadarPanelPosition, pitchMilliDeg) == 25 && offsetof(RadarPanelPosition, rollCentiDeg) == 29,
+              "AA08 panel offsets changed");
+static_assert(sizeof(RadarPositionControl) == 142 && offsetof(RadarPositionControl, reserve) == 126,
+              "AA08 must contain four panels plus 16 reserved bytes");
+
 typedef struct _DataProParam
 {
     unsigned short mesID;
@@ -561,13 +595,24 @@ typedef struct _DataSave
     unsigned short mesID;
     unsigned char saveSwitch;
     unsigned char dataID;
+    unsigned char confirmBeam;   // 0:not stored, 1:stored; default 0
+    unsigned char trackBeam;     // default 1
+    unsigned char searchBeam;    // default 0
+    unsigned char detection;     // default 1
+    unsigned char reserve[8];
 
     _DataSave()  //default value
     {
         memset(this,0,sizeof (_DataSave));
         mesID = 0xCC01;
+        trackBeam = 1;
+        detection = 1;
     }
 }DataSave;
+static_assert(sizeof(DataSave) == 16, "CC01 payload is 16 bytes");
+static_assert(offsetof(DataSave, confirmBeam) == 4 && offsetof(DataSave, trackBeam) == 5
+    && offsetof(DataSave, searchBeam) == 6 && offsetof(DataSave, detection) == 7
+    && offsetof(DataSave, reserve) == 8, "CC01 byte offsets must match the internal protocol");
 
 typedef struct _DataDel
 {
@@ -878,6 +923,33 @@ typedef struct _BITReport
     }
 }BITReport;
 static_assert(sizeof(BITReport) == 39, "DE02 BIT report layout must remain 39 bytes");
+
+// Multi-panel DE02: preserve the entire 39-byte legacy prefix, including reserve.
+struct BITReportV2 {
+    unsigned short mesID = 0xDE02;
+    unsigned char bitGroup = 0, powerState = 0;
+    unsigned short fpgaTemp = 0, panelTemp = 0, yaw = 0;
+    unsigned char subArrayPower[5] = {};
+    unsigned short scanAngle = 0;
+    unsigned char radarId = 0;
+    unsigned char legacyReserve[21] = {};
+    qint64 latitudeE9 = 0, longitudeE9 = 0;
+    qint32 altitudeCm = 0;
+    quint32 headingMilliDeg = 0;
+    qint32 pitchMilliDeg = 0;
+    qint16 rollCentiDeg = 0;
+    unsigned char reserve[34] = {};
+};
+static_assert(sizeof(BITReportV2) == 103, "Multi-panel DE02 payload is 103 bytes");
+static_assert(offsetof(BITReportV2, legacyReserve) == 18, "Legacy reserve offset");
+static_assert(offsetof(BITReportV2, latitudeE9) == 39, "DE02 latitude offset");
+static_assert(offsetof(BITReportV2, longitudeE9) == 47, "DE02 longitude offset");
+static_assert(offsetof(BITReportV2, altitudeCm) == 55, "DE02 altitude offset");
+static_assert(offsetof(BITReportV2, headingMilliDeg) == 59, "DE02 heading offset");
+static_assert(offsetof(BITReportV2, pitchMilliDeg) == 63, "DE02 pitch offset");
+static_assert(offsetof(BITReportV2, rollCentiDeg) == 67, "DE02 roll offset");
+static_assert(offsetof(BITReportV2, reserve) == 69, "DE02 final reserve offset");
+
 
 typedef struct _PointInfo
 {

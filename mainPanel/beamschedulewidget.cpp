@@ -18,6 +18,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QFont>
+#include "Basic/uifontscale.h"
 
 // ============================================================================
 // BeamScheduleChart
@@ -28,7 +29,7 @@ BeamScheduleChart::BeamScheduleChart(QWidget* parent)
 {
     setMinimumSize(300, 100);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    setStyleSheet("background:#0a0a0a;");
+    setStyleSheet(UiFontScale::style("background:#0a0a0a;"));
 }
 
 void BeamScheduleChart::setSchedule(const BeamScheduleReport& hdr,
@@ -84,7 +85,7 @@ void BeamScheduleChart::paintEvent(QPaintEvent*)
 
     // ---- 行标签 ----
     static const char* kRowLabels[kRows] = { "搜索", "跟踪", "空闲" };
-    p.setFont(QFont("Microsoft YaHei", 8));
+    p.setFont(UiFontScale::pointFont("Microsoft YaHei", 8));
 
     for (int r = 0; r < kRows; ++r) {
         const int y = kTopMargin + r * kRowH;
@@ -102,7 +103,7 @@ void BeamScheduleChart::paintEvent(QPaintEvent*)
     const double pxPerUs = static_cast<double>(W - kLeftMargin - kRightMargin) / totalUs;
     const int chartH = kRowH * kRows;
 
-    p.setFont(QFont("Consolas", 7));
+    p.setFont(UiFontScale::pointFont("Consolas", 7));
     for (int i = 0; i <= kTickCount; ++i) {
         const int x = kLeftMargin +
                       static_cast<int>(i * (W - kLeftMargin - kRightMargin) / kTickCount);
@@ -130,7 +131,7 @@ void BeamScheduleChart::paintEvent(QPaintEvent*)
         // 跟踪槽批号标注（仅在宽度足够时）
         if (slot.taskType == 1 && slotW > 20) {
             p.setPen(Qt::white);
-            p.setFont(QFont("Consolas", 7));
+            p.setFont(UiFontScale::pointFont("Consolas", 7));
             p.drawText(x0 + 2, y, slotW - 4, kRowH - 4,
                        Qt::AlignVCenter | Qt::AlignLeft,
                        QStringLiteral("#%1").arg(slot.batchID));
@@ -145,7 +146,7 @@ void BeamScheduleChart::paintEvent(QPaintEvent*)
 BeamScheduleWidget::BeamScheduleWidget(QWidget* parent)
     : QWidget(parent)
 {
-    setStyleSheet("background:#0a0a0a; color:#cccccc;");
+    setStyleSheet(UiFontScale::style("background:#0a0a0a; color:#cccccc;"));
 
     // ---- 顶部状态栏 ----
     auto* topBar = new QHBoxLayout();
@@ -153,21 +154,21 @@ BeamScheduleWidget::BeamScheduleWidget(QWidget* parent)
     topBar->setSpacing(12);
 
     auto* lblTitle = new QLabel(QStringLiteral("波束调度"));
-    lblTitle->setStyleSheet(
-        "color:#ff8800; font:bold 11px 'Microsoft YaHei';");
+    lblTitle->setStyleSheet(UiFontScale::style(
+        "color:#ff8800; font:bold 11px 'Microsoft YaHei';"));
     topBar->addWidget(lblTitle);
     topBar->addStretch();
 
     const QString statStyle = "color:#cccccc; font:10px Consolas;";
 
     m_lblSeq = new QLabel(QStringLiteral("帧序: —"));
-    m_lblSeq->setStyleSheet(statStyle);
+    m_lblSeq->setStyleSheet(UiFontScale::style(statStyle));
 
     m_lblSlotNum = new QLabel(QStringLiteral("槽数: —"));
-    m_lblSlotNum->setStyleSheet(statStyle);
+    m_lblSlotNum->setStyleSheet(UiFontScale::style(statStyle));
 
     m_lblFrameUs = new QLabel(QStringLiteral("帧长: —"));
-    m_lblFrameUs->setStyleSheet(statStyle);
+    m_lblFrameUs->setStyleSheet(UiFontScale::style(statStyle));
 
     topBar->addWidget(m_lblSeq);
     topBar->addWidget(m_lblSlotNum);

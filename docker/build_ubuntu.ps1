@@ -5,7 +5,8 @@ param(
     [string]$Distribution,
     [ValidateRange(1, 128)]
     [int]$Jobs = 4,
-    [switch]$CheckOnly
+    [switch]$CheckOnly,
+    [switch]$RebuildImage
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,6 +20,7 @@ if ($Distribution) { $wslArgs += @('--distribution', $Distribution) }
 $wslArgs += @('--cd', $projectRoot, '--exec', 'env', "DISPCTRL_BUILD_JOBS=$Jobs",
               'bash', 'docker/docker_build.sh', $Target)
 if ($CheckOnly) { $wslArgs += '--check' }
+if ($RebuildImage) { $wslArgs += '--rebuild-image' }
 & wsl.exe @wslArgs
 if ($LASTEXITCODE -ne 0) { throw "Ubuntu release workflow failed (exit $LASTEXITCODE)." }
 if (-not $CheckOnly) {

@@ -17,6 +17,7 @@
 #include <QScrollBar>
 #include <QHeaderView>
 #include <QEvent>
+#include "Basic/uifontscale.h"
 
 FrozenColumnHelper::FrozenColumnHelper(QTableWidget* table, int frozenCount, QObject* parent)
     : QObject(parent)
@@ -58,7 +59,7 @@ void FrozenColumnHelper::init()
     m_frozenTable->horizontalHeader()->setStretchLastSection(false);
 
     // 使用应用级 QSS，不在这里覆写局部样式，避免破坏主表既有外观。
-    m_frozenTable->setStyleSheet(QString());
+    m_frozenTable->setStyleSheet(UiFontScale::style(QString()));
 
     // 同步垂直滚动
     connect(m_mainTable->verticalScrollBar(), &QScrollBar::valueChanged,

@@ -29,6 +29,8 @@
 #include <QtWebChannel>
 #include <QWebEngineView>
 #include <QUrl>
+#include <QPointer>
+class QTimer;
 
 /**
  * @class MapProxyWidget
@@ -99,7 +101,8 @@ public:
     MapEngine currentEngine() const { return m_currentEngine; }
 
 private:
-    QWebEngineView* mView;   ///< Web引擎视图对象，承载地图显示
+    QPointer<QWebEngineView> mView;   ///< 由主窗口中央容器持有，销毁后自动置空
+    QTimer* m_loadWatchdog = nullptr;
 
     // 当前雷达状态存储
     double m_currentLongitude;  ///< 当前雷达经度
@@ -109,6 +112,7 @@ private:
     double m_offsetRatioY = 0.0; ///< PPI中心相对地图中心的垂直偏移占容器高度比例（无量纲，免疫DPI/分辨率）
     MapEngine m_currentEngine;  ///< 当前地图引擎
     int m_currentMapType;       ///< 当前地图类型索引
+    int m_effectiveMapType = 0; ///< 实际页面类型；缺少所选瓦片时为0，保留UI所选类型
     bool m_initialLoadPending = true; ///< 启动时等待 WebEngine 视图具备有效尺寸
     bool m_mapPageSyncPending = false; ///< 最新地图 HTML 页完成加载后需要执行一次状态刷新
     QUrl m_expectedMapUrl; ///< 仅该 URL 的加载完成事件可以触发地图状态刷新

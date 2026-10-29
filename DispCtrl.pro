@@ -133,6 +133,7 @@ SOURCES += \
     paramWidget/servocontrol.cpp \
     paramWidget/twsmodedialog.cpp \
     paramWidget/tasmodedialog.cpp \
+    paramWidget/radarpanelpositiondialog.cpp \
     \
     # 点管理模块 - 检测点和航迹管理
     PointManager/detmanager.cpp \
@@ -151,6 +152,7 @@ SOURCES += \
     PolarDisp/mousepositioninfo.cpp \
     PolarDisp/ppivisualsettings.cpp \
     PolarDisp/scanlayer.cpp \
+    PolarDisp/scanmarkeroverlay.cpp \
     PolarDisp/sectorpolargrid.cpp \
     PolarDisp/sectorscene.cpp \
     PolarDisp/sectorwidget.cpp \
@@ -195,11 +197,21 @@ HEADERS += \
     Basic/diagnosticlogwindow.h \
     Basic/pointinfovalidation.h \
     Basic/DispBasci.h \
+    Basic/uifontscale.h \
+    Basic/uiscale.h \
     Basic/Protocol.h \
+    Basic/bitreportdecoder.h \
     Basic/wgs84coordinate.h \
     Basic/bindThread.h \
     Basic/log.h \
     Basic/authmanager.h \
+    Basic/radarreference.h \
+    Basic/tascontrolformat.h \
+    Basic/healthstatewindow.h \
+    Basic/gpspositionfilter.h \
+    Basic/radarpositioncontrol.h \
+    Basic/radarpanelstate.h \
+    Basic/radarpanelstore.h \
     Basic/mathUtil.h \
     \
     # 控制模块头文件
@@ -259,6 +271,7 @@ HEADERS += \
     paramWidget/servocontrol.h \
     paramWidget/twsmodedialog.h \
     paramWidget/tasmodedialog.h \
+    paramWidget/radarpanelpositiondialog.h \
     \
     # 点管理模块头文件
     PointManager/detmanager.h \
@@ -277,6 +290,7 @@ HEADERS += \
     PolarDisp/mousepositioninfo.h \
     PolarDisp/ppivisualsettings.h \
     PolarDisp/scanlayer.h \
+    PolarDisp/scanmarkeroverlay.h \
     PolarDisp/sectorpolargrid.h \
     PolarDisp/sectorscene.h \
     PolarDisp/sectorwidget.h \

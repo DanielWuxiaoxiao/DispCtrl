@@ -129,6 +129,7 @@ set(SRC_FILES
     PolarDisp/polaraxis.cpp                    # 极坐标轴绘制
     PolarDisp/ppisscene.cpp                    # PPI场景管理
     PolarDisp/scanlayer.cpp                    # 扫描层显示
+    PolarDisp/scanmarkeroverlay.cpp             # QWidget上层扫描标记
     PolarDisp/sectorwidget.cpp                 # 扇区部件
     PolarDisp/sectorscene.cpp                  # 扇区场景
     PolarDisp/sectorpolargrid.cpp              # 扇区极坐标网格
@@ -232,6 +233,7 @@ set(SRC_FILES
     paramWidget/servocontrol.cpp               # 伺服控制
     paramWidget/twsmodedialog.cpp              # TWS模式设置对话框
     paramWidget/tasmodedialog.cpp              # TAS模式设置对话框
+    paramWidget/radarpanelpositiondialog.cpp
 
     # 基础模块 - 系统基础功能
     Basic/log.cpp                              # 日志系统
@@ -329,10 +331,19 @@ set(HDR_FILES
     Basic/mathUtil.h                           # 数学工具函数
     Basic/log.h                               # 日志系统
     Basic/DispBasci.h                         # 显示基础定义
+    Basic/uifontscale.h                       # Qt样式及绘制字体统一缩放
+    Basic/uiscale.h                           # 不依赖协议打包的UI缩放定义
     Basic/ConfigManager.h                     # 配置管理器
     Basic/diagnosticlogwindow.h                # 固定槽单调时钟日志限频
     Basic/pointinfovalidation.h                # 检测点公开分发前校验
     Basic/authmanager.h                       # 管理者模式认证管理器
+    Basic/radarreference.h                    # 经纬高/姿态逐字段优先级
+    Basic/tascontrolformat.h                  # TAS频点编码及参数日志
+    Basic/healthstatewindow.h                 # 5秒健康窗口及1000帧全零防抖
+    Basic/gpspositionfilter.h                 # 100点GPS平滑与离群剔除
+    Basic/radarpositioncontrol.h              # AA08四阵面位置编码
+    Basic/radarpanelstate.h                   # 四阵面锁定与选中接入状态
+    Basic/radarpanelstore.h                   # 独立TOML锁定快照原子读写
     Basic/OsmRoadParser.h                     # OSM道路数据解析器
 
     # 极坐标显示模块头文件 - PPI雷达显示
@@ -342,7 +353,9 @@ set(HDR_FILES
     PolarDisp/zoomview.h                      # 缩放视图
     PolarDisp/tooltip.h                       # 工具提示
     PolarDisp/scanlayer.h                     # 扫描层
+    PolarDisp/scanmarkeroverlay.h              # QWidget上层扫描标记
     PolarDisp/pviewtopleft.h                  # 左上角视图
+    paramWidget/radarpanelpositiondialog.h
     PolarDisp/mousepositioninfo.h             # 鼠标位置信息
     PolarDisp/ppivisualsettings.h             # PPI视觉设置
     PolarDisp/sectorwidget.h                  # 扇区部件
@@ -436,6 +449,66 @@ option(DISPCTRL_BUILD_TESTS "Build focused DispCtrl QTest targets" OFF)
 if(DISPCTRL_BUILD_TESTS)
     enable_testing()
     find_package(Qt5 REQUIRED COMPONENTS Test)
+    add_executable(data_save_test tests/datasave_test.cpp paramWidget/datasaveui.cpp
+        paramWidget/datasaveui.h paramWidget/datasaveui.ui Basic/Protocol.cpp Basic/log.cpp
+        cusWidgets/custommessagebox.cpp cusWidgets/custommessagebox.h)
+    target_include_directories(data_save_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(data_save_test PRIVATE Qt5::Core Qt5::Widgets Qt5::Test)
+    add_test(NAME data_save_test COMMAND data_save_test)
+    set_tests_properties(data_save_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    add_executable(radar_panel_state_test tests/radarpanelstate_test.cpp)
+    target_include_directories(radar_panel_state_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(radar_panel_state_test PRIVATE Qt5::Core Qt5::Test)
+    add_test(NAME radar_panel_state_test COMMAND radar_panel_state_test)
+    add_executable(radar_panel_dialog_test tests/radarpanelpositiondialog_test.cpp paramWidget/radarpanelpositiondialog.cpp
+        cusWidgets/cuswindow.cpp cusWidgets/cuswindow.h)
+    target_include_directories(radar_panel_dialog_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(radar_panel_dialog_test PRIVATE Qt5::Core Qt5::Widgets Qt5::Test)
+    add_test(NAME radar_panel_dialog_test COMMAND radar_panel_dialog_test)
+    set_tests_properties(radar_panel_dialog_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    add_executable(bit_report_decoder_test tests/bitreportdecoder_test.cpp)
+    target_include_directories(bit_report_decoder_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(bit_report_decoder_test PRIVATE Qt5::Core Qt5::Test)
+    add_test(NAME bit_report_decoder_test COMMAND bit_report_decoder_test)
+    add_executable(ui_font_scale_test tests/uifontscale_test.cpp)
+    target_include_directories(ui_font_scale_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(ui_font_scale_test PRIVATE Qt5::Core Qt5::Widgets Qt5::Test)
+    add_test(NAME ui_font_scale_test COMMAND ui_font_scale_test)
+    set_tests_properties(ui_font_scale_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    add_executable(map_no_map_test tests/mapnomap_test.cpp mapDisp/mapprox.cpp mapDisp/mapprox.h Basic/log.cpp)
+    set_target_properties(map_no_map_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/map_no_map_fixture")
+    target_include_directories(map_no_map_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(map_no_map_test PRIVATE Qt5::Core Qt5::Widgets Qt5::Network Qt5::WebEngineWidgets Qt5::WebChannel Qt5::Test)
+    add_test(NAME map_no_map_test COMMAND map_no_map_test)
+    set_tests_properties(map_no_map_test PROPERTIES ENVIRONMENT
+        "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QTWEBENGINE_DISABLE_SANDBOX=1;QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu")
+    add_executable(health_state_window_test tests/healthstatewindow_test.cpp)
+    target_include_directories(health_state_window_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(health_state_window_test PRIVATE Qt5::Core Qt5::Test)
+    add_test(NAME health_state_window_test COMMAND health_state_window_test)
+    add_executable(scan_layer_render_test tests/scanlayer_render_test.cpp
+        PolarDisp/scanlayer.cpp PolarDisp/scanlayer.h PolarDisp/scanmarkeroverlay.cpp
+        PolarDisp/polaraxis.cpp PolarDisp/polaraxis.h Basic/log.cpp)
+    target_include_directories(scan_layer_render_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(scan_layer_render_test PRIVATE Qt5::Core Qt5::Widgets Qt5::Test)
+    add_test(NAME scan_layer_render_test COMMAND scan_layer_render_test)
+    set_tests_properties(scan_layer_render_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    add_executable(tas_control_format_test tests/tascontrolformat_test.cpp)
+    target_include_directories(tas_control_format_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(tas_control_format_test PRIVATE Qt5::Core Qt5::Test)
+    add_test(NAME tas_control_format_test COMMAND tas_control_format_test)
+    add_executable(radar_reference_config_test tests/radarreference_config_test.cpp Basic/log.cpp)
+    target_include_directories(radar_reference_config_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(radar_reference_config_test PRIVATE Qt5::Core Qt5::Test)
+    add_test(NAME radar_reference_config_test COMMAND radar_reference_config_test)
+    add_executable(radar_reference_test tests/radarreference_test.cpp)
+    target_include_directories(radar_reference_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(radar_reference_test PRIVATE Qt5::Core Qt5::Test)
+    add_test(NAME radar_reference_test COMMAND radar_reference_test)
+    add_executable(radar_position_control_test tests/radarpositioncontrol_test.cpp)
+    target_include_directories(radar_position_control_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(radar_position_control_test PRIVATE Qt5::Core Qt5::Test)
+    add_test(NAME radar_position_control_test COMMAND radar_position_control_test)
     add_executable(sigpro_param_test tests/sigproparam_test.cpp)
     target_include_directories(sigpro_param_test PRIVATE "${CMAKE_SOURCE_DIR}")
     target_link_libraries(sigpro_param_test PRIVATE Qt5::Core Qt5::Test)
@@ -596,7 +669,11 @@ if(UNIX AND NOT APPLE)
     # 安装地图HTML及资源（保持目录结构）
     install(DIRECTORY "${CMAKE_SOURCE_DIR}/htmls/"
             DESTINATION bin
-            PATTERN ".git" EXCLUDE)
+            PATTERN ".git" EXCLUDE
+            PATTERN "mapNoL" EXCLUDE PATTERN "map16" EXCLUDE PATTERN "map16S" EXCLUDE
+            PATTERN "osm" EXCLUDE PATTERN "CommandControlRecords" EXCLUDE PATTERN "recordings" EXCLUDE
+            PATTERN "*.dll" EXCLUDE PATTERN "*.exe" EXCLUDE PATTERN "*.pdb" EXCLUDE
+            PATTERN "*.lnk" EXCLUDE PATTERN "data.txt" EXCLUDE PATTERN "disp_ctrl_log_*.txt" EXCLUDE)
 
     # 安装QSS样式表
     if(EXISTS "${CMAKE_SOURCE_DIR}/resources/style")

@@ -74,16 +74,24 @@ PPIScene::PPIScene(QObject *parent)
 
     m_scan = new ScanLayer(m_axis);
     addItem(m_scan);
-    m_scan->setSweepRange(-30, 30);    // 默认扫描范围（-30°~30°），后续会根据工作模式更新
+    // Multi-panel coverage is yaw+ID*90 +/-45. Do not invent a TAS submission at startup.
+    if (CF_INS.defaultPanelCount() <= 1) m_scan->setSweepRange(-30, 30);
     m_scan->setScanMode(ScanLayer::Loop);
+    const auto applyReferenceYaw = [scan = m_scan] {
+        const auto& reference = CON_INS->radarReference();
+        scan->setReferenceYaw(reference.source(RadarReference::Yaw) == RadarReference::Source::Manual
+                              || reference.source(RadarReference::Yaw) == RadarReference::Source::Locked,
+                              reference.value(RadarReference::Yaw));
+    };
+    connect(CON_INS, &Controller::radarReferenceChanged, m_scan, applyReferenceYaw);
+    applyReferenceYaw();
 
     // BIT carries per-array yaw and scan angle. ScanLayer keeps the values
     // separate so scan-line coordinate semantics can follow the agreed protocol.
     connect(CON_INS, &Controller::bitReport,
         m_scan, &ScanLayer::onBITReport);
 
-    // The same four-array enable command sent to the radar also determines
-    // which rotated TAS scan sectors remain visible in the PPI.
+    // Enable flags select physical 90-degree coverage sectors, not rotated TAS submissions.
     connect(CON_INS, &Controller::sendBCParam,
         m_scan, &ScanLayer::setPanelEnableState);
 

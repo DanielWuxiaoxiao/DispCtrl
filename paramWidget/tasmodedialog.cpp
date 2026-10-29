@@ -22,6 +22,7 @@
 #include "Basic/ConfigManager.h"
 #include "Basic/DispBasci.h"
 #include "Basic/authmanager.h"
+#include "Basic/tascontrolformat.h"
 #include "Controller/controller.h"
 #include "cusWidgets/custommessagebox.h"
 #include "ui_tasmodedialog.h"
@@ -35,6 +36,8 @@ unsigned char TASModeDialog::PRTs[] = {40, 25, 20, 50, 100, 175, 15, 30, 40, 50,
 
 TASModeDialog::TASModeDialog(QWidget* parent) : QDialog(parent), ui(new Ui::TASModeDialog) {
     ui->setupUi(this);
+    m_multiPanelMode = CF_INS.defaultPanelCount() > 1;
+    if (m_multiPanelMode) ui->groupSector->setTitle(tr("方位空域参数"));
     setMinimumWidth(1200);
     setWindowTitle(tr("TAS模式设置"));
     setObjectName("TASModeDialog");  // 设置对象名以应用darkstyle.qss中的样式
@@ -94,8 +97,13 @@ void TASModeDialog::applyPermissions(bool admin) {
         grid->addWidget(ui->label_azistep, 2, 0);
         grid->addWidget(ui->azistep, 2, 1);
     }
-    grid->addWidget(ui->label_pulsenum, 2, admin ? 2 : 0);
-    grid->addWidget(ui->pulseNum1, 2, admin ? 3 : 1);
+    if (!m_multiPanelMode) {
+        grid->addWidget(ui->label_pulsenum, 2, admin ? 2 : 0);
+        grid->addWidget(ui->pulseNum1, 2, admin ? 3 : 1);
+    }
+    ui->label_pulsenum->setVisible(!m_multiPanelMode);
+    ui->pulseNum1->setVisible(!m_multiPanelMode);
+    ui->groupServo->setVisible(!m_multiPanelMode);
     ui->label_azistep->setVisible(admin);
     ui->azistep->setVisible(admin);
     ui->groupWaveform->setVisible(admin);
@@ -160,7 +168,7 @@ void TASModeDialog::updateServoCenterAngle() {
     // 验证空域范围不超过90°
     float aziRange = aziEnd - aziStart;
 
-    if (aziRange > 90.0f) {
+    if (!m_multiPanelMode && aziRange > 90.0f) {
         ui->angleEdit->setText("超限");
         return;
     }
@@ -177,6 +185,11 @@ void TASModeDialog::updateServoCenterAngle() {
 }
 
 void TASModeDialog::onAccept() {
+    const int frequencyCode = TasControl::frequencyCode(ui->freq->currentIndex());
+    if (frequencyCode < 0) {
+        CustomMessageBox::showWarning(this, tr("参数错误"), tr("请选择有效频点或随机跳频。"));
+        return;
+    }
     // 1. 工作模式参数
     ScanRange scanRangeParam;
     scanRangeParam.workMode = ui->workMode->currentIndex();
@@ -210,7 +223,7 @@ void TASModeDialog::onAccept() {
     }
 
     // 频率和类型
-    beamParam.freqID = ui->freq->currentIndex() * 10;  // 0-7 直接使用索引值
+    beamParam.freqID = static_cast<unsigned char>(frequencyCode);
     beamParam.type = ui->type->currentIndex() + 1;
 
     // TAS模式：获取方位空域范围并计算中心
@@ -226,7 +239,7 @@ void TASModeDialog::onAccept() {
         centerAngle = (aziStart + aziEnd) / 2.0f;
     }
 
-    if (aziRange > 90.0f) {
+    if (!m_multiPanelMode && aziRange > 90.0f) {
         CustomMessageBox::showWarning(
             this, tr("参数错误"),
             tr("TAS模式方位空域范围不能超过90°！\n当前范围: %1°\n请调整方位起始/终止参数。")
@@ -325,7 +338,8 @@ void TASModeDialog::restoreParam(const TASModeParam& param) {
     ui->wave3->setCurrentIndex(beamParam.beam3Code);
 
     // 频率和类型
-    ui->freq->setCurrentIndex(beamParam.freqID / 10);
+    const int frequencyIndex = TasControl::frequencyIndex(beamParam.freqID);
+    ui->freq->setCurrentIndex(frequencyIndex >= 0 ? frequencyIndex : 0);
     ui->type->setCurrentIndex(beamParam.type - 1);
 
     // TAS模式：方位空域（从beamParam中的中心角度推算，暂时设为±45°）
@@ -374,6 +388,11 @@ void TASModeDialog::onSaveToConfig() {
         return;
     }
 
+    const int frequencyCode = TasControl::frequencyCode(ui->freq->currentIndex());
+    if (frequencyCode < 0) {
+        CustomMessageBox::showWarning(this, tr("参数错误"), tr("请选择有效频点或随机跳频，未保存配置。"));
+        return;
+    }
     // TAS保存逻辑与TWS类似，保存三种参数
     // 注意：这里简化实现，可根据需要扩展
 
@@ -384,10 +403,10 @@ void TASModeDialog::onSaveToConfig() {
     float aziStart = ui->azistart->text().toFloat();
     float aziEnd = ui->aziend->text().toFloat();
 
-    unsigned char freqID = ui->freq->currentIndex() * 10;  // 修正：需要 * 10（与 onAccept() 一致）
+    unsigned char freqID = static_cast<unsigned char>(frequencyCode);
     unsigned char type = ui->type->currentIndex() + 1;
-    short aziStartInt = static_cast<short>(aziStart * 100);  // 转换为0.01度单位
-    short aziEndInt = static_cast<short>(aziEnd * 100);      // 转换为0.01度单位
+    int aziStartInt = static_cast<int>(aziStart * 100);  // AA05方位为int，36000不能存入short。
+    int aziEndInt = static_cast<int>(aziEnd * 100);
     short aziStep = 400;  // 固定4°
     unsigned char scene = static_cast<unsigned char>(ui->sceneCombo->currentIndex() + 1);
     unsigned short pulseNum = ui->pulseNum1->currentText().toUInt();

@@ -7,7 +7,10 @@
  * @Description: 
  */
 #include "datasaveui.h"
+#pragma pack(push, 8)
 #include "ui_datasaveui.h"
+#include <QIntValidator>
+#pragma pack(pop)
 #include "Basic/log.h"
 #include "Basic/DispBasci.h"
 #include "cusWidgets/custommessagebox.h"
@@ -30,6 +33,7 @@ DataSaveUI::DataSaveUI(QWidget *parent) :
     ui(new Ui::DataSaveUI)
 {
     ui->setupUi(this);
+    ui->saveID->setValidator(new QIntValidator(0, 255, ui->saveID));
     setWindowTitle(tr("数据存储/删除"));
     setMinimumSize(800, 400);
     // 窗口居中显示
@@ -104,6 +108,12 @@ void DataSaveUI::populateTable()
 
 void DataSaveUI::startSave()
 {
+    bool validID = false;
+    const int dataID = ui->saveID->text().toInt(&validID);
+    if (!validID || dataID < 0 || dataID > 255) {
+        QMessageBox::information(this, tr("输入错误"), tr("数据编号必须为0～255的整数。"));
+        return;
+    }
     int rowCount = ui->tab->rowCount();
 
     for(int row = 0; row < rowCount; row++)
@@ -122,8 +132,9 @@ void DataSaveUI::startSave()
     DataSet param;
     param.ifsave = true;
 
-    param.save.dataID = ui->saveID->text().toInt();
+    param.save.dataID = static_cast<unsigned char>(dataID);
     param.save.saveSwitch = 1;
+    fillStorageOptions(param.save);
 
     emit setParam(param);
 
@@ -211,12 +222,21 @@ void DataSaveUI::stopSave()
     param.ifsave = true;
 
     int currentRow = ui->tab->currentRow();
-    if(currentRow >= 0)
+    if(currentRow >= 0 && ui->tab->item(currentRow, 0))
     {
         param.save.dataID = ui->tab->item(currentRow,0)->text().toInt();
         param.save.saveSwitch = 0;
-    }
+    } else return;
+    fillStorageOptions(param.save);
     emit setParam(param);
+}
+
+void DataSaveUI::fillStorageOptions(DataSave& save) const
+{
+    save.confirmBeam = ui->confirmBeamCheck->isChecked() ? 1 : 0;
+    save.trackBeam = ui->trackBeamCheck->isChecked() ? 1 : 0;
+    save.searchBeam = ui->searchBeamCheck->isChecked() ? 1 : 0;
+    save.detection = ui->detectionCheck->isChecked() ? 1 : 0;
 }
 
 void DataSaveUI::offlineDeal()

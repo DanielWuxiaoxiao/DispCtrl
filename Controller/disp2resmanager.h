@@ -129,6 +129,7 @@ public slots:
      * @details 发送信号处理算法和滤波参数
      */
     void sendSPParam(SigProParam param);
+    void sendRadarPositionControl(RadarPositionControl param);
 
     /**
      * @brief 发送数据处理参数

@@ -24,6 +24,7 @@
 #include <QtMath>
 
 #include <cmath>
+#include "Basic/uifontscale.h"
 
 namespace {
 
@@ -664,5 +665,5 @@ void Track3DWidget::showRendererFailurePage(const QString& reason)
         "<div style='font-size:18px;margin-bottom:8px;'>3D渲染不可用</div>"
         "<div style='font-size:12px;color:#9ab8ad;'>%1</div></div></body></html>")
         .arg(reason.toHtmlEscaped());
-    m_webView->setHtml(html);
+    m_webView->setHtml(UiFontScale::style(html));
 }

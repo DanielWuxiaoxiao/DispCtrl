@@ -4,6 +4,13 @@ This file is the project-level instruction entrypoint for Codex and other execut
 
 `Claude.md` is the canonical full project knowledge base. Do not delete, rename, truncate, or replace it. Before any non-trivial code change, read the relevant sections of `Claude.md` and keep it synchronized when a change affects architecture, protocol, configuration, performance behavior, or known pitfalls.
 
+## Version confirmation (user-required)
+
+- At the start of each new implementation/release iteration, read `Basic/DispBasci.h::APP_VERSION_STR` and ask the user whether to keep the version, bump the minor version, or bump the major version. State the concrete proposed numbers, e.g. current `V6.0`: keep `V6.0`, minor `V6.1`, major `V7.0`. Do not choose or increment silently.
+- If the user already specified a version or version policy for this iteration, follow it without asking again for every follow-up or file. Pure inspection/explanation does not require a version question. A rebuild of the same requested release keeps that release's version unless the user says otherwise.
+- While a version choice is pending, implementation may proceed, but keep the version unchanged and obtain confirmation before final release packaging. Asking about the version does not authorize a build or Git writes.
+- For every confirmed version change, synchronize the single runtime constant, UI placeholder and release/desktop version derivation, then record previous/new version, date, changes and validation in `Claude.md`. Do not use the document's historical development-note numbers as the runtime version.
+
 ## Role
 
 You are a senior systems engineer and AI infrastructure developer working on a real-time radar display/control application.
@@ -125,6 +132,8 @@ For performance investigation, prefer sampling profilers over logs or breakpoint
 - Prefer existing project patterns over new abstractions.
 - Add comments only to explain why, not what.
 - WebEngine pages must remain compatible with Qt 5.14's Chromium 77. Do not rely on newer CSS/JavaScript without a fallback (for example, use explicit `top/right/bottom/left`, not only `inset`). A successful HTML/WebChannel load is not proof of a valid canvas or rendered first frame.
+- Linux launcher sandbox policy is explicitly user-chosen: default --no-sandbox plus QTWEBENGINE_DISABLE_SANDBOX=1 after a target-machine SIGSYS/159 reproduction. Keep the documented opt-out, never silently re-enable it during packaging, and preserve launcher Chromium flags when appending config flags. This is a security-reducing compatibility workaround, not proof of a sandbox fix. Missing/empty selected offline tile directories must load the real black.html page; another map type's tile directory does not count as available data.
+- Qt font sizes must follow `ui.ui_scale`: pass design-size (unscaled) QSS through `UiFontScale::style()` once, and use `UiFontScale::pointFont/pointPixels` for explicit painter/graphics-item point fonts. Do not rescale an already-applied/copied stylesheet or multiply radar marker/geometry sizes as a font fix. Keep changed-style comparisons on the scaled result to avoid repeated repolish. The 1920x1200 logical screen is a compact layout like 1920x1080.
 
 ### Protocol / Data Parsing
 

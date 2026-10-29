@@ -34,6 +34,7 @@
 #include <QPainter>
 #include <QtMath>
 #include <QFont>
+#include "Basic/uifontscale.h"
 
 /**
  * @brief 扇形极坐标网格构造函数
@@ -290,7 +291,7 @@ void SectorPolarGrid::drawAngleLines(QPainter* painter)
 void SectorPolarGrid::drawLabels(QPainter* painter)
 {
     painter->setPen(m_textPen);
-    QFont font("Arial", 7); // 更小的字体
+    QFont font = UiFontScale::pointFont("Arial", 7); // 更小的字体
     painter->setFont(font);
 
     float minRange = m_axis->minRange();

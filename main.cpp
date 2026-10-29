@@ -20,6 +20,7 @@
  */
 
 #include <QApplication>
+#include <QSysInfo>
 #include <QDir>
 #include <QStringList>
 #include <QSurfaceFormat>
@@ -39,6 +40,8 @@
 #include "Basic/authmanager.h"
 
 #include <QIcon>
+#include <QFontDatabase>
+#include "Basic/uifontscale.h"
 
 #ifdef Q_OS_WIN
 // 双显卡（联想 Y9000P 等 NVIDIA Optimus / AMD 双显）笔记本：强制使用独立显卡。
@@ -76,8 +79,19 @@ void setupOpenGL() {
  */
 void setupFont(QApplication& app) {
     QFont font("Microsoft YaHei");
+#ifdef Q_OS_LINUX
+    const QStringList available = QFontDatabase().families();
+    const QStringList candidates{QStringLiteral("Noto Sans CJK SC"), QStringLiteral("WenQuanYi Micro Hei"),
+                                 QStringLiteral("Noto Sans"), QStringLiteral("DejaVu Sans")};
+    for (const QString& candidate : candidates) {
+        if (available.contains(candidate, Qt::CaseInsensitive)) { font.setFamily(candidate); break; }
+    }
+#endif
     font.setPixelSize(ScaleHelper::uiScaled(12));
     app.setFont(font);
+    LOG_INFO(QStringLiteral("[UI_FONT] family=%1 pixelSize=%2 uiScale=%3 compact=%4")
+             .arg(font.family()).arg(font.pixelSize()).arg(ScaleHelper::uiScale())
+             .arg(ScaleHelper::compactLayout()));
 }
 
 /**
@@ -273,21 +287,22 @@ QSplitter#MainContentSplitter::handle:hover {
 
 )");
         const bool compact = ScaleHelper::compactLayout();
-        runtimeScaleStyle.replace(QStringLiteral("@overlayFont@"), QString::number(ScaleHelper::uiScaled(compact ? 10 : 12)));
-        runtimeScaleStyle.replace(QStringLiteral("@mainFont@"), QString::number(ScaleHelper::uiScaled(compact ? 11 : 12)));
-        runtimeScaleStyle.replace(QStringLiteral("@titleFont@"), QString::number(ScaleHelper::uiScaled(compact ? 18 : 24)));
-        runtimeScaleStyle.replace(QStringLiteral("@subtitleFont@"), QString::number(ScaleHelper::uiScaled(compact ? 12 : 15)));
+        // Font values stay in design pixels here; the final stylesheet scales them once.
+        runtimeScaleStyle.replace(QStringLiteral("@overlayFont@"), QString::number(compact ? 10 : 12));
+        runtimeScaleStyle.replace(QStringLiteral("@mainFont@"), QString::number(compact ? 11 : 12));
+        runtimeScaleStyle.replace(QStringLiteral("@titleFont@"), QString::number(compact ? 18 : 24));
+        runtimeScaleStyle.replace(QStringLiteral("@subtitleFont@"), QString::number(compact ? 12 : 15));
         runtimeScaleStyle.replace(QStringLiteral("@topButtonMinWidth@"), QString::number(ScaleHelper::uiScaled(compact ? 74 : 78)));
         runtimeScaleStyle.replace(QStringLiteral("@topButtonPadV@"), QString::number(ScaleHelper::uiScaled(compact ? 3 : 4)));
         runtimeScaleStyle.replace(QStringLiteral("@topButtonPadH@"), QString::number(ScaleHelper::uiScaled(compact ? 6 : 8)));
-        runtimeScaleStyle.replace(QStringLiteral("@funcFont@"), QString::number(ScaleHelper::uiScaled(compact ? 11 : 13)));
+        runtimeScaleStyle.replace(QStringLiteral("@funcFont@"), QString::number(compact ? 11 : 13));
         runtimeScaleStyle.replace(QStringLiteral("@funcPadV@"), QString::number(ScaleHelper::uiScaled(compact ? 4 : 6)));
         runtimeScaleStyle.replace(QStringLiteral("@funcPadH@"), QString::number(ScaleHelper::uiScaled(compact ? 5 : 8)));
         runtimeScaleStyle.replace(QStringLiteral("@funcMinWidth@"), QString::number(ScaleHelper::uiScaled(compact ? 64 : 76)));
-        runtimeScaleStyle.replace(QStringLiteral("@chartToolbarFont@"), QString::number(ScaleHelper::uiScaled(12)));
+        runtimeScaleStyle.replace(QStringLiteral("@chartToolbarFont@"), QString::number(12));
         style += runtimeScaleStyle;
 
-        app.setStyleSheet(style);
+        app.setStyleSheet(UiFontScale::style(style));
         file.close();
     }
 }
@@ -338,6 +353,7 @@ int main(int argc, char *argv[]) {
 
     // 注册BIT上报和伺服控制相关类型（用于跨线程信号传递）
     qRegisterMetaType<BITReport>("BITReport");
+    qRegisterMetaType<BITReportV2>("BITReportV2");
     qRegisterMetaType<ServoCtrlRet>("ServoCtrlRet");
 
     // =============================================================================
@@ -363,6 +379,9 @@ int main(int argc, char *argv[]) {
             chromiumFlags << extraFlags;
         }
         if (!chromiumFlags.isEmpty()) {
+            // Preserve launcher policy (including --no-sandbox) when adding config flags.
+            const QString inheritedFlags = QString::fromUtf8(qgetenv("QTWEBENGINE_CHROMIUM_FLAGS")).trimmed();
+            if (!inheritedFlags.isEmpty()) chromiumFlags.prepend(inheritedFlags);
             qputenv("QTWEBENGINE_CHROMIUM_FLAGS", chromiumFlags.join(' ').toUtf8());
         }
     }
@@ -377,6 +396,8 @@ int main(int argc, char *argv[]) {
         qputenv("QT_AUTO_SCREEN_SCALE_FACTOR", "0");
         qputenv("QT_SCALE_FACTOR", "1");
         qputenv("QT_FONT_DPI", "96");
+        qunsetenv("QT_SCREEN_SCALE_FACTORS");
+        qunsetenv("QT_DEVICE_PIXEL_RATIO");
         QApplication::setAttribute(Qt::AA_DisableHighDpiScaling);
         QApplication::setAttribute(Qt::AA_Use96Dpi);
     } else {
@@ -403,6 +424,11 @@ int main(int argc, char *argv[]) {
     // 第二步：创建Qt应用程序实例
     // =============================================================================
     QApplication app(argc, argv);
+    app.setApplicationVersion(QStringLiteral(APP_VERSION_STR));
+    app.setWindowIcon(QIcon(QStringLiteral(":/resources/icon/radararray.png")));
+#ifdef Q_OS_LINUX
+    app.setDesktopFileName(QStringLiteral("dispctrl"));
+#endif
 
     // =============================================================================
     // 第二.五步：初始化屏幕缩放因子（必须在 QApplication 之后、setupFont 之前）
@@ -503,6 +529,15 @@ int main(int argc, char *argv[]) {
     // 第七步：日志系统配置
     // =============================================================================
     qInstallMessageHandler(enhancedLog);
+    LOG_INFO(QStringLiteral("[WEBENGINE_CONFIG] qt=%1 os=%2 kernel=%3 platform=%4 glBackend=%5 sandbox_env=%6 chromium_flags=%7")
+        .arg(QString::fromLatin1(qVersion()), QSysInfo::prettyProductName(), QSysInfo::kernelVersion(),
+             QApplication::platformName(), glBackend, QString::fromUtf8(qgetenv("QTWEBENGINE_DISABLE_SANDBOX")),
+             QString::fromUtf8(qgetenv("QTWEBENGINE_CHROMIUM_FLAGS"))));
+    LOG_INFO(QStringLiteral("[UI_CONFIG] file=%1 version=%2 scale=%3 compact=%4 screen=%5x%6 dpr=%7 font=%8/%9px")
+        .arg(ConfigManager::instance().getConfigFilePath(), QStringLiteral(APP_VERSION_STR))
+        .arg(ScaleHelper::uiScale()).arg(ScaleHelper::compactLayout())
+        .arg(ScaleHelper::logicalWidth()).arg(ScaleHelper::logicalHeight())
+        .arg(ScaleHelper::devicePixelRatio()).arg(app.font().family()).arg(app.font().pixelSize()));
     QObject::connect(&app, &QGuiApplication::lastWindowClosed, &app, [] {
         LOG_INFO("[AppLifecycle] lastWindowClosed");
     });

@@ -20,10 +20,17 @@ struct DataSave {
     unsigned short mesID;      // 0xCC01
     unsigned char saveSwitch;  // 0:关闭存储, 1:开启存储
     unsigned char dataID;      // 数据编号 0~255
+    unsigned char confirmBeam; // 确认波束：0不存、1存，默认0
+    unsigned char trackBeam;   // 跟踪波束：默认1
+    unsigned char searchBeam;  // 搜索波束：默认0
+    unsigned char detection;   // 检测点迹：默认1
+    unsigned char reserve[8];  // 全零
 };
 ```
 
 **功能**:
+V6.5起CC01负载为16字节，小端1字节对齐；字节偏移0信息编号、2开关、3数据编号、4/5/6/7四类存储选项、8～15预留。窗口新增四个复选框，开始/停止均填入当前选择，发送沿用原UDP封装（完整帧35字节，frame.dataLen为30，不含5字节帧尾）。旧4字节CC01接收端需要同步升级；CC02/CC03和DD02～DD04不变。开始前编号校验0～255；未选中记录不发送停止命令。人工命令UI/文件日志记录四项选择。
+
 - 开启存储 (saveSwitch=1): 开始记录雷达数据到文件
 - 关闭存储 (saveSwitch=0): 停止记录并保存文件
 

@@ -130,6 +130,7 @@ Data2DispManager::Data2DispManager(QObject *parent) : QObject(parent)
     });
     connect(socket, &ThreadedUdpSocket::servoCtrlRet, CON_INS, &Controller::servoCtrlRet);
     connect(socket, &ThreadedUdpSocket::bitReport, CON_INS, &Controller::onBITReport);
+    connect(socket, &ThreadedUdpSocket::bitReferenceReport, CON_INS, &Controller::onBITReferenceReport);
     connect(this,&Data2DispManager::traInfoProcess,CON_INS, &Controller::traInfoProcess);
     connect(this, &Data2DispManager::normalTrackFrameReady, CON_INS, &Controller::normalTrackFrameReady);
 }

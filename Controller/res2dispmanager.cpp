@@ -52,6 +52,7 @@ Res2DispManager::Res2DispManager(QObject *parent) : QObject(parent)
     // 连接UDP接收信号到Controller
     bool conn1 = connect(socket, &ThreadedUdpSocket::servoCtrlRet, CON_INS, &Controller::servoCtrlRet);
     bool conn2 = connect(socket, &ThreadedUdpSocket::bitReport, CON_INS, &Controller::onBITReport);
+    connect(socket, &ThreadedUdpSocket::bitReferenceReport, CON_INS, &Controller::onBITReferenceReport);
 
     LOG_DEBUG(QString("[Res2DispManager] Signal connections - servoCtrlRet: %1 bitReport: %2")
                   .arg(conn1)

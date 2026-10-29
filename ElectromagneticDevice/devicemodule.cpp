@@ -17,6 +17,7 @@
 #include <QDataStream>
 #include <QtEndian>
 #include <cstring>
+#include "Basic/uifontscale.h"
 
 namespace {
 constexpr int kMaxPendingDetections = 2048;
@@ -422,12 +423,12 @@ void ElectromagneticDeviceModule::restoreAutomaticRadarPosition()
 
 void ElectromagneticDeviceModule::showOriginDialog(QWidget* parent)
 {
-    if (!m_enabled || !m_uiEnabled) return;
+    if (!m_enabled) return;
     QDialog dialog(parent);
     dialog.setWindowTitle(QStringLiteral("手动配置经纬高"));
-    dialog.setStyleSheet("QDialog { background:#071b17; color:#66ffcc; } QLabel { color:#66ffcc; }"
+    dialog.setStyleSheet(UiFontScale::style("QDialog { background:#071b17; color:#66ffcc; } QLabel { color:#66ffcc; }"
         "QDoubleSpinBox { background:#102820; color:#d9ffff; padding:6px; border:1px solid #00bfa5; }"
-        "QPushButton { background:#075a58; color:#d9ffff; padding:6px 12px; border:1px solid #00bfa5; }");
+        "QPushButton { background:#075a58; color:#d9ffff; padding:6px 12px; border:1px solid #00bfa5; }"));
     auto* layout = new QVBoxLayout(&dialog);
     Wgs84Coordinate::Lla origin; QString source;
     currentRadarOrigin(origin, source);
@@ -637,7 +638,9 @@ void ElectromagneticDeviceModule::processSoftwareReport(MonitorParam report)
     uiValues.append(char(report.sigProSta)); uiValues.append(char(report.targetRecSta));
     if (uiValues != m_lastUiSoftwareLog) {
         m_lastUiSoftwareLog = uiValues;
-        LOG_INFO(QStringLiteral("[电磁设备][STATUS_UI] UI=[%1] WIRE=[%2]（数据/波束/信号/识别，UI的4/5映射为1）")
+        const auto fault = [](unsigned char state) { return state != 0 && state != 2 && state != 4; };
+        if (fault(report.dataProSta) || fault(report.beamConSta) || fault(report.sigProSta) || fault(report.targetRecSta))
+        LOG_WARNING(QStringLiteral("[电磁设备][STATUS_UI] 异常 UI=[%1] WIRE=[%2]（数据/波束/信号/识别，UI的4/5映射为1）")
             .arg(QString::fromLatin1(uiValues.toHex(' ')), QString::fromLatin1(encoded.toHex(' '))));
     }
     m_software = encoded; m_lastSoftware = m_clock.elapsed();
@@ -799,9 +802,9 @@ void ElectromagneticDeviceModule::showWindow(QWidget* parent)
         dialog->setObjectName("ElectromagneticDeviceWindow");
         dialog->setAttribute(Qt::WA_DeleteOnClose);
         dialog->resize(720, 430);
-        dialog->setStyleSheet("QDialog#ElectromagneticDeviceWindow { background:#071b17; color:#66ffcc; }"
+        dialog->setStyleSheet(UiFontScale::style("QDialog#ElectromagneticDeviceWindow { background:#071b17; color:#66ffcc; }"
                               "QDialog#ElectromagneticDeviceWindow QLabel { color:#66ffcc; padding:6px; }"
-                              "QDialog#ElectromagneticDeviceWindow QCheckBox { color:#66ffcc; padding:6px; }");
+                              "QDialog#ElectromagneticDeviceWindow QCheckBox { color:#66ffcc; padding:6px; }"));
         auto* layout = new QVBoxLayout(dialog);
         layout->addWidget(new QLabel(QStringLiteral("显控 %1:%2 (0x%3) → 电磁设备 %4:%5 (0x%6)")
             .arg(m_localIp).arg(m_localPort).arg(m_localId, 4, 16, QLatin1Char('0'))
@@ -861,8 +864,8 @@ void ElectromagneticDeviceModule::updateUi()
     if (!m_window || !m_window->isVisible()) return;
     auto show = [this](int index, bool good, const QString& text) {
         m_labels[index]->setText(text);
-        m_labels[index]->setStyleSheet(QStringLiteral("color:%1; background:#102820; padding:6px;")
-            .arg(good ? "#66ffcc" : "#ff9090"));
+        m_labels[index]->setStyleSheet(UiFontScale::style(QStringLiteral("color:%1; background:#102820; padding:6px;")
+            .arg(good ? "#66ffcc" : "#ff9090")));
     };
     show(0, m_localOk, m_networkEnabled ? QStringLiteral("本机网口：%1").arg(m_localOk ? "正常" : "不可用") : QStringLiteral("网络检测已关闭"));
     show(1, m_peerOk, QStringLiteral("电磁设备网络：%1").arg(m_networkEnabled ? m_peerText : "未启用检测"));

@@ -17,7 +17,10 @@ namespace Ui {
 class mainviewTopLeft;
 }
 class QPushButton;
+class QLineEdit;
 class ElectromagneticDeviceModule;
+class RadarPanelPositionDialog;
+class CusWindow;
 
 class mainviewTopLeft : public QWidget
 {
@@ -36,19 +39,20 @@ public:
 signals:
     void overlaySizeChanged();
 
-public slots:
-    // 接收BIT上报信息，更新阵面偏航角
-    void onBITReport(BITReport report);
-
-    // 接收经纬高上报，实时更新经纬高显示
-    void onGeoLocationUpdated(double latitude, double longitude, double altitude);
-
 protected:
     void paintEvent(QPaintEvent* event) override; // 声明 paintEvent
 
 private:
-    QPointer<ElectromagneticDeviceModule> m_electromagneticModule;
+    void refreshReference();
+    void fitReferenceLayout();
+    void showReferenceDialog();
+    void showPanelPositionDialog();
     QPushButton* m_originButton = nullptr;
+    QPushButton* m_sendPositionButton = nullptr;
+    QLineEdit* m_rollEdit = nullptr;
+    QPointer<ElectromagneticDeviceModule> m_electromagneticModule;
+    QPointer<RadarPanelPositionDialog> m_panelPositionDialog;
+    QPointer<CusWindow> m_panelPositionWindow;
     Ui::mainviewTopLeft *ui;
 };
 

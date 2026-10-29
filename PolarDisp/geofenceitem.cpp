@@ -15,6 +15,7 @@
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
 #include <QtMath>
+#include "Basic/uifontscale.h"
 
 GeoFenceItem::GeoFenceItem(int fenceId, QGraphicsItem* parent)
     : QGraphicsPolygonItem(parent)
@@ -81,7 +82,7 @@ void GeoFenceItem::paint(QPainter* painter,
     if (!m_name.isEmpty()) {
         const QRectF br = boundingRect();
         painter->setPen(QColor(255, 230, 80));
-        painter->setFont(QFont("Microsoft YaHei", 8));
+        painter->setFont(UiFontScale::pointFont("Microsoft YaHei", 8));
         painter->drawText(br.topLeft() + QPointF(4, 14), m_name);
     }
 

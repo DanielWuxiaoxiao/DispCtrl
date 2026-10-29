@@ -47,6 +47,10 @@
 #include "Basic/Protocol.h"
 #include "Basic/ConfigManager.h"
 #include "Basic/diagnosticlogwindow.h"
+#include "Basic/radarreference.h"
+#include "Basic/radarpanelstate.h"
+#include "Basic/healthstatewindow.h"
+#include "Basic/gpspositionfilter.h"
 
 // 前向声明 - 各子系统管理器
 class Disp2ResManager;    ///< 显示到资源管理器
@@ -206,6 +210,8 @@ signals:
      * @param param 信号处理参数结构
      */
     void sendSPParam(SigProParam param);
+    void sendRadarPositionControl(RadarPositionControl param);
+    void radarPanelPositionRequested(const QString& text);
 
     /**
      * @brief 发送数据处理参数
@@ -374,6 +380,12 @@ signals:
 
     // === 经纬高上报 ===
     void geoLocationUpdated(double latitude, double longitude, double altitude);
+    void filteredGeoLocationReported(double latitude, double longitude, double altitude);
+    void radarReferenceChanged();
+    void healthBitSnapshot(BITReport report, bool powerConfirmed, int consecutiveZeroFrames);
+    void healthSoftwareSnapshot(MonitorParam report);
+    void healthFaultSummary(const QString& text);
+    void healthWindowFlushed();
 
     // === 外部雷控链路 ===
     void externalSystemCtrlAck(QByteArray ack64);
@@ -387,6 +399,21 @@ signals:
     void minimizeWindow(bool checked = false);
 
 public slots:
+    void updateRadarGeoLocation(double latitude, double longitude, double altitude);
+    void publishRadarReference();
+
+public:
+    const RadarReference& radarReference() const { return m_radarReference; }
+    bool setManualRadarReference(const RadarReference::Values& values);
+    bool sendCurrentRadarPanelPosition();
+    bool sendRadarPanelPositions(const RadarPanelValues& values);
+    RadarPanelValues radarPanelDialogValues() const { return m_panelState.dialogValues(); }
+    RadarPanelState::Snapshot radarPanelSnapshot() const { return m_panelState.snapshot(); }
+    const RadarReference& radarPanelReference(int id) const { return m_panelState.reference(id); }
+    bool lockRadarPanelReference(int id, const RadarReference::Pose& values);
+    bool unlockRadarPanelReference(int id);
+
+public slots:
     void updateHeadingFromCtrlTable(double headingDeg);
 
     /**
@@ -395,17 +422,34 @@ public slots:
      * @details 解析扫描角度并发送scanAngleChanged信号
      */
     void onBITReport(BITReport res);
+    void onBITReferenceReport(BITReportV2 report);
 
 private:
+    void flushHealthStateWindow();
+    bool saveRadarPanelReferences(const RadarPanelState& state);
+    void logRadarReferenceDebug(const BITReportV2& report, const RadarPanelState::Update& update);
+    void applyRadarGeoLocation(double latitude, double longitude, double altitude);
+    bool m_multiPanelReference = false;
+    bool m_hasExtendedBitAttitude = false;
+    HealthStateWindow m_healthStateWindow;
+    RadarPanelState m_panelState;
+    QString m_panelReferencePath;
+    RadarPanelValues m_savedPanelReferences{};
+    RadarReference& m_radarReference; // Stable alias of the canonical ID0 slot, never a second copy.
+    GpsPositionFilter m_gpsFilter;
+    DiagnosticLogWindow m_gpsRejectLogs;
+    std::array<DiagnosticLogWindow, 4> m_panelReferenceRejectLogs;
+    std::array<DiagnosticLogWindow, 4> m_referenceDebugLogs;
+    bool m_referenceDebugEnabled = true, m_referenceDebugSamples = true;
+    int m_referenceDebugIntervalMs = 5000;
     // Four real panels plus one shared invalid-ID bucket: bounded even for bad input.
     static constexpr std::size_t kBitLogSlots = RADAR_ID_MAX - RADAR_ID_MIN + 2;
     QElapsedTimer m_bitLogClock;
     std::array<DiagnosticLogWindow, kBitLogSlots> m_bitMessageLogs;
     std::array<DiagnosticLogWindow, kBitLogSlots> m_bitRadarIdLogs;
     std::array<DiagnosticLogWindow, kBitLogSlots> m_bitAngleLogs;
-    std::array<DiagnosticLogWindow, kBitLogSlots> m_bitNormalLogs;
     int m_bitWarningLogIntervalMs = 5000;
-    int m_bitNormalLogIntervalMs = 5000;
+    HealthFaultLogGate m_healthFaultLogGate;
 
     // === 子系统管理器实例 ===
     Disp2ResManager* resMgr;       ///< 显示到资源管理器

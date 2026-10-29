@@ -16,6 +16,7 @@
 #include <QHBoxLayout>
 #include <QCheckBox>
 #include <QVBoxLayout>
+#include "Basic/uifontscale.h"
 
 MousePositionInfo::MousePositionInfo(QWidget *parent) :
     QWidget(parent),
@@ -38,14 +39,14 @@ MousePositionInfo::MousePositionInfo(QWidget *parent) :
     // 检测点：绿色圆圈
     {
         QLabel* detColorLabel = new QLabel("●", this);
-        detColorLabel->setStyleSheet("color: #00FF00; font-size: 18px;");
+        detColorLabel->setStyleSheet(UiFontScale::style("color: #00FF00; font-size: 18px;"));
         detColorLabel->setFixedWidth(16);
         ui->checkboxLayout->insertWidget(1, detColorLabel);
     }
     // 跟踪点：红色圆圈
     {
         QLabel* trackColorLabel = new QLabel("●", this);
-        trackColorLabel->setStyleSheet("color: #FF0000; font-size: 18px;");
+        trackColorLabel->setStyleSheet(UiFontScale::style("color: #FF0000; font-size: 18px;"));
         trackColorLabel->setFixedWidth(16);
         ui->checkboxLayout->addWidget(trackColorLabel);
     }
@@ -61,11 +62,11 @@ MousePositionInfo::MousePositionInfo(QWidget *parent) :
         checkBox->setToolTip(toolTip);
         checkBox->setChecked(true);
         checkBox->setObjectName(objectName);
-        checkBox->setStyleSheet("QCheckBox::indicator { width: 12px; height: 12px; }");
+        checkBox->setStyleSheet(UiFontScale::style("QCheckBox::indicator { width: 12px; height: 12px; }"));
         layout->addWidget(checkBox);
 
         QLabel* colorLabel = new QLabel("●", this);
-        colorLabel->setStyleSheet(QString("color: %1; font-size: 18px;").arg(color.name()));
+        colorLabel->setStyleSheet(UiFontScale::style(QString("color: %1; font-size: 18px;").arg(color.name())));
         colorLabel->setFixedWidth(16);
         layout->addWidget(colorLabel);
 
@@ -104,8 +105,8 @@ MousePositionInfo::MousePositionInfo(QWidget *parent) :
     // 标识 objectName 并调整指示器尺寸为稍小（更紧凑）
     ui->checkBoxDetection->setObjectName("MouseCheckBoxDetection");
     ui->checkBoxTrack->setObjectName("MouseCheckBoxTrack");
-    ui->checkBoxDetection->setStyleSheet("QCheckBox::indicator { width: 12px; height: 12px; }");
-    ui->checkBoxTrack->setStyleSheet("QCheckBox::indicator { width: 12px; height: 12px; }");
+    ui->checkBoxDetection->setStyleSheet(UiFontScale::style("QCheckBox::indicator { width: 12px; height: 12px; }"));
+    ui->checkBoxTrack->setStyleSheet(UiFontScale::style("QCheckBox::indicator { width: 12px; height: 12px; }"));
 
     connect(ui->checkBoxDetection, &QCheckBox::toggled, this, &MousePositionInfo::detectionVisibilityChanged);
     connect(ui->checkBoxTrack, &QCheckBox::toggled, this, &MousePositionInfo::trackVisibilityChanged);

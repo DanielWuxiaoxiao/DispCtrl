@@ -15,6 +15,7 @@
 #include <QScreen>
 #include <QScrollArea>
 #include <limits>
+#include "Basic/uifontscale.h"
 
 namespace ZhoushanOptical {
 namespace {
@@ -239,9 +240,9 @@ void Module::init()
 void Module::updateRadarPosition(double latitude, double longitude, double altitude)
 {
     const Wgs84Coordinate::Lla origin{longitude, latitude, altitude};
-    if (!Wgs84Coordinate::isValid(origin)) { logLimited("ORIGIN_INVALID", "拒绝非法DD05原点"); return; }
+    if (!Wgs84Coordinate::isValid(origin)) { logLimited("ORIGIN_INVALID", "拒绝非法显控有效原点"); return; }
     m_origin = origin; m_originValid = true;
-    if (!m_dd05) emit logMessage("[ZS-OPT][ORIGIN] 使用真实DD05原点");
+    if (!m_dd05) emit logMessage("[ZS-OPT][ORIGIN] 使用显控统一原点（UI > GPS > 开机默认）");
     m_dd05 = true;
 }
 bool Module::hasTrack(int batch) const
@@ -452,7 +453,7 @@ void Module::showWindow(QWidget* parent)
     content->setObjectName(QStringLiteral("OpticalIndicationContent"));
     content->setAttribute(Qt::WA_StyledBackground);
     // This detached window cannot rely on the main panel's label palette.
-    content->setStyleSheet(QStringLiteral(
+    content->setStyleSheet(UiFontScale::style(QStringLiteral(
         "QWidget#OpticalIndicationContent { background-color:#101818; color:#D9FFFF; }"
         "QWidget#OpticalIndicationContent QLabel { color:#D9FFFF; background:transparent; font-size:22px; }"
         "QWidget#OpticalIndicationContent QLabel[section=\"true\"] { color:#66FFCC; font-size:24px; font-weight:bold; }"
@@ -469,7 +470,7 @@ void Module::showWindow(QWidget* parent)
         "QWidget#OpticalIndicationContent QPushButton { color:#66FFCC; background-color:#123630; font-size:22px; "
         "border:1px solid #66FFCC; border-radius:5px; min-height:38px; padding:4px 12px; }"
         "QWidget#OpticalIndicationContent QPushButton:hover { background-color:#195046; }"
-        "QWidget#OpticalIndicationContent QPushButton:disabled { color:#809A93; border-color:#426960; background:#172724; }"));
+        "QWidget#OpticalIndicationContent QPushButton:disabled { color:#809A93; border-color:#426960; background:#172724; }")));
     auto heading = [content, layout](const QString& text) {
         auto* label = new QLabel(text, content); label->setProperty("section", true); layout->addWidget(label);
     };
@@ -489,7 +490,7 @@ void Module::showWindow(QWidget* parent)
     heading(QStringLiteral("目标下发与回传"));
     m_exchangeTable = new QTableWidget(ExchangeRows, 4, content);
     m_exchangeTable->setObjectName(QStringLiteral("OpticalExchangeTable"));
-    QFont tableFont = m_exchangeTable->font(); tableFont.setPixelSize(22);
+    QFont tableFont = m_exchangeTable->font(); tableFont.setPixelSize(ScaleHelper::uiScaled(22));
     m_exchangeTable->setFont(tableFont); m_exchangeTable->horizontalHeader()->setFont(tableFont);
     m_exchangeTable->setHorizontalHeaderLabels({QStringLiteral("信息项"), QStringLiteral("最近下发"),
         QStringLiteral("当前批次回传"), QStringLiteral("上一批次回传")});
@@ -525,7 +526,7 @@ void Module::showWindow(QWidget* parent)
     });
     auto* scroll = new QScrollArea(window); scroll->setObjectName(QStringLiteral("OpticalIndicationScroll"));
     scroll->setWidgetResizable(true); scroll->setFrameShape(QFrame::NoFrame);
-    scroll->setStyleSheet(QStringLiteral("QScrollArea#OpticalIndicationScroll { background:#101818; border:0; }"));
+    scroll->setStyleSheet(UiFontScale::style(QStringLiteral("QScrollArea#OpticalIndicationScroll { background:#101818; border:0; }")));
     scroll->setWidget(content);
     window->setContentWidget(scroll); window->setMinimumSize(640, 480);
     refreshWindow();

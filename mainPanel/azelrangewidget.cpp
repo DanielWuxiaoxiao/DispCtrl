@@ -16,6 +16,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QPainterPath>
+#include "Basic/uifontscale.h"
 
 namespace {
 // 默认值，可通过config.toml中的polarDisp.elevationRange和polarDisp.azimuthRange配置
@@ -66,7 +67,7 @@ AzElRangeWidget::AzElRangeWidget(QWidget *parent)
     auto *drawHolder = new QWidget(this);
     drawHolder->setAttribute(Qt::WA_TransparentForMouseEvents, true);
     drawHolder->setAttribute(Qt::WA_TranslucentBackground, true);
-    drawHolder->setStyleSheet("background-color: transparent;");
+    drawHolder->setStyleSheet(UiFontScale::style("background-color: transparent;"));
     drawHolder->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 //    drawHolder->setMinimumHeight(180);  // 设置绘图区域最小高度
     mainLay->addWidget(drawHolder, 1);  // 给绘图区域更多权重
@@ -114,7 +115,7 @@ AzElRangeWidget::AzElRangeWidget(QWidget *parent)
     mainLay->addLayout(grid);
 
     // 统一样式，确保继承父widget背景
-    setStyleSheet(R"(
+    setStyleSheet(UiFontScale::style(R"(
                   QWidget#AzElRangeWidget {
                   background-color: transparent;
                   border: none;
@@ -155,7 +156,7 @@ AzElRangeWidget::AzElRangeWidget(QWidget *parent)
                   QPushButton#SettingsButton:pressed {
                   background-color: rgba(0,255,136,0.4);
                   }
-                  )");
+                  )"));
 
     connectEditors();
 }
@@ -304,7 +305,7 @@ void AzElRangeWidget::drawAzDial(QPainter &p, const QRect &rcDial)
         const double th = azToThetaRad(az);
         QPointF pt(C.x() + r * std::cos(th),
                    C.y() - r * std::sin(th));
-        QFont f("Microsoft YaHei", 10, QFont::DemiBold);  // 减小字体从12到10
+        QFont f = UiFontScale::pointFont("Microsoft YaHei", 10, QFont::DemiBold);  // 减小字体从12到10
         p.setFont(f);
         p.setPen(QColor(QColorConstants::Green));
         QRectF tr(pt.x()-14, pt.y()-12, 28, 24);
@@ -321,7 +322,7 @@ void AzElRangeWidget::drawAzDial(QPainter &p, const QRect &rcDial)
         const int r = R_outer - 22; // 在外圈内一点
         QPointF pt(C.x() + r * std::cos(th),
                    C.y() - r * std::sin(th));
-        QFont f("Microsoft YaHei", 8);  // 减小字体从9到8
+        QFont f = UiFontScale::pointFont("Microsoft YaHei", 8);  // 减小字体从9到8
         p.setFont(f);
         p.setPen(QColor(150, 190, 180, 220));
         QRectF tr(pt.x()-14, pt.y()-9, 28, 18);
@@ -399,7 +400,7 @@ void AzElRangeWidget::drawAzDial(QPainter &p, const QRect &rcDial)
     // —— 中间数值文本 —— //
     {
         QString txt = QString("%1° - %2°").arg(mAzMin).arg(mAzMax);
-        QFont f("Microsoft YaHei", 12, QFont::DemiBold);  // 减小字体从14到12
+        QFont f = UiFontScale::pointFont("Microsoft YaHei", 12, QFont::DemiBold);  // 减小字体从14到12
         p.setFont(f);
         p.setPen(QColor("#e3fff6"));
         p.drawText(QRectF(C.x()-80, C.y()-14, 160, 28), Qt::AlignCenter, txt);
@@ -444,7 +445,7 @@ void AzElRangeWidget::drawElBar(QPainter &p, const QRect &rcBar)
 
         if (d % 15 == 0) {
             p.setPen(QColor("#a8d4c8"));
-            QFont f("Microsoft YaHei", 9);  // 减小字体从10到9
+            QFont f = UiFontScale::pointFont("Microsoft YaHei", 9);  // 减小字体从10到9
             p.setFont(f);
             p.drawText(QRect(gradRect.left() - 44, yy - 9, 38, 18),
                        Qt::AlignRight|Qt::AlignVCenter,
@@ -466,7 +467,7 @@ void AzElRangeWidget::drawElBar(QPainter &p, const QRect &rcBar)
         p.drawLine(gradRect.right()+2, yy, gradRect.right()+8, yy);
         // 文本
         p.setPen(QColor("#e3fff6"));
-        QFont f("Microsoft YaHei", 9, QFont::DemiBold);  // 减小字体从10到9
+        QFont f = UiFontScale::pointFont("Microsoft YaHei", 9, QFont::DemiBold);  // 减小字体从10到9
         p.setFont(f);
         p.drawText(r, Qt::AlignCenter, QString::number(el));
     };
@@ -475,7 +476,7 @@ void AzElRangeWidget::drawElBar(QPainter &p, const QRect &rcBar)
 
     // 标题
     //    {
-    //        QFont f("Microsoft YaHei", 12, QFont::DemiBold);
+    //        QFont f = UiFontScale::pointFont("Microsoft YaHei", 12, QFont::DemiBold);
     //        p.setFont(f);
     //        p.setPen(QColor("#a8d4c8"));
     //        p.drawText(QRect(x, y-2, w, 24), Qt::AlignHCenter|Qt::AlignTop, "仰角范围");

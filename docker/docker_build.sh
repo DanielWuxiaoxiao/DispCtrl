@@ -7,8 +7,9 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TARGET="${1:-1804}"
 CHECK_ONLY=0
+REBUILD_IMAGE=0
 if [[ "$TARGET" = --help || "$TARGET" = -h ]]; then
-    echo 'Usage: bash docker/docker_build.sh [1804|2004|2204|2404] [--check]'
+    echo 'Usage: bash docker/docker_build.sh [1804|2004|2204|2404] [--check] [--rebuild-image]'
     exit 0
 fi
 case "$TARGET" in
@@ -18,11 +19,13 @@ case "$TARGET" in
     2404|24.04) TARGET=2404; BASE=24.04; OFFLINE_DEPS_ENABLED=0 ;;
     *) echo "Unknown target: $TARGET" >&2; exit 2 ;;
 esac
-if [[ $# -gt 2 || ( -n "${2:-}" && "${2:-}" != --check ) ]]; then
-    echo 'Only --check is accepted as the second argument.' >&2
-    exit 2
-fi
-[[ "${2:-}" = --check ]] && CHECK_ONLY=1
+for option in "${@:2}"; do
+    case "$option" in
+        --check) CHECK_ONLY=1 ;;
+        --rebuild-image) REBUILD_IMAGE=1 ;;
+        *) echo "Unknown option: $option" >&2; exit 2 ;;
+    esac
+done
 
 JOBS="${DISPCTRL_BUILD_JOBS:-4}"
 [[ "$JOBS" =~ ^[1-9][0-9]*$ ]] || { echo 'Invalid DISPCTRL_BUILD_JOBS' >&2; exit 2; }
@@ -54,12 +57,17 @@ mkdir -p "$OUTPUT"
 
 echo "Source: $PROJECT_DIR"
 echo "Target: Ubuntu $TARGET x64 (builder base $BASE); jobs: $JOBS"
-docker build --platform linux/amd64 --build-arg "UBUNTU_VERSION=$BASE" \
-    -f "$DOCKERFILE" -t "$IMAGE" "$PROJECT_DIR"
+if [[ "$REBUILD_IMAGE" = 1 ]] || ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+    docker build --platform linux/amd64 --build-arg "UBUNTU_VERSION=$BASE" \
+        -f "$DOCKERFILE" -t "$IMAGE" "$PROJECT_DIR"
+else
+    echo "Reusing local builder: $IMAGE (use --rebuild-image to refresh toolchain)"
+fi
 docker run --rm --platform linux/amd64 \
     --mount "type=bind,source=$PROJECT_DIR,target=/input,readonly" \
     --mount "type=bind,source=$OUTPUT,target=/output" \
-    -e "DISPCTRL_BUILD_JOBS=$JOBS" -e "DISPCTRL_TARGET=$TARGET" "$IMAGE"
+    -e "DISPCTRL_BUILD_JOBS=$JOBS" -e "DISPCTRL_TARGET=$TARGET" \
+    --entrypoint /bin/bash "$IMAGE" -c 'set -o pipefail; sed "s/\r$//" /input/docker/container_build.sh | /bin/bash -e'
 test -d "$RELEASE_ROOT"
 
 # The 18.04-compatible release keeps X576's existing multi-version offline
@@ -69,11 +77,15 @@ build_offline_deps() {
     local image_name="dispctrl-offline-deps-${bundle_name}"
     local output_dir="$RELEASE_ROOT/offline-deps/${bundle_name}"
     mkdir -p "$output_dir"
-    docker build --platform linux/amd64 -f "$PROJECT_DIR/docker/Dockerfile.offline-deps" \
+    if [[ "$REBUILD_IMAGE" = 1 ]] || ! docker image inspect "$image_name" >/dev/null 2>&1; then
+      docker build --platform linux/amd64 -f "$PROJECT_DIR/docker/Dockerfile.offline-deps" \
         --build-arg "UBUNTU_VERSION=${ubuntu_version}" \
         --build-arg "OPENSSL_PACKAGE=${openssl_package}" \
         --build-arg "ALSA_PACKAGE=${alsa_package}" \
         -t "$image_name" "$PROJECT_DIR"
+    else
+        echo "Reusing local offline dependencies: $image_name"
+    fi
     docker run --rm --platform linux/amd64 \
         --mount "type=bind,source=$output_dir,target=/output" "$image_name"
     compgen -G "$output_dir/*.deb" >/dev/null || { echo "Offline bundle is empty: $output_dir" >&2; exit 1; }

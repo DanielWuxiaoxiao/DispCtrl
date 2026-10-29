@@ -52,6 +52,7 @@
 #include "Controller/laserreportmanager.h"
 #include "PhotoelectricV2/module.h"
 #include "ZhoushanOptical/zhoushanmodule.h"
+#include <QPalette>
 #include "Controller/totalcontrolmqttclient.h"
 #include "CommandControl/commandcontrolmodule.h"
 #include "ElectromagneticDevice/devicemodule.h"
@@ -122,6 +123,11 @@ void FramelessMainWindow::setupCentralView()
 {
     // 创建中央容器widget，整个底层widget承载地图显示
     QWidget *central = new QWidget(this);
+    // Native fallback remains black even before Chromium starts or after it fails.
+    central->setAutoFillBackground(true);
+    QPalette background = central->palette();
+    background.setColor(QPalette::Window, Qt::black);
+    central->setPalette(background);
 
     // 创建垂直布局管理器，无边距设计
     QVBoxLayout *layout = new QVBoxLayout(central);
@@ -129,6 +135,7 @@ void FramelessMainWindow::setupCentralView()
 
     // 创建Web地图代理组件实例
     m_map = new MapProxyWidget();
+    m_map->setParent(this);
 
     // 将地图视图添加到布局中
     layout->addWidget(m_map->getView());
@@ -234,7 +241,7 @@ void FramelessMainWindow::setupOverlayUI()
                 &ElectromagneticDeviceModule::setTestRadarPosition);
         connect(CON_INS, &Controller::testPointGenerated, electromagnetic,
                 &ElectromagneticDeviceModule::prepareTestPoint);
-        connect(CON_INS, &Controller::geoLocationUpdated, electromagnetic,
+        connect(CON_INS, &Controller::filteredGeoLocationReported, electromagnetic,
                 &ElectromagneticDeviceModule::updateRadarPosition);
         connect(CON_INS, &Controller::targetClaRes, electromagnetic,
                 &ElectromagneticDeviceModule::processTargetClassification);
@@ -324,7 +331,7 @@ void FramelessMainWindow::setupOverlayUI()
                 &CommandControlModule::processTrackPoint);
         connect(CON_INS, &Controller::targetClaRes, commandControl,
                 &CommandControlModule::processTargetClassification);
-        // DD05 是阵面回传的经纬高真值；DDA1 与 DDA4 必须和既有 GCS/PPI 使用同一来源。
+        // Controller 已按字段合并 UI/GPS/开机默认值，所有链路使用相同有效原点。
         connect(CON_INS, &Controller::geoLocationUpdated, commandControl,
                 &CommandControlModule::updateRadarPosition);
         // 本地测试航迹没有阵面 DD05 时，才注入 [radar] 预存联调原点；该信号不冒充 DD05。
@@ -390,6 +397,8 @@ void FramelessMainWindow::setupOverlayUI()
                 totalMqtt, &TotalControlMqttClient::updateEdgeResult);
         edgeResultReceiver->init();
     }
+    // Replay the resolved boot/report/manual reference after every consumer is connected.
+    CON_INS->publishRadarReference();
 }
 
 /**

@@ -11,6 +11,7 @@
 #include <QIntValidator>
 #include <QLineEdit>
 #include <QTimer>
+#include "Basic/uifontscale.h"
 // 自定义消息框构造函数
 CustomMessageBox::CustomMessageBox(QWidget *parent)  
     : QDialog(parent)
@@ -61,7 +62,7 @@ void CustomMessageBox::setupUI()
 
 void CustomMessageBox::applyStyle()
 {
-    setStyleSheet(R"(
+    setStyleSheet(UiFontScale::style(R"(
         #MessageBoxContainer {
             background-color: rgba(20, 30, 30, 0.95);
             border: 2px solid #00ff88;
@@ -104,7 +105,7 @@ void CustomMessageBox::applyStyle()
         QPushButton:pressed {
             background-color: rgba(0, 255, 136, 0.4);
         }
-    )");
+    )"));
 }
 
 int CustomMessageBox::showDialog(const QString &title, const QString &text,

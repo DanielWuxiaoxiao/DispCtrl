@@ -39,6 +39,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QHBoxLayout>
+#include "Basic/uifontscale.h"
 
 /**
  * @brief 构造函数实现
@@ -145,14 +146,14 @@ PPIVisualSettings::PPIVisualSettings(QWidget *parent)
         // m_roadCheckBox->setToolTip("显示/隐藏OSM道路点");
         // m_roadCheckBox->setObjectName("PPIRoadCheckBox");
         // // 让道路点的checkbox指示器稍大一些，便于识别
-        // m_roadCheckBox->setStyleSheet("QCheckBox::indicator { width: 18px; height: 18px; }");
+        // m_roadCheckBox->setStyleSheet(UiFontScale::style("QCheckBox::indicator { width: 18px; height: 18px; }"));
 
         // roadLayout->addWidget(roadLabel);
         // roadLayout->addWidget(m_roadCheckBox);
 
         // // 在道路点右侧添加颜色指示圆圈（比MousePositionInfo中圆圈更大）
         // QLabel* roadColorLabel = new QLabel("●", this);
-        // roadColorLabel->setStyleSheet("color: #FF8000; font-size: 18px;");
+        // roadColorLabel->setStyleSheet(UiFontScale::style("color: #FF8000; font-size: 18px;"));
         // roadColorLabel->setFixedWidth(20);
         // roadColorLabel->setAlignment(Qt::AlignCenter);
         // roadColorLabel->setObjectName("PPIRoadColorLabel");

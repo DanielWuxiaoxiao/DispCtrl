@@ -29,6 +29,7 @@
 #include "../PointManager/detmanager.h"
 #include "../PointManager/trackmanager.h"
 #include "../Controller/controller.h"
+#include "scanmarkeroverlay.h"
 #include "../Basic/ConfigManager.h"
 #include "../Basic/wgs84coordinate.h"
 #include "../Controller/RadarDataManager.h"
@@ -70,6 +71,7 @@
 
 #include <algorithm>
 #include <limits>
+#include "Basic/uifontscale.h"
 
 QString PPIView::activeGcsTargetBatchSummary() const
 {
@@ -103,6 +105,8 @@ bool PPIView::sendTrackTargetAssignment(int batchID)
     double radarAlt = 0.0;
 
     if (radarInfoW) {
+        radarLat = radarInfoW->getLatitude();
+        radarLon = radarInfoW->getLongitude();
         radarAlt = radarInfoW->getAltitude();
     }
 
@@ -419,13 +423,13 @@ void PPIView::setupOverlay() {
     // 快捷入口只由对应功能开关决定是否展示；真正下发前再校验网络、登录和航迹缓存。
     m_externalQuickActionPanel = new QFrame(this);
     m_externalQuickActionPanel->setObjectName(QStringLiteral("externalQuickActionPanel"));
-    m_externalQuickActionPanel->setStyleSheet(
+    m_externalQuickActionPanel->setStyleSheet(UiFontScale::style(
         QStringLiteral("QFrame#externalQuickActionPanel { background: rgba(4, 25, 25, 210); "
                        "border: 1px solid #00BFA5; border-radius: 4px; }"
                        "QPushButton { min-height: 28px; padding: 2px 10px; color: #D9FFFF; "
                        "background: #075A58; border: 1px solid #00D7C0; border-radius: 3px; }"
                        "QPushButton:hover { background: #087A75; }"
-                       "QPushButton:disabled { color: #809090; border-color: #426060; background: #183232; }"));
+                       "QPushButton:disabled { color: #809090; border-color: #426060; background: #183232; }")));
     auto* quickActionLayout = new QHBoxLayout(m_externalQuickActionPanel);
     quickActionLayout->setContentsMargins(6, 5, 6, 5);
     quickActionLayout->setSpacing(6);
@@ -486,14 +490,6 @@ void PPIView::setupOverlay() {
     // 连接道路点可见性信号
     connect(visualSettings, &PPIVisualSettings::roadVisibilityChanged,
             this, &PPIView::onRoadVisibilityChanged);
-
-    // 连接Controller的BIT上报信号到雷达信息显示组件
-    connect(CON_INS, &Controller::bitReport,
-            radarInfoW, &mainviewTopLeft::onBITReport);
-
-    // 连接Controller的经纬高上报信号到雷达信息显示组件
-    connect(CON_INS, &Controller::geoLocationUpdated,
-            radarInfoW, &mainviewTopLeft::onGeoLocationUpdated);
 
     // 连接经纬高变化信号到PPIView（浮点容差判断+道路点下发）
     connect(CON_INS, &Controller::geoLocationUpdated,
@@ -583,6 +579,8 @@ void PPIView::layoutOverlay() {
 void PPIView::setPPIScene(PPIScene* scene) {
     m_scene = scene;
     QGraphicsView::setScene(scene);
+    if (!m_scanMarkerOverlay) m_scanMarkerOverlay = new ScanMarkerOverlay(this);
+    m_scanMarkerOverlay->setSource(scene->scanLayer());
     fitInView(scene->sceneRect(), Qt::KeepAspectRatio);
 
     // 同步场景的初始范围到视图和界面控件
@@ -789,7 +787,7 @@ void PPIView::mousePressEvent(QMouseEvent* e) {
         // 距离文本
         m_distanceText = m_scene->addText("");
         QFont f = m_distanceText->font();
-        f.setPointSize(10);
+        f.setPixelSize(UiFontScale::pointPixels(10));
         f.setBold(true);
         m_distanceText->setFont(f);
         m_distanceText->setDefaultTextColor(Qt::yellow);
@@ -1857,16 +1855,16 @@ void PPIView::updateCommandControlReplayLegend()
     if (!m_commandControlReplayLegend) {
         m_commandControlReplayLegend = new QFrame(this);
         m_commandControlReplayLegend->setObjectName(QStringLiteral("commandControlReplayLegend"));
-        m_commandControlReplayLegend->setStyleSheet(
+        m_commandControlReplayLegend->setStyleSheet(UiFontScale::style(
             QStringLiteral("QFrame#commandControlReplayLegend { background: rgba(4, 25, 25, 210); "
-                           "border: 1px solid #00BFA5; border-radius: 4px; }"));
+                           "border: 1px solid #00BFA5; border-radius: 4px; }")));
         auto* layout = new QVBoxLayout(m_commandControlReplayLegend);
         layout->setContentsMargins(8, 6, 8, 6);
         layout->setSpacing(2);
         m_commandControlReplayLegendText = new QLabel(m_commandControlReplayLegend);
         m_commandControlReplayLegendText->setTextFormat(Qt::RichText);
-        m_commandControlReplayLegendText->setStyleSheet(
-            QStringLiteral("QLabel { color: #D9FFFF; font-size: 12px; background: transparent; }"));
+        m_commandControlReplayLegendText->setStyleSheet(UiFontScale::style(
+            QStringLiteral("QLabel { color: #D9FFFF; font-size: 12px; background: transparent; }")));
         layout->addWidget(m_commandControlReplayLegendText);
     }
 

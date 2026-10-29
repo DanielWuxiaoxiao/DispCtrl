@@ -42,12 +42,14 @@
 #include <QDateTime>
 #include <QTableWidget>
 #include <QTimer>
+#include <QElapsedTimer>
 #include <QPointer>
 #include <array>
 #include <functional>
 #include <vector>
 #include "ui_mainoverlayout.h"
 #include "Basic/Protocol.h"
+#include "Basic/healthstatewindow.h"
 
 // 前向声明 - 雷达显示相关组件
 class PPIView;        ///< PPI雷达显示视图
@@ -367,7 +369,7 @@ private slots:
      * @brief 处理BIT上报
      * @param res BIT上报数据
      */
-    void onBITReport(BITReport res);
+    void onBITReport(BITReport res, bool powerConfirmed, int consecutiveZeroFrames);
 
     /**
      * @brief 打开雷达系统健康管理对话框
@@ -592,17 +594,17 @@ private:
     struct SubArrayPowerVisualState {
         // 已确认显示给操作员的 36 路电源状态；下标 0..35 对应协议 bit0..bit35。
         std::array<bool, 36> normal{};
-        // 连续收到全部 36 位均为 0 的报文数；达到阈值前不覆盖已确认状态。
+        // Controller逐帧累计全部36位为0；连续1000帧确认，显示每5秒汇总。
         int consecutiveAllZeroReports = 0;
         // false 表示尚未收到可用于显示的正常、部分状态或连续全零故障确认。
         bool hasConfirmedStatus = false;
     };
     std::array<SubArrayPowerVisualState, kRadarPanelCount> m_subArrayPowerVisualStates{};
-    static constexpr int kSubArrayPowerZeroFaultThreshold = 100;
+    static constexpr int kSubArrayPowerZeroFaultThreshold = HealthStateWindow::ZeroThreshold;
 
     // 健康管理窗口相关
     CusWindow* m_healthWindow;           ///< 雷达系统健康管理窗口指针
-    QTimer* m_healthRefreshTimer = nullptr; ///< 仅合并控件刷新，不跳过原始状态处理
+    bool m_healthUiDirty = true; ///< 仅由Controller五秒窗口统一刷新，接收事件只置脏
     QTabWidget* m_healthTabs = nullptr;  ///< 四个阵面健康信息页
     int m_activeHealthPanel = 0;
     QPushButton* m_sigProBtn;            ///< 信号处理状态按钮
@@ -647,7 +649,6 @@ private:
         std::array<QPushButton*, 36> subArrayPowerCells{};
         QLabel* subArrayPowerSummaryLabel = nullptr;
         QLabel* tempLabel = nullptr;
-        QLabel* angleLabel = nullptr;
         QLabel* lastUpdateLabel = nullptr;
     };
     std::array<HealthPanelWidgets, kRadarPanelCount> m_healthPanelWidgets{};
@@ -666,11 +667,11 @@ private:
 
     // 温度和角度标签
     QLabel* m_tempLabel;                 ///< 温度信息标签
-    QLabel* m_angleLabel;                ///< 角度信息标签
-
-    // BIT更新控制
-    QDateTime m_lastBITUpdateTime;       ///< 上次BIT信息更新到界面的时间
-    static constexpr int BIT_UPDATE_INTERVAL_SEC = 60;  ///< BIT信息更新间隔（秒）
+    bool m_softwareUiPending = false;
+    bool m_servoUiPending = false;
+    ServoCtrlRet m_latestServoUi{};
+    HealthFaultLogGate m_servoFaultLogGate;
+    QElapsedTimer m_servoFaultLogClock;
 
     /**
      * @brief 更新健康管理窗口显示
@@ -678,8 +679,8 @@ private:
      */
     void updateHealthWindow();
     void scheduleHealthWindowRefresh();
+    void flushStatusUi();
     void bindHealthPanel(int panelId);
-    void updateSubArrayPowerVisualState(int panelId, const BITReport& report);
     void updateNetworkHealthStatus(int index, bool ok, const QString& text);
     void applyNetworkHealthStatus(int index);
     // 雷达控制状态成员

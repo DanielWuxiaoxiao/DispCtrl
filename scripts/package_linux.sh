@@ -108,41 +108,7 @@ chmod +x "${DEPLOY_DIR}/bin/${APP_NAME}"
 ##############################################################################
 echo "[2/8] 复制项目资源..."
 
-# config.toml
-cp "${PROJECT_DIR}/config.toml" "${DEPLOY_DIR}/bin/"
-
-# HTML 地图文件。缺失其中任意一个会导致对应地图页空白，打包时直接失败。
-for web_asset in index.html indexNoL.html indexS.html index3d.html qwebchannel.js; do
-    if [[ ! -f "${PROJECT_DIR}/htmls/${web_asset}" ]]; then
-        echo "Missing required map asset: htmls/${web_asset}" >&2
-        exit 1
-    fi
-done
-[[ -d "${PROJECT_DIR}/htmls/amap" ]] || { echo "Missing required map asset directory: htmls/amap" >&2; exit 1; }
-cp -r "${PROJECT_DIR}/htmls/"* "${DEPLOY_DIR}/bin/"
-echo "  ✓ htmls/"
-
-# QSS 样式表
-if [ -d "${PROJECT_DIR}/resources/style" ]; then
-    mkdir -p "${DEPLOY_DIR}/bin/resources/style"
-    cp "${PROJECT_DIR}/resources/style/"*.qss "${DEPLOY_DIR}/bin/resources/style/" 2>/dev/null || true
-    echo "  ✓ resources/style/"
-fi
-
-# 图标资源
-if [ -d "${PROJECT_DIR}/resources/icon" ]; then
-    mkdir -p "${DEPLOY_DIR}/bin/resources/icon"
-    cp -r "${PROJECT_DIR}/resources/icon/"* "${DEPLOY_DIR}/bin/resources/icon/" 2>/dev/null || true
-    echo "  ✓ resources/icon/"
-fi
-
-# 瓦片地图文件夹 (如果存在于项目目录)
-for tiledir in mapNoL map16 map16S; do
-    if [ -d "${PROJECT_DIR}/${tiledir}" ]; then
-        cp -r "${PROJECT_DIR}/${tiledir}" "${DEPLOY_DIR}/bin/"
-        echo "  ✓ ${tiledir}/"
-    fi
-done
+bash "${PROJECT_DIR}/scripts/copy_runtime_resources.sh" "$PROJECT_DIR" "${DEPLOY_DIR}/bin"
 
 ##############################################################################
 # 3. 复制 Qt 共享库
@@ -435,7 +401,8 @@ chmod +x "${DEPLOY_DIR}/check_package.sh"
 if [[ -f "${PROJECT_DIR}/docs/Ubuntu发布说明.md" ]]; then
     cp "${PROJECT_DIR}/docs/Ubuntu发布说明.md" "${DEPLOY_DIR}/README.md"
 fi
-APP_VERSION=$(sed -n 's/^#define APP_VERSION_STR "\([^"]*\)"/\1/p' "${PROJECT_DIR}/Basic/DispBasci.h")
+# Windows headers may use CRLF or have a trailing comment; keep only the quoted value.
+APP_VERSION=$(sed -n 's/^[[:space:]]*#define[[:space:]]\+APP_VERSION_STR[[:space:]]\+"\([^"]*\)".*$/\1/p' "${PROJECT_DIR}/Basic/DispBasci.h")
 [[ "$APP_VERSION" =~ ^V?[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || { echo "Cannot read APP_VERSION_STR" >&2; exit 1; }
 printf '%s\n' "$APP_VERSION" > "${DEPLOY_DIR}/VERSION"
 cp "${PROJECT_DIR}/scripts/install_offline_deps.sh" "${DEPLOY_DIR}/"
@@ -447,56 +414,7 @@ echo "  ✓ install_offline_deps.sh"
 ##############################################################################
 echo "[8/8] 创建启动脚本..."
 
-cat > "${DEPLOY_DIR}/run.sh" << 'EOF'
-#!/bin/bash
-##############################################################################
-# DispCtrl 启动脚本
-# 设置正确的运行环境变量后启动程序
-##############################################################################
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
-# 动态库搜索路径
-export LD_LIBRARY_PATH="${SCRIPT_DIR}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
-
-# Qt 插件路径
-export QT_PLUGIN_PATH="${SCRIPT_DIR}/plugins"
-
-# WebEngine 关键路径
-export QTWEBENGINEPROCESS_PATH="${SCRIPT_DIR}/bin/QtWebEngineProcess"
-export QTWEBENGINE_RESOURCES_PATH="${SCRIPT_DIR}/resources"
-export QTWEBENGINE_LOCALES_PATH="${SCRIPT_DIR}/translations/qtwebengine_locales"
-
-# ---------- WebEngine Sandbox (Linux 必需) ----------
-# Keep Chromium sandbox enabled by default. Set DISPCTRL_DISABLE_SANDBOX=1 only
-# when the target desktop has explicitly been verified not to support it.
-SANDBOX_FLAGS=""
-if [ "${DISPCTRL_DISABLE_SANDBOX:-0}" = 1 ]; then
-    SANDBOX_FLAGS="--no-sandbox --disable-gpu-sandbox"
-fi
-
-# ---------- WebEngine GPU 兼容性 ----------
-# 如果目标机器没有独立显卡或显卡驱动不完整，WebGL 可能被禁用。
-# 默认启用忽略 GPU 黑名单（适合大多数场景）。
-# 如仍有问题，可切换到方案2或方案3。
-#
-# 方案1: 忽略 GPU 黑名单 (默认启用，大多数情况下足够)
-GPU_FLAGS="--ignore-gpu-blocklist --enable-gpu-rasterization"
-#
-# 方案2: 完全禁用 GPU 加速 (最安全，但地图性能略低)
-# GPU_FLAGS="--disable-gpu --disable-gpu-compositing"
-#
-# 方案3: 使用软件 OpenGL 渲染 (取消注释以下两行)
-# export QT_QUICK_BACKEND=software
-# export LIBGL_ALWAYS_SOFTWARE=1
-# ------------------------------------------
-
-export QTWEBENGINE_CHROMIUM_FLAGS="${QTWEBENGINE_CHROMIUM_FLAGS:-} ${SANDBOX_FLAGS} ${GPU_FLAGS}"
-export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb}"
-
-# 切换到 bin 目录（确保 config.toml 和 html 资源的相对路径正确）
-cd "${SCRIPT_DIR}/bin"
-exec ./DispCtrl "$@"
-EOF
+cp "${PROJECT_DIR}/scripts/run_linux.sh" "${DEPLOY_DIR}/run.sh"
 chmod +x "${DEPLOY_DIR}/run.sh"
 
 cat > "${DEPLOY_DIR}/bin/qt.conf" << 'EOF'
@@ -550,6 +468,7 @@ echo "    scp ${TARBALL} user@target:~/"
 echo "    ssh user@target 'tar xzf DispCtrl-linux-x64.tar.gz'"
 echo "    ssh user@target 'cd DispCtrl-linux-x64 && ./run.sh'"
 echo ""
-echo "  创建桌面快捷方式 (可选):"
+echo "  首次在图形桌面运行run.sh后自动创建桌面/应用菜单图标。"
+echo "  手动修复入口或配置登录自启动 (可选):"
 echo "    ssh user@target 'cd DispCtrl-linux-x64 && bash install_desktop.sh'"
 echo "============================================"

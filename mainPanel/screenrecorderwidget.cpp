@@ -42,6 +42,7 @@
 #include <QWindow>
 
 #include "Basic/log.h"
+#include "Basic/uifontscale.h"
 
 // =============================================================================
 // 构造与析构
@@ -168,13 +169,13 @@ void ScreenRecorderWidget::setupUI()
     m_previewLabel->setObjectName("RecorderPreview");
     m_previewLabel->setAlignment(Qt::AlignCenter);
     m_previewLabel->setMinimumHeight(200);
-    m_previewLabel->setStyleSheet(
+    m_previewLabel->setStyleSheet(UiFontScale::style(
         "QLabel#RecorderPreview {"
         "  background-color: rgba(0,0,0,0.6);"
         "  border: 1px solid rgba(102,255,204,0.3);"
         "  border-radius: 4px;"
         "  color: #66ffcc;"
-        "}");
+        "}"));
     m_previewLabel->setText("无预览");
     mainLayout->addWidget(m_previewLabel, 2); // stretch=2
 
@@ -356,7 +357,7 @@ void ScreenRecorderWidget::onRecordToggle()
         m_captureTimer->start(CAPTURE_INTERVAL_MS);
 
         m_statusLabel->setText("● 正在录屏...");
-        m_statusLabel->setStyleSheet("QLabel { color: #ff4444; font-weight: bold; }");
+        m_statusLabel->setStyleSheet(UiFontScale::style("QLabel { color: #ff4444; font-weight: bold; }"));
 
         LOG_INFO("Screen recording started: " + m_currentRecordPath);
         updateButtonStates();
@@ -399,7 +400,7 @@ void ScreenRecorderWidget::stopRecording()
     m_isRecording = false;
     m_aviWriter.close();
 
-    m_statusLabel->setStyleSheet(""); // 恢复默认样式
+    m_statusLabel->setStyleSheet(UiFontScale::style("")); // 恢复默认样式
 
     if (m_frameCount == 0) {
         // 没有捕获任何帧，删除空文件
@@ -658,7 +659,7 @@ QString ScreenRecorderWidget::showStyledNameDialog(const QString& defaultName)
     QDialog dlg(this);
     dlg.setWindowTitle("保存录制");
     dlg.setMinimumWidth(380);
-    dlg.setStyleSheet(darkGreenDialogStyleSheet());
+    dlg.setStyleSheet(UiFontScale::style(darkGreenDialogStyleSheet()));
 
     QVBoxLayout* layout = new QVBoxLayout(&dlg);
     layout->setSpacing(12);
@@ -700,7 +701,7 @@ bool ScreenRecorderWidget::showStyledConfirmDialog(const QString& title, const Q
     QDialog dlg(this);
     dlg.setWindowTitle(title);
     dlg.setMinimumWidth(380);
-    dlg.setStyleSheet(darkGreenDialogStyleSheet());
+    dlg.setStyleSheet(UiFontScale::style(darkGreenDialogStyleSheet()));
 
     QVBoxLayout* layout = new QVBoxLayout(&dlg);
     layout->setSpacing(16);

@@ -10,12 +10,14 @@
 #define CONFIGMANAGER_H
 #include <QFile>
 #include <QFileInfo>
+#include <QSaveFile>
 #include <QDebug>
 #include <QString>
 #include <QMap>
 #include <QVariant>
 #include <QTextStream>
 #include "Basic/log.h"
+#include "Basic/radarreference.h"
 
 #define CF_INS ConfigManager::instance()
 
@@ -235,6 +237,22 @@ public:
     double roll(const QString& key = "roll", double def = 0.0) const {
         return getValue("radar." + key, def).toDouble();
     }
+    double gpsMaxHorizontalDeviationM() const {
+        bool ok = false;
+        const double v = getValue("radar.gps_max_horizontal_deviation_m", 100.0).toDouble(&ok);
+        return ok && std::isfinite(v) && v > 0 ? v : 100.0;
+    }
+    bool referenceDebugLogEnabled() const { return getValue("radar.reference_debug_log_enabled", true).toBool(); }
+    bool referenceDebugLogSamples() const { return getValue("radar.reference_debug_log_samples", true).toBool(); }
+    int referenceDebugLogIntervalMs() const {
+        bool ok = false; const int value = getValue("radar.reference_debug_log_interval_ms", 5000).toInt(&ok);
+        return ok ? qMax(5000, value) : 5000;
+    }
+    double gpsMaxAltitudeDeviationM() const {
+        bool ok = false;
+        const double v = getValue("radar.gps_max_altitude_deviation_m", 50.0).toDouble(&ok);
+        return ok && std::isfinite(v) && v > 0 ? v : 50.0;
+    }
 
     // OSM道路数据配置
     QString osmFile(const QString& def = "bailuyuan.osm") const {
@@ -280,7 +298,9 @@ public:
     }
 
     double uiScale(double def = 1.0) const {
-        return getValue("ui.ui_scale", def).toDouble();
+        bool ok = false;
+        const double value = getValue("ui.ui_scale", def).toDouble(&ok);
+        return ok && std::isfinite(value) ? std::clamp(value, 0.70, 1.60) : def;
     }
 
     bool offlineRaeEnabled(bool def = false) const {
@@ -479,6 +499,61 @@ public:
         return saveToml(savePath);
     }
 
+    // Preserve the five-argument API; keep existing roll when it is not explicitly supplied.
+    bool saveRadarReference(double longitude, double latitude, double altitude, double yaw, double pitch) {
+        return saveRadarReference(longitude, latitude, altitude, yaw, pitch, this->roll());
+    }
+    bool saveRadarReference(double longitude, double latitude, double altitude, double yaw, double pitch, double roll) {
+        const std::array<double, RadarReference::Count> input{longitude, latitude, altitude, yaw, pitch, roll};
+        for (int i = 0; i < RadarReference::Count; ++i) {
+            if (!RadarReference::validUi(static_cast<RadarReference::Field>(i), input[i])) return false;
+        }
+        const QString path = configFilePath.isEmpty() ? QFileInfo("config.toml").absoluteFilePath() : configFilePath;
+        QFile source(path);
+        if (!source.open(QIODevice::ReadOnly)) return false;
+        const QByteArray bytes = source.readAll();
+        if (source.error() != QFileDevice::NoError) return false;
+        source.close();
+        const QString newline = bytes.contains("\r\n") ? QStringLiteral("\r\n") : QStringLiteral("\n");
+        QStringList lines = QString::fromUtf8(bytes).split('\n');
+        for (QString& line : lines) if (line.endsWith('\r')) line.chop(1);
+        const QMap<QString, double> values{{"longitude", longitude}, {"latitude", latitude},
+                                           {"altitude", altitude}, {"azimuth", yaw}, {"pitch", pitch}, {"roll", roll}};
+        QStringList missing = values.keys();
+        int begin = -1;
+        int end = lines.size();
+        for (int i = 0; i < lines.size(); ++i) {
+            const QString line = lines[i].trimmed();
+            if (line == "[radar]") { begin = i + 1; continue; }
+            if (begin >= 0 && line.startsWith('[')) { end = i; break; }
+        }
+        if (begin < 0) {
+            lines.append(QStringLiteral("[radar]"));
+            begin = end = lines.size();
+        }
+        for (int i = begin; i < end; ++i) {
+            const int equal = lines[i].indexOf('=');
+            if (equal < 0) continue;
+            const QString key = lines[i].left(equal).trimmed();
+            if (!values.contains(key)) continue;
+            const int comment = lines[i].indexOf('#', equal);
+            const QString suffix = comment < 0 ? QString() : QStringLiteral("  ") + lines[i].mid(comment);
+            lines[i] = lines[i].left(equal + 1) + " " + QString::number(values.value(key), 'g', 17) + suffix;
+            missing.removeAll(key);
+        }
+        for (const QString& key : missing)
+            lines.insert(end++, key + " = " + QString::number(values.value(key), 'g', 17));
+        const QByteArray output = lines.join(newline).toUtf8();
+        QSaveFile target(path);
+        if (!target.open(QIODevice::WriteOnly) || target.write(output) != output.size() || !target.commit()) {
+            LOG_WARNING(QStringLiteral("[RADAR_REFERENCE][SAVE] failed path=%1 error=%2").arg(path, target.errorString()));
+            return false;
+        }
+        for (auto it = values.cbegin(); it != values.cend(); ++it) configData["radar." + it.key()] = it.value();
+        LOG_INFO(QStringLiteral("[RADAR_REFERENCE][SAVE] saved six radar fields path=%1").arg(path));
+        return true;
+    }
+
     // 伺服控制参数保存/读取
     void saveServoParam(unsigned char cmd, unsigned char speed, unsigned short az) {
         saveValue("params.servo.cmd", cmd);
@@ -509,7 +584,7 @@ public:
 
     // 波形控制参数保存/读取（支持完整的BeamControl结构）
     void saveBeamControlParam(unsigned char freqID, unsigned char type,
-                            short aziStart, short aziEnd, short aziStep,
+                            int aziStart, int aziEnd, short aziStep,
                             unsigned char scene,
                             unsigned char flagNum, unsigned short pulseNum,
                             unsigned char beam1Flag, unsigned char beam1Code,
@@ -564,11 +639,11 @@ public:
         return getValue("params.beamcontrol.type", def).toUInt();
     }
 
-    short beamAziStart(short def = -4500) const {
+    int beamAziStart(int def = -4500) const {
         return getValue("params.beamcontrol.aziStart", def).toInt();
     }
 
-    short beamAziEnd(short def = 4500) const {
+    int beamAziEnd(int def = 4500) const {
         return getValue("params.beamcontrol.aziEnd", def).toInt();
     }
 
@@ -1048,7 +1123,7 @@ private:
             content += "# 高度处理下界，单位 m；AA06 第 25~26 字节，有符号 short，小端。\n";
             content += "heightProcessLowerLimitM = 0\n\n";
             content += "[logging]\n";
-            content += "# BIT 正常字段默认不打印；开启后仍按阵面限频。异常首条立即记录。\n";
+            content += "# 兼容保留；正常BIT不再记录，健康异常按5秒汇总，协议校验异常独立限频。\n";
             content += "bit_report_normal_log_enabled = false\n";
             content += "bit_report_normal_log_interval_ms = 5000\n";
             content += "bit_report_warning_log_interval_ms = 5000\n\n";

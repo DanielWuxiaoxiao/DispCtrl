@@ -29,6 +29,7 @@
 #include <cstring>
 
 #include "Basic/Protocol.h"
+#include "Basic/bitreportdecoder.h"
 #include "Basic/log.h"
 #include "Controller/ErrorHandler.h"
 #include "Controller/controller.h"
@@ -49,6 +50,7 @@
  */
 ThreadedUdpSocket::ThreadedUdpSocket(QString ip, quint16 port, QObject* parent)
     : QObject(parent), m_Ip(ip), m_Port(port), m_reconnectAttempts(0), m_reconnectGiveUp(false) {
+    m_multiPanelBit = CF_INS.defaultPanelCount() > 1;
     // 初始化重连定时器：超时后执行实际重连（调用 start()）
     m_reconnectTimer = new QTimer(this);
     m_reconnectTimer->setSingleShot(true);
@@ -284,6 +286,12 @@ void ThreadedUdpSocket::handleDatagram(const QByteArray& data, int senderPort) {
                 break;
             }
             case 0xDD05: {  // 经纬高信息上报
+                constexpr int minimumSize = sizeof(ProtocolFrame) + sizeof(GeoLocationReport) + sizeof(ProtocolEnd);
+                if (data.size() < minimumSize) {
+                    reportError("UDP_TRUNCATED_GEO", QString("DD05 payload truncated: bytes=%1 required=%2")
+                                .arg(data.size()).arg(minimumSize));
+                    break;
+                }
                 if (senderPort == CF_INS.port("SIG_2_DISP_PORT2", SIG_2_DISP_PORT2) &&
                     m_Port == CF_INS.port("DISP_GET_SIG_PORT2", DISP_GET_SIG_PORT2)) {
                     GeoLocationReport raw;
@@ -319,15 +327,18 @@ void ThreadedUdpSocket::handleDatagram(const QByteArray& data, int senderPort) {
             }
             case 0xDE02: {  // BIT 上报
                 // The common envelope check alone does not guarantee a complete BIT payload.
-                constexpr int minimumSize = sizeof(ProtocolFrame) + sizeof(BITReport) + sizeof(ProtocolEnd);
-                if (data.size() < minimumSize) {
-                    reportError("UDP_TRUNCATED_BIT", QString("BIT payload truncated: bytes=%1 required=%2 senderPort=%3")
-                                .arg(data.size()).arg(minimumSize).arg(senderPort));
+                const int payloadSize = data.size() - sizeof(ProtocolFrame) - sizeof(ProtocolEnd);
+                BITReport info;
+                BITReportV2 extended;
+                bool hasReference = false;
+                if (!decodeBitReportPayload(payload, payloadSize, m_multiPanelBit, info, extended, hasReference)) {
+                    reportError("UDP_TRUNCATED_BIT", QString("Invalid BIT payload length=%1 expected=%2 multiPanel=%3 senderPort=%4")
+                                .arg(payloadSize).arg(m_multiPanelBit ? sizeof(BITReportV2) : sizeof(BITReport))
+                                .arg(m_multiPanelBit).arg(senderPort));
                     break;
                 }
-                BITReport info;
-                memcpy(&info, payload, sizeof(info));
-
+                // Reference first: do not transiently apply the coarse legacy yaw of V2.
+                if (hasReference) emit bitReferenceReport(extended);
                 emit bitReport(info);
                 break;
             }

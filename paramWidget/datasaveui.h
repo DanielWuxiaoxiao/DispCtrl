@@ -46,6 +46,7 @@ signals:
 
 private:
     void populateTable();
+    void fillStorageOptions(DataSave& save) const;
     Ui::DataSaveUI *ui;
 };
 

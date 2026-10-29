@@ -87,6 +87,7 @@ public:
 
     /// 获取极坐标轴组件
     PolarAxis* axis() const { return m_axis; }
+    ScanLayer* scanLayer() const { return m_scan; }
 
     /// 获取极坐标网格组件
     PolarGrid* grid() const { return m_grid; }

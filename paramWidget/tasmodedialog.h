@@ -35,6 +35,7 @@ typedef struct _TASModeParam
     {
         // 使用各自结构体的默认值
         scanRange.workMode = 1;  // TAS模式
+        beamControl.freqID = 0;  // TAS缺省9.0GHz，不改变其他模式默认参数。
     }
 } TASModeParam;
 
@@ -61,6 +62,7 @@ private slots:
 
 private:
     Ui::TASModeDialog *ui;
+    bool m_multiPanelMode = false;
 
     // 波形参数数据
     static unsigned char timeWidths[];
