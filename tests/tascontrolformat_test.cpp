@@ -27,7 +27,7 @@ private slots:
         QCOMPARE(quint8(wire[2]), quint8(0x5A));
         QCOMPARE(wire.left(2), baseline.left(2));
         QCOMPARE(wire.mid(3), baseline.mid(3));
-        QVERIFY(TasControl::frequencyText(90).contains(QStringLiteral("随机跳频")));
+        QCOMPARE(TasControl::frequencyText(90), QStringLiteral("跳频(freqID=90/0x5A)"));
         QVERIFY(TasControl::frequencyText(40).contains("9.4GHz"));
         QVERIFY(TasControl::frequencyText(80).contains("9.8GHz"));
     }

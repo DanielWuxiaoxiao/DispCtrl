@@ -50,12 +50,15 @@ struct OfflineDel {
     unsigned short mesID;     // 0xCC03
     unsigned char onSwitch;   // 0:正常处理, 1:离线处理
     unsigned char dataID;     // 数据编号 0~255
+    unsigned char replayPanel[4]; // 多面阵扩展：依次ID0~3，0不回放（默认），1回放
 };
 ```
 
 **功能**:
 - 离线处理 (onSwitch=1): 从历史数据文件回放数据
 - 正常处理 (onSwitch=0): 恢复实时数据处理
+- 多面阵（default_panel_count>1）右键“离线处理”弹出四阵面选择，默认全部不勾选，至少勾选一面；取消不发送。CC03负载8B，偏移4～7分别为ID0～3回放标志，完整封装27B。“正常处理”发送onSwitch=0、四标志为0。
+- 单面阵不弹选择框，发送原CC03前4B负载（完整封装23B）。DataSet.extendedOffline仅为本机分发标记，不入报文。日志记录数据编号、模式及勾选ID；状态仍依据DD04回执，不把下发请求视为已开始回放。
 
 ---
 

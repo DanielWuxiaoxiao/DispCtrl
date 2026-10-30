@@ -1928,6 +1928,8 @@ void PPIView::onTrackLabelRightClicked(int batchID, PointType type)
     QMenu menu(this);
     QAction* sendAction = nullptr;
     const bool canReportExternally = (type == PointType::Track);
+    QAction* rateAction = canReportExternally && batchID >= 0 && batchID <= 65535
+        ? menu.addAction(tr("调整跟踪数据率 [批次: %1]").arg(batchID)) : nullptr;
     if (canReportExternally && m_gcsTargetReportEnabled && m_gcsMgr) {
         sendAction = menu.addAction(
             tr("目标下发 [批次: %1]").arg(batchID));
@@ -1984,6 +1986,15 @@ void PPIView::onTrackLabelRightClicked(int batchID, PointType type)
     QAction* chosen = menu.exec(QCursor::pos());
 
     if (!chosen) return;
+
+    if (rateAction && chosen == rateAction) {
+        int rateHz = 2;
+        if (CustomMessageBox::getInteger(this, tr("调整跟踪数据率"),
+            tr("航迹批号 %1：请输入数据率（Hz，1～100）").arg(batchID), 1, 100, rateHz)
+            && !CON_INS->requestTrackDataRate(batchID, rateHz))
+            CustomMessageBox::showWarning(this, tr("下发失败"), tr("参数无效或资源调度尚未初始化。"));
+        return;
+    }
 
     if (opticalAction && chosen == opticalAction) {
         if (m_opticalV2->isReporting(batchID)) {

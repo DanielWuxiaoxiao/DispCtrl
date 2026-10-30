@@ -15,6 +15,48 @@ class RadarPanelStateTest final : public QObject {
         return bit;
     }
 private slots:
+    void modeSelectsCorrectHeadingFieldAndUnlockHoldsValue() {
+        RadarPanelState single, multi;
+        const RadarReference::Pose initial{120, 30, 100, 15, 0, 0};
+        single.initialize(initial, 100, 50);
+        multi.initialize(initial, 100, 50, true);
+        QVERIFY(multi.unlock(0));
+        QCOMPARE(multi.reference(0).value(RadarReference::Yaw), 15.0);
+        auto other = report(1); other.headingMilliDeg = 200000;
+        multi.ingest(other);
+        QCOMPARE(multi.reference(0).value(RadarReference::Yaw), 15.0);
+        QCOMPARE(multi.snapshot().historyCount, std::size_t(0));
+        auto bit = report(0); bit.yaw = 10155; bit.headingMilliDeg = 97787;
+        QVERIFY(single.updateLegacyHeading(bit.yaw * 0.01));
+        single.ingest(bit);
+        multi.ingest(bit);
+        QCOMPARE(single.snapshot().history[0].yaw, 101.55);
+        QCOMPARE(multi.snapshot().history[0].yaw, 97.787);
+        QCOMPARE(multi.reference(0).value(RadarReference::Yaw), 97.787);
+    }
+    void submittedSnapshotPersistsUnlockedPanelWireValues() {
+        RadarPanelState state;
+        state.initialize({120, 30, 100, 15, 0, 0}, 100, 50, true);
+        QVERIFY(state.unlock(0));
+        state.ingest(report(0));
+        RadarPositionControl command;
+        QVERIFY(state.buildCommand(state.dialogValues(), command));
+        const auto sent = RadarPanelState::submittedValues(command);
+        QCOMPARE(sent[0][3], command.panels[0].headingMilliDeg * 0.001);
+        QVERIFY(std::abs(sent[0][3] - 123.456) < 1e-9);
+        QTemporaryDir directory; QVERIFY(directory.isValid());
+        QString error;
+        const auto path = directory.filePath("radar_panel_reference.toml");
+        QVERIFY(RadarPanelStore::save(path, sent, error));
+        RadarPanelValues loaded{};
+        QVERIFY(RadarPanelStore::load(path, loaded, error));
+        QCOMPARE(loaded, sent);
+        RadarPanelState restored;
+        restored.initialize({120, 30, 100, 0, 0, 0}, 100, 50, true);
+        restored.restoreLocked(loaded);
+        QCOMPARE(restored.dialogValues(), sent);
+        for (int id = 0; id < 4; ++id) QVERIFY(restored.reference(id).locked());
+    }
     void debugSnapshotSeparatesWireFieldsAndRejectedHeadingSamples() {
         RadarPanelState state;
         state.initialize({120, 30, 100, 0, 0, 0}, 100, 50, true);
@@ -25,7 +67,7 @@ private slots:
         QCOMPARE(debug.gpsCount, std::size_t(1)); QCOMPARE(debug.attitudeCount, std::size_t(1));
         QCOMPARE(debug.curveCount, std::size_t(1));
         QVERIFY(std::abs(debug.attitudeMean[0] - 97.787) < 1e-9);
-        QVERIFY(std::abs(debug.curveMean[0] - 101.55) < 1e-9);
+        QVERIFY(std::abs(debug.curveMean[0] - 97.787) < 1e-9);
         bit.latitudeE9 = 0; bit.longitudeE9 = 0; bit.altitudeCm = 0;
         bit.headingMilliDeg = 120000; bit.yaw = 10200;
         const auto update = state.ingest(bit);
@@ -33,15 +75,15 @@ private slots:
         debug = state.debugSnapshot(0);
         QCOMPARE(debug.attitudeCount, std::size_t(1)); QCOMPARE(debug.curveCount, std::size_t(2));
         QVERIFY(std::abs(debug.attitude[0][0] - 97.787) < 1e-9);
-        QCOMPARE(debug.curve[0][0], 101.55); QCOMPARE(debug.curve[1][0], 102.0);
-        QVERIFY(std::abs(debug.curveMean[0] - 101.775) < 1e-9);
+        QCOMPARE(debug.curve[0][0], 97.787); QCOMPARE(debug.curve[1][0], 120.0);
+        QVERIFY(std::abs(debug.curveMean[0] - 108.8935) < 1e-9);
     }
     void diagnosticMeanUsesExactlyNewestHundredSamples() {
         RadarPanelState state;
         state.initialize({120, 30, 100, 0, 0, 0}, 100, 50, true);
         QVERIFY(state.unlock(0));
-        auto bit = report(0); bit.yaw = 10000; state.ingest(bit);
-        bit.yaw = 2000;
+        auto bit = report(0); bit.headingMilliDeg = 100000; state.ingest(bit);
+        bit.headingMilliDeg = 20000;
         for (int i = 0; i < 99; ++i) state.ingest(bit);
         auto snap = state.snapshot();
         QCOMPARE(snap.historyCount, std::size_t(100));
@@ -101,7 +143,7 @@ private slots:
         RadarPanelState state;
         state.initialize({120, 30, 100, 0, 0, 0}, 100, 50, true);
         for (int id = 0; id < 4; ++id) QVERIFY(state.reference(id).locked());
-        auto bit = report(0); bit.yaw = 1000; state.ingest(bit, 1);
+        auto bit = report(0); bit.headingMilliDeg = 10000; state.ingest(bit, 1);
         QCOMPARE(state.snapshot().historyCount, std::size_t(0));
         QCOMPARE(state.reference(0).value(RadarReference::Altitude), 100.0);
         QVERIFY(state.unlock(0));
@@ -109,18 +151,18 @@ private slots:
         QCOMPARE(state.snapshot().historyCount, std::size_t(1));
         QVERIFY(state.unlock(1));
         QVERIFY(state.reference(0).locked()); QVERIFY(!state.reference(1).locked());
-        bit = report(1); bit.yaw = 9000; state.ingest(bit, 2);
+        bit = report(1); bit.headingMilliDeg = 90000; state.ingest(bit, 2);
         auto s = state.snapshot();
         QCOMPARE(s.historyCount, std::size_t(2)); QCOMPARE(s.history[1].yaw, 90.0);
         QCOMPARE(s.history[1].id, 1); QVERIFY(std::abs(s.history[1].average - 50.0) < 1e-9);
         bit = report(0); bit.yaw = 3000; state.ingest(bit, 3);
         s = state.snapshot(); QCOMPARE(s.historyCount, std::size_t(2));
         QCOMPARE(s.history[1].id, 1); // locked ID0 does not enter the mean or curve.
-        bit = report(1); bit.yaw = 0; state.ingest(bit, 4);
+        bit = report(1); bit.headingMilliDeg = 0; state.ingest(bit, 4);
         s = state.snapshot(); QCOMPARE(s.historyCount, std::size_t(3));
         QCOMPARE(s.history[2].yaw, 0.0);
         QCOMPARE(s.receivedMs[0], qint64(3)); QCOMPARE(s.receivedMs[1], qint64(4));
-        bit.yaw = 65535; state.ingest(bit, 5);
+        bit.headingMilliDeg = 655350; state.ingest(bit, 5);
         s = state.snapshot(); QCOMPARE(s.historyCount, std::size_t(4));
         QCOMPARE(s.history[3].yaw, 655.35); // no range filter for diagnostic yaw.
     }

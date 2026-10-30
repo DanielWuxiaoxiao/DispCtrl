@@ -187,7 +187,7 @@ void TASModeDialog::updateServoCenterAngle() {
 void TASModeDialog::onAccept() {
     const int frequencyCode = TasControl::frequencyCode(ui->freq->currentIndex());
     if (frequencyCode < 0) {
-        CustomMessageBox::showWarning(this, tr("参数错误"), tr("请选择有效频点或随机跳频。"));
+        CustomMessageBox::showWarning(this, tr("参数错误"), tr("请选择有效频点或跳频。"));
         return;
     }
     // 1. 工作模式参数
@@ -390,7 +390,7 @@ void TASModeDialog::onSaveToConfig() {
 
     const int frequencyCode = TasControl::frequencyCode(ui->freq->currentIndex());
     if (frequencyCode < 0) {
-        CustomMessageBox::showWarning(this, tr("参数错误"), tr("请选择有效频点或随机跳频，未保存配置。"));
+        CustomMessageBox::showWarning(this, tr("参数错误"), tr("请选择有效频点或跳频，未保存配置。"));
         return;
     }
     // TAS保存逻辑与TWS类似，保存三种参数

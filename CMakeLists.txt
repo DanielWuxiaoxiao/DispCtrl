@@ -449,6 +449,10 @@ option(DISPCTRL_BUILD_TESTS "Build focused DispCtrl QTest targets" OFF)
 if(DISPCTRL_BUILD_TESTS)
     enable_testing()
     find_package(Qt5 REQUIRED COMPONENTS Test)
+    add_executable(track_data_rate_test tests/trackdatarate_test.cpp Basic/Protocol.cpp)
+    target_include_directories(track_data_rate_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(track_data_rate_test PRIVATE Qt5::Core Qt5::Test)
+    add_test(NAME track_data_rate_test COMMAND track_data_rate_test)
     add_executable(data_save_test tests/datasave_test.cpp paramWidget/datasaveui.cpp
         paramWidget/datasaveui.h paramWidget/datasaveui.ui Basic/Protocol.cpp Basic/log.cpp
         cusWidgets/custommessagebox.cpp cusWidgets/custommessagebox.h)

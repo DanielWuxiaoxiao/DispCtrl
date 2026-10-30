@@ -147,6 +147,13 @@ void Disp2ResManager::sendWCParam(BeamControl param)
     sendParam(reinterpret_cast<char *>(&param),sizeof(param));
 }
 
+void Disp2ResManager::sendTrackDataRateControl(quint16 batch, quint8 rateHz)
+{
+    TrackDataRateControl command;
+    if (!TrackDataRateControl::build(batch, rateHz, command)) return;
+    sendParam(reinterpret_cast<char*>(&command), sizeof(command));
+}
+
 void Disp2ResManager::sendSPParam(SigProParam param)
 {
     LOG_DEBUG(QString("[Disp2ResManager] sendSPParam called, commCount: %1").arg(commCount));

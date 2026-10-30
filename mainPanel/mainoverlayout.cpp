@@ -31,6 +31,7 @@
 #include "azelrangewidget.h"
 #include "cusWidgets/customcombobox.h"
 #include "cusWidgets/custommessagebox.h"
+#include <QMenu>
 #include "cusWidgets/cuswindow.h"
 #include "cusWidgets/developerlogindialog.h"
 #include "cusWidgets/detachablewidget.h"
@@ -373,6 +374,23 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     // 初始化雷达控制状态
     m_isTransmitting = false;  // 默认发射关闭
     m_isStandby = true;        // 默认待机模式
+    m_resourceStatusTimeoutMs = qBound(5000,
+        CF_INS.displayConfig(QStringLiteral("resource_status_timeout_ms"), 15000), 300000);
+    m_resourceStatusClock.start();
+    // Use raw monitor events, not fault-latched five-second display snapshots.
+    connect(CON_INS, &Controller::monitorParamSend, this, [this](const MonitorParam& report) {
+        if (report.mesID != 0xCF01) return;
+        m_resourceStatusClock.restart();
+        if (report.beamConSta != 0 && report.beamConSta != 2)
+            resetTransmitState(QStringLiteral("调度软件状态=%1").arg(report.beamConSta));
+    });
+    auto* resourceStatusTimer = new QTimer(this);
+    resourceStatusTimer->setInterval(1000);
+    connect(resourceStatusTimer, &QTimer::timeout, this, [this] {
+        if (m_resourceStatusClock.hasExpired(m_resourceStatusTimeoutMs))
+            resetTransmitState(QStringLiteral("监控状态超过%1秒未更新").arg(m_resourceStatusTimeoutMs / 1000.0));
+    });
+    resourceStatusTimer->start();
 
     // 连接健康管理信号
     connect(CON_INS, &Controller::radarPanelPositionRequested, this, [this](const QString& text) {
@@ -381,6 +399,9 @@ MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::Ma
     connect(CON_INS, &Controller::healthSoftwareSnapshot, this, &MainOverLayOut::monitorParamRef);
     connect(CON_INS, &Controller::healthFaultSummary, this, [this](const QString& text) {
         logCommand(QStringLiteral("健康异常"), text);
+    });
+    connect(CON_INS, &Controller::trackDataRateRequested, this, [this](const QString& text) {
+        logCommand(QStringLiteral("调整跟踪数据率"), text);
     });
     connect(CON_INS, &Controller::healthWindowFlushed, this, [this] {
         flushStatusUi();
@@ -1355,6 +1376,24 @@ void MainOverLayOut::setupTrackManagement() {
 
     setupTrackTable(ui->tableWidget, m_trackTableFrozenHelper);
     setupTrackTable(ui->droneTableWidget, m_droneTableFrozenHelper);
+    for (auto* table : {ui->tableWidget, ui->droneTableWidget}) {
+        table->setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(table, &QTableWidget::customContextMenuRequested, this, [this, table](const QPoint& pos) {
+            const int row = table->rowAt(pos.y());
+            if (row < 0 || !table->item(row, 0)) return;
+            bool ok = false;
+            const int batch = table->item(row, 0)->text().toInt(&ok);
+            if (!ok || batch < 0 || batch > 65535) return;
+            QMenu menu(table);
+            auto* rate = menu.addAction(tr("调整跟踪数据率 [批次: %1]").arg(batch));
+            if (menu.exec(table->viewport()->mapToGlobal(pos)) != rate) return;
+            int hz = 2;
+            if (CustomMessageBox::getInteger(this, tr("调整跟踪数据率"),
+                tr("航迹批号 %1：请输入数据率（Hz，1～100）").arg(batch), 1, 100, hz)
+                && !CON_INS->requestTrackDataRate(batch, hz))
+                CustomMessageBox::showWarning(this, tr("下发失败"), tr("参数无效或资源调度尚未初始化。"));
+        });
+    }
 
     if (CF_INS.iftbd(false)) {
         QWidget* tbdTab = new QWidget(ui->trackTab);
@@ -2474,23 +2513,13 @@ void MainOverLayOut::updateHealthWindow()
 
     if (activeWidgets.subArrayPowerSummaryLabel) {
         if (!hasBitReport) {
-            const QString pendingText = visualState.consecutiveAllZeroReports == 0
-                ? QStringLiteral("尚未收到可确认的子阵电源 BIT 上报")
-                : QString("连续全零报文 %1 / %2，暂不判定故障")
-                      .arg(visualState.consecutiveAllZeroReports)
-                      .arg(kSubArrayPowerZeroFaultThreshold);
-            activeWidgets.subArrayPowerSummaryLabel->setText(pendingText);
+            activeWidgets.subArrayPowerSummaryLabel->setText(QStringLiteral("尚未收到子阵电源 BIT 上报"));
         } else {
             QString summary =
                 QString("子阵电源：正常 %1 / 36，故障 %2 / 36")
                     .arg(normalPowerCount)
                     .arg(faultyPowerCount);
-            if (visualState.consecutiveAllZeroReports > 0
-                && visualState.consecutiveAllZeroReports < kSubArrayPowerZeroFaultThreshold) {
-                summary += QString("（已忽略连续全零 %1 / %2 帧）")
-                               .arg(visualState.consecutiveAllZeroReports)
-                               .arg(kSubArrayPowerZeroFaultThreshold);
-            }
+            summary += QStringLiteral("（5秒窗口 %1 帧，故障率>90%为故障）").arg(visualState.sampleCount);
             activeWidgets.subArrayPowerSummaryLabel->setText(summary);
         }
     }
@@ -2566,6 +2595,7 @@ void MainOverLayOut::onStopSoftwareClicked() {
         param.sta = 0;  // 关闭状态
 
         logCommand("正在关闭软件", "");
+        resetTransmitState(QStringLiteral("手动关闭处理软件"));
 
         emit CON_INS->sendSysStart(param);
     }
@@ -2741,6 +2771,12 @@ void MainOverLayOut::onDataStorageClicked() {
             action = QString("离线处理 - ID:%1, 模式:%2")
                 .arg(param.off.dataID)
                 .arg(param.off.onSwitch ? "离线" : "正常");
+            if (param.extendedOffline) {
+                QStringList ids;
+                for (int id = 0; id < 4; ++id) if (param.off.replayPanel[id]) ids << QString::number(id);
+                action += QStringLiteral(", 回放阵面ID:[%1]").arg(ids.join(','));
+            }
+            LOG_INFO(QStringLiteral("[CC03][SUBMIT][%1B] ").arg(param.offlinePayloadSize()) + action);
         }
         logCommand("数据存储管理", action);
     });
@@ -3214,14 +3250,14 @@ void MainOverLayOut::onServoCtrlRet(ServoCtrlRet res) {
     }
 }
 
-void MainOverLayOut::onBITReport(BITReport res, bool powerConfirmed, int consecutiveZeroFrames) {
+void MainOverLayOut::onBITReport(BITReport res, bool powerConfirmed, quint32 powerSampleCount) {
     if (res.radarId < RADAR_ID_MIN || res.radarId > RADAR_ID_MAX) return;
     const int panelId = static_cast<int>(res.radarId);
     m_bitReports[panelId] = res;
     m_bitReportTimes[panelId] = QDateTime::currentDateTime();
     auto& power = m_subArrayPowerVisualStates[panelId];
     power.hasConfirmedStatus = powerConfirmed;
-    power.consecutiveAllZeroReports = consecutiveZeroFrames;
+    power.sampleCount = powerSampleCount;
     for (int i = 0; i < 36; ++i) power.normal[i] = (res.subArrayPower[i / 8] & (1U << (i % 8))) != 0;
     if (panelId == 0) emit electromagneticPanelStatusChanged(currentElectromagneticPanelStatus());
     if (panelId == m_activeHealthPanel) m_lastBITReport = res;
@@ -3751,6 +3787,18 @@ void MainOverLayOut::updateTransmitButton()
             "    background-color: #cc0000;"
             "}"));
     }
+}
+
+void MainOverLayOut::resetTransmitState(const QString& reason)
+{
+    if (!m_isTransmitting && m_tranRecControlM.tran == 0) return;
+    m_isTransmitting = false;
+    m_tranRecControlM.tran = 0;
+    if (m_commandControlModule) m_commandControlModule->setRadiationStatus(false);
+    updateTransmitButton();
+    const QString text = QStringLiteral("发射状态复位为关闭：%1（仅本机状态，不代表硬件回执）").arg(reason);
+    LOG_WARNING(QStringLiteral("[TX_STATE][RESET] ") + text);
+    logCommand(QStringLiteral("发射状态"), text);
 }
 
 /**

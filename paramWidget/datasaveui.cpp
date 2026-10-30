@@ -24,6 +24,13 @@
 #include <QString>
 #include <QDir>
 #include <QDebug>
+#include <QCheckBox>
+#include <QDialogButtonBox>
+#include <QVBoxLayout>
+#include <QLabel>
+#include <array>
+#include "Basic/ConfigManager.h"
+#include "Basic/uifontscale.h"
 
 bool DataSaveUI::ifCurrentoffline = false;
 unsigned char DataSaveUI::offlineDataID = 0;
@@ -241,24 +248,60 @@ void DataSaveUI::fillStorageOptions(DataSave& save) const
 
 void DataSaveUI::offlineDeal()
 {
+    const int currentRow = ui->tab->currentRow();
+    if (currentRow < 0 || !ui->tab->item(currentRow, 0)) return;
     DataSet param;
     param.ifoffline = true;
-
-    int currentRow = ui->tab->currentRow();
-    if(currentRow >= 0)
-    {
-        param.off.dataID = ui->tab->item(currentRow,0)->text().toInt();
-        param.off.onSwitch = 1;
+    param.off.dataID = ui->tab->item(currentRow,0)->text().toInt();
+    param.off.onSwitch = 1;
+    param.extendedOffline = CF_INS.defaultPanelCount() > 1;
+    if (param.extendedOffline) {
+        QDialog selection(this);
+        selection.setObjectName(QStringLiteral("offlinePanelSelection"));
+        selection.setWindowTitle(tr("选择回放阵面"));
+        selection.setStyleSheet(UiFontScale::style(QStringLiteral(
+            "QDialog { background:#0d1918; color:#d9ffff; }"
+            "QLabel,QCheckBox { color:#d9ffff; font-size:16px; }"
+            "QPushButton { color:#55ffdd; background:#153b35; border:1px solid #63bba8;"
+            "border-radius:5px; padding:7px 18px; font-size:16px; }")));
+        auto* layout = new QVBoxLayout(&selection);
+        layout->addWidget(new QLabel(tr("数据编号 %1：勾选需要回放的阵面").arg(param.off.dataID), &selection));
+        std::array<QCheckBox*, 4> checks{};
+        for (int id = 0; id < 4; ++id) {
+            checks[id] = new QCheckBox(tr("阵面%1 / ID%2").arg(id + 1).arg(id), &selection);
+            checks[id]->setObjectName(QStringLiteral("replayPanel%1").arg(id));
+            layout->addWidget(checks[id]);
+        }
+        auto* error = new QLabel(tr("请至少选择一个阵面。"), &selection);
+        error->setStyleSheet(UiFontScale::style("color:#ffaaaa; font-size:14px;"));
+        error->hide(); layout->addWidget(error);
+        auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &selection);
+        buttons->button(QDialogButtonBox::Ok)->setText(tr("确定回放"));
+        buttons->button(QDialogButtonBox::Cancel)->setText(tr("取消"));
+        layout->addWidget(buttons);
+        connect(buttons, &QDialogButtonBox::rejected, &selection, &QDialog::reject);
+        connect(buttons, &QDialogButtonBox::accepted, &selection, [&] {
+            bool any = false;
+            for (int id = 0; id < 4; ++id) {
+                param.off.replayPanel[id] = checks[id]->isChecked() ? 1 : 0;
+                any = any || param.off.replayPanel[id];
+            }
+            if (!any) { error->show(); return; }
+            selection.accept();
+        });
+        if (selection.exec() != QDialog::Accepted) return;
     }
     emit setParam(param);
 }
 
 void DataSaveUI::onlineDeal()
 {
+    const int currentRow = ui->tab->currentRow();
+    if (currentRow < 0 || !ui->tab->item(currentRow, 0)) return;
     DataSet param;
     param.ifoffline = true;  //UDP发送时判断是什么消息类�?
 
-    int currentRow = ui->tab->currentRow();
+    param.extendedOffline = CF_INS.defaultPanelCount() > 1;
     if(currentRow >= 0)
     {
         param.off.dataID = ui->tab->item(currentRow,0)->text().toInt();

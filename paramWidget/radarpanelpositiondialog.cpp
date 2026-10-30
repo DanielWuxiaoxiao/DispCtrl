@@ -18,7 +18,7 @@
 
 #pragma pack(push, 8)
 namespace {
-// Bounded diagnostic view; raw valid BIT yaw, independent of averaged/frozen control values.
+// Multi-panel diagnostics use the same high-resolution heading field as the table.
 class BitYawPlot final : public QWidget {
 public:
     explicit BitYawPlot(QWidget* parent) : QWidget(parent) {
@@ -114,7 +114,7 @@ RadarPanelPositionDialog::RadarPanelPositionDialog(const RadarPanelValues& value
     grid->addWidget(new QLabel(QStringLiteral("阵面"), contents), 0, 0);
     for (int field = 0; field < RadarReference::Count; ++field) {
         auto* label = new QLabel(fields[field], contents);
-        if (field == RadarReference::Yaw) label->setToolTip(QStringLiteral("表格取扩展航向heading（0.001°）；下方曲线取原阵面偏航yaw（0.01°），字段及平均窗口不同。"));
+        if (field == RadarReference::Yaw) label->setToolTip(QStringLiteral("多面阵表格与曲线均取扩展航向heading（0.001°）；表格按各阵面独立平均，曲线在解锁阵面切换时连续累计。"));
         grid->addWidget(label, 0, field + 1);
     }
     grid->addWidget(new QLabel(QStringLiteral("状态"), contents), 0, 7);

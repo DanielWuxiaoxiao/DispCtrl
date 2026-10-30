@@ -52,7 +52,7 @@ void Disp2SigManager::sendDSParam(DataSet param)
 
     if (param.ifoffline == 1)
     {
-        sendParam(reinterpret_cast<char *>(&param.off),sizeof(param.off));
+        sendParam(reinterpret_cast<char *>(&param.off),param.offlinePayloadSize());
     }
 }
 

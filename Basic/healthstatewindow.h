@@ -3,6 +3,7 @@
 #include "Basic/Protocol.h"
 #pragma pack(push, 8)
 #include <array>
+#include <limits>
 
 // GUI-thread log gate only; health snapshots and fault detection remain at 5 seconds.
 class HealthFaultLogGate {
@@ -10,14 +11,32 @@ public:
     bool sample(std::size_t slot, quint64 faults, qint64 nowMs) {
         if (slot >= m_slots.size()) return false;
         auto& state = m_slots[slot];
-        if (!faults) { state.lastFaults = 0; return false; }
-        const qint64 interval = faults == state.lastFaults ? 300000 : 30000;
-        if (state.logged && nowMs - state.lastMs < interval) return false;
-        state = {faults, nowMs, true};
+        if (!faults) {
+            // Missing reports are not recovery; require consecutive normal snapshots.
+            if (state.normalSinceMs < 0 || nowMs - state.lastNormalMs > 10000)
+                state.normalSinceMs = nowMs;
+            state.lastNormalMs = nowMs;
+            if (nowMs - state.normalSinceMs >= 60000) state.logged = false;
+            return false;
+        }
+        state.normalSinceMs = -1;
+        // No periodic reminders for a persistent fault. Changing power masks must
+        // not turn every five-second health window into another log entry.
+        if (state.logged && (faults == state.lastFaults || nowMs - state.lastMs < 300000))
+            return false;
+        state.lastFaults = faults;
+        state.lastMs = nowMs;
+        state.logged = true;
         return true;
     }
 private:
-    struct Slot { quint64 lastFaults = 0; qint64 lastMs = 0; bool logged = false; };
+    struct Slot {
+        quint64 lastFaults = 0;
+        qint64 lastMs = 0;
+        qint64 normalSinceMs = -1;
+        qint64 lastNormalMs = 0;
+        bool logged = false;
+    };
     std::array<Slot, 5> m_slots{}; // Four panels and software, no growing cache.
 };
 
@@ -25,11 +44,10 @@ private:
 class HealthStateWindow {
 public:
     static constexpr int IntervalMs = 5000;
-    static constexpr int ZeroThreshold = 1000;
     struct BitSnapshot {
         BITReport report;
         bool powerConfirmed = false;
-        int consecutiveZeroFrames = 0;
+        quint32 powerSampleCount = 0;
     };
     void pushBit(const BITReport& report) {
         if (report.mesID != 0xDE02 || report.radarId > RADAR_ID_MAX) return;
@@ -50,23 +68,12 @@ public:
         p.alarms |= report.bitGroup & 0x60; // duty/pulse alarms: 1=fault
         p.normalBits &= report.bitGroup & 0x0F; // hardware status: 0=fault
         p.normalPower &= report.powerState & 0x03;
-        bool allZero = true;
-        for (int i = 0; i < 5; ++i) allZero = allZero && ((report.subArrayPower[i] & mask(i)) == 0);
-        if (allZero) {
-            if (p.zeroFrames < ZeroThreshold) ++p.zeroFrames;
-            if (p.zeroFrames >= ZeroThreshold) {
-                p.confirmedPower.fill(0);
-                p.hasConfirmedPower = true;
-            }
-        } else {
-            p.zeroFrames = 0;
-            for (int i = 0; i < 5; ++i) p.confirmedPower[i] = report.subArrayPower[i] & mask(i);
-            p.hasConfirmedPower = true;
-        }
-        if (p.hasConfirmedPower) {
-            if (!p.windowPowerValid) p.windowPower = p.confirmedPower;
-            else for (int i = 0; i < 5; ++i) p.windowPower[i] &= p.confirmedPower[i];
-            p.windowPowerValid = true;
+        // Each valid BIT contains all 36 channels. Count frames, not elapsed time
+        // or fault runs; the five-second timer closes this non-overlapping window.
+        if (p.powerSamples < std::numeric_limits<quint32>::max()) {
+            ++p.powerSamples;
+            for (int i = 0; i < 36; ++i)
+                if (!(report.subArrayPower[i / 8] & (1U << (i % 8)))) ++p.powerFaults[i];
         }
     }
     bool takeBit(int panelId, BitSnapshot& snapshot) {
@@ -77,11 +84,17 @@ public:
         // TX/RX enable bits are latest switches, not latched alarms.
         snapshot.report.bitGroup = (p.latest.bitGroup & 0x90) | p.alarms | p.normalBits;
         snapshot.report.powerState = (p.latest.powerState & 0xFC) | p.normalPower;
-        snapshot.powerConfirmed = p.windowPowerValid;
-        snapshot.consecutiveZeroFrames = p.zeroFrames;
-        for (int i = 0; i < 5; ++i) snapshot.report.subArrayPower[i] = p.windowPowerValid ? p.windowPower[i] : 0;
+        snapshot.powerConfirmed = p.powerSamples > 0;
+        snapshot.powerSampleCount = p.powerSamples;
+        for (auto& byte : snapshot.report.subArrayPower) byte = 0;
+        for (int i = 0; i < 36; ++i) {
+            // Strictly greater than 90%; 9/10 faults is still green. Widen before multiplication.
+            const bool fault = quint64(p.powerFaults[i]) * 10 > quint64(p.powerSamples) * 9;
+            if (!fault) snapshot.report.subArrayPower[i / 8] |= (1U << (i % 8));
+        }
         p.pending = false;
-        p.windowPowerValid = false;
+        p.powerSamples = 0;
+        p.powerFaults.fill(0);
         return true;
     }
     static bool bitFault(const BitSnapshot& s) {
@@ -114,9 +127,9 @@ private:
     }
     struct Panel {
         BITReport latest;
-        std::array<unsigned char, 5> confirmedPower{}, windowPower{};
-        bool hasConfirmedPower = false, windowPowerValid = false, pending = false;
-        int zeroFrames = 0; // Carries across 5-second windows, saturates at 1000.
+        std::array<quint32, 36> powerFaults{};
+        quint32 powerSamples = 0;
+        bool pending = false;
         unsigned char alarms = 0, normalBits = 0x0F, normalPower = 0x03;
     };
     std::array<Panel, 4> m_panels{};

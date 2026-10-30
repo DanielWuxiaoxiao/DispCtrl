@@ -369,7 +369,7 @@ private slots:
      * @brief 处理BIT上报
      * @param res BIT上报数据
      */
-    void onBITReport(BITReport res, bool powerConfirmed, int consecutiveZeroFrames);
+    void onBITReport(BITReport res, bool powerConfirmed, quint32 powerSampleCount);
 
     /**
      * @brief 打开雷达系统健康管理对话框
@@ -594,13 +594,12 @@ private:
     struct SubArrayPowerVisualState {
         // 已确认显示给操作员的 36 路电源状态；下标 0..35 对应协议 bit0..bit35。
         std::array<bool, 36> normal{};
-        // Controller逐帧累计全部36位为0；连续1000帧确认，显示每5秒汇总。
-        int consecutiveAllZeroReports = 0;
-        // false 表示尚未收到可用于显示的正常、部分状态或连续全零故障确认。
+        // Per-channel fault ratio over the latest completed five-second window.
+        quint32 sampleCount = 0;
+        // false means no BIT samples have been received yet.
         bool hasConfirmedStatus = false;
     };
     std::array<SubArrayPowerVisualState, kRadarPanelCount> m_subArrayPowerVisualStates{};
-    static constexpr int kSubArrayPowerZeroFaultThreshold = HealthStateWindow::ZeroThreshold;
 
     // 健康管理窗口相关
     CusWindow* m_healthWindow;           ///< 雷达系统健康管理窗口指针
@@ -686,6 +685,9 @@ private:
     // 雷达控制状态成员
     bool m_isTransmitting;               ///< 发射状态（true=发射开启，false=发射关闭）
     bool m_isStandby;                    ///< 待机状态（true=待机模式，false=工作模式）
+    QElapsedTimer m_resourceStatusClock;
+    int m_resourceStatusTimeoutMs = 15000;
+    void resetTransmitState(const QString& reason);
 
     /**
      * @brief 更新发射按钮的显示状态

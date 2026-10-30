@@ -171,6 +171,8 @@ public:
      *          通过 packData 封装为标准协议帧后 UDP 发送。
      */
     void sendRoadPointsToDataPro(const RoadPointGeo* points, int count);
+    /** @brief GUI-thread request; validates batch/Hz, logs submission, not device acknowledgement. */
+    bool requestTrackDataRate(int batchId, int rateHz);
 
 signals:
     // === 向资源系统发送控制参数 ===
@@ -212,6 +214,8 @@ signals:
     void sendSPParam(SigProParam param);
     void sendRadarPositionControl(RadarPositionControl param);
     void radarPanelPositionRequested(const QString& text);
+    void sendTrackDataRateControl(quint16 batch, quint8 rateHz);
+    void trackDataRateRequested(const QString& text);
 
     /**
      * @brief 发送数据处理参数
@@ -382,7 +386,7 @@ signals:
     void geoLocationUpdated(double latitude, double longitude, double altitude);
     void filteredGeoLocationReported(double latitude, double longitude, double altitude);
     void radarReferenceChanged();
-    void healthBitSnapshot(BITReport report, bool powerConfirmed, int consecutiveZeroFrames);
+    void healthBitSnapshot(BITReport report, bool powerConfirmed, quint32 powerSampleCount);
     void healthSoftwareSnapshot(MonitorParam report);
     void healthFaultSummary(const QString& text);
     void healthWindowFlushed();
@@ -426,7 +430,7 @@ public slots:
 
 private:
     void flushHealthStateWindow();
-    bool saveRadarPanelReferences(const RadarPanelState& state);
+    bool saveRadarPanelReferences(const RadarPanelState& state, const RadarPositionControl* submitted = nullptr);
     void logRadarReferenceDebug(const BITReportV2& report, const RadarPanelState::Update& update);
     void applyRadarGeoLocation(double latitude, double longitude, double altitude);
     bool m_multiPanelReference = false;

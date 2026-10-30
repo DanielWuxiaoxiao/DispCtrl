@@ -375,7 +375,7 @@ typedef struct _ScanRange
 typedef struct _BeamControl
 {
     unsigned short mesID;
-    unsigned char freqID;  // 固定频点0/10/.../80对应9.0~9.8GHz；TAS随机跳频=90(0x5A)。
+    unsigned char freqID;  // 固定频点0/10/.../80对应9.0~9.8GHz；TAS跳频=90(0x5A)。
     unsigned char type;  // 1 线性负调频，2 线性正调频（默认）
     int aziStart;      // 0.01°量化 (默认-4500)
     int aziEnd;        // 0.01°量化 (默认4500)
@@ -548,6 +548,22 @@ static_assert(offsetof(RadarPanelPosition, latitudeE9) == 1 && offsetof(RadarPan
 static_assert(sizeof(RadarPositionControl) == 142 && offsetof(RadarPositionControl, reserve) == 126,
               "AA08 must contain four panels plus 16 reserved bytes");
 
+// AA09: per-track requested update rate, Hz. No zero/stop semantics are defined.
+struct TrackDataRateControl {
+    quint16 mesID = 0xAA09;
+    quint16 batch = 0;
+    quint8 rateHz = 2;
+    static bool build(int batchId, int hz, TrackDataRateControl& output) {
+        if (batchId < 0 || batchId > 65535 || hz < 1 || hz > 100) return false;
+        output = TrackDataRateControl{};
+        output.batch = static_cast<quint16>(batchId);
+        output.rateHz = static_cast<quint8>(hz);
+        return true;
+    }
+};
+static_assert(sizeof(TrackDataRateControl) == 5 && offsetof(TrackDataRateControl, batch) == 2
+              && offsetof(TrackDataRateControl, rateHz) == 4, "AA09 layout changed");
+
 typedef struct _DataProParam
 {
     unsigned short mesID;
@@ -656,6 +672,7 @@ typedef struct _OfflineDel
     unsigned short mesID;
     unsigned char onSwitch;
     unsigned char dataID;
+    unsigned char replayPanel[4]; // ID0..3: 0=不回放（默认），1=回放；多面阵CC03扩展。
 
     _OfflineDel()  //default value
     {
@@ -663,6 +680,7 @@ typedef struct _OfflineDel
         mesID = 0xCC03;
     }
 }OfflineDel;
+static_assert(sizeof(OfflineDel) == 8, "CC03 multi-panel payload must be 8 bytes");
 
 typedef struct _DataSet
 {
@@ -672,6 +690,8 @@ typedef struct _DataSet
     bool ifsave;
     bool ifoffline;
     bool ifdel;
+    bool extendedOffline = false; // Local dispatch metadata, never serialized.
+    unsigned offlinePayloadSize() const { return extendedOffline ? sizeof(off) : 4; }
     _DataSet()  //default value
     {
         ifdel = 0;

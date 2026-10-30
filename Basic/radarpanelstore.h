@@ -13,7 +13,7 @@ class RadarPanelStore {
 public:
     static QStringList fields() { return {"longitude", "latitude", "altitude", "heading", "pitch", "roll"}; }
     static bool save(const QString& path, const RadarPanelValues& values, QString& error) {
-        QString text = "# Radar panel locked references; degrees / metres. Do not store live BIT here.\nformat_version = 1\n";
+        QString text = "# Radar panel locked/submitted snapshots; degrees / metres. No automatic BIT writes.\nformat_version = 1\n";
         const auto names = fields();
         for (int id = 0; id < 4; ++id) {
             text += QString("\n[panel%1]\n").arg(id);

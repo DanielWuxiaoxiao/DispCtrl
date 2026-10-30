@@ -127,7 +127,7 @@
         </item>
         <item>
          <property name="text">
-          <string>随机跳频</string>
+          <string>跳频</string>
          </property>
         </item>
        </widget>

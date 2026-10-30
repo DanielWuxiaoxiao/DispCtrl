@@ -101,7 +101,7 @@ public:
         }
         {
             auto& curve = m_curve;
-            const double yaw = report.yaw * 0.01;
+            const double yaw = m_gateReports ? report.headingMilliDeg * 0.001 : report.yaw * 0.01;
             curve.history[curve.next] = {++curve.frame, yaw, id, curve.filter.push(yaw, 0, 0)[0]};
             curve.next = (curve.next + 1) % curve.history.size();
             curve.count = std::min(curve.count + 1, curve.history.size());
@@ -150,14 +150,19 @@ public:
         for (int id = 0; id < 4; ++id) if (!m_references[id].locked()) values[id] = m_references[id].pose();
         return buildRadarPositionControl(values, output);
     }
-    void rememberSubmitted(const RadarPositionControl& command) {
+    static RadarPanelValues submittedValues(const RadarPositionControl& command) {
         RadarPanelValues values{};
         for (int id = 0; id < 4; ++id) {
             const auto& panel = command.panels[id];
             values[id] = {panel.longitudeE9 / 1e9, panel.latitudeE9 / 1e9, panel.altitudeCm * 0.01,
                           panel.headingMilliDeg * 0.001, panel.pitchMilliDeg * 0.001, panel.rollCentiDeg * 0.01};
-            if (m_references[id].locked()) m_references[id].editLocked(values[id]);
         }
+        return values;
+    }
+    void rememberSubmitted(const RadarPositionControl& command) {
+        const auto values = submittedValues(command);
+        for (int id = 0; id < 4; ++id)
+            if (m_references[id].locked()) m_references[id].editLocked(values[id]);
     }
 private:
     struct AttitudeFilter {

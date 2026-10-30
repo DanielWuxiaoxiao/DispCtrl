@@ -9,7 +9,7 @@ namespace TasControl {
 inline int frequencyCode(int index) { return index >= 0 && index <= 9 ? index * 10 : -1; }
 inline int frequencyIndex(int code) { return code >= 0 && code <= 90 && code % 10 == 0 ? code / 10 : -1; }
 inline QString frequencyText(int code) {
-    if (code == 90) return QStringLiteral("随机跳频(freqID=90/0x5A)");
+    if (code == 90) return QStringLiteral("跳频(freqID=90/0x5A)");
     if (frequencyIndex(code) >= 0)
         return QStringLiteral("%1GHz(freqID=%2)").arg(9.0 + code * 0.01, 0, 'f', 1).arg(code);
     return QStringLiteral("未知频点(freqID=%1)").arg(code);

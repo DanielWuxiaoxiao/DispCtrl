@@ -17,15 +17,29 @@ private slots:
         QVERIFY(gate.sample(0, 1, 0));
         QVERIFY(!gate.sample(0, 1, 5000));
         QVERIFY(!gate.sample(0, 2, 10000));
-        QVERIFY(gate.sample(0, 2, 30000));
-        QVERIFY(!gate.sample(0, 2, 325000));
-        QVERIFY(gate.sample(0, 2, 330000));
+        QVERIFY(!gate.sample(0, 2, 30000));
+        QVERIFY(gate.sample(0, 2, 300000));
+        QVERIFY(!gate.sample(0, 2, 600000));
+        QVERIFY(!gate.sample(0, 2, 3600000)); // no recurring reminder
         QVERIFY(gate.sample(1, 2, 5000)); // panels are independent
-        QVERIFY(!gate.sample(0, 0, 335000)); // normal snapshot resets fault identity, not cooldown
-        QVERIFY(!gate.sample(0, 2, 340000));
-        QVERIFY(gate.sample(0, 2, 360000));
+        QVERIFY(!gate.sample(0, 0, 3605000));
+        QVERIFY(!gate.sample(0, 2, 3610000)); // brief recovery does not rearm
+        for (qint64 t = 3615000; t <= 3675000; t += 5000)
+            QVERIFY(!gate.sample(0, 0, t));
+        QVERIFY(gate.sample(0, 2, 3680000)); // one minute confirmed recovery
         QVERIFY(gate.sample(4, 1, 0));
         QVERIFY(!gate.sample(5, 1, 0));
+    }
+    void missingReportsDoNotRearmFaultLogs() {
+        HealthFaultLogGate gate;
+        QVERIFY(gate.sample(0, 1, 0));
+        QVERIFY(!gate.sample(0, 0, 5000));
+        QVERIFY(!gate.sample(0, 0, 120000));
+        QVERIFY(!gate.sample(0, 1, 125000));
+        // Even changing faults are limited to one entry per slot per five minutes.
+        for (qint64 t = 130000; t < 300000; t += 5000)
+            QVERIFY(!gate.sample(0, quint64(t), t));
+        QVERIFY(gate.sample(0, 3, 300000));
     }
     void hardwareFaultsLatchUntilNextWindow() {
         HealthStateWindow window;
@@ -47,29 +61,26 @@ private slots:
         QVERIFY(window.takeBit(0, snapshot));
         QVERIFY(!HealthStateWindow::bitFault(snapshot));
     }
-    void thousandZeroFramesAcrossWindows() {
+    void strictNinetyPercentAndWindowReset() {
         HealthStateWindow window;
         HealthStateWindow::BitSnapshot snapshot;
-        window.pushBit(normal());
-        QVERIFY(window.takeBit(0, snapshot));
         auto zero = normal();
         for (auto& byte : zero.subArrayPower) byte = 0;
-        for (int i = 0; i < 500; ++i) window.pushBit(zero);
+        for (int i = 0; i < 9; ++i) window.pushBit(zero);
+        window.pushBit(normal()); // exactly 90% faults: green
         QVERIFY(window.takeBit(0, snapshot));
-        QCOMPARE(snapshot.consecutiveZeroFrames, 500);
+        QCOMPARE(snapshot.powerSampleCount, quint32(10));
         QVERIFY(!HealthStateWindow::bitFault(snapshot));
-        for (int i = 0; i < 499; ++i) window.pushBit(zero);
+        for (int i = 0; i < 91; ++i) window.pushBit(zero);
+        for (int i = 0; i < 9; ++i) window.pushBit(normal());
         QVERIFY(window.takeBit(0, snapshot));
-        QCOMPARE(snapshot.consecutiveZeroFrames, 999);
-        QVERIFY(!HealthStateWindow::bitFault(snapshot));
-        window.pushBit(zero);
-        window.pushBit(normal()); // Recovery does not erase this window's confirmed fault.
-        QVERIFY(window.takeBit(0, snapshot));
+        QCOMPARE(snapshot.powerSampleCount, quint32(100));
         QVERIFY(HealthStateWindow::bitFault(snapshot));
-        QCOMPARE(snapshot.consecutiveZeroFrames, 0);
         window.pushBit(normal());
         QVERIFY(window.takeBit(0, snapshot));
+        QCOMPARE(snapshot.powerSampleCount, quint32(1));
         QVERIFY(!HealthStateWindow::bitFault(snapshot));
+        QVERIFY(!window.takeBit(0, snapshot)); // no samples: no synthetic recovery
     }
     void unknownPowerAndIndependentPanels() {
         HealthStateWindow window;
@@ -79,14 +90,31 @@ private slots:
         window.pushBit(normal(1));
         HealthStateWindow::BitSnapshot a, b;
         QVERIFY(window.takeBit(0, a));
-        QVERIFY(!a.powerConfirmed);
-        QVERIFY(!HealthStateWindow::bitFault(a));
+        QVERIFY(a.powerConfirmed);
+        QVERIFY(HealthStateWindow::bitFault(a)); // one all-zero frame = 100%, no run-length debounce
         QVERIFY(window.takeBit(1, b));
         QVERIFY(b.powerConfirmed);
         QVERIFY(!HealthStateWindow::bitFault(b));
         for (int i = 0; i < 1200; ++i) window.pushBit(r);
         QVERIFY(window.takeBit(0, a));
-        QCOMPARE(a.consecutiveZeroFrames, 1000);
+        QCOMPARE(a.powerSampleCount, quint32(1200));
+    }
+    void channelsHaveIndependentRatiosAndIgnoreReservedBits() {
+        HealthStateWindow window;
+        for (int frame = 0; frame < 100; ++frame) {
+            auto bit = normal(2);
+            // channel1:91%, channel2:90%, channel36:100%; all others normal.
+            if (frame < 91) bit.subArrayPower[0] &= ~1;
+            if (frame < 90) bit.subArrayPower[0] &= ~2;
+            bit.subArrayPower[4] = 0xF7; // high four reserved bits must not affect channel status
+            window.pushBit(bit);
+        }
+        HealthStateWindow::BitSnapshot s;
+        QVERIFY(window.takeBit(2, s));
+        QVERIFY(!(s.report.subArrayPower[0] & 1));
+        QVERIFY(s.report.subArrayPower[0] & 2);
+        QCOMPARE(s.report.subArrayPower[4], quint8(0x07));
+        QVERIFY(!window.takeBit(0, s));
     }
     void partialPowerFaultAndSoftwareFaults() {
         HealthStateWindow window;
@@ -96,7 +124,7 @@ private slots:
         window.pushBit(normal());
         HealthStateWindow::BitSnapshot snapshot;
         QVERIFY(window.takeBit(0, snapshot));
-        QVERIFY(!(snapshot.report.subArrayPower[0] & 1));
+        QVERIFY(snapshot.report.subArrayPower[0] & 1); // 50% faults -> green
         MonitorParam status;
         status.sigProSta = 3;
         window.pushSoftware(status);

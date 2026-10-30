@@ -214,6 +214,7 @@ void Controller::init()
     connect(this, &Controller::sendWCParam, resMgr, &Disp2ResManager::sendWCParam);
     connect(this, &Controller::sendSPParam, resMgr, &Disp2ResManager::sendSPParam);
     connect(this, &Controller::sendRadarPositionControl, resMgr, &Disp2ResManager::sendRadarPositionControl);
+    connect(this, &Controller::sendTrackDataRateControl, resMgr, &Disp2ResManager::sendTrackDataRateControl);
     connect(this, &Controller::sendDPParam, resMgr, &Disp2ResManager::sendDPParam);
 
     // 向光电系统发送控制参数
@@ -338,7 +339,7 @@ void Controller::flushHealthStateWindow()
     for (int id = 0; id < 4; ++id) {
         HealthStateWindow::BitSnapshot snapshot;
         if (!m_healthStateWindow.takeBit(id, snapshot)) continue;
-        emit healthBitSnapshot(snapshot.report, snapshot.powerConfirmed, snapshot.consecutiveZeroFrames);
+        emit healthBitSnapshot(snapshot.report, snapshot.powerConfirmed, snapshot.powerSampleCount);
         const auto bits = snapshot.report.bitGroup;
         quint64 faultKey = (bits & 0x60) | (~bits & 0x0F);
         faultKey |= quint64(~snapshot.report.powerState & 0x03) << 8;
@@ -437,6 +438,17 @@ bool Controller::sendCurrentRadarPanelPosition()
     return sendRadarPanelPositions(m_panelState.dialogValues());
 }
 
+bool Controller::requestTrackDataRate(int batchId, int rateHz)
+{
+    TrackDataRateControl command;
+    if (!resMgr || !TrackDataRateControl::build(batchId, rateHz, command)) return false;
+    const QString text = QStringLiteral("AA09 下发请求：批号=%1，数据率=%2 Hz").arg(batchId).arg(rateHz);
+    LOG_INFO(QStringLiteral("[AA09][SUBMIT][5B] ") + text);
+    emit trackDataRateRequested(text);
+    emit sendTrackDataRateControl(command.batch, command.rateHz);
+    return true;
+}
+
 bool Controller::sendRadarPanelPositions(const RadarPanelValues& values)
 {
     RadarPositionControl command;
@@ -446,7 +458,7 @@ bool Controller::sendRadarPanelPositions(const RadarPanelValues& values)
     }
     auto proposed = m_panelState;
     proposed.rememberSubmitted(command);
-    if (!saveRadarPanelReferences(proposed)) return false;
+    if (!saveRadarPanelReferences(proposed, &command)) return false;
     QStringList panels;
     for (const auto& panel : command.panels) panels << QStringLiteral("ID=%1 lat=%2 lon=%3 alt=%4m heading=%5° pitch=%6° roll=%7°")
         .arg(panel.radarId).arg(panel.latitudeE9 / 1e9, 0, 'f', 9).arg(panel.longitudeE9 / 1e9, 0, 'f', 9)
@@ -494,12 +506,15 @@ bool Controller::unlockRadarPanelReference(int id)
     return true;
 }
 
-bool Controller::saveRadarPanelReferences(const RadarPanelState& state)
+bool Controller::saveRadarPanelReferences(const RadarPanelState& state, const RadarPositionControl* submitted)
 {
     if (!m_multiPanelReference) return true;
     auto values = m_savedPanelReferences;
     for (int id = 0; id < 4; ++id)
         if (state.reference(id).locked()) values[id] = state.reference(id).pose();
+    // A submit persists every actual wire value, including the live unlocked row.
+    // Lock/unlock alone still preserves the previous saved value of live rows.
+    if (submitted) values = RadarPanelState::submittedValues(*submitted);
     QString error;
     if (!RadarPanelStore::save(m_panelReferencePath, values, error)) {
         LOG_WARNING("[PANEL_REFERENCE][SAVE_FAILED] " + m_panelReferencePath + ": " + error);
@@ -540,6 +555,7 @@ void Controller::logRadarReferenceDebug(const BITReportV2& report, const RadarPa
     QJsonObject line{{"id", id}, {"locked", reference.locked()}, {"window_capacity", int(GpsPositionFilter::SampleCount)},
         {"gps_result", reference.locked() ? QString("ignored_locked") : reasons[int(update.position)]},
         {"heading_sample_accepted", update.attitudeValid}, {"curve_sample_accepted", !reference.locked()},
+        {"curve_field", m_multiPanelReference ? "headingMilliDeg*0.001" : "yaw*0.01"},
         {"suppressed_rx", double(decision.suppressed)}, {"raw_current_packet", raw}, {"means_after_packet", means}};
     if (m_referenceDebugSamples) {
         QJsonArray gps, attitude, curve, curveIds;

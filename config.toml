@@ -566,6 +566,7 @@ interpolation_step = 30
 # =============================================================================
 
 [displayConfig]
+resource_status_timeout_ms = 15000 # CF01监控状态失联后复位本机发射显示；5000~300000ms
 # 检测点显示配置 Detection Point Display Configuration
 max_points = 100                     # 最大检测点数量（同步Windows发布配置）
 max_track_points = 300               # 单批航迹最大点数（同步Windows发布配置）
