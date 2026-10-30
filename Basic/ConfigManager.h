@@ -939,6 +939,7 @@ private:
         }
 
         QTextStream in(&file);
+        in.setCodec("UTF-8");
         QString content = in.readAll();
         file.close();
 
@@ -1051,6 +1052,7 @@ private:
 
         // 读取现有内容
         QTextStream in(&file);
+        in.setCodec("UTF-8");
         QString content = in.readAll();
         file.seek(0);
 
@@ -1206,6 +1208,7 @@ private:
         // 写回文件
         file.resize(0);
         QTextStream out(&file);
+        out.setCodec("UTF-8");
         out << lines.join('\n');
         file.close();
 

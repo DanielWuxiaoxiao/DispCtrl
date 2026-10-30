@@ -33,6 +33,7 @@ QHash<QString, QString> loadCommandControlValues()
     QHash<QString, QString> values;
     bool inCommandControlSection = false;
     QTextStream input(&file);
+    input.setCodec("UTF-8"); // Configuration files are UTF-8, regardless of Windows locale.
     while (!input.atEnd()) {
         const QString line = input.readLine().trimmed();
         if (line.isEmpty() || line.startsWith(QLatin1Char('#'))) {
@@ -59,6 +60,9 @@ QHash<QString, QString> loadCommandControlValues()
         }
         values.insert(key, value);
     }
+    LOG_INFO(QStringLiteral("[CommandControl][CONFIG_SOURCE] path=%1 keys=%2 enabledRaw=%3 streamStatus=%4")
+        .arg(file.fileName()).arg(values.size()).arg(values.value(QStringLiteral("enabled"), QStringLiteral("<missing>")))
+        .arg(int(input.status())));
     return values;
 }
 

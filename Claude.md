@@ -1370,6 +1370,10 @@ dataToScene            # RangeAzimuth坐标转换
 
 - 本轮90%规则验证：health_state_window_test通过，覆盖90%/91%边界、全零单帧100%、各路/各阵面独立、保留位、跨窗口清零和无数据不发布；窗口模型仍小于1KB。Qt5.14/MSVC对Controller、主界面及双方MOC语法检查通过，diff检查通过；未完整构建、实机验收、打包或提交。
 
+- **总控禁用配置在中文Windows失效（2026-10-30，暂保持V6.5）**：用户发布配置E:/DPRelease/config.toml已为command_control.enabled=false/time_sync_enabled=false，现场日志却两者均解析成默认true；Windows Qt5.14、GBK locale下直接用该文件的定向QTest复现失败，排除“用户改错文件”推断。总控独立读取器QTextStream未指定UTF-8，中文UTF-8文件在系统本地编码读取时未取得完整节内容，回退默认启用。明确设置总控读取器及ConfigManager加载/保留原文更新/写回流为UTF-8，不依赖系统文本编码，避免保存时再混入GBK。新增一次启动CONFIG_SOURCE路径/解析键数量/enabled原值/流状态诊断，不新增热路径日志；既有module.enabled门控的主界面/F7/右键显示路径不改，默认配置语义不变。新增command_control_config_test覆盖GBK locale下UTF-8中文开关true/false及可选真实发布文件。
+
+- 本轮验证：Windows原生Qt5.14.2/MSVC定向测试修复前真实配置断言失败（enabled=1/timeSync=1），修复后4项通过（含初始化/清理），真实配置enabled=0/timeSync=0、总控键64项、streamStatus=0；ConfigManager同文件条目189→319。测试只读E:/DPRelease/config.toml，合成配置写临时目录；未修改发布配置、未完整构建/启动GUI或提交。
+
 **文档结束**
 
 *本文档整合了 DispCtrl 项目全部 34 个 MD 文档的核心知识与最新实现状态，为 AI 开发助手提供准确的项目全局上下文。重大修改后请同步更新版本历史与注意事项章节。*
