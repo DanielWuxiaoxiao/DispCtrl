@@ -87,7 +87,7 @@ void CustomComboBox::paintEvent(QPaintEvent *event)
  * 箭头特性：
  * - 位置：ComboBox右侧边缘内侧
  * - 形状：向下的等腰三角形
- * - 颜色：默认 #66ffcc，hover #99ffdd
+ * - 颜色：跟随调色板，悬停使用冷青色
  * - 尺寸：8x6像素，适中大小
  * - 抗锯齿：平滑边缘渲染
  */
@@ -102,9 +102,7 @@ void CustomComboBox::drawCustomArrow(QPainter *painter, const QRect &rect)
 
     // 根据hover状态设置箭头颜色
     bool isHover = underMouse();
-    QColor arrowColor = isHover ?
-                       QColor(153, 255, 221) :  // #99ffdd - hover状态亮绿色
-                       QColor(102, 255, 204);   // #66ffcc - 默认状态青绿色
+    const QColor arrowColor = isHover ? QColor("#78cbd8") : palette().color(QPalette::Text);
 
     // 设置绘制参数 - 线条式绘制
     painter->setRenderHint(QPainter::Antialiasing, true);

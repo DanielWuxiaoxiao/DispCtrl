@@ -28,7 +28,7 @@ public:
 protected:
     void paintEvent(QPaintEvent*) override {
         QPainter p(this);
-        p.fillRect(rect(), QColor("#111e1b"));
+        p.fillRect(rect(), QColor("#1b2228"));
         p.setFont(UiFontScale::pointFont(p.font().family(), 10));
         const QRectF area = QRectF(rect()).adjusted(62, 28, -24, -32);
         if (area.width() <= 0 || area.height() <= 0) return;
@@ -57,9 +57,9 @@ protected:
                 area.bottom() - area.height() * (series.average[i] - series.lower) / (series.upper - series.lower));
         }
         p.setRenderHint(QPainter::Antialiasing);
-        p.setPen(QPen(QColor("#66ffcc"), 2));
+        p.setPen(QPen(QColor("#e8edf1"), 2));
         if (points.size() == 1) p.drawEllipse(points[0], 3, 3); else p.drawPolyline(points);
-        p.setPen(QPen(QColor("#ffcc66"), 2));
+        p.setPen(QPen(QColor("#dfbd82"), 2));
         if (averages.size() == 1) p.drawEllipse(averages[0], 2, 2); else p.drawPolyline(averages);
         p.setPen(QColor("#b9d8d0"));
         p.drawText(QPointF(area.left(), area.bottom() + 20), QString::number(first));
@@ -85,16 +85,16 @@ RadarPanelPositionDialog::RadarPanelPositionDialog(const RadarPanelValues& value
     setWindowFlag(Qt::WindowMinMaxButtonsHint, true);
     setObjectName(QStringLiteral("panelPositionDialog"));
     setStyleSheet(UiFontScale::style(
-        "QDialog#panelPositionDialog {background:#101818;}"
-        "QScrollArea,QWidget#panelPositionViewport {background:#101818;border:0;}"
-        "QWidget#panelPositionContent {background:#111e1b;border:1px solid #42665c;border-radius:6px;}"
-        "QLabel {background:transparent;color:#d9ffff;font-size:16px;}"
-        "QLabel#panelPositionTitle {color:#66ffcc;font-size:22px;font-weight:bold;}"
-        "QLineEdit {background:#142d28;color:#66ffcc;border:1px solid #66aa99;padding:6px;font-size:16px;}"
-        "QLineEdit[readOnly=\"true\"] {background:#253a35;color:#a4e4cc;}"
-        "QPushButton {background:#123630;color:#66ffcc;border:1px solid #66aa99;padding:7px;font-size:16px;}"
-        "QPushButton:hover {background:#205247;}"
-        "QPushButton:disabled {background:#25332e;color:#a2b8b0;border-color:#52665f;}"));
+        "QDialog#panelPositionDialog {background:#12171c;}"
+        "QScrollArea,QWidget#panelPositionViewport {background:#12171c;border:0;}"
+        "QWidget#panelPositionContent {background:#1b2228;border:1px solid #303b44;border-radius:6px;}"
+        "QLabel {background:transparent;color:#e8edf1;font-size:16px;}"
+        "QLabel#panelPositionTitle {color:#e8edf1;font-size:22px;font-weight:bold;}"
+        "QLineEdit {background:#12171c;color:#e8edf1;border:1px solid #303b44;padding:6px;font-size:16px;}"
+        "QLineEdit[readOnly=\"true\"] {background:#202930;color:#a6b2bd;}"
+        "QPushButton {background:#232d34;color:#e8edf1;border:1px solid #303b44;padding:7px;font-size:16px;}"
+        "QPushButton:hover {background:#293b43;}"
+        "QPushButton:disabled {background:#1b2228;color:#82919e;border-color:#303b44;}"));
     auto* outer = new QVBoxLayout(this);
     outer->setContentsMargins(16, 14, 16, 14);
     outer->setSpacing(12);
@@ -187,7 +187,7 @@ RadarPanelPositionDialog::RadarPanelPositionDialog(const RadarPanelValues& value
         refresh(); timer->start();
     }
     m_error = new QLabel(this);
-    m_error->setStyleSheet(UiFontScale::style("color:#ff9999;"));
+    m_error->setStyleSheet(UiFontScale::style("color:#ea8c93;"));
     m_error->setWordWrap(true); m_error->hide();
     outer->addWidget(m_error);
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
@@ -248,7 +248,7 @@ void RadarPanelPositionDialog::setLocked(int id, bool locked)
     for (auto* edit : m_edits[id]) edit->setReadOnly(!locked);
     m_lock[id]->setEnabled(!locked); m_unlock[id]->setEnabled(locked);
     m_status[id]->setText(locked ? QStringLiteral("已锁定") : QStringLiteral("未锁定"));
-    m_status[id]->setStyleSheet(UiFontScale::style(locked ? "color:#ffcc66;" : "color:#66ffcc;"));
+    m_status[id]->setStyleSheet(UiFontScale::style(locked ? "color:#dfbd82;" : "color:#e8edf1;"));
 }
 
 void RadarPanelPositionDialog::lockRow(int id)

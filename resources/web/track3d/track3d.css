@@ -4,8 +4,8 @@ body {
     height: 100%;
     margin: 0;
     overflow: hidden;
-    background: #0a1010;
-    color: #66ffcc;
+    background: #12171c;
+    color: #a6b2bd;
     font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
     user-select: none;
 }
@@ -18,7 +18,7 @@ body {
     bottom: 0;
     left: 0;
     overflow: hidden;
-    background: radial-gradient(circle at 50% 45%, #102020 0%, #0a1010 62%, #070c0c 100%);
+    background: #12171c;
 }
 
 #scene-root canvas {
@@ -35,10 +35,10 @@ body {
     display: flex;
     align-items: center;
     padding: 5px 9px;
-    border: 1px solid rgba(0, 255, 136, 0.45);
-    background: rgba(10, 20, 18, 0.82);
-    color: #66ffcc;
-    font-size: 12px;
+    border: 1px solid #303b44;
+    background: rgba(27, 34, 40, 0.88);
+    color: #a6b2bd;
+    font-size: 13px;
     pointer-events: none;
 }
 
@@ -47,21 +47,21 @@ body {
 }
 
 #axis-legend .axis-x {
-    color: #ff6b6b;
+    color: #ea8c93;
 }
 
 #axis-legend .axis-y {
-    color: #00ff88;
+    color: #78d4a5;
 }
 
 #axis-legend .axis-z {
-    color: #00aaff;
+    color: #78cbd8;
 }
 
 #axis-range {
     padding-left: 4px;
-    border-left: 1px solid rgba(102, 255, 204, 0.35);
-    color: #9ab8ad;
+    border-left: 1px solid #303b44;
+    color: #a6b2bd;
 }
 
 #tooltip {
@@ -70,11 +70,11 @@ body {
     display: none;
     min-width: 150px;
     padding: 8px 10px;
-    border: 1px solid #66ffcc;
-    background: rgba(16, 24, 24, 0.96);
+    border: 1px solid #303b44;
+    background: rgba(27, 34, 40, 0.88);
     box-shadow: 0 3px 12px rgba(0, 0, 0, 0.55);
-    color: #d8fff2;
-    font-size: 12px;
+    color: #e8edf1;
+    font-size: 13px;
     line-height: 1.55;
     pointer-events: none;
     white-space: nowrap;
@@ -82,14 +82,14 @@ body {
 
 #tooltip .tooltip-title {
     margin-bottom: 3px;
-    color: #00ff88;
+    color: #78cbd8;
     font-weight: 600;
 }
 
 #tooltip .tooltip-key {
     display: inline-block;
     min-width: 46px;
-    color: #66ffcc;
+    color: #a6b2bd;
 }
 
 #status-overlay {
@@ -102,12 +102,12 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #0a1010;
-    color: #66ffcc;
-    font-size: 14px;
+    background: #12171c;
+    color: #a6b2bd;
+    font-size: 15px;
     pointer-events: none;
 }
 
 #status-overlay.error {
-    color: #ff7878;
+    color: #ea8c93;
 }

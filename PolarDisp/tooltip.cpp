@@ -20,13 +20,13 @@ Tooltip::Tooltip(QGraphicsItem* parent)
 {
     m_background = new QGraphicsRectItem();
     // 深色半透明背景，与系统风格一致
-    m_background->setBrush(QBrush(QColor(16, 24, 24, 230)));
-    // 青绿色边框，与主题色一致
-    QPen borderPen(QColor(102, 255, 204), 1);
+    m_background->setBrush(QBrush(QColor(27, 34, 40, 235)));
+    // 冷青细边框；正文用浅色，避免整块文字抢占目标颜色。
+    QPen borderPen(PPI_ACCENT_COLOR, 1);
     m_background->setPen(borderPen);
 
     m_text = new QGraphicsTextItem();
-    m_text->setDefaultTextColor(QColor(102, 255, 204)); // 青绿色文字
+    m_text->setDefaultTextColor(PPI_TEXT_COLOR);
 
     // 设置字体
     QFont font = m_text->font();

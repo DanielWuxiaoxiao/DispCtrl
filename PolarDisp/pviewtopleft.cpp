@@ -27,6 +27,8 @@
 #include "paramWidget/radarpanelpositiondialog.h"
 #pragma pack(push, 8)
 #include "cusWidgets/cuswindow.h"
+#include <QGuiApplication>
+#include <QScreen>
 #pragma pack(pop)
 
 namespace {
@@ -41,8 +43,8 @@ mainviewTopLeft::mainviewTopLeft(QWidget *parent) :
 {
     ui->setupUi(this);
     setStyleSheet(UiFontScale::style(
-        "QLabel {color:#66ffcc;font-size:13px;font-weight:bold;}"
-        "QLineEdit {color:#66ffcc;background:#101c1c;border:1px solid #79a6a6;border-radius:4px;"
+        "QLabel {color:#e8edf1;font-size:13px;font-weight:normal;}"
+        "QLineEdit {color:#e8edf1;background:rgba(18,23,28,85);border:1px solid #303b44;border-radius:4px;"
         "font-size:13px;padding:2px;}"));
 
     // 设置简化的tooltip
@@ -67,9 +69,9 @@ mainviewTopLeft::mainviewTopLeft(QWidget *parent) :
     ui->gridLayout->addWidget(m_rollEdit, 5, 1);
     m_originButton = new QPushButton(QStringLiteral("配置雷达经纬高/姿态"), this);
     m_originButton->setObjectName("radarReferenceButton");
-    m_originButton->setStyleSheet(UiFontScale::style("QPushButton { background:#075a58; color:#d9ffff; font-size:15px; "
-                                 "padding:6px 10px; border:1px solid #00bfa5; border-radius:5px; }"
-                                 "QPushButton:hover { background:#087a75; }"));
+    m_originButton->setStyleSheet(UiFontScale::style("QPushButton { background:rgba(27,34,40,100); color:#e8edf1; font-size:15px; "
+                                 "padding:6px 10px; border:1px solid #303b44; border-radius:5px; }"
+                                 "QPushButton:hover { background:rgba(41,59,67,205); }"));
     ui->gridLayout->addWidget(m_originButton, 6, 0, 1, 2);
     m_sendPositionButton = new QPushButton(QStringLiteral("下发雷达阵面经纬高姿态"), this);
     m_sendPositionButton->setObjectName(QStringLiteral("sendRadarPanelPositionButton"));
@@ -108,9 +110,9 @@ void mainviewTopLeft::fitReferenceLayout()
         label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
         label->setMinimumWidth(label->fontMetrics().horizontalAdvance(label->text()) + 4);
     }
-    const QString buttonStyle = UiFontScale::style("QPushButton {background:#075a58;color:#d9ffff;"
-        "font-size:12px;padding:4px;border:1px solid #00bfa5;border-radius:4px;}"
-        "QPushButton:hover {background:#087a75;}");
+    const QString buttonStyle = UiFontScale::style("QPushButton {background:rgba(27,34,40,100);color:#e8edf1;"
+        "font-size:12px;padding:4px;border:1px solid #303b44;border-radius:4px;}"
+        "QPushButton:hover {background:rgba(41,59,67,205);}");
     m_originButton->setStyleSheet(buttonStyle);
     m_sendPositionButton->setStyleSheet(buttonStyle);
     m_originButton->setMinimumHeight(26);
@@ -186,14 +188,36 @@ void mainviewTopLeft::showReferenceDialog()
         m_electromagneticModule->showOriginDialog(this);
         return;
     }
-    QPointer<QDialog> dialog = new QDialog(this);
+    QPointer<CusWindow> host = new CusWindow(QStringLiteral("配置雷达经纬高 / 姿态"),
+        QIcon(":/resources/icon/ui/sliders.svg"), this);
+    host->setWindowModality(Qt::ApplicationModal);
+    // 覆盖左上浮层的局部小字号，标题和正文均走统一字号入口一次。
+    host->setStyleSheet(UiFontScale::style(
+        "QWidget#TitleBar {background:#1b2228;border:none;border-bottom:1px solid #303b44;}"
+        "QLabel#TitleLabel {background:transparent;color:#e8edf1;font-size:20px;font-weight:bold;}"));
+    QPointer<QDialog> dialog = new QDialog(host);
+    dialog->setWindowFlags(Qt::Widget);
+    dialog->setAttribute(Qt::WA_DeleteOnClose, false);
+    dialog->setObjectName(QStringLiteral("radarReferenceDialog"));
     dialog->setWindowTitle(QStringLiteral("配置雷达经纬高/姿态"));
-    dialog->setMinimumWidth(580);
-    dialog->setStyleSheet(UiFontScale::style("QDialog { background:#101818; } QLabel { color:#d9ffff; font-size:18px; }"
-        "QLineEdit { background:#142d28; color:white; border:1px solid #66ccaa; padding:6px; font-size:18px; }"
-        "QPushButton { background:#123630; color:#66ffcc; border:1px solid #66ccaa; padding:7px; font-size:18px; }"));
+    dialog->setMinimumWidth(ScaleHelper::uiScaled(560));
+    const QString dialogStyle = UiFontScale::style(
+        "QDialog#radarReferenceDialog {background:#12171c;}"
+        "QLabel {background:transparent;color:#e8edf1;font-size:18px;}"
+        "QLineEdit {background:#141c22;color:#e8edf1;border:1px solid #3b4a55;"
+        "border-radius:4px;padding:7px 10px;font-size:18px;selection-background-color:#2e4b57;}"
+        "QLineEdit:focus {border-color:#78cbd8;}"
+        "QPushButton {background:#222c33;color:#e8edf1;border:1px solid #3b4a55;"
+        "border-radius:4px;padding:7px 14px;font-size:16px;}"
+        "QPushButton:hover {background:#293b44;border-color:#78cbd8;}"
+        "QPushButton:pressed {background:#23414a;}");
     auto* layout = new QVBoxLayout(dialog);
+    layout->setContentsMargins(16, 14, 16, 14);
+    layout->setSpacing(14);
     auto* form = new QFormLayout;
+    form->setHorizontalSpacing(18);
+    form->setVerticalSpacing(10);
+    form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     layout->addLayout(form);
     const QStringList names = {QStringLiteral("经度(°)"), QStringLiteral("纬度(°)"), QStringLiteral("海拔高度(m)"),
                                QStringLiteral("阵面偏航(°)"), QStringLiteral("倾角(°)"), QStringLiteral("横滚角(°)")};
@@ -206,18 +230,22 @@ void mainviewTopLeft::showReferenceDialog()
         form->addRow(names[i], edits[i]);
     }
     auto* error = new QLabel(dialog);
-    error->setStyleSheet(UiFontScale::style("color:#ff9b9b"));
+    error->setStyleSheet(UiFontScale::style("color:#ea8c93"));
     error->setWordWrap(true);
     error->hide();
     layout->addWidget(error);
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, dialog);
     buttons->button(QDialogButtonBox::Ok)->setText(QStringLiteral("确定"));
+    buttons->button(QDialogButtonBox::Ok)->setObjectName(QStringLiteral("applyRadarReference"));
+    buttons->button(QDialogButtonBox::Ok)->setStyleSheet(QStringLiteral(
+        "QPushButton {background:#23414a;border-color:#78cbd8;color:#c2e8ed;}"
+        "QPushButton:hover {background:#2e4b57;}"));
     buttons->button(QDialogButtonBox::Cancel)->setText(QStringLiteral("取消"));
     auto* save = buttons->addButton(QStringLiteral("保存本地"), QDialogButtonBox::ActionRole);
     layout->addWidget(buttons);
     connect(buttons, &QDialogButtonBox::rejected, dialog, &QDialog::reject);
     const auto apply = [dialog, edits, names, error](bool persist) {
-        error->setStyleSheet(UiFontScale::style("color:#ff9b9b"));
+        error->setStyleSheet(UiFontScale::style("color:#ea8c93"));
         if (CON_INS->radarReference().locked()) {
             error->setText(QStringLiteral("阵面0已锁定，请先在阵面下发窗口解除锁定。")); error->show(); return;
         }
@@ -241,15 +269,28 @@ void mainviewTopLeft::showReferenceDialog()
         }
         if (!CON_INS->setManualRadarReference(values)) return;
         if (persist) {
-            error->setStyleSheet(UiFontScale::style("color:#66ffcc"));
+            error->setStyleSheet(UiFontScale::style("color:#e8edf1"));
             error->setText(QStringLiteral("已保存到本地 config.toml。"));
             error->show();
         } else if (dialog) dialog->accept();
     };
     connect(buttons, &QDialogButtonBox::accepted, dialog, [apply] { apply(false); });
     connect(save, &QPushButton::clicked, dialog, [apply] { apply(true); });
+    dialog->setStyleSheet(dialogStyle);
+    host->setContentWidget(dialog);
+    host->ensurePolished();
+    const QSize preferredSize = host->sizeHint().expandedTo(QSize(ScaleHelper::uiScaled(600), 0));
+    QScreen* screen = QGuiApplication::screenAt(mapToGlobal(rect().center()));
+    if (!screen) screen = QGuiApplication::primaryScreen();
+    if (screen) {
+        const QRect available = screen->availableGeometry();
+        const QSize size = preferredSize.boundedTo(available.size());
+        host->setInitialGeometry(QRect(available.center() - QPoint(size.width() / 2, size.height() / 2), size));
+    }
+    host->show();
+    // 保留原 exec 模态及 Enter/Esc 语义；返回后再关闭宿主，避免 accept/reject 栈内销毁。
     dialog->exec();
-    if (dialog) dialog->deleteLater();
+    if (host) host->close();
 }
 
 void mainviewTopLeft::paintEvent(QPaintEvent* event) {

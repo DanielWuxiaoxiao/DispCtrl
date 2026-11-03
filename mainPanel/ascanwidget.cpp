@@ -21,7 +21,7 @@
 AScanPlot::AScanPlot(QWidget* parent) : QWidget(parent)
 {
     setMinimumHeight(160);
-    setStyleSheet(UiFontScale::style("background: #0d0d0d;"));
+    setStyleSheet(UiFontScale::style("background: #12171c;"));
 }
 
 void AScanPlot::setData(int /*pointNum*/, float rangeResM, float cfar,
@@ -46,11 +46,11 @@ void AScanPlot::paintEvent(QPaintEvent*)
     const int cW = W - mL - mR;
     const int cH = H - mT - mB;
 
-    p.fillRect(rect(), QColor(0x0d, 0x0d, 0x0d));
+    p.fillRect(rect(), QColor(0x12, 0x17, 0x1c));
 
     int N = m_pcAmps.isEmpty() ? m_mtdAmps.size() : m_pcAmps.size();
     if (N == 0) {
-        p.setPen(QColor(0x44, 0x44, 0x44));
+        p.setPen(QColor(0xa6, 0xb2, 0xbd));
         p.drawText(rect(), Qt::AlignCenter, QStringLiteral("等待A显数据..."));
         return;
     }
@@ -66,15 +66,15 @@ void AScanPlot::paintEvent(QPaintEvent*)
     for (int tick = 0; tick <= 4; ++tick) {
         float v = m_yLo + tick * yRange / 4;
         int   y = toY(v);
-        p.setPen(QPen(QColor(0x22, 0x22, 0x22)));
+        p.setPen(QPen(QColor(0x30, 0x3b, 0x44)));
         p.drawLine(mL, y, W - mR, y);
-        p.setPen(QColor(0x55, 0x55, 0x55));
+        p.setPen(QColor(0xa6, 0xb2, 0xbd));
         p.drawText(0, y - 7, mL - 2, 14, Qt::AlignRight,
                    QString::number(static_cast<int>(v)));
     }
 
     // X轴刻度（距离，km）
-    p.setPen(QColor(0x55, 0x55, 0x55));
+    p.setPen(QColor(0xa6, 0xb2, 0xbd));
     for (int i = 0; i <= 5; ++i) {
         int   idx = i * (N - 1) / 5;
         int   x   = toX(idx);
@@ -83,7 +83,7 @@ void AScanPlot::paintEvent(QPaintEvent*)
         p.drawText(x - 16, mT + cH + 6, 32, 18, Qt::AlignCenter,
                    QString::number(km, 'f', 1));
     }
-    p.setPen(QColor(0x55, 0x55, 0x55));
+    p.setPen(QColor(0xa6, 0xb2, 0xbd));
     p.setFont(UiFontScale::pointFont("Consolas", 9));
     p.drawText(W - mR - 22, H - 4, QStringLiteral("km"));
 
@@ -137,7 +137,7 @@ AScanWidget::AScanWidget(QWidget* parent)
 {
     // 工具栏
     m_lblInfo = new QLabel(QStringLiteral("A显  方位: --°  量程: --"), this);
-    m_lblInfo->setStyleSheet(UiFontScale::style("color:#ff8800; font-family:Consolas; font-size:12px;"));
+    m_lblInfo->setStyleSheet(UiFontScale::style("color:#e8edf1; font-family:Consolas; font-size:12px;"));
 
     m_chkPC  = new QCheckBox(QStringLiteral("PC后"), this);
     m_chkMTD = new QCheckBox(QStringLiteral("MTD后"), this);
@@ -189,8 +189,8 @@ void AScanWidget::onAScanData(const AScanFrame& frame,
 void AScanWidget::applyStyle()
 {
     setStyleSheet(UiFontScale::style(
-        "AScanWidget { background: #0a0a0a; }"
-        "QCheckBox { color:#aaa; font-size:12px; }"
-        "QCheckBox::indicator:checked { background:#44ff88; border:1px solid #44ff88; }"
+        "AScanWidget { background: #12171c; }"
+        "QCheckBox { color:#a6b2bd; font-size:12px; }"
+        "QCheckBox::indicator:checked { background:#78cbd8; border:1px solid #78cbd8; }"
     ));
 }

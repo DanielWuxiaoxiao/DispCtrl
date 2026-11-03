@@ -99,6 +99,13 @@ public:
      */
     void setContentWidget(QWidget* w);
 
+    // 用已有 QHBoxLayout 的内容标题替换默认标题栏，并迁入窗口控制按钮。
+    // 仅调用窗口启用；标题区域负责拖动/双击，内容外边距缩为细边框。
+    void setCustomTitleBar(QWidget* titleBar);
+
+    // Qt 全局逻辑坐标。首次 show 保留调用方给定的大小/屏幕位置，不再 adjustSize。
+    void setInitialGeometry(const QRect& geometry);
+
 protected:
     // === 鼠标事件处理 ===
 
@@ -161,6 +168,7 @@ protected:
 
 private:
     void toggleMaximized();
+    bool isTitleBarPosition(const QPoint& pos) const;
 
     /**
      * @enum ResizeRegion
@@ -204,6 +212,9 @@ private:
 
     // === UI组件 ===
     QWidget* m_content = nullptr;       ///< 内容组件
+    QWidget* m_titleBar = nullptr;      ///< 默认或自定义标题区域，Qt 父子关系负责释放
+    QVBoxLayout* m_contentLayout = nullptr;
+    bool m_customTitleBar = false;
     QLabel* m_titleLabel;               ///< 标题标签
     QPushButton* m_closeBtn;            ///< 关闭按钮
     QPushButton* m_minBtn;              ///< 最小化按钮
@@ -213,6 +224,7 @@ private:
     bool m_maximized = false;           ///< 是否已最大化
     QRect m_restoreRect;                ///< 还原时的窗口矩形
     bool m_firstShow = true;            ///< 是否为首次显示（用于自动居中）
+    QRect m_initialGeometry;            ///< 可选的首次显示位置；无效时沿用原自动居中流程
 
     // === 橡皮筋效果 ===
     QRubberBand* m_rubberBand = nullptr; ///< 橡皮筋组件

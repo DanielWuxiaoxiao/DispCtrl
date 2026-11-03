@@ -21,11 +21,9 @@
       /* 使容器占满整个视口 */
       margin: 0;
       padding: 0;
-      /* 注意：影像瓦片是 WebGL 画布，CSS filter 在 ANGLE(D3D) 后端下不会覆盖它，
-         故军工绿改为下方 #mapMask 叠加层（跨显卡/系统一致）。 */
+      /* 保留影像原色，仅叠加冷石墨明度蒙版；不对 WebGL 画布加滤镜。 */
     }
-    /* 军工绿蒙版（卫星影像版）：影像本身已很丰富，用较淡的绿色叠加，保留地物细节。
-       调色只改这一处 background：想更绿/更暗→提高 alpha；想更清晰→降低 alpha。 */
+    /* 冷石墨蒙版：压低底图明度和色彩干扰，保留道路与影像纹理。 */
     #mapMask {
       position: fixed;
       top: 0;
@@ -34,7 +32,7 @@
       bottom: 0;
       pointer-events: none;
       z-index: 9999;
-      background: rgba(12, 70, 36, 0.30); /* 卫星影像军工绿蒙版，较淡，可调 */
+      background: rgba(18, 29, 38, 0.38);
     }
 
     html,

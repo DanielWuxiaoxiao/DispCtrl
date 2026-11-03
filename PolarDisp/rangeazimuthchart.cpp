@@ -132,13 +132,13 @@ public:
         drawPoints(painter, m_chart->m_cooperativeTrackColor,
                    qMax<qreal>(1.0, m_chart->m_baseTrackSize * m_chart->m_trackSizeRatio),
                    cooperativeTracks);
-        drawPoints(painter, QColor(0, 255, 255),
+        drawPoints(painter, OfflineRae::kCyanDisplayColor,
                    qMax<qreal>(1.0, m_chart->m_baseTrackSize * m_chart->m_trackSizeRatio),
                    offlineCyanTracks);
-        drawPoints(painter, QColor(255, 0, 0),
+        drawPoints(painter, OfflineRae::kRedDisplayColor,
                    qMax<qreal>(1.0, m_chart->m_baseTrackSize * m_chart->m_trackSizeRatio),
                    offlineRedTracks);
-        drawPoints(painter, QColor(0, 0, 255),
+        drawPoints(painter, OfflineRae::kBlueDisplayColor,
                    qMax<qreal>(1.0, m_chart->m_baseTrackSize * m_chart->m_trackSizeRatio),
                    offlineBlueTracks);
         painter->restore();
@@ -428,17 +428,17 @@ RangeAzimuthChart::RangeAzimuthChart(QWidget* parent)
     setGridVisible(true);
     setAxisVisible(true);
 
-    // ---------- 黑绿配色主题（与 darkstyle.qss 保持一致）----------
-    // 背景：深黑
-    setChartBgColor(QColor(10, 16, 16));
-    // 主网格线：低饱和深绿
-    setChartGridMajorColor(QColor(0, 80, 60));
-    // 次网格线：更暗的绿
-    setChartGridMinorColor(QColor(0, 50, 38));
-    // 坐标轴线：绿色
-    setChartAxisColor(QColor(0, 255, 136));
-    // 刻度/标签文字：青绿色
-    setChartTextColor(QColor(102, 255, 204));
+    // ---------- 石墨灰坐标底图；数据颜色与 PPI 共用 ----------
+    // 背景
+    setChartBgColor(QColor(18, 23, 28));
+    // 主网格线
+    setChartGridMajorColor(QColor(48, 59, 68));
+    // 次网格线
+    setChartGridMinorColor(QColor(35, 45, 52));
+    // 坐标轴线
+    setChartAxisColor(QColor(97, 117, 131));
+    // 刻度/标签文字
+    setChartTextColor(QColor(166, 178, 189));
 
     m_batchItem = new RangeAzimuthBatchItem(this);
     scene()->addItem(m_batchItem);

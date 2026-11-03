@@ -41,7 +41,7 @@ void TempGauge::paintEvent(QPaintEvent*)
     const int spanTotal  = 270;  // 270°覆盖
 
     // 背景弧
-    p.setPen(QPen(QColor(0x33, 0x33, 0x33), 8, Qt::SolidLine, Qt::FlatCap));
+    p.setPen(QPen(QColor(0x30, 0x3b, 0x44), 8, Qt::SolidLine, Qt::FlatCap));
     p.drawArc(rect, startAngle * 16, -spanTotal * 16);
 
     // 值弧
@@ -65,12 +65,12 @@ void TempGauge::paintEvent(QPaintEvent*)
 
     // 标签
     p.setFont(UiFontScale::pointFont(QStringLiteral("Microsoft YaHei"), 9));
-    p.setPen(QColor(0xaa, 0xaa, 0xaa));
+    p.setPen(QColor(0xa6, 0xb2, 0xbd));
     p.drawText(QRectF(0, 95, 120, 20), Qt::AlignCenter, m_label);
 
     // 范围
     p.setFont(UiFontScale::pointFont(QStringLiteral("Consolas"), 8));
-    p.setPen(QColor(0x55, 0x55, 0x55));
+    p.setPen(QColor(0xa6, 0xb2, 0xbd));
     p.drawText(QRectF(0, 78, 18, 14), Qt::AlignCenter, QString::number(static_cast<int>(m_min)));
     p.drawText(QRectF(102, 78, 18, 14), Qt::AlignCenter, QString::number(static_cast<int>(m_max)));
 }
@@ -100,7 +100,7 @@ void StatusLed::paintEvent(QPaintEvent*)
 {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
-    p.fillRect(rect(), QColor(0x11, 0x11, 0x11));
+    p.fillRect(rect(), QColor(0x1b, 0x22, 0x28));
 
     // LED圆
     QColor ledColor;
@@ -128,13 +128,13 @@ void StatusLed::paintEvent(QPaintEvent*)
 
     // 标签
     p.setFont(UiFontScale::pointFont(QStringLiteral("Microsoft YaHei"), 10));
-    p.setPen(QColor(0xcc, 0xcc, 0xcc));
+    p.setPen(QColor(0xe8, 0xed, 0xf1));
     p.drawText(28, 0, width() - 30, height(), Qt::AlignVCenter | Qt::AlignLeft, m_label);
 
     // 额外文字（右侧）
     if (!m_extra.isEmpty()) {
         p.setFont(UiFontScale::pointFont(QStringLiteral("Consolas"), 9));
-        p.setPen(QColor(0x88, 0x88, 0x88));
+        p.setPen(QColor(0xa6, 0xb2, 0xbd));
         p.drawText(28, 0, width() - 32, height(), Qt::AlignVCenter | Qt::AlignRight, m_extra);
     }
 }
@@ -159,8 +159,8 @@ void HealthDashboard::buildUi()
     auto* softGroup = new QVBoxLayout;
     auto mkSection = [](const QString& title) {
         auto* l = new QLabel(title);
-        l->setStyleSheet(UiFontScale::style("color:#ff8800; font-size:13px; font-weight:bold; "
-                         "border-bottom: 1px solid #ff8800; padding-bottom:3px;"));
+        l->setStyleSheet(UiFontScale::style("color:#e8edf1; font-size:13px; font-weight:bold; "
+                         "border-bottom: 1px solid #303b44; padding-bottom:3px;"));
         return l;
     };
     softGroup->addWidget(mkSection(QStringLiteral("▌ 软件状态")));
@@ -216,11 +216,11 @@ void HealthDashboard::buildUi()
     m_lblScanAngle  = new QLabel(QStringLiteral("扫描角: -- °"),  this);
     m_lblLastUpdate = new QLabel(QStringLiteral("最后更新: --"),    this);
 
-    auto mkDataLbl = [](QLabel* l) { l->setStyleSheet(UiFontScale::style("color:#ccc; font-family:Consolas; font-size:14px;")); };
+    auto mkDataLbl = [](QLabel* l) { l->setStyleSheet(UiFontScale::style("color:#e8edf1; font-family:Consolas; font-size:14px;")); };
     mkDataLbl(m_lblServoSpeed);
     mkDataLbl(m_lblServoAz);
     mkDataLbl(m_lblScanAngle);
-    m_lblLastUpdate->setStyleSheet(UiFontScale::style("color:#555; font-size:11px;"));
+    m_lblLastUpdate->setStyleSheet(UiFontScale::style("color:#a6b2bd; font-size:11px;"));
 
     auto* servoGroup = new QVBoxLayout;
     servoGroup->addWidget(mkSection(QStringLiteral("▌ 伺服状态")));
@@ -253,12 +253,12 @@ void HealthDashboard::buildUi()
 void HealthDashboard::applyStyle()
 {
     setStyleSheet(UiFontScale::style(
-        "HealthDashboard { background: #0a0a0a; }"
-        "QFrame#dashCard { background: #111; border: 1px solid #333; border-radius:6px; }"
-        "QLabel { background: transparent; color: #ccc; }"
+        "HealthDashboard { background: #12171c; }"
+        "QFrame#dashCard { background: #1b2228; border: 1px solid #303b44; border-radius:6px; }"
+        "QLabel { background: transparent; color: #e8edf1; }"
     ));
-    m_lblFpgaTempNum->setStyleSheet(UiFontScale::style("color:#ff8800; font-family:Consolas; font-size:13px;"));
-    m_lblPanelTempNum->setStyleSheet(UiFontScale::style("color:#ff8800; font-family:Consolas; font-size:13px;"));
+    m_lblFpgaTempNum->setStyleSheet(UiFontScale::style("color:#e8edf1; font-family:Consolas; font-size:13px;"));
+    m_lblPanelTempNum->setStyleSheet(UiFontScale::style("color:#e8edf1; font-family:Consolas; font-size:13px;"));
 }
 
 void HealthDashboard::onMonitorParam(const MonitorParam& p)

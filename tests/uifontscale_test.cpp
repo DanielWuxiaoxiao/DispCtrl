@@ -49,10 +49,11 @@ private slots:
         copied.setStyleSheet(label.styleSheet());
         table.setStyleSheet(UiFontScale::style("QTableWidget {font-size:22px;}"));
         parent.ensurePolished(); label.ensurePolished(); copied.ensurePolished(); table.ensurePolished();
-        QCOMPARE(label.font().pixelSize(), qRound(18 * factor));
-        QCOMPARE(copied.font().pixelSize(), qRound(18 * factor));
-        QCOMPARE(table.font().pixelSize(), qRound(22 * factor));
-        QCOMPARE(UiFontScale::pointFont("Sans", 10).pixelSize(), qRound(10 * 96.0 / 72.0 * factor));
+        QCOMPARE(label.font().pixelSize(), qRound(18 * factor * 1.08));
+        QCOMPARE(copied.font().pixelSize(), qRound(18 * factor * 1.08));
+        QCOMPARE(table.font().pixelSize(), qRound(22 * factor * 1.08));
+        QCOMPARE(UiFontScale::pointFont("Sans", 10).pixelSize(), qRound(10 * 96.0 / 72.0 * factor * 1.08));
+        QCOMPARE(UiFontScale::pixels(12), qRound(12 * factor * 1.08));
         QCOMPARE(ScaleHelper::uiScaled(12), qRound(12 * factor));
     }
 };

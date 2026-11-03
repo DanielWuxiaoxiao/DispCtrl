@@ -197,6 +197,8 @@ HEADERS += \
     Basic/diagnosticlogwindow.h \
     Basic/pointinfovalidation.h \
     Basic/DispBasci.h \
+    Basic/uitheme.h \
+    mainPanel/healthstatuswidgets.h \
     Basic/uifontscale.h \
     Basic/uiscale.h \
     Basic/Protocol.h \

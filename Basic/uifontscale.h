@@ -8,8 +8,16 @@
 #include "Basic/uiscale.h"
 
 namespace UiFontScale {
+// V7 可读性微调：仅字号增加 8%，不改变 ui_scale 的布局/图标/雷达几何含义。
+constexpr double ReadabilityFactor = 1.08;
+inline double factor() { return ScaleHelper::uiScale() * ReadabilityFactor; }
+inline int pixels(double designPixels)
+{
+    return qMax(1, qRound(designPixels * factor()));
+}
 // Only font declarations are transformed: padding, border widths and radar geometry stay intact.
-inline QString style(const QString& baseStyle, double factor = ScaleHelper::uiScale())
+// 显式 factor 参数仍按传入值精确缩放；默认入口统一应用可读性系数一次。
+inline QString style(const QString& baseStyle, double factor = UiFontScale::factor())
 {
     if (qFuzzyCompare(factor, 1.0) || !baseStyle.contains(QStringLiteral("font"), Qt::CaseInsensitive))
         return baseStyle;
@@ -36,7 +44,7 @@ inline QString style(const QString& baseStyle, double factor = ScaleHelper::uiSc
 inline int pointPixels(double points)
 {
     // Explicit painter fonts use the same 96-DPI design baseline as the fixed UI policy.
-    return qMax(1, qRound(points * (96.0 / 72.0) * ScaleHelper::uiScale()));
+    return pixels(points * (96.0 / 72.0));
 }
 inline QFont pointFont(const QString& family, double points, int weight = QFont::Normal)
 {

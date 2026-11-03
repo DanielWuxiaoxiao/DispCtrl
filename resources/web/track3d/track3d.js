@@ -228,10 +228,10 @@
         gridGroup = new THREE.Group();
         scene.add(gridGroup);
 
-        var majorColor = 0x00503c;
-        var minorColor = 0x003226;
-        var axisColor = 0x00ff88;
-        var labelColor = '#66ffcc';
+        var majorColor = 0x45616b;
+        var minorColor = 0x303b44;
+        var axisColor = 0x78cbd8;
+        var labelColor = '#a6b2bd';
         var maxRangeKm = Math.max(0.001, Number(viewState.maxRangeM) / 1000);
         var minHeight = Number(viewState.minHeightM);
         var maxHeight = Number(viewState.maxHeightM);
@@ -256,10 +256,10 @@
 
         gridGroup.add(createLine([
             new THREE.Vector3(-1, 0, 0), new THREE.Vector3(1, 0, 0)
-        ], 0xff4f4f, 0.85, false));
+        ], 0xea8c93, 0.85, false));
         gridGroup.add(createLine([
             new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 0, 1)
-        ], 0x00aaff, 0.85, false));
+        ], 0x78cbd8, 0.85, false));
 
         gridGroup.add(createLine(circlePoints(1, 1), majorColor, 0.42, true));
         var verticalLocations = [
@@ -277,13 +277,13 @@
         gridGroup.add(createLine([
             new THREE.Vector3(heightAxisX, 0, heightAxisZ),
             new THREE.Vector3(heightAxisX, 1, heightAxisZ)
-        ], axisColor, 0.9, false));
+        ], 0x78d4a5, 0.9, false));
         for (var tick = 0; tick <= 5; ++tick) {
             var y = tick / 5;
             gridGroup.add(createLine([
                 new THREE.Vector3(heightAxisX - 0.025, y, heightAxisZ),
                 new THREE.Vector3(heightAxisX + 0.025, y, heightAxisZ)
-            ], axisColor, 0.8, false));
+            ], 0x78d4a5, 0.8, false));
             var heightValue = minHeight + (maxHeight - minHeight) * y;
             var heightLabel = createTextSprite(heightValue.toFixed(0) + ' m', labelColor, 0.065);
             heightLabel.position.set(heightAxisX - 0.09, y, heightAxisZ);
@@ -294,7 +294,7 @@
             ['N', 0, 0.02, 1.1], ['S', 0, 0.02, -1.1],
             ['E', 1.1, 0.02, 0], ['W', -1.1, 0.02, 0]
         ].forEach(function (labelData) {
-            var sprite = createTextSprite(labelData[0], '#00ff88', 0.085);
+            var sprite = createTextSprite(labelData[0], '#78cbd8', 0.085);
             sprite.position.set(labelData[1], labelData[2], labelData[3]);
             gridGroup.add(sprite);
         });
@@ -339,7 +339,7 @@
             if (!trackVisible(track)) {
                 return;
             }
-            var color = String(track.color || '#ff0000').toLowerCase();
+            var color = String(track.color || '#ea8c93').toLowerCase();
             if (!buckets.has(color)) {
                 buckets.set(color, []);
             }
@@ -527,11 +527,11 @@
         if (typeof THREE.OrbitControls !== 'function') throw new Error('Local OrbitControls resource did not load');
         pointer = new THREE.Vector2();
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0a1010);
+        scene.background = new THREE.Color(0x12171c);
 
         camera = new THREE.PerspectiveCamera(42, 1, 0.01, 100);
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-        renderer.setClearColor(0x0a1010, 1);
+        renderer.setClearColor(0x12171c, 1);
         renderer.outputEncoding = THREE.sRGBEncoding;
         root.appendChild(renderer.domElement);
 

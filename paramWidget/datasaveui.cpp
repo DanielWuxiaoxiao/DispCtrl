@@ -260,9 +260,9 @@ void DataSaveUI::offlineDeal()
         selection.setObjectName(QStringLiteral("offlinePanelSelection"));
         selection.setWindowTitle(tr("选择回放阵面"));
         selection.setStyleSheet(UiFontScale::style(QStringLiteral(
-            "QDialog { background:#0d1918; color:#d9ffff; }"
-            "QLabel,QCheckBox { color:#d9ffff; font-size:16px; }"
-            "QPushButton { color:#55ffdd; background:#153b35; border:1px solid #63bba8;"
+            "QDialog { background:#12171c; color:#e8edf1; }"
+            "QLabel,QCheckBox { color:#e8edf1; font-size:16px; }"
+            "QPushButton { color:#e8edf1; background:#232d34; border:1px solid #303b44;"
             "border-radius:5px; padding:7px 18px; font-size:16px; }")));
         auto* layout = new QVBoxLayout(&selection);
         layout->addWidget(new QLabel(tr("数据编号 %1：勾选需要回放的阵面").arg(param.off.dataID), &selection));
@@ -273,7 +273,7 @@ void DataSaveUI::offlineDeal()
             layout->addWidget(checks[id]);
         }
         auto* error = new QLabel(tr("请至少选择一个阵面。"), &selection);
-        error->setStyleSheet(UiFontScale::style("color:#ffaaaa; font-size:14px;"));
+        error->setStyleSheet(UiFontScale::style("color:#ea8c93; font-size:14px;"));
         error->hide(); layout->addWidget(error);
         auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &selection);
         buttons->button(QDialogButtonBox::Ok)->setText(tr("确定回放"));

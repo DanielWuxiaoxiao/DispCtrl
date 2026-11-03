@@ -46,7 +46,7 @@ constexpr qreal kFocusedLabelZ = INFO_Z + 21;
 constexpr qreal kFocusedLabelFontScale = 1.2;
 constexpr int kPpiRefreshIntervalMs = 16; // ~60 FPS when the GUI thread keeps up.
 
-const QColor kExternalReportLabelColor(0, 222, 166);
+const QColor kExternalReportLabelColor(120, 203, 216);
 
 quint64 makeTrackKey(PointType type, int batch)
 {
@@ -284,16 +284,16 @@ public:
             drawLines(DRONE_COLOR, otherLines);
             drawLines(trackTypeColor(PointType::TBDPointType), tbdLines);
             drawLines(trackTypeColor(PointType::CooperativeTrackPointType), cooperativeLines);
-            drawLines(QColor(0, 255, 255), offlineCyanLines);
-            drawLines(QColor(255, 0, 0), offlineRedLines);
-            drawLines(QColor(0, 0, 255), offlineBlueLines);
+            drawLines(OfflineRae::kCyanDisplayColor, offlineCyanLines);
+            drawLines(OfflineRae::kRedDisplayColor, offlineRedLines);
+            drawLines(OfflineRae::kBlueDisplayColor, offlineBlueLines);
             drawPoints(TRA_COLOR, trackPoints);
             drawPoints(DRONE_COLOR, otherPoints);
             drawPoints(trackTypeColor(PointType::TBDPointType), tbdPoints);
             drawPoints(trackTypeColor(PointType::CooperativeTrackPointType), cooperativePoints);
-            drawPoints(QColor(0, 255, 255), offlineCyanPoints);
-            drawPoints(QColor(255, 0, 0), offlineRedPoints);
-            drawPoints(QColor(0, 0, 255), offlineBluePoints);
+            drawPoints(OfflineRae::kCyanDisplayColor, offlineCyanPoints);
+            drawPoints(OfflineRae::kRedDisplayColor, offlineRedPoints);
+            drawPoints(OfflineRae::kBlueDisplayColor, offlineBluePoints);
         } else {
             for (int i = 1; i < m_series->nodes.size(); ++i) {
                 const TrackNode& node = m_series->nodes[i];
@@ -550,7 +550,7 @@ void DraggableLabel::paint(QPainter* painter, const QStyleOptionGraphicsItem* op
         // boundingRect() 已包含该边距；背景本身只围绕文字原始区域扩展一次。
         QRectF backgroundRect = QGraphicsTextItem::boundingRect().adjusted(-6.0, -4.0, 6.0, 4.0);
         QColor borderColor = defaultTextColor();
-        const QColor fillColor(8, 18, 18, 230);
+        const QColor fillColor(27, 34, 40, 230);
         painter->setPen(QPen(borderColor, 1.5));
         painter->setBrush(QBrush(fillColor));
         painter->drawRoundedRect(backgroundRect, 4.0, 4.0);

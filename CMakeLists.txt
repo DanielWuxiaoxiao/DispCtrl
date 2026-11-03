@@ -331,6 +331,8 @@ set(HDR_FILES
     Basic/mathUtil.h                           # 数学工具函数
     Basic/log.h                               # 日志系统
     Basic/DispBasci.h                         # 显示基础定义
+    Basic/uitheme.h                          # 石墨灰主题及健康状态展示样式
+    mainPanel/healthstatuswidgets.h          # 健康状态卡片、列表和电源格
     Basic/uifontscale.h                       # Qt样式及绘制字体统一缩放
     Basic/uiscale.h                           # 不依赖协议打包的UI缩放定义
     Basic/ConfigManager.h                     # 配置管理器

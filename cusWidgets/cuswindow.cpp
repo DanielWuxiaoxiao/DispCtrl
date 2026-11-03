@@ -8,6 +8,7 @@
  */
 #include "cuswindow.h"
 #include "windowgeometry.h"
+#include "Basic/uitheme.h"
 #include <QHBoxLayout>
 #include <QStyle>
 #include <QApplication>
@@ -35,13 +36,17 @@ CusWindow::CusWindow(const QString& title, const QIcon& icon, QWidget* parent)
     setWindowFlags(Qt::FramelessWindowHint | Qt::Window);
     setAttribute(Qt::WA_DeleteOnClose);
     setAttribute(Qt::WA_TranslucentBackground); // 支持窗口半透明
+    // 整窗轻微透底，让内部实底面板也保留一致的透明度；仅应用于独立 CusWindow。
+    setWindowOpacity(0.96);
     setObjectName("CusWindow");
+    setWindowTitle(title);
 
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(3,3,3,3);
     mainLayout->setSpacing(0);
 
     QWidget* titleBar = new QWidget(this);
+    m_titleBar = titleBar;
     titleBar->setObjectName("TitleBar");
     QHBoxLayout* titleLayout = new QHBoxLayout(titleBar);
     titleLayout->setContentsMargins(8,0,8,0);
@@ -67,7 +72,7 @@ CusWindow::CusWindow(const QString& title, const QIcon& icon, QWidget* parent)
     m_minBtn = new QPushButton(titleBar);
     m_minBtn->setObjectName("cMinButton");
     m_minBtn->setFixedSize(32, 32);
-    m_minBtn->setIcon(QIcon(":/resources/icon/min.png"));
+    m_minBtn->setIcon(QIcon(":/resources/icon/ui/minus.svg"));
     m_minBtn->setIconSize(QSize(20, 20));
     m_minBtn->setToolTip("最小化窗口");
     connect(m_minBtn, &QPushButton::clicked, this, [this](){
@@ -77,7 +82,7 @@ CusWindow::CusWindow(const QString& title, const QIcon& icon, QWidget* parent)
     m_maxBtn = new QPushButton(titleBar);
     m_maxBtn->setObjectName("cMaxButton");
     m_maxBtn->setFixedSize(32, 32);
-    m_maxBtn->setIcon(QIcon(":/resources/icon/full.png"));
+    m_maxBtn->setIcon(QIcon(":/resources/icon/ui/expand.svg"));
     m_maxBtn->setIconSize(QSize(20, 20));
     m_maxBtn->setToolTip("最大化/还原窗口");
     connect(m_maxBtn, &QPushButton::clicked, this, &CusWindow::toggleMaximized);
@@ -85,7 +90,7 @@ CusWindow::CusWindow(const QString& title, const QIcon& icon, QWidget* parent)
     m_closeBtn = new QPushButton(titleBar);
     m_closeBtn->setObjectName("cCloseBtn");
     m_closeBtn->setFixedSize(32, 32);
-    m_closeBtn->setIcon(QIcon(":/resources/icon/close.png"));
+    m_closeBtn->setIcon(QIcon(":/resources/icon/ui/close.svg"));
     m_closeBtn->setIconSize(QSize(20, 20));
     m_closeBtn->setToolTip("关闭窗口");
     connect(m_closeBtn, &QPushButton::clicked, this, [this](){
@@ -101,6 +106,7 @@ CusWindow::CusWindow(const QString& title, const QIcon& icon, QWidget* parent)
     // 内容区
     QWidget* contentWrap = new QWidget(this);
     QVBoxLayout* contentLayout = new QVBoxLayout(contentWrap);
+    m_contentLayout = contentLayout;
     contentLayout->setContentsMargins(8,8,8,8);
     contentLayout->setSpacing(0);
     mainLayout->addWidget(contentWrap, 1);
@@ -126,7 +132,7 @@ void CusWindow::toggleMaximized()
     if (m_maximized) {
         setGeometry(m_restoreRect);
         m_maximized = false;
-        m_maxBtn->setIcon(QIcon(":/resources/icon/full.png"));
+        m_maxBtn->setIcon(QIcon(":/resources/icon/ui/expand.svg"));
         return;
     }
 
@@ -144,15 +150,56 @@ void CusWindow::toggleMaximized()
     m_restoreRect = geometry();
     setGeometry(target);
     m_maximized = true;
-    m_maxBtn->setIcon(QIcon(":/resources/icon/win.png"));
+    m_maxBtn->setIcon(QIcon(":/resources/icon/ui/restore.svg"));
 }
 
 void CusWindow::setContentWidget(QWidget* w) {
     if (m_content) m_content->setParent(nullptr);
     m_content = w;
-    if (QVBoxLayout* contentLayout = qobject_cast<QVBoxLayout*>(layout()->itemAt(1)->widget()->layout())) {
-        contentLayout->addWidget(w);
+    m_contentLayout->addWidget(w);
+}
+
+void CusWindow::setCustomTitleBar(QWidget* titleBar)
+{
+    auto* titleLayout = titleBar ? qobject_cast<QHBoxLayout*>(titleBar->layout()) : nullptr;
+    if (!titleLayout || titleBar == m_titleBar) return;
+    auto* mainLayout = qobject_cast<QVBoxLayout*>(layout());
+    QWidget* previousTitleBar = m_titleBar;
+    mainLayout->removeWidget(previousTitleBar);
+    previousTitleBar->hide();
+    // addWidget 将原按钮迁移到新标题栏，保留关闭/最小化/最大化的原连接。
+    titleLayout->addWidget(m_minBtn, 0, Qt::AlignTop);
+    titleLayout->addWidget(m_maxBtn, 0, Qt::AlignTop);
+    titleLayout->addWidget(m_closeBtn, 0, Qt::AlignTop);
+    m_titleBar = titleBar;
+    m_customTitleBar = true;
+    m_titleLabel = nullptr;
+    mainLayout->insertWidget(0, titleBar);
+    // 保留 4px 可抓取的缩放边缘，内容不再有旧包装层的 8px 留白。
+    mainLayout->setContentsMargins(4, 4, 4, 4);
+    m_contentLayout->setContentsMargins(0, 0, 0, 0);
+    titleBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    titleBar->setMouseTracking(true);
+    titleBar->installEventFilter(this);
+    for (QLabel* label : titleBar->findChildren<QLabel*>()) {
+        label->setMouseTracking(true);
+        label->installEventFilter(this);
     }
+    delete previousTitleBar;
+}
+
+void CusWindow::setInitialGeometry(const QRect& geometry)
+{
+    if (!geometry.isValid()) return;
+    m_initialGeometry = geometry;
+    setGeometry(geometry);
+}
+
+bool CusWindow::isTitleBarPosition(const QPoint& pos) const
+{
+    return m_customTitleBar
+        ? m_titleBar->geometry().contains(pos)
+        : pos.y() < 40;
 }
 
 void CusWindow::mousePressEvent(QMouseEvent* e) {
@@ -175,7 +222,7 @@ void CusWindow::mousePressEvent(QMouseEvent* e) {
             return;
         }
         // 标题栏拖动
-        if (e->pos().y() < 40 && !m_maximized) {
+        if (isTitleBarPosition(e->pos()) && !m_maximized) {
             m_dragging = true;
             m_dragPos = e->globalPos() - frameGeometry().topLeft();
             e->accept();
@@ -229,7 +276,7 @@ void CusWindow::mouseReleaseEvent(QMouseEvent* e) {
 }
 
 void CusWindow::mouseDoubleClickEvent(QMouseEvent* e) {
-    if (e->pos().y() < 40) {
+    if (isTitleBarPosition(e->pos())) {
         m_maxBtn->click();
     }
 }
@@ -238,21 +285,10 @@ void CusWindow::paintEvent(QPaintEvent* e) {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
 
-    // 1. 绘制阴影
-    int shadowWidth = 8;
-    QRect shadowRect = rect();
-    for (int i = shadowWidth; i > 0; --i) {
-        QColor shadowColor(0, 0, 0, 10 + 40 * i / shadowWidth); // 渐变透明
-        p.setPen(Qt::NoPen);
-        p.setBrush(shadowColor);
-        p.drawRoundedRect(shadowRect.adjusted(i, i, -i, -i), 15, 15);
-    }
-
-    // 2. 绘制窗口主体
-    QColor bg(16,24,24,220); // 220/255 约等于 0.85 透明度
-    p.setBrush(bg);
-    p.setPen(Qt::NoPen);
-    p.drawRoundedRect(rect().adjusted(shadowWidth, shadowWidth, -shadowWidth, -shadowWidth), 15, 15);
+    // 先绘制完整深色表面；由窗口合成统一施加少量透明度，避免多层 alpha 叠加。
+    p.setBrush(QColor(UiTheme::Background));
+    p.setPen(QPen(QColor(UiTheme::Border), 1));
+    p.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 6, 6);
 
     QWidget::paintEvent(e);
 }
@@ -263,6 +299,25 @@ void CusWindow::leaveEvent(QEvent* e) {
 }
 
 bool CusWindow::eventFilter(QObject* obj, QEvent* event) {
+    if (m_customTitleBar && obj != this) {
+        // 自定义标题/文字的鼠标位置必须转换到窗口坐标；按钮保留自身事件。
+        switch (event->type()) {
+        case QEvent::MouseButtonPress:
+        case QEvent::MouseMove:
+        case QEvent::MouseButtonRelease:
+        case QEvent::MouseButtonDblClick: {
+            auto* mouse = static_cast<QMouseEvent*>(event);
+            QMouseEvent mapped(event->type(), QPointF(mapFromGlobal(mouse->globalPos())),
+                               QPointF(mouse->globalPos()), mouse->button(), mouse->buttons(), mouse->modifiers());
+            if (event->type() == QEvent::MouseButtonPress) mousePressEvent(&mapped);
+            else if (event->type() == QEvent::MouseMove) mouseMoveEvent(&mapped);
+            else if (event->type() == QEvent::MouseButtonRelease) mouseReleaseEvent(&mapped);
+            else mouseDoubleClickEvent(&mapped);
+            return true;
+        }
+        default: break;
+        }
+    }
     if (event->type() == QEvent::MouseMove) {
         QMouseEvent* me = static_cast<QMouseEvent*>(event);
         updateCursor(me->pos());
@@ -317,6 +372,10 @@ void CusWindow::showEvent(QShowEvent* e)
     QWidget::showEvent(e);
     if (m_firstShow) {
         m_firstShow = false;
+        if (m_initialGeometry.isValid()) {
+            setGeometry(m_initialGeometry);
+            return;
+        }
         // 窗口首次显示时，将其移动到屏幕中央
         // adjustSize 确保 sizeHint 已经应用
         adjustSize();

@@ -171,10 +171,10 @@ void ScreenRecorderWidget::setupUI()
     m_previewLabel->setMinimumHeight(200);
     m_previewLabel->setStyleSheet(UiFontScale::style(
         "QLabel#RecorderPreview {"
-        "  background-color: rgba(0,0,0,0.6);"
-        "  border: 1px solid rgba(102,255,204,0.3);"
+        "  background-color: #12171c;"
+        "  border: 1px solid #303b44;"
         "  border-radius: 4px;"
-        "  color: #66ffcc;"
+        "  color: #a6b2bd;"
         "}"));
     m_previewLabel->setText("无预览");
     mainLayout->addWidget(m_previewLabel, 2); // stretch=2
@@ -357,7 +357,7 @@ void ScreenRecorderWidget::onRecordToggle()
         m_captureTimer->start(CAPTURE_INTERVAL_MS);
 
         m_statusLabel->setText("● 正在录屏...");
-        m_statusLabel->setStyleSheet(UiFontScale::style("QLabel { color: #ff4444; font-weight: bold; }"));
+        m_statusLabel->setStyleSheet(UiFontScale::style("QLabel { color: #ea8c93; font-weight: bold; }"));
 
         LOG_INFO("Screen recording started: " + m_currentRecordPath);
         updateButtonStates();
@@ -583,53 +583,53 @@ void ScreenRecorderWidget::onDeleteClicked()
 }
 
 // =============================================================================
-// 通用暗黑绿色对话框样式
+// 通用石墨灰对话框样式（保留既有调用接口）
 // =============================================================================
 
 QString ScreenRecorderWidget::darkGreenDialogStyleSheet()
 {
     return QStringLiteral(
         "QDialog {"
-        "  background-color: rgb(10, 16, 16);"
-        "  border: 1px solid rgba(0, 255, 136, 0.4);"
+        "  background-color: #12171c;"
+        "  border: 1px solid #303b44;"
         "}"
         "QLabel {"
-        "  color: #00ff88;"
+        "  color: #e8edf1;"
         "  font-size: 14px;"
         "  font-weight: bold;"
         "  background-color: transparent;"
         "}"
         "QLineEdit {"
-        "  background-color: rgba(0, 20, 10, 0.9);"
-        "  color: #ffffff;"
+        "  background-color: #12171c;"
+        "  color: #e8edf1;"
         "  font-size: 14px;"
-        "  border: 1px solid rgba(0, 255, 136, 0.5);"
+        "  border: 1px solid #303b44;"
         "  border-radius: 4px;"
         "  padding: 6px 10px;"
-        "  selection-background-color: rgba(0, 255, 136, 0.3);"
+        "  selection-background-color: #29434c;"
         "}"
         "QLineEdit:focus {"
-        "  border: 2px solid #00ff88;"
+        "  border: 1px solid #78cbd8;"
         "}"
         "QPushButton {"
         "  background-color: transparent;"
-        "  color: #00ff88;"
+        "  color: #e8edf1;"
         "  font-size: 13px;"
         "  font-weight: bold;"
-        "  border: 1px solid rgba(0, 255, 136, 0.45);"
+        "  border: 1px solid #303b44;"
         "  border-radius: 6px;"
         "  padding: 6px 20px;"
         "  min-height: 28px;"
         "}"
         "QPushButton:hover {"
-        "  background-color: rgba(0, 255, 136, 0.15);"
-        "  border: 1px solid #00ff88;"
-        "  color: #ffffff;"
+        "  background-color: #293b43;"
+        "  border: 1px solid #78cbd8;"
+        "  color: #e8edf1;"
         "}"
         "QPushButton:pressed {"
-        "  background-color: rgba(0, 255, 136, 0.28);"
-        "  border: 2px solid #00ffaa;"
-        "  color: #ffffff;"
+        "  background-color: #29434c;"
+        "  border: 1px solid #78cbd8;"
+        "  color: #e8edf1;"
         "}");
 }
 

@@ -1,6 +1,24 @@
 <RCC>
     <qresource prefix="/">
         <file>resources/style/darkstyle.qss</file>
+        <file>resources/icon/ui/log.svg</file>
+        <file>resources/icon/ui/activity.svg</file>
+        <file>resources/icon/ui/radar.svg</file>
+        <file>resources/icon/ui/sliders.svg</file>
+        <file>resources/icon/ui/track.svg</file>
+        <file>resources/icon/ui/replay.svg</file>
+        <file>resources/icon/ui/awareness.svg</file>
+        <file>resources/icon/ui/close.svg</file>
+        <file>resources/icon/ui/minus.svg</file>
+        <file>resources/icon/ui/plus.svg</file>
+        <file>resources/icon/ui/expand.svg</file>
+        <file>resources/icon/ui/restore.svg</file>
+        <file>resources/icon/ui/reset.svg</file>
+        <file>resources/icon/ui/hand.svg</file>
+        <file>resources/icon/ui/ruler.svg</file>
+        <file>resources/icon/ui/chevron-down.svg</file>
+        <file>resources/icon/ui/chevron-up.svg</file>
+        <file>resources/icon/ui/check.svg</file>
         <file>resources/icon/logo.png</file>
         <file>resources/icon/close.png</file>
         <file>resources/icon/control.png</file>

@@ -293,7 +293,7 @@ private:
     double m_maxAzimuth = 360.0;              ///< 最大方位角
 
     // 样式配置
-    QColor m_detectionColor = QColor(0, 255, 0);    ///< 检测点颜色（绿色）
+    QColor m_detectionColor = DET_COLOR;           ///< 检测点颜色，与P显保持一致
     QColor m_trackColor = TRA_COLOR;                ///< 普通航迹-无人机颜色（红色，与P显保持一致）
     QColor m_otherTrackColor = DRONE_COLOR;         ///< 普通航迹-其它目标颜色（黄色，与P显保持一致）
     QColor m_tbdTrackColor = QColor(TBD_COLOR);     ///< TBD航迹颜色

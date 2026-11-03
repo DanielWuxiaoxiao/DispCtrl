@@ -251,7 +251,8 @@ QColor Track3DWidget::trackColor(const PointInfo& info) const
         return CO_TRACK_COLOR;
     case PointType::Track:
     default:
-        return info.targetRecResult == 1 ? DRONE_COLOR : TRA_COLOR;
+        // 与 PPI/B显/高显的同一类别保持同色；不改变识别值本身。
+        return info.targetRecResult == 1 ? TRA_COLOR : DRONE_COLOR;
     }
 }
 
@@ -659,11 +660,11 @@ void Track3DWidget::showRendererFailurePage(const QString& reason)
     m_pageReadyTimer->stop();
     const QString html = QStringLiteral(
         "<!doctype html><html><head><meta charset='utf-8'></head>"
-        "<body style='margin:0;background:#0a1010;color:#66ffcc;font-family:Microsoft YaHei,sans-serif;"
+        "<body style='margin:0;background:#12171c;color:#e8edf1;font-family:Microsoft YaHei,sans-serif;"
         "display:flex;align-items:center;justify-content:center;height:100vh;'>"
-        "<div style='border:1px solid #00ff88;padding:18px 28px;background:#101818;'>"
+        "<div style='border:1px solid #303b44;padding:18px 28px;background:#1b2228;'>"
         "<div style='font-size:18px;margin-bottom:8px;'>3D渲染不可用</div>"
-        "<div style='font-size:12px;color:#9ab8ad;'>%1</div></div></body></html>")
+        "<div style='font-size:12px;color:#a6b2bd;'>%1</div></div></body></html>")
         .arg(reason.toHtmlEscaped());
     m_webView->setHtml(UiFontScale::style(html));
 }

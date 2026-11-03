@@ -78,19 +78,19 @@ ZoomViewToolBar::ZoomViewToolBar(QWidget* parent)
 
     // 放大按钮（icon）
     m_zoomInBtn = new QPushButton(this);
-    m_zoomInBtn->setIcon(QIcon(":/resources/icon/plus.png"));
+    m_zoomInBtn->setIcon(QIcon(":/resources/icon/ui/plus.svg"));
     m_zoomInBtn->setToolTip("放大视图");
     m_zoomInBtn->setObjectName("ZoomInBtn");
 
     // 缩小按钮（icon）
     m_zoomOutBtn = new QPushButton(this);
-    m_zoomOutBtn->setIcon(QIcon(":/resources/icon/min.png"));
+    m_zoomOutBtn->setIcon(QIcon(":/resources/icon/ui/minus.svg"));
     m_zoomOutBtn->setToolTip("缩小视图");
     m_zoomOutBtn->setObjectName("ZoomOutBtn");
 
     // 重置视图按钮（icon）
     m_resetBtn = new QPushButton(this);
-    m_resetBtn->setIcon(QIcon(":/resources/icon/reset.png"));
+    m_resetBtn->setIcon(QIcon(":/resources/icon/ui/reset.svg"));
     m_resetBtn->setToolTip("重置视图");
     m_resetBtn->setObjectName("ResetBtn");
 
@@ -103,13 +103,13 @@ ZoomViewToolBar::ZoomViewToolBar(QWidget* parent)
     // 拖动/测距模式按钮（icon + 互斥按钮组）
     m_dragBtn = new QPushButton(this);
     m_dragBtn->setCheckable(true);
-    m_dragBtn->setIcon(QIcon(":/resources/icon/hand.png"));
+    m_dragBtn->setIcon(QIcon(":/resources/icon/ui/hand.svg"));
     m_dragBtn->setToolTip("拖动模式");
     m_dragBtn->setObjectName("DragBtn");
 
     m_measureBtn = new QPushButton(this);
     m_measureBtn->setCheckable(true);
-    m_measureBtn->setIcon(QIcon(":/resources/icon/meas.png"));
+    m_measureBtn->setIcon(QIcon(":/resources/icon/ui/ruler.svg"));
     m_measureBtn->setToolTip("测量模式");
     m_measureBtn->setObjectName("MeasureBtn");
 
@@ -337,7 +337,7 @@ void ZoomView::mousePressEvent(QMouseEvent* event) {
         clearMeasureLine();
 
         // 创建用于显示尺子的 path item
-        QPen pen(Qt::yellow);
+        QPen pen(PPI_MEASURE_COLOR);
         pen.setWidthF(2.0);
         pen.setStyle(Qt::DashLine);
 
@@ -347,7 +347,7 @@ void ZoomView::mousePressEvent(QMouseEvent* event) {
         m_scene->addItem(m_measurePath);
 
     // 起止圆点标记（空心圆环，更像尺子的端点）
-    QPen markerPen(Qt::yellow);
+    QPen markerPen(PPI_MEASURE_COLOR);
     markerPen.setWidthF(1.5);
     QBrush noBrush(Qt::transparent);
     m_startMarker = new QGraphicsEllipseItem(-6, -6, 12, 12);
@@ -368,7 +368,7 @@ void ZoomView::mousePressEvent(QMouseEvent* event) {
         f.setPixelSize(UiFontScale::pointPixels(10));
         f.setBold(true);
         m_distanceText->setFont(f);
-        m_distanceText->setDefaultTextColor(Qt::yellow);
+        m_distanceText->setDefaultTextColor(PPI_MEASURE_COLOR);
         m_distanceText->setZValue(1002);
 
         event->accept();

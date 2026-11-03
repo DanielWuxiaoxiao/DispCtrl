@@ -474,7 +474,7 @@ void SectorTrackManager::updateLatestLabel(quint64 trackKey)
     // 创建或更新标签
     if (!series.label) {
         series.label = new SectorDraggableLabel();
-        series.label->setDefaultTextColor(Qt::white);
+        series.label->setDefaultTextColor(PPI_TEXT_COLOR);
         series.label->setZValue(INFO_Z);
 
         series.labelLine = new QGraphicsLineItem();

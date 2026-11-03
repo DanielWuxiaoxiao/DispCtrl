@@ -16,22 +16,25 @@
 
       #container {
         height: 100%;
-        /* 高科技绿色滤镜效果 */
-        filter: grayscale(100%) brightness(40%) contrast(200%) sepia(100%)
-          hue-rotate(90deg) saturate(300%);
-        opacity: 0.9;
-        /* grayscale(100%) → 完全去掉原色彩，留下灰度。
-        brightness(40%) → 全体压暗，接近黑底。
-        contrast(200%) → 增强对比，让线条边界更清晰。
-        sepia(100%) hue-rotate(90deg) → 灰度转黄后再旋转色相到绿色。
-        saturate(300%) → 提升绿色饱和度，让线条和地块凸显出雷达绿。
-        opacity(0.9) → 不完全透明，保持雷达 UI 背景感。 */
+        /* 保留影像原色，仅叠加冷石墨明度蒙版；不对 WebGL 画布加滤镜。 */
+      }
+      /* 使用显式四边界兼容 Qt 5.14 / Chromium 77；不拦截地图交互。 */
+      #mapMask {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        pointer-events: none;
+        z-index: 9999;
+        background: rgba(18, 29, 38, 0.50);
       }
     </style>
   </head>
 
   <body>
     <div id="container"></div>
+    <div id="mapMask"></div>
     <script src="qwebchannel.js"></script>
     <script src="https://webapi.amap.com/loader.js"></script>
     <script

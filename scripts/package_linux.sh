@@ -181,6 +181,15 @@ for f in "${QT_PLUGINS}/imageformats/"*.so; do
 done
 echo "  ✓ imageformats/"
 
+# V7 线性 SVG 图标的 QIcon 引擎，QtSvg 已包含在 QT_MODULES 中。
+if [ -d "${QT_PLUGINS}/iconengines" ]; then
+    mkdir -p "${DEPLOY_DIR}/plugins/iconengines"
+    for f in "${QT_PLUGINS}/iconengines/"*.so; do
+        [ -f "$f" ] && cp "$f" "${DEPLOY_DIR}/plugins/iconengines/"
+    done
+    echo "  ✓ iconengines/"
+fi
+
 # xcbglintegrations 插件
 if [ -d "${QT_PLUGINS}/xcbglintegrations" ]; then
     for f in "${QT_PLUGINS}/xcbglintegrations/"*.so; do

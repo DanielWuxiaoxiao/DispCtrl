@@ -10,6 +10,7 @@
 #include <QGridLayout>
 #include <QHeaderView>
 #include <QTableWidget>
+#include <QFontMetrics>
 #include <QStyle>
 #include <QGuiApplication>
 #include <QScreen>
@@ -446,7 +447,7 @@ void Module::refreshWindow()
 void Module::showWindow(QWidget* parent)
 {
     if (m_window) { m_window->show(); publish(); m_window->raise(); m_window->activateWindow(); return; }
-    auto* window = new CusWindow(QStringLiteral("光电目标指示"), QIcon(":/resources/icon/radararray.png"), parent);
+    auto* window = new CusWindow(QStringLiteral("光电目标指示"), QIcon(":/resources/icon/ui/radar.svg"), parent);
     window->setAttribute(Qt::WA_DeleteOnClose); m_window = window;
     auto* content = new QWidget(window); auto* layout = new QVBoxLayout(content);
     layout->setContentsMargins(14, 12, 14, 12); layout->setSpacing(12);
@@ -454,23 +455,23 @@ void Module::showWindow(QWidget* parent)
     content->setAttribute(Qt::WA_StyledBackground);
     // This detached window cannot rely on the main panel's label palette.
     content->setStyleSheet(UiFontScale::style(QStringLiteral(
-        "QWidget#OpticalIndicationContent { background-color:#101818; color:#D9FFFF; }"
-        "QWidget#OpticalIndicationContent QLabel { color:#D9FFFF; background:transparent; font-size:22px; }"
-        "QWidget#OpticalIndicationContent QLabel[section=\"true\"] { color:#66FFCC; font-size:24px; font-weight:bold; }"
-        "QWidget#OpticalIndicationContent QLabel[card=\"true\"] { border:1px solid #426960; border-radius:6px; padding:10px; background:#123630; }"
-        "QWidget#OpticalIndicationContent QLabel[state=\"good\"] { color:#FFFFFF; background:#008E55; border-color:#66FFCC; }"
-        "QWidget#OpticalIndicationContent QLabel[state=\"bad\"] { color:#FFFFFF; background:#972B31; border-color:#FF7878; }"
-        "QWidget#OpticalIndicationContent QLabel[state=\"waiting\"] { color:#FFE7A3; background:#514326; border-color:#D7B65D; }"
-        "QWidget#OpticalIndicationContent QLabel[state=\"active\"] { color:#66FFCC; background:#124E46; border-color:#66FFCC; }"
-        "QWidget#OpticalIndicationContent QTableWidget { color:#D9FFFF; background:#101E1E; alternate-background-color:#152D2A; "
-        "font-size:22px; border:1px solid #426960; gridline-color:#31554E; selection-background-color:#19554C; selection-color:#FFFFFF; }"
+        "QWidget#OpticalIndicationContent { background-color:#12171c; color:#e8edf1; }"
+        "QWidget#OpticalIndicationContent QLabel { color:#e8edf1; background:transparent; font-size:22px; }"
+        "QWidget#OpticalIndicationContent QLabel[section=\"true\"] { color:#e8edf1; font-size:24px; font-weight:bold; }"
+        "QWidget#OpticalIndicationContent QLabel[card=\"true\"] { border:1px solid #303b44; border-radius:6px; padding:10px; background:#1b2228; }"
+        "QWidget#OpticalIndicationContent QLabel[state=\"good\"] { color:#78d4a5; background:#23322d; border-color:#303b44; }"
+        "QWidget#OpticalIndicationContent QLabel[state=\"bad\"] { color:#ea8c93; background:#35252d; border-color:#ea8c93; }"
+        "QWidget#OpticalIndicationContent QLabel[state=\"waiting\"] { color:#a6b2bd; background:#1b2228; border-color:#303b44; }"
+        "QWidget#OpticalIndicationContent QLabel[state=\"active\"] { color:#78cbd8; background:#26383f; border-color:#78cbd8; }"
+        "QWidget#OpticalIndicationContent QTableWidget { color:#e8edf1; background:#12171c; alternate-background-color:#1b2228; "
+        "font-size:22px; border:1px solid #303b44; gridline-color:#303b44; selection-background-color:#29434c; selection-color:#FFFFFF; }"
         "QWidget#OpticalIndicationContent QTableWidget::item { padding:5px; }"
-        "QWidget#OpticalIndicationContent QHeaderView::section { color:#66FFCC; background:#173D37; font-size:22px; "
-        "font-weight:bold; border:1px solid #426960; padding:8px; }"
-        "QWidget#OpticalIndicationContent QPushButton { color:#66FFCC; background-color:#123630; font-size:22px; "
-        "border:1px solid #66FFCC; border-radius:5px; min-height:38px; padding:4px 12px; }"
-        "QWidget#OpticalIndicationContent QPushButton:hover { background-color:#195046; }"
-        "QWidget#OpticalIndicationContent QPushButton:disabled { color:#809A93; border-color:#426960; background:#172724; }")));
+        "QWidget#OpticalIndicationContent QHeaderView::section { color:#e8edf1; background:#1b2228; font-size:22px; "
+        "font-weight:bold; border:1px solid #303b44; padding:8px; }"
+        "QWidget#OpticalIndicationContent QPushButton { color:#e8edf1; background-color:#1b2228; font-size:22px; "
+        "border:1px solid #303b44; border-radius:5px; min-height:38px; padding:4px 12px; }"
+        "QWidget#OpticalIndicationContent QPushButton:hover { background-color:#293b43; border-color:#78cbd8; }"
+        "QWidget#OpticalIndicationContent QPushButton:disabled { color:#82919e; border-color:#303b44; background:#1b2228; }")));
     auto heading = [content, layout](const QString& text) {
         auto* label = new QLabel(text, content); label->setProperty("section", true); layout->addWidget(label);
     };
@@ -490,13 +491,15 @@ void Module::showWindow(QWidget* parent)
     heading(QStringLiteral("目标下发与回传"));
     m_exchangeTable = new QTableWidget(ExchangeRows, 4, content);
     m_exchangeTable->setObjectName(QStringLiteral("OpticalExchangeTable"));
-    QFont tableFont = m_exchangeTable->font(); tableFont.setPixelSize(ScaleHelper::uiScaled(22));
+    QFont tableFont = m_exchangeTable->font(); tableFont.setPixelSize(UiFontScale::pixels(22));
     m_exchangeTable->setFont(tableFont); m_exchangeTable->horizontalHeader()->setFont(tableFont);
     m_exchangeTable->setHorizontalHeaderLabels({QStringLiteral("信息项"), QStringLiteral("最近下发"),
         QStringLiteral("当前批次回传"), QStringLiteral("上一批次回传")});
     m_exchangeTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_exchangeTable->setAlternatingRowColors(true); m_exchangeTable->setWordWrap(false);
-    m_exchangeTable->verticalHeader()->hide(); m_exchangeTable->verticalHeader()->setDefaultSectionSize(44);
+    m_exchangeTable->verticalHeader()->hide();
+    // 字号增大时为文字和单元格上下 padding 留足空间，不改变窗口/列宽策略。
+    m_exchangeTable->verticalHeader()->setDefaultSectionSize(qMax(44, QFontMetrics(tableFont).height() + 12));
     m_exchangeTable->horizontalHeader()->setMinimumSectionSize(160);
     m_exchangeTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
     m_exchangeTable->horizontalHeader()->setStretchLastSection(true);
@@ -512,7 +515,7 @@ void Module::showWindow(QWidget* parent)
         for (int column = 0; column < 4; ++column) {
             auto* item = new QTableWidgetItem(column == 0 ? rows[row] : QStringLiteral("—"));
             item->setTextAlignment(Qt::AlignCenter);
-            if (column == 0) item->setForeground(QColor("#66FFCC"));
+            if (column == 0) item->setForeground(QColor("#e8edf1"));
             m_exchangeTable->setItem(row, column, item);
         }
     }
@@ -526,7 +529,7 @@ void Module::showWindow(QWidget* parent)
     });
     auto* scroll = new QScrollArea(window); scroll->setObjectName(QStringLiteral("OpticalIndicationScroll"));
     scroll->setWidgetResizable(true); scroll->setFrameShape(QFrame::NoFrame);
-    scroll->setStyleSheet(UiFontScale::style(QStringLiteral("QScrollArea#OpticalIndicationScroll { background:#101818; border:0; }")));
+    scroll->setStyleSheet(UiFontScale::style(QStringLiteral("QScrollArea#OpticalIndicationScroll { background:#12171c; border:0; }")));
     scroll->setWidget(content);
     window->setContentWidget(scroll); window->setMinimumSize(640, 480);
     refreshWindow();

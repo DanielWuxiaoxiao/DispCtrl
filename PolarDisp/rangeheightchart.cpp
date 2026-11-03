@@ -124,13 +124,13 @@ public:
         drawPoints(painter, m_chart->m_cooperativeTrackColor,
                    qMax<qreal>(1.0, m_chart->m_baseTrackSize * m_chart->m_trackSizeRatio),
                    cooperativeTracks);
-        drawPoints(painter, QColor(0, 255, 255),
+        drawPoints(painter, OfflineRae::kCyanDisplayColor,
                    qMax<qreal>(1.0, m_chart->m_baseTrackSize * m_chart->m_trackSizeRatio),
                    offlineCyanTracks);
-        drawPoints(painter, QColor(255, 0, 0),
+        drawPoints(painter, OfflineRae::kRedDisplayColor,
                    qMax<qreal>(1.0, m_chart->m_baseTrackSize * m_chart->m_trackSizeRatio),
                    offlineRedTracks);
-        drawPoints(painter, QColor(0, 0, 255),
+        drawPoints(painter, OfflineRae::kBlueDisplayColor,
                    qMax<qreal>(1.0, m_chart->m_baseTrackSize * m_chart->m_trackSizeRatio),
                    offlineBlueTracks);
         painter->restore();
@@ -389,11 +389,11 @@ RangeHeightChart::RangeHeightChart(QWidget* parent)
     setGridVisible(true);
     setAxisVisible(true);
 
-    setChartBgColor(QColor(10, 16, 16));
-    setChartGridMajorColor(QColor(0, 80, 60));
-    setChartGridMinorColor(QColor(0, 50, 38));
-    setChartAxisColor(QColor(0, 255, 136));
-    setChartTextColor(QColor(102, 255, 204));
+    setChartBgColor(QColor(18, 23, 28));
+    setChartGridMajorColor(QColor(48, 59, 68));
+    setChartGridMinorColor(QColor(35, 45, 52));
+    setChartAxisColor(QColor(97, 117, 131));
+    setChartTextColor(QColor(166, 178, 189));
 
     m_batchItem = new RangeHeightBatchItem(this);
     scene()->addItem(m_batchItem);

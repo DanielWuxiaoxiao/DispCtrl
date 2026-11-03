@@ -124,37 +124,37 @@ AzElRangeWidget::AzElRangeWidget(QWidget *parent)
                   background-color: transparent;
                   }
                   QLabel {
-                  color: #a8d4c8;
+                  color: #a6b2bd;
                   font-family: "Microsoft YaHei";
                   font-size: 15px;  /* 增大字体从11px到13px */
                   background-color: transparent;
                   }
                   QLineEdit#RangeLineEdit {
-                  color: #ffffff;
-                  background-color: rgba(10,20,20,0.6);
-                  border: 1px solid rgba(0,255,136,0.45);
+                  color: #e8edf1;
+                  background-color: #12171c;
+                  border: 1px solid #303b44;
                   border-radius: 6px;
                   padding: 4px 6px;
-                  selection-background-color: rgba(0,255,136,0.35);
+                  selection-background-color: #29434c;
                   }
                   QLineEdit#RangeLineEdit:focus {
-                  border: 1.5px solid #00ff88;
+                  border: 1px solid #78cbd8;
                   }
                   QPushButton#SettingsButton {
-                  color: #ffffff;
-                  background-color: rgba(0,100,70,0.7);
-                  border: 1px solid rgba(0,255,136,0.6);
+                  color: #e8edf1;
+                  background-color: #232d34;
+                  border: 1px solid #303b44;
                   border-radius: 4px;
                   padding: 2px 6px;
                   font-family: "Microsoft YaHei";
                   font-size: 11px;
                   }
                   QPushButton#SettingsButton:hover {
-                  background-color: rgba(0,255,136,0.2);
-                  border: 1.5px solid #00ff88;
+                  background-color: #293b43;
+                  border: 1px solid #78cbd8;
                   }
                   QPushButton#SettingsButton:pressed {
-                  background-color: rgba(0,255,136,0.4);
+                  background-color: #29434c;
                   }
                   )"));
 
@@ -444,7 +444,7 @@ void AzElRangeWidget::drawElBar(QPainter &p, const QRect &rcBar)
         p.drawLine(gradRect.left() - len - 4, yy, gradRect.left() - 4, yy);
 
         if (d % 15 == 0) {
-            p.setPen(QColor("#a8d4c8"));
+            p.setPen(QColor("#a6b2bd"));
             QFont f = UiFontScale::pointFont("Microsoft YaHei", 9);  // 减小字体从10到9
             p.setFont(f);
             p.drawText(QRect(gradRect.left() - 44, yy - 9, 38, 18),
@@ -478,7 +478,7 @@ void AzElRangeWidget::drawElBar(QPainter &p, const QRect &rcBar)
     //    {
     //        QFont f = UiFontScale::pointFont("Microsoft YaHei", 12, QFont::DemiBold);
     //        p.setFont(f);
-    //        p.setPen(QColor("#a8d4c8"));
+    //        p.setPen(QColor("#a6b2bd"));
     //        p.drawText(QRect(x, y-2, w, 24), Qt::AlignHCenter|Qt::AlignTop, "仰角范围");
     //    }
 }

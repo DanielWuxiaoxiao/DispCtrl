@@ -75,6 +75,7 @@ class SubsystemNetworkMonitor;
 class CommandControlModule;
 class ElectromagneticDeviceModule;
 class LaserReportManager;
+namespace HealthUi { class Field; class PowerCell; }
 namespace PhotoelectricV2 { class Module; }
 namespace ZhoushanOptical { class Module; }
 
@@ -577,6 +578,7 @@ private:
     bool m_electromagneticLinkOk = false;
     LaserReportManager* m_laserReportManager = nullptr;
     std::array<bool, 8> m_networkHealthOk{};
+    std::array<bool, 8> m_networkHealthKnown{};
     std::array<QString, 8> m_networkHealthText{};
     ZhoushanOptical::Module* m_zhoushanOptical = nullptr;
     QPointer<QPushButton> m_zhoushanHealthButton;
@@ -606,19 +608,19 @@ private:
     bool m_healthUiDirty = true; ///< 仅由Controller五秒窗口统一刷新，接收事件只置脏
     QTabWidget* m_healthTabs = nullptr;  ///< 四个阵面健康信息页
     int m_activeHealthPanel = 0;
-    QPushButton* m_sigProBtn;            ///< 信号处理状态按钮
-    QPushButton* m_dataProBtn;           ///< 数据处理状态按钮
-    QPushButton* m_beamConBtn;           ///< 波束调度状态按钮
-    QPushButton* m_targetRecBtn;         ///< 目标识别状态按钮
+    HealthUi::Field* m_sigProBtn;            ///< 信号处理状态按钮
+    HealthUi::Field* m_dataProBtn;           ///< 数据处理状态按钮
+    HealthUi::Field* m_beamConBtn;           ///< 波束调度状态按钮
+    HealthUi::Field* m_targetRecBtn;         ///< 目标识别状态按钮
 
-    QPushButton* m_radarLocalNetworkBtn = nullptr;
-    QPushButton* m_radarPeerNetworkBtn = nullptr;
-    QPushButton* m_laserLocalNetworkBtn = nullptr;
-    QPushButton* m_laserPeerNetworkBtn = nullptr;
-    QPushButton* m_opticalLocalNetworkBtn = nullptr;
-    QPushButton* m_opticalPeerNetworkBtn = nullptr;
-    QPushButton* m_zhoushanLocalNetworkBtn = nullptr;
-    QPushButton* m_zhoushanPeerNetworkBtn = nullptr;
+    HealthUi::Field* m_radarLocalNetworkBtn = nullptr;
+    HealthUi::Field* m_radarPeerNetworkBtn = nullptr;
+    HealthUi::Field* m_laserLocalNetworkBtn = nullptr;
+    HealthUi::Field* m_laserPeerNetworkBtn = nullptr;
+    HealthUi::Field* m_opticalLocalNetworkBtn = nullptr;
+    HealthUi::Field* m_opticalPeerNetworkBtn = nullptr;
+    HealthUi::Field* m_zhoushanLocalNetworkBtn = nullptr;
+    HealthUi::Field* m_zhoushanPeerNetworkBtn = nullptr;
     QPushButton* m_commandControlButton = nullptr;
     QPushButton* m_testTrackButton = nullptr;
     QPushButton* m_testDetectionButton = nullptr;
@@ -634,38 +636,43 @@ private:
     QToolButton* m_offlineCompareButton = nullptr; ///< compare.m离线点迹绘制按钮
 
     struct HealthPanelWidgets {
-        QPushButton* txOpen = nullptr;
-        QPushButton* dutyCycle = nullptr;
-        QPushButton* pulseWidth = nullptr;
-        QPushButton* rxOpen = nullptr;
-        QPushButton* freqSrc = nullptr;
-        QPushButton* digBoard = nullptr;
-        QPushButton* servo = nullptr;
-        QPushButton* beidou = nullptr;
-        QPushButton* bluetooth = nullptr;
-        QPushButton* powerBoard = nullptr;
+        HealthUi::Field* txOpen = nullptr;
+        HealthUi::Field* dutyCycle = nullptr;
+        HealthUi::Field* pulseWidth = nullptr;
+        HealthUi::Field* rxOpen = nullptr;
+        HealthUi::Field* freqSrc = nullptr;
+        HealthUi::Field* digBoard = nullptr;
+        HealthUi::Field* servo = nullptr;
+        HealthUi::Field* beidou = nullptr;
+        HealthUi::Field* bluetooth = nullptr;
+        HealthUi::Field* powerBoard = nullptr;
         // 下标 0..35 对应协议 bit0..bit35，即按行编号的 1..36 号子阵电源。
-        std::array<QPushButton*, 36> subArrayPowerCells{};
+        std::array<HealthUi::PowerCell*, 36> subArrayPowerCells{};
         QLabel* subArrayPowerSummaryLabel = nullptr;
-        QLabel* tempLabel = nullptr;
-        QLabel* lastUpdateLabel = nullptr;
+        HealthUi::Field* panelTemp = nullptr;
+        HealthUi::Field* fpgaTemp = nullptr;
+        HealthUi::Field* yaw = nullptr;
+        QLabel* powerCountLabel = nullptr;
     };
     std::array<HealthPanelWidgets, kRadarPanelCount> m_healthPanelWidgets{};
 
     // BIT状态按钮
-    QPushButton* m_btnTxOpen;            ///< 阵面发射开启状态
-    QPushButton* m_btnDutyCycle;         ///< 占空比状态
-    QPushButton* m_btnPulseWidth;        ///< 脉宽状态
-    QPushButton* m_btnRxOpen;            ///< 阵面接收状态
-    QPushButton* m_btnFreqSrc;           ///< 频率源状态
-    QPushButton* m_btnDigBoard;          ///< 收发板状态
-    QPushButton* m_btnServo;             ///< 伺服状态
-    QPushButton* m_btnBeidou;            ///< 北斗状态
-    QPushButton* m_btnBluetooth;         ///< 蓝牙状态
-    QPushButton* m_btnPowerBoard;        ///< 波控板电源状态
+    HealthUi::Field* m_btnTxOpen;            ///< 阵面发射开启状态
+    HealthUi::Field* m_btnDutyCycle;         ///< 占空比状态
+    HealthUi::Field* m_btnPulseWidth;        ///< 脉宽状态
+    HealthUi::Field* m_btnRxOpen;            ///< 阵面接收状态
+    HealthUi::Field* m_btnFreqSrc;           ///< 频率源状态
+    HealthUi::Field* m_btnDigBoard;          ///< 收发板状态
+    HealthUi::Field* m_btnServo;             ///< 伺服状态
+    HealthUi::Field* m_btnBeidou;            ///< 北斗状态
+    HealthUi::Field* m_btnBluetooth;         ///< 蓝牙状态
+    HealthUi::Field* m_btnPowerBoard;        ///< 波控板电源状态
 
     // 温度和角度标签
-    QLabel* m_tempLabel;                 ///< 温度信息标签
+    QLabel* m_healthAlert = nullptr;      ///< 当前快照的异常/等待摘要
+    QLabel* m_healthFooterTime = nullptr; ///< 当前阵面状态汇总时间
+    QLabel* m_healthFooterPanel = nullptr;
+    bool m_softwareStatusReceived = false; ///< 仅用于区分初始默认值与已发布软件快照
     bool m_softwareUiPending = false;
     bool m_servoUiPending = false;
     ServoCtrlRet m_latestServoUi{};
@@ -691,13 +698,13 @@ private:
 
     /**
      * @brief 更新发射按钮的显示状态
-     * @details 根据当前发射状态更新按钮的颜色和文本
+     * @details 在原按钮内显示操作和本机发射状态（非设备回执）
      */
     void updateTransmitButton();
 
     /**
      * @brief 更新待机按钮的显示状态
-     * @details 根据当前待机状态更新按钮的颜色和文本
+     * @details 在原按钮内显示操作和本机工作状态（非设备回执）
      */
     void updateStandbyButton();
 

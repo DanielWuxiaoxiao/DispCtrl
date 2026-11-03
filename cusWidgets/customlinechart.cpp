@@ -17,6 +17,8 @@
 
 #include "customlinechart.h"
 #include "../Basic/DispBasci.h"
+#include "Basic/uifontscale.h"
+#include <QTextDocument>
 #include <QResizeEvent>
 #include <QDebug>
 #include <cmath>
@@ -283,7 +285,8 @@ void CustomLineChart::drawAxes()
 
     QPen axisPen(m_axisColor, 2);
     QFont labelFont(QStringLiteral("微软雅黑"));
-    labelFont.setPixelSize(ScaleHelper::uiScaled(12));
+    labelFont.setPixelSize(UiFontScale::pixels(12));
+    qreal xLabelsBottom = m_topMargin + height;
 
     // 绘制X轴刻度标签
     if (m_xAxisConfig.majorTickInterval > 0) {
@@ -299,12 +302,14 @@ void CustomLineChart::drawAxes()
 
             QGraphicsTextItem* label = new QGraphicsTextItem(labelText);
             label->setFont(labelFont);
+            label->document()->setDocumentMargin(0);
             label->setDefaultTextColor(m_textColor);
 
             // 居中对齐
             QRectF textRect = label->boundingRect();
             label->setPos(sceneX - textRect.width() / 2,
                          m_topMargin + height + 5);
+            xLabelsBottom = qMax(xLabelsBottom, label->pos().y() + textRect.height());
 
             m_scene->addItem(label);
             m_axisLabels.append(label);
@@ -325,6 +330,7 @@ void CustomLineChart::drawAxes()
 
             QGraphicsTextItem* label = new QGraphicsTextItem(labelText);
             label->setFont(labelFont);
+            label->document()->setDocumentMargin(0);
             label->setDefaultTextColor(m_textColor);
 
             // 右对齐
@@ -342,13 +348,14 @@ void CustomLineChart::drawAxes()
         QGraphicsTextItem* xTitle = new QGraphicsTextItem(m_xAxisConfig.label);
         QFont titleFont(QStringLiteral("微软雅黑"));
         titleFont.setBold(true);
-        titleFont.setPixelSize(ScaleHelper::uiScaled(14));
+        titleFont.setPixelSize(UiFontScale::pixels(14));
         xTitle->setFont(titleFont);
+        xTitle->document()->setDocumentMargin(0);
         xTitle->setDefaultTextColor(m_textColor);
 
         QRectF titleRect = xTitle->boundingRect();
         xTitle->setPos(m_leftMargin + width / 2 - titleRect.width() / 2,
-                      m_topMargin + height + 25);
+                      qMax(m_topMargin + height + 25, xLabelsBottom + 2));
 
         m_scene->addItem(xTitle);
         m_axisLabels.append(xTitle);
@@ -359,8 +366,9 @@ void CustomLineChart::drawAxes()
         QGraphicsTextItem* yTitle = new QGraphicsTextItem(m_yAxisConfig.label);
         QFont titleFont(QStringLiteral("微软雅黑"));
         titleFont.setBold(true);
-        titleFont.setPixelSize(ScaleHelper::uiScaled(14));
+        titleFont.setPixelSize(UiFontScale::pixels(14));
         yTitle->setFont(titleFont);
+        yTitle->document()->setDocumentMargin(0);
         yTitle->setDefaultTextColor(m_textColor);
 
         QRectF titleRect = yTitle->boundingRect();

@@ -24,9 +24,9 @@ GeoFenceItem::GeoFenceItem(int fenceId, QGraphicsItem* parent)
     setZValue(50);
     setFlag(QGraphicsItem::ItemIsSelectable, true);
 
-    // 默认外观：半透明黄色
-    setPen(QPen(QColor(255, 200, 0, 200), 2));
-    setBrush(QBrush(QColor(255, 200, 0, 30)));
+    // 默认外观：半透明琥珀色
+    setPen(QPen(QColor(223, 189, 130, 200), 2));
+    setBrush(QBrush(QColor(223, 189, 130, 30)));
 }
 
 void GeoFenceItem::setFenceName(const QString& name)
@@ -56,11 +56,11 @@ void GeoFenceItem::setAlert(bool alert)
 {
     m_alert = alert;
     if (alert) {
-        setPen(QPen(QColor(255, 60, 60, 220), 2, Qt::DashLine));
-        setBrush(QBrush(QColor(255, 60, 60, 55)));
+        setPen(QPen(QColor(234, 140, 147, 220), 2, Qt::DashLine));
+        setBrush(QBrush(QColor(234, 140, 147, 55)));
     } else {
-        setPen(QPen(QColor(255, 200, 0, 200), 2));
-        setBrush(QBrush(QColor(255, 200, 0, 30)));
+        setPen(QPen(QColor(223, 189, 130, 200), 2));
+        setBrush(QBrush(QColor(223, 189, 130, 30)));
     }
     update();
 }
@@ -81,14 +81,14 @@ void GeoFenceItem::paint(QPainter* painter,
     // 绘制围栏名称
     if (!m_name.isEmpty()) {
         const QRectF br = boundingRect();
-        painter->setPen(QColor(255, 230, 80));
+        painter->setPen(QColor(223, 189, 130));
         painter->setFont(UiFontScale::pointFont("Microsoft YaHei", 8));
         painter->drawText(br.topLeft() + QPointF(4, 14), m_name);
     }
 
     // 编辑模式：绘制顶点手柄
     if (m_edit) {
-        painter->setBrush(QColor(255, 220, 0, 200));
+        painter->setBrush(QColor(223, 189, 130, 200));
         painter->setPen(Qt::NoPen);
         for (const auto& pt : polygon()) {
             painter->drawEllipse(pt, 5, 5);

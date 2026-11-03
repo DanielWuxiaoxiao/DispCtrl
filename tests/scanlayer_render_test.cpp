@@ -19,7 +19,9 @@ class ScanLayerRenderTest final : public QObject {
         return result;
     }
     static bool red(const QColor& color) {
-        return color.red() > 200 && color.green() < 40 && color.blue() < 40;
+        // V7 柔红扫描短弧：保留位置/淡出测试，避免把冷青覆盖面误认为扫描线。
+        return color.red() > 200 && color.red() > color.green() + 60
+            && color.red() > color.blue() + 60;
     }
 private slots:
     void fixedMultiPanelCoverageAndIndependentTasBoundaries() {

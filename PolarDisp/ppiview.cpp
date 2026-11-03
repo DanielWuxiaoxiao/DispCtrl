@@ -424,12 +424,12 @@ void PPIView::setupOverlay() {
     m_externalQuickActionPanel = new QFrame(this);
     m_externalQuickActionPanel->setObjectName(QStringLiteral("externalQuickActionPanel"));
     m_externalQuickActionPanel->setStyleSheet(UiFontScale::style(
-        QStringLiteral("QFrame#externalQuickActionPanel { background: rgba(4, 25, 25, 210); "
-                       "border: 1px solid #00BFA5; border-radius: 4px; }"
-                       "QPushButton { min-height: 28px; padding: 2px 10px; color: #D9FFFF; "
-                       "background: #075A58; border: 1px solid #00D7C0; border-radius: 3px; }"
-                       "QPushButton:hover { background: #087A75; }"
-                       "QPushButton:disabled { color: #809090; border-color: #426060; background: #183232; }")));
+        QStringLiteral("QFrame#externalQuickActionPanel { background: rgba(18,23,28,175); "
+                       "border: 1px solid #303b44; border-radius: 4px; }"
+                       "QPushButton { min-height: 28px; padding: 2px 10px; color: #e8edf1; "
+                       "background: rgba(27,34,40,100); border: 1px solid #303b44; border-radius: 3px; }"
+                       "QPushButton:hover { background: rgba(41,59,67,210); }"
+                       "QPushButton:disabled { color: #82919e; border-color: #303b44; background: rgba(27,34,40,100); }")));
     auto* quickActionLayout = new QHBoxLayout(m_externalQuickActionPanel);
     quickActionLayout->setContentsMargins(6, 5, 6, 5);
     quickActionLayout->setSpacing(6);
@@ -759,7 +759,7 @@ void PPIView::mousePressEvent(QMouseEvent* e) {
         clearMeasureLine();
 
         // 创建用于显示尺子的 path item
-        QPen pen(Qt::yellow);
+        QPen pen(PPI_MEASURE_COLOR);
         pen.setWidthF(2.0);
         pen.setStyle(Qt::DashLine);
 
@@ -769,7 +769,7 @@ void PPIView::mousePressEvent(QMouseEvent* e) {
         m_scene->addItem(m_measurePath);
 
         // 起止圆点标记（空心圆环，更像尺子的端点）
-        QPen markerPen(Qt::yellow);
+        QPen markerPen(PPI_MEASURE_COLOR);
         markerPen.setWidthF(1.5);
         QBrush noBrush(Qt::transparent);
         m_startMarker = new QGraphicsEllipseItem(-6, -6, 12, 12);
@@ -790,7 +790,7 @@ void PPIView::mousePressEvent(QMouseEvent* e) {
         f.setPixelSize(UiFontScale::pointPixels(10));
         f.setBold(true);
         m_distanceText->setFont(f);
-        m_distanceText->setDefaultTextColor(Qt::yellow);
+        m_distanceText->setDefaultTextColor(PPI_MEASURE_COLOR);
         m_distanceText->setZValue(1002);
 
         e->accept();
@@ -1306,7 +1306,7 @@ void PPIView::refreshRoadPoints()
     auto nodes = m_roadParser->nodesWithinRange(maxRangeM);
 
     const double pointRadius = 2.0;  // 道路点半径（像素）
-    QBrush brush(QColor(255, 255, 0));  // 黄色
+    QBrush brush(PPI_MEASURE_COLOR);
     QPen pen(Qt::NoPen);
 
     for (const auto& node : nodes) {
@@ -1834,12 +1834,12 @@ QColor PPIView::commandControlReplayColor(quint32 sourceDeviceId, bool sourceIsL
     }
 
     static const QColor remoteColors[] = {
-        QColor(QStringLiteral("#00D7FF")), QColor(QStringLiteral("#FFB000")),
-        QColor(QStringLiteral("#C080FF")), QColor(QStringLiteral("#80FF80")),
-        QColor(QStringLiteral("#FF70C8")), QColor(QStringLiteral("#4FA8FF"))
+        QColor(QStringLiteral("#78cbd8")), QColor(QStringLiteral("#dfbd82")),
+        QColor(QStringLiteral("#b59adf")), QColor(QStringLiteral("#78d4a5")),
+        QColor(QStringLiteral("#d99bc7")), QColor(QStringLiteral("#82a9dc"))
     };
     const QColor color = sourceIsLocal
-                             ? QColor(QStringLiteral("#FF3030"))
+                             ? TRA_COLOR
                              : remoteColors[m_commandControlReplayColors.size()
                                             % (sizeof(remoteColors) / sizeof(remoteColors[0]))];
     m_commandControlReplayColors.insert(sourceDeviceId, color);
@@ -1856,15 +1856,15 @@ void PPIView::updateCommandControlReplayLegend()
         m_commandControlReplayLegend = new QFrame(this);
         m_commandControlReplayLegend->setObjectName(QStringLiteral("commandControlReplayLegend"));
         m_commandControlReplayLegend->setStyleSheet(UiFontScale::style(
-            QStringLiteral("QFrame#commandControlReplayLegend { background: rgba(4, 25, 25, 210); "
-                           "border: 1px solid #00BFA5; border-radius: 4px; }")));
+            QStringLiteral("QFrame#commandControlReplayLegend { background: rgba(18,23,28,175); "
+                           "border: 1px solid #303b44; border-radius: 4px; }")));
         auto* layout = new QVBoxLayout(m_commandControlReplayLegend);
         layout->setContentsMargins(8, 6, 8, 6);
         layout->setSpacing(2);
         m_commandControlReplayLegendText = new QLabel(m_commandControlReplayLegend);
         m_commandControlReplayLegendText->setTextFormat(Qt::RichText);
         m_commandControlReplayLegendText->setStyleSheet(UiFontScale::style(
-            QStringLiteral("QLabel { color: #D9FFFF; font-size: 12px; background: transparent; }")));
+            QStringLiteral("QLabel { color: #e8edf1; font-size: 12px; background: transparent; }")));
         layout->addWidget(m_commandControlReplayLegendText);
     }
 

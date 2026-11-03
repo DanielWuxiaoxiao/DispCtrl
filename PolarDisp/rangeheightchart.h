@@ -121,7 +121,7 @@ private:
     double m_minHeight = 0.0;
     double m_maxHeight = 500.0;
 
-    QColor m_detectionColor = QColor(0, 255, 0);
+    QColor m_detectionColor = DET_COLOR;
     QColor m_trackColor = TRA_COLOR;
     QColor m_otherTrackColor = DRONE_COLOR;
     QColor m_tbdTrackColor = QColor(TBD_COLOR);

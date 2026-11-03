@@ -87,11 +87,11 @@ void setupFont(QApplication& app) {
         if (available.contains(candidate, Qt::CaseInsensitive)) { font.setFamily(candidate); break; }
     }
 #endif
-    font.setPixelSize(ScaleHelper::uiScaled(12));
+    font.setPixelSize(UiFontScale::pixels(12));
     app.setFont(font);
-    LOG_INFO(QStringLiteral("[UI_FONT] family=%1 pixelSize=%2 uiScale=%3 compact=%4")
+    LOG_INFO(QStringLiteral("[UI_FONT] family=%1 pixelSize=%2 uiScale=%3 compact=%4 fontFactor=%5")
              .arg(font.family()).arg(font.pixelSize()).arg(ScaleHelper::uiScale())
-             .arg(ScaleHelper::compactLayout()));
+             .arg(ScaleHelper::compactLayout()).arg(UiFontScale::factor()));
 }
 
 /**
@@ -144,13 +144,13 @@ void setupStyle(QApplication& app) {
 }
 
 QSplitter#MainContentSplitter::handle {
-    background-color: rgba(0, 255, 136, 0.012);
+    background-color: rgba(120, 203, 216, 0.012);
     border: none;
 }
 
 QSplitter#MainContentSplitter::handle:hover {
-    background-color: rgba(0, 255, 136, 0.06);
-    border-left: 1px solid rgba(0, 255, 136, 0.14);
+    background-color: rgba(120, 203, 216, 0.06);
+    border-left: 1px solid rgba(120, 203, 216, 0.14);
 }
 
 )";
@@ -216,6 +216,7 @@ QSplitter#MainContentSplitter::handle:hover {
 
 #MainOverLayOut #FuncWidget {
     border-width: 6px;
+    border-color: transparent;
     padding: 4px 8px;
 }
 

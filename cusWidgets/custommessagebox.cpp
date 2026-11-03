@@ -64,46 +64,54 @@ void CustomMessageBox::applyStyle()
 {
     setStyleSheet(UiFontScale::style(R"(
         #MessageBoxContainer {
-            background-color: rgba(20, 30, 30, 0.95);
-            border: 2px solid #00ff88;
-            border-radius: 12px;
+            background-color: #1b2228;
+            border: 1px solid #3b4a55;
+            border-radius: 6px;
         }
         #MessageBoxTitle {
-            color: #00ff88;
+            color: #e8edf1;
             font-size: 16px;
             font-weight: bold;
         }
         #MessageBoxText {
-            color: #ffffff;
+            color: #c4ced7;
             font-size: 14px;
         }
         #MessageBoxInput {
             min-height: 26px;
             padding: 4px 8px;
-            color: #d9ffff;
-            background-color: #071a1a;
-            border: 1px solid #00bfa5;
+            color: #e8edf1;
+            background-color: #141c22;
+            border: 1px solid #3b4a55;
             border-radius: 4px;
-            selection-background-color: #087a75;
+            selection-background-color: #2e4b57;
+            selection-color: #ffffff;
         }
         #MessageBoxInput:focus {
-            border: 1px solid #00ffcc;
+            border: 1px solid #78cbd8;
         }
         QPushButton {
             min-width: 80px;
             padding: 6px 12px;
-            border-radius: 6px;
-            border: 2px solid rgba(0, 255, 136, 0.4);
-            background-color: transparent;
-            color: #00ff88;
+            border-radius: 4px;
+            border: 1px solid #3b4a55;
+            background-color: #222c33;
+            color: #e8edf1;
         }
         QPushButton:hover {
-            border: 2px solid #00ff88;
-            background-color: rgba(0, 255, 136, 0.2);
-            color: #ffffff;
+            border-color: #78cbd8;
+            background-color: #293b44;
         }
         QPushButton:pressed {
-            background-color: rgba(0, 255, 136, 0.4);
+            background-color: #23414a;
+        }
+        QPushButton:focus {
+            border-color: #78cbd8;
+        }
+        QPushButton:disabled {
+            background-color: #1b232a;
+            color: #8e9ba6;
+            border-color: #303b44;
         }
     )"));
 }

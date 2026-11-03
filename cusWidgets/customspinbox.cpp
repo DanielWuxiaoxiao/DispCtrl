@@ -84,11 +84,11 @@ void CustomSpinBox::paintEvent(QPaintEvent *event)
  * @brief 绘制自定义上箭头
  * @param painter 绘制器对象
  * @param rect 上按钮区域
- * @details 在上按钮区域绘制绿色向上三角形箭头
+ * @details 在上按钮区域绘制向上三角形箭头
  *
  * 箭头特性：
  * - 形状：向上的倒V字形
- * - 颜色：默认 #66ffcc，hover #99ffdd
+ * - 颜色：跟随按钮文字调色板，悬停使用冷青色
  * - 尺寸：4像素
  * - 抗锯齿：平滑边缘渲染
  */
@@ -102,8 +102,8 @@ void CustomSpinBox::drawUpArrow(QPainter *painter, const QRect &rect)
     // 根据hover状态设置箭头颜色
     bool isHover = underMouse() && rect.contains(mapFromGlobal(QCursor::pos()));
     QColor arrowColor = isHover ?
-                       QColor(153, 255, 221) :  // #99ffdd - hover状态
-                       QColor(102, 255, 204);   // #66ffcc - 默认状态
+                       QColor(120, 203, 216) :
+                       palette().color(QPalette::ButtonText);
 
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setPen(QPen(arrowColor, 1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
@@ -122,11 +122,11 @@ void CustomSpinBox::drawUpArrow(QPainter *painter, const QRect &rect)
  * @brief 绘制自定义下箭头
  * @param painter 绘制器对象
  * @param rect 下按钮区域
- * @details 在下按钮区域绘制绿色向下三角形箭头
+ * @details 在下按钮区域绘制向下三角形箭头
  *
  * 箭头特性：
  * - 形状：向下的V字形
- * - 颜色：默认 #66ffcc，hover #99ffdd
+ * - 颜色：跟随按钮文字调色板，悬停使用冷青色
  * - 尺寸：4像素
  * - 抗锯齿：平滑边缘渲染
  */
@@ -140,8 +140,8 @@ void CustomSpinBox::drawDownArrow(QPainter *painter, const QRect &rect)
     // 根据hover状态设置箭头颜色
     bool isHover = underMouse() && rect.contains(mapFromGlobal(QCursor::pos()));
     QColor arrowColor = isHover ?
-                       QColor(153, 255, 221) :  // #99ffdd - hover状态
-                       QColor(102, 255, 204);   // #66ffcc - 默认状态
+                       QColor(120, 203, 216) :
+                       palette().color(QPalette::ButtonText);
 
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setPen(QPen(arrowColor, 1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
@@ -210,8 +210,8 @@ void CustomDoubleSpinBox::drawUpArrow(QPainter *painter, const QRect &rect)
 
     bool isHover = underMouse() && rect.contains(mapFromGlobal(QCursor::pos()));
     QColor arrowColor = isHover ?
-                       QColor(153, 255, 221) :
-                       QColor(102, 255, 204);
+                       QColor(120, 203, 216) :
+                       palette().color(QPalette::ButtonText);
 
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setPen(QPen(arrowColor, 1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
@@ -239,8 +239,8 @@ void CustomDoubleSpinBox::drawDownArrow(QPainter *painter, const QRect &rect)
 
     bool isHover = underMouse() && rect.contains(mapFromGlobal(QCursor::pos()));
     QColor arrowColor = isHover ?
-                       QColor(153, 255, 221) :
-                       QColor(102, 255, 204);
+                       QColor(120, 203, 216) :
+                       palette().color(QPalette::ButtonText);
 
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setPen(QPen(arrowColor, 1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));

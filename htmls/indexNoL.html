@@ -14,13 +14,9 @@
         height: 100vh; /* 使容器占满整个视口 */
         margin: 0;
         padding: 0;
-        /* 注意：地图瓦片是 WebGL 画布，CSS filter 在 ANGLE(D3D) 后端下不会覆盖它，
-           故军工绿不再用 #container 的 filter，改为下方 #mapMask 叠加层（跨显卡/系统一致）。 */
+        /* 保留影像原色，仅叠加冷石墨明度蒙版；不对 WebGL 画布加滤镜。 */
       }
-      /* 军工绿蒙版：半透明绿色叠加层，纯 alpha 合成，desktop/ANGLE/software 后端表现一致。
-         调色只改这一处 background：
-           - 想更暗 → 提高 alpha（最后一个 0~1 的值）
-           - 想更绿/更偏色 → 改 R,G,B（建议 R、B 接近 0，G 适中） */
+      /* 冷石墨蒙版：压低底图明度和色彩干扰，保留道路与影像纹理。 */
       #mapMask {
         position: fixed;
         top: 0;
@@ -29,7 +25,7 @@
         bottom: 0;
         pointer-events: none; /* 不拦截鼠标，地图交互正常 */
         z-index: 9999;
-        background: rgba(2, 40, 18, 0.55); /* 军工绿蒙版，可调 */
+        background: rgba(18, 29, 38, 0.56);
       }
       html,
       body {

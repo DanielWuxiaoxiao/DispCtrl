@@ -374,7 +374,7 @@ void Module::publishStatus()
 void Module::showWindow(QWidget* parent)
 {
     if (m_window) { m_window->show(); m_window->raise(); m_window->activateWindow(); return; }
-    auto* window = new CusWindow(QStringLiteral("光电 V2.0 控制与状态"), QIcon(":/resources/icon/radararray.png"), parent);
+    auto* window = new CusWindow(QStringLiteral("光电 V2.0 控制与状态"), QIcon(":/resources/icon/ui/radar.svg"), parent);
     window->setAttribute(Qt::WA_DeleteOnClose); m_window = window;
     auto* content = new QWidget(window);
     auto* layout = new QVBoxLayout(content);

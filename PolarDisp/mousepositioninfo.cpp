@@ -39,14 +39,14 @@ MousePositionInfo::MousePositionInfo(QWidget *parent) :
     // 检测点：绿色圆圈
     {
         QLabel* detColorLabel = new QLabel("●", this);
-        detColorLabel->setStyleSheet(UiFontScale::style("color: #00FF00; font-size: 18px;"));
+        detColorLabel->setStyleSheet(UiFontScale::style(QString("color: %1; font-size: 18px;").arg(DET_COLOR.name())));
         detColorLabel->setFixedWidth(16);
         ui->checkboxLayout->insertWidget(1, detColorLabel);
     }
     // 跟踪点：红色圆圈
     {
         QLabel* trackColorLabel = new QLabel("●", this);
-        trackColorLabel->setStyleSheet(UiFontScale::style("color: #FF0000; font-size: 18px;"));
+        trackColorLabel->setStyleSheet(UiFontScale::style(QString("color: %1; font-size: 18px;").arg(TRA_COLOR.name())));
         trackColorLabel->setFixedWidth(16);
         ui->checkboxLayout->addWidget(trackColorLabel);
     }

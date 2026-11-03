@@ -102,8 +102,8 @@ RangeAzimuthView::RangeAzimuthView(SectorScene* scene, QWidget* parent)
     setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
     setObjectName("RangeAzimuthView");
 
-    // 设置背景
-    setStyleSheet(UiFontScale::style("background: #1a1a1a;"));
+    // 场景保持透明，主界面底图可从辅助视图透出。
+    setStyleSheet(UiFontScale::style("QGraphicsView#RangeAzimuthView { background: transparent; border: none; }"));
 }
 
 void RangeAzimuthView::resizeEvent(QResizeEvent* event)

@@ -75,9 +75,9 @@ PolarGrid::PolarGrid(QGraphicsScene* scene, PolarAxis* axis, QObject* parent)
  * - 文字标注：角度值（每10°）和距离值（右侧）
  *
  * 颜色方案：
- * - 主要元素：绿色 RGB(0, 255, 136)
- * - 辅助元素：灰色虚线
- * - 文字标注：白色和绿色
+ * - 主要元素：冷青色
+ * - 辅助元素：低对比度蓝灰虚线
+ * - 文字标注：浅灰和冷青
  *
  * @note 考虑角度范围限制，只在指定扇区内绘制刻度和分割线
  */
@@ -107,8 +107,8 @@ void PolarGrid::updateGrid() {
     // }
 
     // === 1. 最外层边界圆绘制 ===
-    // 绘制PPI显示的最大范围边界，使用绿色实线突出显示
-    QPen outerPen(QColor(0, 255, 136));
+    // 绘制PPI显示的最大范围边界，使用冷青实线突出显示
+    QPen outerPen(PPI_ACCENT_COLOR);
     outerPen.setWidth(2);
     QGraphicsEllipseItem* outerCircle =
             mScene->addEllipse(-radius, -radius, radius*2, radius*2, outerPen);
@@ -116,7 +116,7 @@ void PolarGrid::updateGrid() {
 
     // === 2. 内部距离参考圆环绘制 ===
     // 绘制5个等距的虚线圆环，作为距离估算的参考标识
-    QPen dashPen(Qt::gray);
+    QPen dashPen(PPI_GRID_COLOR);
     dashPen.setStyle(Qt::DashLine);
     int ringCount = 5;  // 固定绘制5个距离圆环
     for (int i=1; i<=ringCount; ++i) {
@@ -148,7 +148,7 @@ void PolarGrid::updateGrid() {
         double rad = qDegreesToRadians((double)angle);
         double x1, y1, x2, y2;
         int len;
-        QPen tickPen(QColor(0, 255, 136));
+        QPen tickPen(PPI_ACCENT_COLOR);
 
         // 刻度线长度和粗细设置：10°倍数用粗线，其他用细线
         if (angle % 10 == 0) {
@@ -178,7 +178,7 @@ void PolarGrid::updateGrid() {
             // 创建角度数值文本
             QGraphicsSimpleTextItem* text =
                     mScene->addSimpleText(QString::number(angle));
-            text->setBrush(QColor(0, 255, 136));  // 设置文字颜色为绿色
+            text->setBrush(PPI_ACCENT_COLOR);
 
             // 文字居中对齐到计算位置
             text->setPos(tx - text->boundingRect().width()/2,
@@ -189,7 +189,7 @@ void PolarGrid::updateGrid() {
 
     // === 5. 主方向十字分割线绘制（90°间隔） ===
     // 绘制四条主要方向的径向线：北(0°)、东(90°)、南(180°)、西(270°)
-    QPen crossPen(QColor(0, 255, 136, 128));  // 半透明绿色
+    QPen crossPen(QColor(120, 203, 216, 128));  // 半透明冷青
     crossPen.setStyle(Qt::DashLine);
     for (int angle=0; angle<360; angle+=90) {
         double ang = angle;
@@ -233,7 +233,7 @@ void PolarGrid::updateGrid() {
 
         // 创建距离标注文本并定位到右侧
         QGraphicsSimpleTextItem* txt = mScene->addSimpleText(label);
-        txt->setBrush(Qt::white);  // 白色文字便于识别
+        txt->setBrush(PPI_TEXT_COLOR);
         txt->setPos(r-25, -txt->boundingRect().height()/2);  // 右侧居中对齐
         mTextItems.append(txt);
     }
