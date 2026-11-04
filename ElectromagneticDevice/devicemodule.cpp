@@ -1,6 +1,7 @@
 #include "devicemodule.h"
 #include "devicetransport.h"
 #include "Basic/ConfigManager.h"
+#include "Basic/hiddenprocess.h"
 #include "Basic/log.h"
 #include <QDialog>
 #include <QLabel>
@@ -55,6 +56,7 @@ ElectromagneticDeviceModule::ElectromagneticDeviceModule(QObject* parent) : QObj
     connect(&m_networkTimer, &QTimer::timeout, this, &ElectromagneticDeviceModule::pollNetwork);
     connect(&m_uiTimer, &QTimer::timeout, this, &ElectromagneticDeviceModule::updateUi);
     m_pingTimeout.setSingleShot(true);
+    hideConsoleForChildProcess(m_ping);
     connect(&m_pingTimeout, &QTimer::timeout, this, [this] { finishPing(false); m_ping.kill(); });
     connect(&m_ping, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this,
             [this](int code, QProcess::ExitStatus status) {

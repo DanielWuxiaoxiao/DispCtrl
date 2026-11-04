@@ -883,7 +883,7 @@ void MainOverLayOut::mainPView() {
     }
     m_rangeAzimuthWidget = new RangeAzimuthChartWidget(this);  // 新的直角坐标系图表显示
     m_rangeHeightWidget = new RangeHeightChartWidget(this);    // 新的距离-高度图表显示
-    m_track3DWidget = new Track3DWidget(this);                  // 三维最新航迹显示
+    m_track3DWidget = new Track3DWidget(this);                  // 三维航迹显示
 
     if (m_rangeHeightWidget && m_rangeHeightWidget->chart() && m_track3DWidget) {
         connect(m_rangeHeightWidget->chart(), &RangeHeightChart::heightRangeChanged,
@@ -1061,6 +1061,9 @@ void MainOverLayOut::mainPView() {
             }
             if (m_rangeHeightWidget && m_rangeHeightWidget->chart()) {
                 m_rangeHeightWidget->chart()->setMaxTrackPoints(maxPoints);
+            }
+            if (m_track3DWidget) {
+                m_track3DWidget->setMaxTrackPoints(maxPoints);
             }
         });
     }

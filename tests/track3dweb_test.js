@@ -184,6 +184,18 @@ function harness(options = {}) {
                 if (node.isPoints) (node.userData.trackItems || []).forEach(track => keys.push(String(track.key)));
             });
             return keys.sort();
+        },
+        visibleSegments() {
+            const segments = [];
+            state.renders[state.renders.length - 1].scene.traverse(node => {
+                if (!node.isLineSegments) return;
+                const vertices = node.geometry.getAttribute('position');
+                for (let i = 0; i < vertices.count; i += 2) {
+                    segments.push([node.material.color.getHex(),
+                        Math.round(vertices.getX(i) * 5000), Math.round(vertices.getX(i + 1) * 5000)]);
+                }
+            });
+            return segments;
         }
     };
 }
@@ -195,6 +207,12 @@ function track(key, overrides = {}) {
     return Object.assign({ key, type: 2, batch: Number(key.split(':')[1]), rangeM: 1000,
         eastM: 1000, northM: 0, heightM: 100, azimuthDeg: 90, elevationDeg: 0,
         speedMps: -15, snrDb: 20, amp: 10, targetRecResult: 1, color: '#ffff00' }, overrides);
+}
+
+const red = 0xea8c93;
+const cyan = 0x75c5d1;
+function sample(east, { height = 100, range = 1000, rgb = red } = {}) {
+    return [east, 0, height, range, rgb];
 }
 
 test('CSS viewport bounds are compatible with Qt 5.14 Chromium 77', () => {
@@ -245,12 +263,52 @@ test('hidden updates do not render; reactivation renders the latest state', () =
     const h = boot();
     h.bridge.activeChanged.emit(false); h.flush();
     const before = h.state.renders.length;
-    h.bridge.snapshotChanged.emit([track('2:201')], {}); h.flush();
+    h.bridge.snapshotChanged.emit([track('2:201', { path: sample(100).concat(sample(200)) })], {}); h.flush();
     assert.equal(h.state.renders.length, before);
     h.bridge.activeChanged.emit(true); h.flush();
     assert.ok(h.state.renders.length > before);
     assert.deepEqual(h.visibleKeys(), ['2:201']);
+    assert.deepEqual(h.visibleSegments(), [[red, 100, 200]]);
     assert.equal(h.state.ready.length, 1, 'Resuming must not duplicate the page-ready handshake');
+});
+
+test('trail deltas connect only consecutive samples of the same typed batch and respect FIFO', () => {
+    const h = boot();
+    h.bridge.snapshotChanged.emit([
+        track('2:101', { path: sample(100) }),
+        track('3:101', { type: 3, path: sample(900, { rgb: cyan }) })
+    ], { maxTrackPoints: 3 });
+    h.flush();
+    assert.deepEqual(h.visibleSegments(), []);
+    h.bridge.trackDeltaChanged.emit([
+        track('2:101', { path: sample(200).concat(sample(300)) }),
+        track('3:101', { type: 3, path: sample(950, { rgb: cyan }) })
+    ], []);
+    h.flush();
+    assert.deepEqual(h.visibleSegments(), [[red, 100, 200], [red, 200, 300], [cyan, 900, 950]]);
+    h.bridge.trackDeltaChanged.emit([track('2:101', { path: sample(400, { rgb: cyan }) })], []);
+    h.flush();
+    assert.deepEqual(h.visibleSegments(), [[red, 200, 300], [cyan, 300, 400], [cyan, 900, 950]]);
+
+    h.bridge.trackDeltaChanged.emit([track('2:101', { path: sample(700) })], ['2:101']);
+    h.flush();
+    assert.deepEqual(h.visibleSegments(), [[cyan, 900, 950]], 'A reused batch must not join its old trail');
+    h.bridge.clearRequested.emit(); h.flush();
+    assert.deepEqual(h.visibleSegments(), []);
+});
+
+test('trail visibility honors recognition, range and height without bridging filtered samples', () => {
+    const h = boot();
+    const path = sample(100).concat(sample(200, { height: -10 }), sample(300), sample(400),
+        sample(500, { range: 6000 }));
+    h.bridge.snapshotChanged.emit([track('2:101', { path, rangeM: 6000, targetRecResult: 0 })], {});
+    h.flush();
+    assert.deepEqual(h.visibleKeys(), []);
+    assert.deepEqual(h.visibleSegments(), [[red, 300, 400]]);
+    h.bridge.sceneStateChanged.emit({ onlyRecognizedDroneTracksVisible: true }); h.flush();
+    assert.deepEqual(h.visibleSegments(), []);
+    h.bridge.sceneStateChanged.emit({ onlyRecognizedDroneTracksVisible: false, maxHeightM: 50 }); h.flush();
+    assert.deepEqual(h.visibleSegments(), []);
 });
 
 for (const [name, option, expected] of [
@@ -323,17 +381,36 @@ async function browserSmoke() {
         // Read the composited screenshot rather than an already-cleared WebGL
         // backbuffer (preserveDrawingBuffer is deliberately false in production).
         const { PNG } = require(path.join(runtimeModules, 'pngjs'));
-        const png = PNG.sync.read(await page.screenshot());
-        let coloredScenePixels = 0;
-        for (let y = 0; y < png.height - 80; ++y) {
-            for (let x = 0; x < png.width; ++x) {
-                const index = (y * png.width + x) * 4;
-                if (png.data[index + 1] > 45 && (png.data[index + 1] > png.data[index] * 1.4
-                    || png.data[index + 2] > png.data[index] * 1.4)) ++coloredScenePixels;
+        async function countScenePixels(matches) {
+            const png = PNG.sync.read(await page.screenshot());
+            let count = 0;
+            for (let y = 0; y < png.height - 80; ++y) {
+                for (let x = 0; x < png.width; ++x) {
+                    const i = (y * png.width + x) * 4;
+                    if (matches(png.data[i], png.data[i + 1], png.data[i + 2])) ++count;
+                }
             }
+            return count;
         }
-        assert.ok(coloredScenePixels > 100, 'Expected visible colored axes/grid outside the DOM legend');
-        first.coloredScenePixels = coloredScenePixels;
+        first.coloredScenePixels = await countScenePixels((r, g, b) => g > r + 15 && b > r + 20);
+        assert.ok(first.coloredScenePixels > 100, 'Expected visible graphite/cyan axes outside the DOM legend');
+
+        const magenta = (r, g, b) => r > 160 && b > 160 && g < 100;
+        assert.equal(await countScenePixels(magenta), 0);
+        await page.evaluate(data => new Promise(resolve => {
+            window.testBridge.signals.snapshotChanged.emit([data], {});
+            requestAnimationFrame(() => requestAnimationFrame(resolve));
+        }), track('2:401', {
+            // The current point is out of range, so only the two earlier segments can draw magenta pixels.
+            color: '#ff20ff', rangeM: 6000,
+            path: sample(-2900, { height: 180, rgb: 0xff20ff })
+                .concat(sample(0, { height: 350, rgb: 0xff20ff }),
+                    sample(2900, { height: 180, rgb: 0xff20ff }),
+                    sample(6000, { range: 6000, rgb: 0xff20ff }))
+        }));
+        first.trailPixels = await countScenePixels(magenta);
+        assert.ok(first.trailPixels > 30, 'Expected visible trail segments in the WebGL canvas');
+        assert.deepEqual(errors, []);
         await page.setViewportSize({ width: 720, height: 480 });
         await page.waitForFunction(() => document.getElementById('scene-root').clientWidth === 720
             && document.getElementById('scene-root').clientHeight === 480);

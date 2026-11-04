@@ -14,7 +14,7 @@
  * @details 显示在主界面标题区（原英文名 SubtitleLabel 处）。
  *          发布新版本时只需修改此处一处。
  */
-#define APP_VERSION_STR "V7.0"
+#define APP_VERSION_STR "V8.0"
 
 #include <QColor>
 #include <QString>

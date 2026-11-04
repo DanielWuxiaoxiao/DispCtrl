@@ -1,6 +1,7 @@
 #include "subsystemnetworkmonitor.h"
 
 #include "Basic/ConfigManager.h"
+#include "Basic/hiddenprocess.h"
 
 #include <QByteArray>
 #include <QHostAddress>
@@ -41,6 +42,7 @@ SubsystemNetworkMonitor::SubsystemNetworkMonitor(QObject* parent)
 {
     for (int endpoint = 0; endpoint < 4; ++endpoint) {
         m_ping[endpoint] = new QProcess(this);
+        hideConsoleForChildProcess(*m_ping[endpoint]);
         m_timeout[endpoint] = new QTimer(this);
         m_timeout[endpoint]->setSingleShot(true);
         connect(m_timeout[endpoint], &QTimer::timeout, this, [this, endpoint] {

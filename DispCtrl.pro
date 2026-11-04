@@ -31,6 +31,14 @@ CONFIG += c++17
 # 确保 MOC、UIC、RCC 正确处理
 CONFIG += moc uic resources
 
+win32 {
+    CONFIG -= console
+    CONFIG += windows
+    RC_FILE = DispCtrl.rc
+    DISTFILES += resources/windows/radararray.ico
+    LIBS += -ladvapi32
+}
+
 # MOC 和 UI 输出目录（确保跨平台一致性）
 MOC_DIR = build/moc
 UI_DIR = build/ui
@@ -104,6 +112,7 @@ SOURCES += \
     Controller/laserreportmanager.cpp \
     Controller/testtrackgenerator.cpp \
     Controller/subsystemnetworkmonitor.cpp \
+    Basic/hiddenprocess.cpp \
     CommandControl/commandcontrolprotocol.cpp \
     CommandControl/commandcontrolconfig.cpp \
     CommandControl/commandcontrolnetworkmonitor.cpp \
@@ -195,6 +204,7 @@ HEADERS += \
     # 基础模块头文件
     Basic/ConfigManager.h \
     Basic/diagnosticlogwindow.h \
+    Basic/hiddenprocess.h \
     Basic/pointinfovalidation.h \
     Basic/DispBasci.h \
     Basic/uitheme.h \
@@ -300,6 +310,7 @@ HEADERS += \
     PolarDisp/rangeazimuthchart.h \
     PolarDisp/rangeheightchart.h \
     PolarDisp/track3dcoordinate.h \
+    PolarDisp/track3dpath.h \
     PolarDisp/track3dwidget.h \
     PolarDisp/tooltip.h \
     PolarDisp/zoomview.h \

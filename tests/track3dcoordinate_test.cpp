@@ -1,4 +1,5 @@
 #include "PolarDisp/track3dcoordinate.h"
+#include "PolarDisp/track3dpath.h"
 
 #include <QTest>
 
@@ -15,6 +16,7 @@ private slots:
     void normalizesNegativeAzimuth();
     void projectsHighElevationToHorizontalPlane();
     void rejectsInvalidCoordinates();
+    void historyKeepsLatestSamplesAcrossWrapAndResize();
 };
 
 void Track3DCoordinateTest::northAtZeroAzimuth()
@@ -86,6 +88,30 @@ void Track3DCoordinateTest::rejectsInvalidCoordinates()
     info.elevation = 0.0f;
     info.altitute = std::numeric_limits<float>::quiet_NaN();
     QVERIFY(!calculateTrack3DCoordinate(info, coordinate));
+}
+
+void Track3DCoordinateTest::historyKeepsLatestSamplesAcrossWrapAndResize()
+{
+    Track3DPath path;
+    const auto append = [&](double east, int limit) { path.append({east, 0, 0, 0, 0}, limit); };
+    for (int i = 1; i <= 5; ++i) append(i, 3);
+    QCOMPARE(path.size(), 3);
+    QCOMPARE(path.at(0).eastM, 3.0);
+    QCOMPARE(path.at(2).eastM, 5.0);
+
+    append(6, 4);
+    QCOMPARE(path.at(0).eastM, 3.0);
+    QCOMPARE(path.at(3).eastM, 6.0);
+    append(7, 4);
+    path.trim(2);
+    QCOMPARE(path.size(), 2);
+    QCOMPARE(path.at(0).eastM, 6.0);
+    QCOMPARE(path.at(1).eastM, 7.0);
+
+    path.trim(1);
+    append(8, 1);
+    QCOMPARE(path.size(), 1);
+    QCOMPARE(path.at(0).eastM, 8.0);
 }
 
 QTEST_APPLESS_MAIN(Track3DCoordinateTest)

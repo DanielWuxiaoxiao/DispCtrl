@@ -91,6 +91,7 @@ cmake .. -G "Visual Studio 16 2019" -A x64
 cmake --build . --config Debug
 ```
 - 运行：`./build/bin/Debug/DispCtrl.exe` 或对应 `Release` 目录；确保输出目录下存在 `config.toml` 与资源文件（通过 CMake 自定义目标已自动复制）。
+- Windows 的 `DispCtrl.exe` 直接启动时不会打开终端。发布时可用资源管理器将新版 `DispCtrl.exe` 发送到桌面（创建快捷方式），快捷方式会使用程序内嵌的雷达图标；已有快捷方式如果覆盖了图标，可重新创建。
 
 ## 开发指引
 - 新增显示模块：继承 `QGraphicsItem` 或 `QGraphicsScene`，实现 `paint()`/`boundingRect()`，在对应 Manager 注册，并更新 `CMakeLists.txt`。

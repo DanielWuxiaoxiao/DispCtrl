@@ -1,6 +1,6 @@
 #include "track3dwidget.h"
-#include "track3dcoordinate.h"
 
+#include "../Basic/ConfigManager.h"
 #include "../Basic/DispBasci.h"
 #include "../Basic/diagnosticlogwindow.h"
 #include "../Basic/log.h"
@@ -116,6 +116,7 @@ void Track3DBridge::reportViewport(int width, int height, int canvasWidth, int c
 Track3DWidget::Track3DWidget(QWidget* parent)
     : QWidget(parent)
 {
+    m_maxTrackPoints = qMax(1, CF_INS.displayConfig("max_track_points", 200));
     setObjectName(QStringLiteral("Track3DWidget"));
     setAttribute(Qt::WA_StyledBackground, true);
 
@@ -228,16 +229,6 @@ bool Track3DWidget::isTrackPoint(const PointInfo& info) const
         || info.type == PointType::CooperativeTrackPointType;
 }
 
-bool Track3DWidget::isValidPoint(const PointInfo& info) const
-{
-    Track3DCoordinate coordinate;
-    const bool finite = calculateTrack3DCoordinate(info, coordinate)
-        && std::isfinite(info.SNR)
-        && std::isfinite(info.speed)
-        && std::isfinite(info.amp);
-    return finite;
-}
-
 QColor Track3DWidget::trackColor(const PointInfo& info) const
 {
     if (OfflineRae::isOffline(info)) {
@@ -256,10 +247,10 @@ QColor Track3DWidget::trackColor(const PointInfo& info) const
     }
 }
 
-QVariantMap Track3DWidget::pointPayload(const PointInfo& info) const
+QVariantMap Track3DWidget::trackPayload(const TrackSeries& track, int sampleCount) const
 {
-    Track3DCoordinate coordinate;
-    calculateTrack3DCoordinate(info, coordinate);
+    const auto& info = track.latest;
+    const auto& coordinate = track.coordinate;
 
     QVariantMap payload;
     payload.insert(QStringLiteral("key"), makeTrackKeyString(info.type, info.batch));
@@ -277,6 +268,16 @@ QVariantMap Track3DWidget::pointPayload(const PointInfo& info) const
     payload.insert(QStringLiteral("targetRecResult"), info.targetRecResult);
     payload.insert(QStringLiteral("offline"), OfflineRae::isOffline(info));
     payload.insert(QStringLiteral("color"), trackColor(info).name(QColor::HexRgb));
+
+    // Flat samples avoid one WebChannel object allocation per history point.
+    QVariantList path;
+    path.reserve(sampleCount * 5);
+    for (int index = track.path.size() - sampleCount; index < track.path.size(); ++index) {
+        const auto& sample = track.path.at(index);
+        path << sample.eastM << sample.northM << sample.heightM
+             << static_cast<double>(sample.rangeM) << sample.rgb;
+    }
+    payload.insert(QStringLiteral("path"), path);
     return payload;
 }
 
@@ -293,6 +294,7 @@ QVariantMap Track3DWidget::sceneState() const
     state.insert(QStringLiteral("onlyRecognizedDroneTracksVisible"),
                  m_onlyRecognizedDroneTracksVisible);
     state.insert(QStringLiteral("pointSizeRatio"), m_trackSizeRatio);
+    state.insert(QStringLiteral("maxTrackPoints"), m_maxTrackPoints);
     return state;
 }
 
@@ -304,29 +306,42 @@ void Track3DWidget::addPointInfo(const PointInfo& info)
 
     const quint64 key = makeTrackKey(info.type, info.batch);
     if (info.statMethod == 2) {
-        m_latestTracks.remove(key);
+        if (!m_tracks.remove(key)) return;
         m_pendingUpserts.remove(key);
-        m_pendingRemovals.insert(key);
         updateTrackCountLabel();
-        scheduleFlush();
+        if (m_pageReady && m_rendererActive) {
+            m_pendingRemovals.insert(key);
+            scheduleFlush();
+        }
         return;
     }
 
-    if (!isValidPoint(info)) {
+    Track3DCoordinate coordinate;
+    if (!calculateTrack3DCoordinate(info, coordinate) || !std::isfinite(info.SNR)
+        || !std::isfinite(info.speed) || !std::isfinite(info.amp)) {
         logInvalidPoint(info);
         return;
     }
 
-    m_latestTracks.insert(key, info);
-    m_pendingRemovals.remove(key);
-    m_pendingUpserts.insert(key, pointPayload(info));
-    updateTrackCountLabel();
-    scheduleFlush();
+    auto& track = m_tracks[key];
+    const bool newTrack = track.path.size() == 0;
+    track.latest = info;
+    track.coordinate = coordinate;
+    track.path.append({coordinate.eastM, coordinate.northM, coordinate.heightM,
+                       info.range, trackColor(info).rgb() & 0xffffffu}, m_maxTrackPoints);
+    if (newTrack) updateTrackCountLabel();
+
+    if (m_pageReady && m_rendererActive) {
+        // A same-key removal stays queued; JS removes the old series before appending.
+        int& pending = m_pendingUpserts[key];
+        if (pending < m_maxTrackPoints) ++pending;
+        scheduleFlush();
+    }
 }
 
 void Track3DWidget::clearRadarData()
 {
-    m_latestTracks.clear();
+    m_tracks.clear();
     m_pendingUpserts.clear();
     m_pendingRemovals.clear();
     m_snapshotRequired = false;
@@ -403,6 +418,18 @@ void Track3DWidget::setTrackSizeRatio(double ratio)
     sendSceneState();
 }
 
+void Track3DWidget::setMaxTrackPoints(int maxPoints)
+{
+    maxPoints = qMax(1, maxPoints);
+    if (m_maxTrackPoints == maxPoints) return;
+    m_maxTrackPoints = maxPoints;
+    for (auto it = m_tracks.begin(); it != m_tracks.end(); ++it) {
+        it.value().path.trim(maxPoints);
+    }
+    // A size change replaces the web cache, including updates not yet flushed.
+    sendSnapshot();
+}
+
 void Track3DWidget::resetView()
 {
     if (m_pageReady && m_rendererActive) {
@@ -433,13 +460,6 @@ void Track3DWidget::hideEvent(QHideEvent* event)
 
 void Track3DWidget::scheduleFlush()
 {
-    if (!m_pageReady || !m_rendererActive) {
-        m_snapshotRequired = true;
-        m_pendingUpserts.clear();
-        m_pendingRemovals.clear();
-        return;
-    }
-
     if (!m_flushTimer->isActive()) {
         m_flushTimer->start();
     }
@@ -462,7 +482,8 @@ void Track3DWidget::flushPendingUpdates()
     QVariantList upserts;
     upserts.reserve(m_pendingUpserts.size());
     for (auto it = m_pendingUpserts.cbegin(); it != m_pendingUpserts.cend(); ++it) {
-        upserts.append(it.value());
+        const auto track = m_tracks.constFind(it.key());
+        if (track != m_tracks.cend()) upserts.append(trackPayload(track.value(), it.value()));
     }
 
     QStringList removals;
@@ -486,9 +507,9 @@ void Track3DWidget::sendSnapshot()
     }
 
     QVariantList tracks;
-    tracks.reserve(m_latestTracks.size());
-    for (auto it = m_latestTracks.cbegin(); it != m_latestTracks.cend(); ++it) {
-        tracks.append(pointPayload(it.value()));
+    tracks.reserve(m_tracks.size());
+    for (auto it = m_tracks.cbegin(); it != m_tracks.cend(); ++it) {
+        tracks.append(trackPayload(it.value(), it.value().path.size()));
     }
 
     m_pendingUpserts.clear();
@@ -520,7 +541,7 @@ void Track3DWidget::setRendererActive(bool active)
 void Track3DWidget::updateTrackCountLabel()
 {
     if (m_trackCountLabel) {
-        m_trackCountLabel->setText(tr("航迹: %1").arg(m_latestTracks.size()));
+        m_trackCountLabel->setText(tr("航迹: %1").arg(trackCount()));
     }
 }
 

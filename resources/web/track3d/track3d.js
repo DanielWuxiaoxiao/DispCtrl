@@ -23,6 +23,7 @@
     var gridGroup = null;
     var pointsGroup = null;
     var axesSignature = '';
+    var pathStride = 5; // east, north, height, slant range, endpoint RGB
 
     var viewState = {
         minRangeM: 0,
@@ -33,7 +34,8 @@
         tbdTrackVisible: true,
         cooperativeTrackVisible: true,
         onlyRecognizedDroneTracksVisible: false,
-        pointSizeRatio: 1
+        pointSizeRatio: 1,
+        maxTrackPoints: 200
     };
 
     var scene;
@@ -304,7 +306,7 @@
         requestRender();
     }
 
-    function trackVisible(track) {
+    function trackTypeVisible(track) {
         var type = Number(track.type);
         if (type === 2 && !viewState.trackVisible) {
             return false;
@@ -320,41 +322,64 @@
             return false;
         }
 
-        var rangeM = Number(track.rangeM);
-        var heightM = Number(track.heightM);
-        return rangeM >= Number(viewState.minRangeM)
-            && rangeM <= Number(viewState.maxRangeM)
-            && heightM >= Number(viewState.minHeightM)
-            && heightM <= Number(viewState.maxHeightM);
+        return true;
     }
 
-    function rebuildPoints() {
+    function inView(rangeM, heightM) {
+        return rangeM >= viewState.minRangeM && rangeM <= viewState.maxRangeM
+            && heightM >= viewState.minHeightM && heightM <= viewState.maxHeightM;
+    }
+
+    function rebuildTracks() {
         disposeGroup(pointsGroup);
         pointsGroup = new THREE.Group();
         scene.add(pointsGroup);
         pointObjects = [];
 
-        var buckets = new Map();
-        tracks.forEach(function (track) {
-            if (!trackVisible(track)) {
-                return;
-            }
-            var color = String(track.color || '#ea8c93').toLowerCase();
-            if (!buckets.has(color)) {
-                buckets.set(color, []);
-            }
-            buckets.get(color).push(track);
-        });
-
+        var pointBuckets = new Map();
+        var lineBuckets = new Map();
         var maxRangeM = Math.max(1, Number(viewState.maxRangeM));
-        var heightSpanM = Math.max(1, Number(viewState.maxHeightM) - Number(viewState.minHeightM));
+        var minHeightM = Number(viewState.minHeightM);
+        var heightSpanM = Math.max(1, Number(viewState.maxHeightM) - minHeightM);
         var pointSize = 0.032 * Math.max(0.5, Math.min(3, Number(viewState.pointSizeRatio)));
 
-        buckets.forEach(function (items, color) {
+        tracks.forEach(function (track) {
+            if (!trackTypeVisible(track)) return;
+            if (inView(track.rangeM, track.heightM)) {
+                var pointColor = String(track.color || '#ea8c93').toLowerCase();
+                if (!pointBuckets.has(pointColor)) pointBuckets.set(pointColor, []);
+                pointBuckets.get(pointColor).push(track);
+            }
+
+            var path = track.path;
+            var previousVisible = false;
+            for (var i = 0; i < path.length; i += pathStride) {
+                var visible = inView(path[i + 3], path[i + 2]);
+                if (visible && previousVisible) {
+                    var lineColor = path[i + 4];
+                    if (!lineBuckets.has(lineColor)) lineBuckets.set(lineColor, []);
+                    var positions = lineBuckets.get(lineColor);
+                    var prev = i - pathStride;
+                    positions.push(path[prev] / maxRangeM, (path[prev + 2] - minHeightM) / heightSpanM,
+                        path[prev + 1] / maxRangeM, path[i] / maxRangeM,
+                        (path[i + 2] - minHeightM) / heightSpanM, path[i + 1] / maxRangeM);
+                }
+                previousVisible = visible;
+            }
+        });
+
+        lineBuckets.forEach(function (positions, color) {
+            var geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+            var material = new THREE.LineBasicMaterial({ color: color });
+            pointsGroup.add(new THREE.LineSegments(geometry, material));
+        });
+
+        pointBuckets.forEach(function (items, color) {
             var positions = new Float32Array(items.length * 3);
             items.forEach(function (track, index) {
                 positions[index * 3] = Number(track.eastM) / maxRangeM;
-                positions[index * 3 + 1] = (Number(track.heightM) - Number(viewState.minHeightM)) / heightSpanM;
+                positions[index * 3 + 1] = (Number(track.heightM) - minHeightM) / heightSpanM;
                 positions[index * 3 + 2] = Number(track.northM) / maxRangeM;
             });
 
@@ -391,12 +416,13 @@
         if (oldAxesSignature !== axesSignature) {
             rebuildAxes();
         }
-        rebuildPoints();
+        rebuildTracks();
     }
 
     function applySnapshot(snapshotTracks, state) {
         tracks.clear();
         (snapshotTracks || []).forEach(function (track) {
+            track.path = track.path || [];
             tracks.set(String(track.key), track);
         });
         applyState(state || {});
@@ -407,14 +433,25 @@
             tracks.delete(String(key));
         });
         (upserts || []).forEach(function (track) {
-            tracks.set(String(track.key), track);
+            var key = String(track.key);
+            var oldTrack = tracks.get(key);
+            var path = oldTrack ? oldTrack.path : [];
+            var incoming = track.path || [];
+            var limit = viewState.maxTrackPoints * pathStride;
+            var excess = path.length + incoming.length - limit;
+            if (excess > 0) path.splice(0, excess);
+            for (var i = Math.max(0, incoming.length - limit); i < incoming.length; ++i) {
+                path.push(incoming[i]);
+            }
+            track.path = path;
+            tracks.set(key, track);
         });
-        rebuildPoints();
+        rebuildTracks();
     }
 
     function clearTracks() {
         tracks.clear();
-        rebuildPoints();
+        rebuildTracks();
         hideTooltip();
     }
 
@@ -555,7 +592,7 @@
             console.info('[Track3D] WebGL context restored');
             if (startupFailed) return; // Native one-shot recovery owns a lost context.
             rebuildAxes();
-            rebuildPoints();
+            rebuildTracks();
             resizeRenderer();
         }, false);
 

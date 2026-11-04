@@ -2,6 +2,8 @@
 #define TRACK3DWIDGET_H
 
 #include "../Basic/Protocol.h"
+#include "track3dcoordinate.h"
+#include "track3dpath.h"
 
 #include <QColor>
 #include <QHash>
@@ -55,7 +57,7 @@ public:
     explicit Track3DWidget(QWidget* parent = nullptr);
     ~Track3DWidget() override;
 
-    int trackCount() const { return m_latestTracks.size(); }
+    int trackCount() const { return m_tracks.size(); }
 
 public slots:
     void addPointInfo(const PointInfo& info);
@@ -67,6 +69,7 @@ public slots:
     void setCooperativeTrackVisible(bool visible);
     void setOnlyRecognizedDroneTracksVisible(bool enabled);
     void setTrackSizeRatio(double ratio);
+    void setMaxTrackPoints(int maxPoints);
     void resetView();
 
 protected:
@@ -83,12 +86,18 @@ private slots:
     void onLoadFinished(bool ok);
 
 private:
+    struct TrackSeries
+    {
+        PointInfo latest;
+        Track3DCoordinate coordinate;
+        Track3DPath path;
+    };
+
     static quint64 makeTrackKey(unsigned type, unsigned batch);
     static QString makeTrackKeyString(unsigned type, unsigned batch);
 
     bool isTrackPoint(const PointInfo& info) const;
-    bool isValidPoint(const PointInfo& info) const;
-    QVariantMap pointPayload(const PointInfo& info) const;
+    QVariantMap trackPayload(const TrackSeries& track, int sampleCount) const;
     QVariantMap sceneState() const;
     QColor trackColor(const PointInfo& info) const;
 
@@ -113,9 +122,10 @@ private:
     QSize m_lastViewportSize;
     QSize m_lastCanvasSize;
 
-    QHash<quint64, PointInfo> m_latestTracks;
-    QHash<quint64, QVariantMap> m_pendingUpserts;
+    QHash<quint64, TrackSeries> m_tracks;
+    QHash<quint64, int> m_pendingUpserts;
     QSet<quint64> m_pendingRemovals;
+    int m_maxTrackPoints = 200;
 
     double m_minRangeM = 0.0;
     double m_maxRangeM = 5000.0;

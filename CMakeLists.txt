@@ -29,6 +29,9 @@ cmake_minimum_required(VERSION 3.16)
 
 # 项目定义 - 指定项目名称和使用的编程语言
 project(DispCtrl LANGUAGES CXX)
+if(WIN32)
+    enable_language(RC)
+endif()
 
 ##############################################################################
 # 编译器和语言标准配置
@@ -46,15 +49,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(MSVC)
     # 使用 /utf-8 选项强制MSVC使用UTF-8编码
     # 这会同时设置源文件编码和执行字符集为UTF-8
-    add_compile_options(/utf-8)
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/utf-8>)
 
     # 禁用 C4819 警告（代码页警告）
-    add_compile_options(/wd4819)
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/wd4819>)
 endif()
 
 # GCC/Clang 编译选项（Linux/macOS）
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    add_compile_options(-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers)
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Wall> $<$<COMPILE_LANGUAGE:CXX>:-Wextra>
+                        $<$<COMPILE_LANGUAGE:CXX>:-Wno-unused-parameter>
+                        $<$<COMPILE_LANGUAGE:CXX>:-Wno-missing-field-initializers>)
 endif()
 
 ##############################################################################
@@ -136,7 +141,7 @@ set(SRC_FILES
     PolarDisp/rangeazimuthwidget.cpp           # 距离-方位显示部件
     PolarDisp/rangeazimuthchart.cpp            # 距离-方位图表（直角坐标系）
     PolarDisp/rangeheightchart.cpp             # 距离-高度图表（直角坐标系）
-    PolarDisp/track3dwidget.cpp                 # 三维最新航迹显示（WebEngine + Three.js）
+    PolarDisp/track3dwidget.cpp                 # 三维航迹显示（WebEngine + Three.js）
     PolarDisp/pviewtopleft.cpp                 # 左上角视图
     PolarDisp/mousepositioninfo.cpp            # 鼠标位置信息
     PolarDisp/ppivisualsettings.cpp            # PPI视觉设置
@@ -170,6 +175,7 @@ set(SRC_FILES
     Controller/totalcontrolmqttclient.cpp       # 总控MQTT识别结果上报
     Controller/laserreportmanager.cpp           # 激光侦察上报（独立模块）
     Controller/subsystemnetworkmonitor.cpp     # 健康管理分系统网络状态
+    Basic/hiddenprocess.cpp                     # Windows 后台网络探测进程
     CommandControl/commandcontrolprotocol.cpp  # 总控 UDP 协议编解码
     CommandControl/commandcontrolconfig.cpp    # 总控通信独立配置
     CommandControl/commandcontrolnetworkmonitor.cpp # 总控网络连通状态
@@ -251,7 +257,8 @@ set(HDR_FILES
     mainwindow.h                               # 主窗口类定义
     PolarDisp/rangeheightchart.h               # 距离-高度图表
     PolarDisp/track3dcoordinate.h               # 三维航迹物理坐标换算
-    PolarDisp/track3dwidget.h                   # 三维最新航迹显示
+    PolarDisp/track3dpath.h                     # 单批三维航迹历史缓存
+    PolarDisp/track3dwidget.h                   # 三维航迹显示
 
     # 控制模块头文件 - 数据流和业务逻辑
     Controller/targetdispmanager.h             # 目标显示管理器
@@ -337,6 +344,7 @@ set(HDR_FILES
     Basic/uiscale.h                           # 不依赖协议打包的UI缩放定义
     Basic/ConfigManager.h                     # 配置管理器
     Basic/diagnosticlogwindow.h                # 固定槽单调时钟日志限频
+    Basic/hiddenprocess.h                      # Windows 后台探测不弹终端
     Basic/pointinfovalidation.h                # 检测点公开分发前校验
     Basic/authmanager.h                       # 管理者模式认证管理器
     Basic/radarreference.h                    # 经纬高/姿态逐字段优先级
@@ -442,8 +450,12 @@ add_executable(DispCtrl
 # 链接Qt库到DispCtrl目标
 target_link_libraries(DispCtrl PRIVATE ${QT_LIBS})
 
-# Windows 修改系统时间时需要调整 SeSystemtimePrivilege。
 if(WIN32)
+    set_target_properties(DispCtrl PROPERTIES WIN32_EXECUTABLE TRUE)
+    target_sources(DispCtrl PRIVATE DispCtrl.rc)
+    set_property(SOURCE DispCtrl.rc APPEND PROPERTY OBJECT_DEPENDS
+                 "${CMAKE_CURRENT_SOURCE_DIR}/resources/windows/radararray.ico")
+    # Windows 修改系统时间时需要调整 SeSystemtimePrivilege。
     target_link_libraries(DispCtrl PRIVATE advapi32)
 endif()
 
@@ -534,6 +546,7 @@ if(DISPCTRL_BUILD_TESTS)
         CommandControl/commandcontrolmodule.cpp CommandControl/commandcontrolmodule.h
         CommandControl/commandcontrolprotocol.cpp CommandControl/commandcontrolconfig.cpp
         CommandControl/commandcontrolnetworkmonitor.cpp CommandControl/commandcontrolnetworkmonitor.h
+        Basic/hiddenprocess.cpp
         CommandControl/ntptimesync.cpp CommandControl/ntptimesync.h
         CommandControl/commandcontrolrecordstore.cpp CommandControl/commandcontroltrackreportstore.cpp
         CommandControl/commandcontrolrecordwriter.cpp CommandControl/commandcontrolrecordwriter.h
@@ -603,6 +616,7 @@ if(DISPCTRL_BUILD_TESTS)
         tests/electromagneticreporting_test.cpp
         Controller/testtrackgenerator.cpp
         ElectromagneticDevice/devicemodule.cpp
+        Basic/hiddenprocess.cpp
         ElectromagneticDevice/devicetransport.cpp
         ElectromagneticDevice/deviceprotocol.cpp
         Basic/log.cpp
@@ -613,6 +627,7 @@ if(DISPCTRL_BUILD_TESTS)
     add_executable(subsystem_feature_flags_test
         tests/subsystemfeatureflags_test.cpp
         Controller/subsystemnetworkmonitor.cpp
+        Basic/hiddenprocess.cpp
         Basic/log.cpp
     )
     target_include_directories(subsystem_feature_flags_test PRIVATE "${CMAKE_SOURCE_DIR}")

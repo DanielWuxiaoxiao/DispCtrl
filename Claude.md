@@ -2,9 +2,9 @@
 
 > **文档用途**: 本文档专为 AI 开发助手（Claude、GitHub Copilot、Cursor 等）提供项目全局上下文，整合了项目**所有 MD 文档**的核心知识，便于快速理解项目架构、代码规范、常见任务与注意事项。
 >
-> **最后更新**: 2026-11-03（V7.0 恢复自然影像、阅读区底色及距离列可读性）
+> **最后更新**: 2026-11-04（V8.0 Windows 无终端启动、桌面图标与 3D 航迹线）
 >
-> **当前软件版本**: `V7.0`，唯一运行期版本常量为`Basic/DispBasci.h::APP_VERSION_STR`；UI占位文本、发布包VERSION、桌面入口均须同步或从该常量派生。后续版本迭代必须在本文版本历史记录日期、前版、变更及验证边界，不只修改标题数字。
+> **当前软件版本**: `V8.0`，唯一运行期版本常量为`Basic/DispBasci.h::APP_VERSION_STR`；UI占位文本、发布包VERSION、桌面入口均须同步或从该常量派生。后续版本迭代必须在本文版本历史记录日期、前版、变更及验证边界，不只修改标题数字。
 >
 > **版本确认规则（用户要求）**：每轮新的实现/发布修改开始前，先读取当前软件版本，询问“保留 / 小版本 / 大版本”，给出实际候选值，例如V6.0→保留V6.0、小版本V6.1、大版本V7.0；未经确认不自行升级。用户已指定版本的同一轮修改/重打包不反复询问，只读排查不询问。等待选择时可继续实现但保持原版本，正式打包前必须确认。同步规则见AGENTS.md；版本确认不等于授权构建或提交推送。
 >
@@ -408,9 +408,9 @@ ExternalCtrlManager::externalCtrlLog(QString)     // 日志
 - 关键接口（`rangeazimuthchart.h`）：`addDetectionPoint/addTrackPoint/addPointInfo`、`setDetection/TrackVisible`、`setDetection/TrackSizeRatio`、`setRangeFromMain`、`setAzimuthRange`(支持跨0°)、`clearRadarData`、`setMaxDetectionPoints`。
 - 同步：主PPI `PolarAxis::rangeChanged → setRangeFromMain`；`MousePositionInfo` spinbox/checkbox → 三路视图统一大小/显隐；`DetManager::setMaxPoints` → 各路 `setMaxDetectionPoints`。
 - 配置 `[rangeAzimuthDisp.angle] min/max`；QSS 对象名 `#RangeAzimuthChartToolBar`、`#RangeAzimuthChart`。
-- `3D显`：`Track3DWidget` 使用 Qt WebEngine + WebChannel 承载随程序资源打包的 Three.js r128，仅保留 `(PointInfo.type, batch)` 对应的最新航迹点；普通/TBD/协同、无人机筛选、点大小、显清和离线 RAE 直投均与 P/B/H 显同步，不接收检测点、不保存历史轨迹线。
+- `3D显`：`Track3DWidget` 使用 Qt WebEngine + WebChannel 承载随程序资源打包的 Three.js r128。按 `(PointInfo.type, batch)` 和到达顺序连线，每批保留最近 `displayConfig.max_track_points` 个位置，末端点保留悬停详情。普通/TBD/协同、无人机筛选、点大小、显清和离线 RAE 直投沿用原 3D 路径，不接收检测点。每段使用后一个点的航迹颜色，与 P 显一致；两端须同时在当前斜距和高度范围内，范围外的点不会被跨接。
 - 三维坐标：水平距离为 `range*cos(elevation)`，X=东向、Z=北向、Y=`altitute`；水平范围同步 PPI，垂直范围同步 H显。Web 端独立归一化三轴但保持真实单位标签，范围外航迹仍保留在 C++ 最新点模型中。
-- 3D 性能/稳定性：C++ 以 50ms 合并 WebChannel 增量，隐藏页仅维护最新模型并在恢复时发送快照；JS 按颜色批量使用 `THREE.Points/BufferGeometry` 且按需渲染。WebEngine 页面/渲染进程首次异常限次重载，再次失败显示占位并写文件日志。
+- 3D 性能/稳定性：GUI 线程维护每批环形缓存，满后覆盖最旧样本；C++ 以 50ms 合并 WebChannel 增量，正常只发新增位置和最新点详情，隐藏页不发渲染增量；显示、恢复或点数上限变化时发完整快照。JS 按颜色批绘 `THREE.LineSegments` 和末端 `THREE.Points`，按需渲染。批次终止及显清移除历史和末端；同类型同批号在一次增量内终止并重现时，先清除旧批再建立新批。WebEngine 页面/渲染进程首次异常限次重载，再次失败显示占位并写文件日志。
 - 3D 兼容/就绪：Qt 5.14 基于 Chromium 77，场景和状态覆盖层使用显式四边定位，不能仅依赖较新 CSS `inset`，图例间距也不依赖 flex `gap`。WebChannel 先连接再初始化 Three.js；只有有效容器尺寸下首帧渲染成功才通知 C++ 就绪，隐藏页零尺寸等待重新布局，不能钳成1像素并假报成功。尺寸变化写 `[Track3DWidget][VIEWPORT]`，可见未就绪10秒触发一次受限重载，重复初始化错误合并，控制台错误/警告按级别5秒限频。
 
 ### 8. 多通道航迹显示开关（2026-05-09）
@@ -1436,6 +1436,13 @@ dataToScene            # RangeAzimuth坐标转换
 - **日志/表格底色**：仅主屏日志和航迹表的正文底 alpha 178→216，表头 175→220、选中行 205→232。保持半透明，按钮、控制页和其他面板透明度不变，避免整张地图重新被实底侧栏遮住。
 - **距离列**：原前八列均分后距离列约 60px，扣除左右 padding 后无法容纳增大字号的完整米制距离。新增按当前粗体字体/样式计算的距离保底宽度；保留其他列原宽度，将多出宽度交给原水平滚动，不扩侧栏。仅文本长度超过已预留容量时增长，保留手动列宽；不改变单位、精度、表格批量更新或排序。
 - **验证与边界**：mainoverlayout.cpp 通过 Qt5.14/MSVC /Zs；主布局/命令/批量刷新/健康聚合静态比较及 diff 检查通过。Qt5.15 工程外镜像 18 组（紧凑/常规字号 × ui_scale 0.7/1/1.6 × 表宽 300/380/520）验证距离、负号、粗体、8字符边界与更长文本、其他列宽不缩小及手动调整保留。另一项 Qt 合成采样确认日志/表格底色更深且仍透底，背景色变化量从 28 降至 13，按钮/控制页采样像素不变。四地图页核对脚本恢复原版、去饱和层完全移除、black.html 不变。未完整构建、运行真实显控、打包或 Git 写操作；实屏视觉效果仍以用户机器为准。
+
+### V8.0 Windows 无终端启动、桌面图标与 3D 航迹线 (2026-11-04)
+
+- **版本**：用户确认 V7.0 → V8.0。运行期常量和主界面占位同步，Linux 发布包 `VERSION` 与桌面入口继续从同一常量派生。
+- **Windows 启动与桌面入口**：CMake 与 qmake 均链接 Windows GUI 子系统及 `DispCtrl.rc`。总控、分系统和电磁设备的 Windows 网络探测子进程使用 `CREATE_NO_WINDOW`，保留异步输出、超时处理及文件日志。Windows EXE 图标由 Linux 桌面入口使用的 `resources/icon/radararray.png` 生成多分辨率 ICO，快捷方式直接指向 EXE 即可继承；更换源图时同步更新 ICO。Linux 启动器及图标路径保持不变。
+- **3D 航迹**：按类型和批号连相邻历史点，保留原末端点及提示，单批历史和 P 显共用上限。关闭页签时保留有界历史，恢复后发快照。批次终止、显清和筛选同时作用于历史线。P 显绘制、主屏布局、3D 物理坐标和协议保持不变。
+- **验证边界**：CMake/qmake Windows 配置和资源编译通过；隔离 Windows GUI 程序验证主进程及后台控制台子进程均无终端、子进程输出可读，Windows Shell 可提取大小两档 EXE 图标。改动 C++ 和 MOC 通过 Qt 5.14.2/MSVC 语法检查（对本机 MSVC 2026 与旧 Qt STL 的兼容处理仅用于临时验证）；3D 坐标/缓存 QTest、12 项 JS 回归及独立 Chromium/WebGL 航迹线实绘通过。未完整构建或运行显控、打包、现场验收或提交推送。
 
 **文档结束**
 
