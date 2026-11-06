@@ -116,6 +116,7 @@ keep_alive_sec = 30
 publish_interval_ms = 4000
 
 [ui]
+theme = "graphite" # graphite：当前石墨灰/冷青；classic：x576/f338142 原始样式、字号、图标及布局。重启生效
 # DPI policy:
 # fixed  = do not follow Windows display/text scaling; preferred for fixed-layout display control UI
 # system = follow system DPI scaling; fallback for high-DPI systems that require OS scaling
@@ -569,6 +570,7 @@ interpolation_step = 30
 resource_status_timeout_ms = 15000 # CF01监控状态失联后复位本机发射显示；5000~300000ms
 # 检测点显示配置 Detection Point Display Configuration
 max_points = 100                     # 最大检测点数量（同步Windows发布配置）
+detection_drone_red_enabled = false  # 临时功能：true 时 targetRecResult=1 的无人机检测点显示主题红色，重启生效
 max_track_points = 300               # 单批航迹最大点数（同步Windows发布配置）
 # P显和阵面开启控制的初始阵面数量（1~4，默认仅阵面1；不自动下发阵面开关命令）
 default_panel_count = 4

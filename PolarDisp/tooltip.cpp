@@ -6,6 +6,7 @@
  * @LastEditTime: 2026-09-12 12:22:54
  * @Description: 
  */
+#include "Basic/uitheme.h"
 #include "tooltip.h"
 #include <QBrush>
 #include <QPen>
@@ -20,13 +21,13 @@ Tooltip::Tooltip(QGraphicsItem* parent)
 {
     m_background = new QGraphicsRectItem();
     // 深色半透明背景，与系统风格一致
-    m_background->setBrush(QBrush(QColor(27, 34, 40, 235)));
+    m_background->setBrush(QBrush((UiTheme::classicEnabled ? QColor(16, 24, 24, 230) : QColor(27, 34, 40, 235))));
     // 冷青细边框；正文用浅色，避免整块文字抢占目标颜色。
-    QPen borderPen(PPI_ACCENT_COLOR, 1);
+    QPen borderPen(UiTheme::classicEnabled ? QColor(102, 255, 204) : PPI_ACCENT_COLOR, 1);
     m_background->setPen(borderPen);
 
     m_text = new QGraphicsTextItem();
-    m_text->setDefaultTextColor(PPI_TEXT_COLOR);
+    m_text->setDefaultTextColor(UiTheme::classicEnabled ? QColor(102, 255, 204) : PPI_TEXT_COLOR);
 
     // 设置字体
     QFont font = m_text->font();

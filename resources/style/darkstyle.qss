@@ -165,7 +165,7 @@ QToolTip { background:#222c33; color:#e8edf1; border:1px solid #657d8c; padding:
 #RangeAzimuthChart, #Track3DWidget { background:#12171c; border:none; }
 #RangeAzimuthChartToolBar QLabel, #Track3DToolBar QLabel { color:#a6b2bd; font-size:12px; }
 #RangeAzimuthChartToolBar QPushButton, #Track3DToolBar QPushButton { font-size:12px; padding:3px 9px; border-radius:3px; }
-#RangeAzimuthChartToolBar QLineEdit { font-size:12px; padding:3px 5px; }
+#RangeAzimuthChartToolBar QLineEdit, #Track3DToolBar QLineEdit { font-size:12px; padding:3px 5px; }
 #RangeAzimuthChartToolBar QFrame[frameShape="4"] { color:#3b4a55; background:#3b4a55; max-width:1px; }
 #ZoomViewW QPushButton { padding:2px; margin:1px; border:1px solid transparent; background:transparent; }
 #ZoomViewW QPushButton:hover { background:#293b44; border-color:#78cbd8; }

@@ -9,7 +9,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const webRoot = path.resolve(__dirname, '../resources/web/track3d');
-const sources = Object.fromEntries(['three.min.js', 'OrbitControls.js', 'track3d.js', 'track3d.css']
+const sources = Object.fromEntries(['three.min.js', 'OrbitControls.js', 'track3d.js', 'track3d.css', 'track3d_classic.css']
     .map(name => [name, fs.readFileSync(path.join(webRoot, name), 'utf8')]));
 
 function signal() {
@@ -75,15 +75,17 @@ function harness(options = {}) {
                     width: state.width, height: state.height };
             },
             getContext() {
-                return { clearRect() {}, fillText() {}, measureText: text => ({ width: text.length * 20 }) };
+                return { clearRect() {}, fillText() {}, beginPath() {}, moveTo() {},
+                    lineTo() {}, closePath() {}, fill() {} };
             },
             focus() {}
         };
     }
     const nodes = {};
+    document.documentElement = element('html');
     ['scene-root', 'tooltip', 'status-overlay', 'axis-range'].forEach(id => { nodes[id] = element('div'); });
     const window = {
-        devicePixelRatio: 1.5, location: { href: 'qrc:///track3d/index.html' },
+        devicePixelRatio: 1.5, location: { href: 'qrc:///track3d/index.html?theme=' + (options.theme || 'graphite') },
         get innerWidth() { return state.width; }, get innerHeight() { return state.height; },
         addEventListener(type, callback) { addListener(windowListeners, type, callback); },
         removeEventListener(type, callback) { removeListener(windowListeners, type, callback); },
@@ -188,14 +190,19 @@ function harness(options = {}) {
         visibleSegments() {
             const segments = [];
             state.renders[state.renders.length - 1].scene.traverse(node => {
-                if (!node.isLineSegments) return;
-                const vertices = node.geometry.getAttribute('position');
-                for (let i = 0; i < vertices.count; i += 2) {
-                    segments.push([node.material.color.getHex(),
-                        Math.round(vertices.getX(i) * 5000), Math.round(vertices.getX(i + 1) * 5000)]);
+                if (!node.isLineSegments || !node.visible) return;
+                const { geometry, material } = node;
+                const vertices = geometry.getAttribute('position');
+                const colors = geometry.getAttribute('color');
+                const end = Math.min(vertices.count, geometry.drawRange.start + geometry.drawRange.count);
+                for (let i = geometry.drawRange.start; i < end; i += 2) {
+                    const rgb = colors ? (colors.array[i * 3] << 16) | (colors.array[i * 3 + 1] << 8)
+                        | colors.array[i * 3 + 2] : material.color.getHex();
+                    segments.push([rgb, Math.round(vertices.getX(i) * 5000),
+                        Math.round(vertices.getX(i + 1) * 5000)]);
                 }
             });
-            return segments;
+            return segments.sort((a, b) => a[1] - b[1] || a[2] - b[2] || a[0] - b[0]);
         }
     };
 }
@@ -247,6 +254,53 @@ test('zero initial viewport stays unready and recovers on a later resize', () =>
     assert.equal(h.state.ready.length, 1);
     assert.ok(h.state.renders.length > 0);
     assert.ok(h.state.sizes.some(size => size[0] === 800 && size[1] === 500));
+});
+
+test('the default narrow view marks north at 0 degrees, with east visibly to its left', () => {
+    const h = boot({ width: 320, height: 520 });
+    const { scene, camera } = h.state.renders[h.state.renders.length - 1];
+    camera.updateMatrixWorld();
+    const northLine = scene.getObjectByName('north-azimuth-zero');
+    const vertices = northLine.geometry.getAttribute('position');
+    assert.deepEqual(Array.from(vertices.array), [0, 0, 0, 0, 0, 1]);
+    const north = scene.getObjectByName('0° 正北').position.clone().project(camera);
+    const east = scene.getObjectByName('E').position.clone().project(camera);
+    const west = scene.getObjectByName('W').position.clone().project(camera);
+    assert.ok(Math.abs(north.x) < 1e-6 && north.y > -1 && north.y < 1);
+    assert.ok(east.x > -1 && east.x < north.x);
+    assert.ok(west.x < 1 && west.x > north.x);
+});
+
+test('latest markers retain a shared triangle texture and apply the 3D height window', () => {
+    const h = boot();
+    h.bridge.snapshotChanged.emit([track('2:101'), track('2:102', { heightM: 600, color: '#ff0000' })], {});
+    h.flush();
+    assert.deepEqual(h.visibleKeys(), ['2:101']);
+    const scene = h.state.renders[h.state.renders.length - 1].scene;
+    const materials = () => {
+        const result = [];
+        scene.traverse(node => { if (node.isPoints) result.push(node.material); });
+        return result;
+    };
+    const [first] = materials();
+    assert.ok(first.map.isCanvasTexture);
+    assert.ok(first.size > 0.05);
+    let disposals = 0;
+    first.map.addEventListener('dispose', () => { ++disposals; });
+    h.bridge.sceneStateChanged.emit({ minHeightM: -50, maxHeightM: 800 });
+    h.flush();
+    assert.deepEqual(h.visibleKeys(), ['2:101', '2:102']);
+    assert.ok(materials().every(material => material.map === first.map));
+    assert.equal(disposals, 0);
+    assert.match(h.nodes['axis-range'].textContent, /-50–800 m/);
+
+    h.bridge.sceneStateChanged.emit({ minHeightM: 99.75, maxHeightM: 100.25 });
+    h.flush();
+    assert.deepEqual(h.visibleKeys(), ['2:101']);
+    assert.match(h.nodes['axis-range'].textContent, /99.75–100.25 m/);
+    scene.traverse(node => {
+        if (node.isPoints) assert.equal(node.geometry.getAttribute('position').getY(0), 0.5);
+    });
 });
 
 test('snapshot, overwrite, removal and clear reach the real scene graph', () => {
@@ -311,6 +365,85 @@ test('trail visibility honors recognition, range and height without bridging fil
     assert.deepEqual(h.visibleSegments(), []);
 });
 
+test('a full FIFO updates only one line slot and reuses the shared WebGL geometry', () => {
+    const h = boot();
+    h.bridge.snapshotChanged.emit([
+        track('2:101', { path: sample(100).concat(sample(200), sample(300)) }),
+        track('3:102', { type: 3, path: sample(800).concat(sample(900)) })
+    ], { maxTrackPoints: 3 });
+    h.flush();
+    const scene = h.state.renders[h.state.renders.length - 1].scene;
+    const lines = scene.children.find(node => node.isLineSegments);
+    const { geometry } = lines;
+    const positions = geometry.getAttribute('position');
+    const version = positions.version;
+
+    h.bridge.trackDeltaChanged.emit([track('2:101', { path: sample(400, { rgb: cyan }) })], []);
+    h.flush();
+    assert.equal(lines.geometry, geometry);
+    assert.equal(positions.version, version + 1);
+    assert.equal(positions.updateRange.count, 6);
+    assert.deepEqual(h.visibleSegments(), [[red, 200, 300], [cyan, 300, 400], [red, 800, 900]]);
+
+    h.bridge.sceneStateChanged.emit({ pointSizeRatio: 2 });
+    h.flush();
+    assert.equal(positions.version, version + 1, 'Changing marker size must leave line buffers alone');
+    h.bridge.trackDeltaChanged.emit([], ['2:101']);
+    h.flush();
+    assert.deepEqual(h.visibleSegments(), [[red, 800, 900]], 'Deletion must keep the moved line live');
+    h.bridge.trackDeltaChanged.emit([track('3:102', { type: 3, path: sample(950) })], []);
+    h.flush();
+    assert.deepEqual(h.visibleSegments(), [[red, 800, 900], [red, 900, 950]]);
+});
+
+test('a clipped eviction and a recognition change keep the surviving segments correct', () => {
+    const h = boot();
+    h.bridge.snapshotChanged.emit([
+        track('2:101', { path: sample(100).concat(sample(200), sample(300)) })
+    ], { maxTrackPoints: 3, onlyRecognizedDroneTracksVisible: true });
+    h.flush();
+    h.bridge.trackDeltaChanged.emit([track('2:101', {
+        path: sample(400, { height: -1 }), heightM: -1
+    })], []);
+    h.flush();
+    assert.deepEqual(h.visibleSegments(), [[red, 200, 300]]);
+    h.bridge.trackDeltaChanged.emit([track('2:101', {
+        path: sample(500).concat(sample(600)), targetRecResult: 0
+    })], []);
+    h.flush();
+    assert.deepEqual(h.visibleSegments(), []);
+    h.bridge.trackDeltaChanged.emit([track('2:101', { path: sample(700) })], []);
+    h.flush();
+    assert.deepEqual(h.visibleSegments(), [[red, 500, 600], [red, 600, 700]]);
+
+    h.bridge.sceneStateChanged.emit({ maxTrackPoints: 4 });
+    h.bridge.trackDeltaChanged.emit([track('2:101', { path: sample(750) })], []);
+    h.flush();
+    assert.deepEqual(h.visibleSegments(), [[red, 500, 600], [red, 600, 700], [red, 700, 750]]);
+
+    h.bridge.sceneStateChanged.emit({ maxTrackPoints: 1 });
+    h.bridge.trackDeltaChanged.emit([track('2:101', { path: sample(800) })], []);
+    h.flush();
+    assert.deepEqual(h.visibleSegments(), []);
+    assert.deepEqual(h.visibleKeys(), ['2:101']);
+});
+
+test('scene palette switches between graphite and classic independently of track coordinates', () => {
+    const h = boot();
+    h.bridge.snapshotChanged.emit([track('2:101', { path: sample(100).concat(sample(200)) })], { theme: 'classic' });
+    h.flush();
+    assert.equal(h.state.renders[h.state.renders.length - 1].scene.background.getHex(), 0x0a1010);
+    assert.deepEqual(h.visibleSegments(), [[red, 100, 200]]);
+    h.bridge.sceneStateChanged.emit({ theme: 'graphite' }); h.flush();
+    assert.equal(h.state.renders[h.state.renders.length - 1].scene.background.getHex(), 0x12171c);
+    assert.deepEqual(h.visibleSegments(), [[red, 100, 200]]);
+});
+
+test('classic URL selects the palette before the first frame', () => {
+    const h = boot({ theme: 'classic' });
+    assert.equal(h.state.renders[0].scene.background.getHex(), 0x0a1010);
+});
+
 for (const [name, option, expected] of [
     ['missing Three.js', 'missingThree', /three|undefined|dependency|依赖/i],
     ['missing OrbitControls', 'missingOrbit', /orbit|constructor|dependency|依赖/i],
@@ -344,7 +477,7 @@ async function browserSmoke() {
         await page.setContent('<!doctype html><html><head></head><body>'
             + '<div id="scene-root"></div><div id="axis-legend"><span id="axis-range"></span></div>'
             + '<div id="tooltip"></div><div id="status-overlay">loading</div></body></html>');
-        await page.addStyleTag({ content: sources['track3d.css'] });
+        const themeStyle = await page.addStyleTag({ content: sources['track3d.css'] });
         await page.evaluate(() => {
             window.testBridge = { ready: 0, errors: [], viewports: [] };
             const bridge = {};
@@ -365,6 +498,19 @@ async function browserSmoke() {
         });
         await page.addScriptTag({ content: sources['three.min.js'] });
         await page.addScriptTag({ content: sources['OrbitControls.js'] });
+        await page.evaluate(() => {
+            const OriginalRenderer = THREE.WebGLRenderer;
+            THREE.WebGLRenderer = function (options) {
+                const renderer = new OriginalRenderer(options);
+                const render = renderer.render.bind(renderer);
+                renderer.render = (scene, camera) => {
+                    render(scene, camera);
+                    window.testBridge.camera = { position: camera.position.toArray(),
+                        quaternion: camera.quaternion.toArray() };
+                };
+                return renderer;
+            };
+        });
         await page.addScriptTag({ content: sources['track3d.js'] });
         await page.waitForFunction(() => window.testBridge.ready === 1, null, { timeout: 10000 });
         const first = await page.evaluate(() => {
@@ -378,6 +524,26 @@ async function browserSmoke() {
         assert.equal(first.width, 960); assert.equal(first.height, 640);
         assert.ok(first.bufferWidth > 0 && first.bufferHeight > 0);
         assert.deepEqual(first.errors, []); assert.deepEqual(errors, []);
+        const cameraState = () => page.evaluate(() => window.testBridge.camera);
+        const initialCamera = await cameraState();
+        const distance = (a, b) => Math.hypot(...a.map((value, i) => value - b[i]));
+        for (const button of ['right', 'left']) {
+            await page.mouse.move(350, 250);
+            if (button === 'left') await page.keyboard.down('Shift');
+            await page.mouse.down({ button });
+            await page.mouse.move(440, 285, { steps: 4 });
+            await page.mouse.up({ button });
+            if (button === 'left') await page.keyboard.up('Shift');
+            await page.evaluate(() => new Promise(requestAnimationFrame));
+            const moved = await cameraState();
+            assert.ok(distance(moved.position, initialCamera.position) > 0.05, 'Pan must move the camera');
+            assert.ok(distance(moved.quaternion, initialCamera.quaternion) < 1e-6, 'Pan must preserve orientation');
+            await page.evaluate(() => new Promise(resolve => {
+                window.testBridge.signals.resetViewRequested.emit();
+                requestAnimationFrame(() => requestAnimationFrame(resolve));
+            }));
+            assert.ok(distance((await cameraState()).position, initialCamera.position) < 1e-6);
+        }
         // Read the composited screenshot rather than an already-cleared WebGL
         // backbuffer (preserveDrawingBuffer is deliberately false in production).
         const { PNG } = require(path.join(runtimeModules, 'pngjs'));
@@ -398,7 +564,25 @@ async function browserSmoke() {
         const magenta = (r, g, b) => r > 160 && b > 160 && g < 100;
         assert.equal(await countScenePixels(magenta), 0);
         await page.evaluate(data => new Promise(resolve => {
-            window.testBridge.signals.snapshotChanged.emit([data], {});
+            window.testBridge.signals.snapshotChanged.emit([data], { pointSizeRatio: 3 });
+            requestAnimationFrame(() => requestAnimationFrame(resolve));
+        }), track('2:402', { eastM: 0, northM: 0, heightM: 175, rangeM: 0, color: '#ff20ff' }));
+        const head = PNG.sync.read(await page.screenshot());
+        const headRows = [];
+        for (let y = 280; y < 360; ++y) {
+            let pixels = 0;
+            for (let x = 440; x < 520; ++x) {
+                const i = (y * head.width + x) * 4;
+                if (magenta(head.data[i], head.data[i + 1], head.data[i + 2])) ++pixels;
+            }
+            if (pixels > 0) headRows.push(pixels);
+        }
+        assert.ok(headRows.length >= 7 && Math.max(...headRows) >= 2 * headRows[0],
+            'Expected a triangle that widens below its top vertex');
+        await page.mouse.move(480, 320);
+        await page.waitForFunction(() => document.getElementById('tooltip').innerText.includes('402'));
+        await page.evaluate(data => new Promise(resolve => {
+            window.testBridge.signals.snapshotChanged.emit([data], { maxTrackPoints: 4, pointSizeRatio: 1 });
             requestAnimationFrame(() => requestAnimationFrame(resolve));
         }), track('2:401', {
             // The current point is out of range, so only the two earlier segments can draw magenta pixels.
@@ -410,10 +594,33 @@ async function browserSmoke() {
         }));
         first.trailPixels = await countScenePixels(magenta);
         assert.ok(first.trailPixels > 30, 'Expected visible trail segments in the WebGL canvas');
+        await page.evaluate(data => new Promise(resolve => {
+            window.testBridge.signals.trackDeltaChanged.emit([data], []);
+            requestAnimationFrame(() => requestAnimationFrame(resolve));
+        }), track('2:401', {
+            color: '#ff6a00', rangeM: 6000,
+            path: sample(-2500, { height: 300, rgb: 0xff6a00 })
+                .concat(sample(2500, { height: 370, rgb: 0xff6a00 }))
+        }));
+        const orange = (r, g, b) => r > 200 && g > 90 && g < 210 && b < 60;
+        assert.equal(await countScenePixels(magenta), 0, 'Evicted trail pixels must disappear');
+        first.updatedTrailPixels = await countScenePixels(orange);
+        assert.ok(first.updatedTrailPixels > 30, 'Expected the changed GPU buffer slot to draw the new segment');
         assert.deepEqual(errors, []);
         await page.setViewportSize({ width: 720, height: 480 });
         await page.waitForFunction(() => document.getElementById('scene-root').clientWidth === 720
             && document.getElementById('scene-root').clientHeight === 480);
+        await page.evaluate(() => new Promise(resolve => {
+            window.testBridge.signals.sceneStateChanged.emit({ theme: 'classic' });
+            requestAnimationFrame(() => requestAnimationFrame(resolve));
+        }));
+        // Production reloads the standalone page with the original x576 stylesheet.
+        await themeStyle.evaluate(node => node.remove());
+        await page.addStyleTag({ content: sources['track3d_classic.css'] });
+        const classicBackground = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+        assert.equal(classicBackground, 'rgb(10, 16, 16)');
+        first.classicGreenPixels = await countScenePixels((r, g, b) => g > 120 && g > r * 2 && g > b * 1.2);
+        assert.ok(first.classicGreenPixels > 100, 'Expected actual classic green axes in WebGL');
         console.log('PASS real Chromium/WebGL smoke ' + JSON.stringify(first));
     } finally { await browser.close(); }
 }

@@ -6,6 +6,7 @@
  * @LastEditTime: 2026-09-12 12:22:56
  * @Description: 
  */
+#include "Basic/uitheme.h"
 #include "azelrangewidget.h"
 #include <QPainter>
 #include <QVBoxLayout>
@@ -115,7 +116,48 @@ AzElRangeWidget::AzElRangeWidget(QWidget *parent)
     mainLay->addLayout(grid);
 
     // 统一样式，确保继承父widget背景
-    setStyleSheet(UiFontScale::style(R"(
+    setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? R"(
+                  QWidget#AzElRangeWidget {
+                  background-color: transparent;
+                  border: none;
+                  }
+                  QWidget {
+                  background-color: transparent;
+                  }
+                  QLabel {
+                  color: #a8d4c8;
+                  font-family: "Microsoft YaHei";
+                  font-size: 15px;  /* 增大字体从11px到13px */
+                  background-color: transparent;
+                  }
+                  QLineEdit#RangeLineEdit {
+                  color: #ffffff;
+                  background-color: rgba(10,20,20,0.6);
+                  border: 1px solid rgba(0,255,136,0.45);
+                  border-radius: 6px;
+                  padding: 4px 6px;
+                  selection-background-color: rgba(0,255,136,0.35);
+                  }
+                  QLineEdit#RangeLineEdit:focus {
+                  border: 1.5px solid #00ff88;
+                  }
+                  QPushButton#SettingsButton {
+                  color: #ffffff;
+                  background-color: rgba(0,100,70,0.7);
+                  border: 1px solid rgba(0,255,136,0.6);
+                  border-radius: 4px;
+                  padding: 2px 6px;
+                  font-family: "Microsoft YaHei";
+                  font-size: 11px;
+                  }
+                  QPushButton#SettingsButton:hover {
+                  background-color: rgba(0,255,136,0.2);
+                  border: 1.5px solid #00ff88;
+                  }
+                  QPushButton#SettingsButton:pressed {
+                  background-color: rgba(0,255,136,0.4);
+                  }
+                  )" : R"(
                   QWidget#AzElRangeWidget {
                   background-color: transparent;
                   border: none;
@@ -156,7 +198,7 @@ AzElRangeWidget::AzElRangeWidget(QWidget *parent)
                   QPushButton#SettingsButton:pressed {
                   background-color: #29434c;
                   }
-                  )"));
+                  )")));
 
     connectEditors();
 }
@@ -402,7 +444,7 @@ void AzElRangeWidget::drawAzDial(QPainter &p, const QRect &rcDial)
         QString txt = QString("%1° - %2°").arg(mAzMin).arg(mAzMax);
         QFont f = UiFontScale::pointFont("Microsoft YaHei", 12, QFont::DemiBold);  // 减小字体从14到12
         p.setFont(f);
-        p.setPen(QColor("#e3fff6"));
+        p.setPen((UiTheme::classicEnabled ? QColor("#e3fff6") : UiTheme::color(QColor("#e3fff6"))));
         p.drawText(QRectF(C.x()-80, C.y()-14, 160, 28), Qt::AlignCenter, txt);
     }
 }
@@ -444,7 +486,7 @@ void AzElRangeWidget::drawElBar(QPainter &p, const QRect &rcBar)
         p.drawLine(gradRect.left() - len - 4, yy, gradRect.left() - 4, yy);
 
         if (d % 15 == 0) {
-            p.setPen(QColor("#a6b2bd"));
+            p.setPen((UiTheme::classicEnabled ? QColor("#a8d4c8") : UiTheme::color(QColor("#a6b2bd"))));
             QFont f = UiFontScale::pointFont("Microsoft YaHei", 9);  // 减小字体从10到9
             p.setFont(f);
             p.drawText(QRect(gradRect.left() - 44, yy - 9, 38, 18),
@@ -466,7 +508,7 @@ void AzElRangeWidget::drawElBar(QPainter &p, const QRect &rcBar)
         p.setPen(QPen(QColor(0,255,136,220), 1.4));
         p.drawLine(gradRect.right()+2, yy, gradRect.right()+8, yy);
         // 文本
-        p.setPen(QColor("#e3fff6"));
+        p.setPen((UiTheme::classicEnabled ? QColor("#e3fff6") : UiTheme::color(QColor("#e3fff6"))));
         QFont f = UiFontScale::pointFont("Microsoft YaHei", 9, QFont::DemiBold);  // 减小字体从10到9
         p.setFont(f);
         p.drawText(r, Qt::AlignCenter, QString::number(el));
@@ -478,7 +520,7 @@ void AzElRangeWidget::drawElBar(QPainter &p, const QRect &rcBar)
     //    {
     //        QFont f = UiFontScale::pointFont("Microsoft YaHei", 12, QFont::DemiBold);
     //        p.setFont(f);
-    //        p.setPen(QColor("#a6b2bd"));
+    //        p.setPen(UiTheme::color(QColor("#a6b2bd")));
     //        p.drawText(QRect(x, y-2, w, 24), Qt::AlignHCenter|Qt::AlignTop, "仰角范围");
     //    }
 }

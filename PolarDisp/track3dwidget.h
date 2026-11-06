@@ -63,7 +63,6 @@ public slots:
     void addPointInfo(const PointInfo& info);
     void clearRadarData();
     void setRangeFromMain(double minRange, double maxRange);
-    void setHeightRange(double minHeight, double maxHeight);
     void setTrackVisible(bool visible);
     void setTbdTrackVisible(bool visible);
     void setCooperativeTrackVisible(bool visible);
@@ -102,6 +101,7 @@ private:
     QColor trackColor(const PointInfo& info) const;
 
     void scheduleFlush();
+    void setHeightRange(double minHeight, double maxHeight);
     void sendSnapshot();
     void sendSceneState();
     void setRendererActive(bool active);

@@ -10,6 +10,7 @@
  * @file beamschedulewidget.cpp
  * @brief 波束调度甘特图显示控件实现
  */
+#include "Basic/uitheme.h"
 #include "beamschedulewidget.h"
 
 #include <QPainter>
@@ -29,7 +30,7 @@ BeamScheduleChart::BeamScheduleChart(QWidget* parent)
 {
     setMinimumSize(300, 100);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    setStyleSheet(UiFontScale::style("background:#12171c;"));
+    setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? "background:#0a0a0a;" : "background:#12171c;")));
 }
 
 void BeamScheduleChart::setSchedule(const BeamScheduleReport& hdr,
@@ -65,7 +66,7 @@ void BeamScheduleChart::paintEvent(QPaintEvent*)
 {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, false);
-    p.fillRect(rect(), QColor(0x12, 0x17, 0x1c));
+    p.fillRect(rect(), (UiTheme::classicEnabled ? QColor(0x0a, 0x0a, 0x0a) : UiTheme::color(QColor(0x12, 0x17, 0x1c))));
 
     if (!m_hasData || m_header.frameTimeUs == 0) {
         p.setPen(QColor(0x78, 0x78, 0x78));
@@ -94,7 +95,7 @@ void BeamScheduleChart::paintEvent(QPaintEvent*)
                    Qt::AlignRight | Qt::AlignVCenter,
                    QString::fromUtf8(kRowLabels[r]));
         // 水平分隔线
-        p.setPen(QColor(0x30, 0x3b, 0x44));
+        p.setPen((UiTheme::classicEnabled ? QColor(0x30, 0x30, 0x30) : UiTheme::color(QColor(0x30, 0x3b, 0x44))));
         p.drawLine(kLeftMargin, y + kRowH, W - kRightMargin, y + kRowH);
     }
 
@@ -146,7 +147,7 @@ void BeamScheduleChart::paintEvent(QPaintEvent*)
 BeamScheduleWidget::BeamScheduleWidget(QWidget* parent)
     : QWidget(parent)
 {
-    setStyleSheet(UiFontScale::style("background:#12171c; color:#e8edf1;"));
+    setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? "background:#0a0a0a; color:#cccccc;" : "background:#12171c; color:#e8edf1;")));
 
     // ---- 顶部状态栏 ----
     auto* topBar = new QHBoxLayout();
@@ -155,11 +156,11 @@ BeamScheduleWidget::BeamScheduleWidget(QWidget* parent)
 
     auto* lblTitle = new QLabel(QStringLiteral("波束调度"));
     lblTitle->setStyleSheet(UiFontScale::style(
-        "color:#e8edf1; font:bold 11px 'Microsoft YaHei';"));
+        (UiTheme::classicEnabled ? "color:#ff8800; font:bold 11px 'Microsoft YaHei';" : "color:#e8edf1; font:bold 11px 'Microsoft YaHei';")));
     topBar->addWidget(lblTitle);
     topBar->addStretch();
 
-    const QString statStyle = "color:#e8edf1; font:10px Consolas;";
+    const QString statStyle = (UiTheme::classicEnabled ? "color:#cccccc; font:10px Consolas;" : "color:#e8edf1; font:10px Consolas;");
 
     m_lblSeq = new QLabel(QStringLiteral("帧序: —"));
     m_lblSeq->setStyleSheet(UiFontScale::style(statStyle));

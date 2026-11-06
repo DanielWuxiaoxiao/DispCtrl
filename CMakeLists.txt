@@ -206,6 +206,7 @@ set(SRC_FILES
 
     # 主界面模块 - 控制面板和布局
     mainPanel/mainoverlayout.cpp               # 主界面覆盖布局
+    mainPanel/classichealthwindow.cpp          # x576 经典健康窗口
     mainPanel/azelrangewidget.cpp              # 方位角高低角范围控件
     mainPanel/screenrecorderwidget.cpp         # 屏幕录制与回放
     mainPanel/simpleavi.cpp                    # 纯Qt AVI视频写入器
@@ -339,9 +340,11 @@ set(HDR_FILES
     Basic/log.h                               # 日志系统
     Basic/DispBasci.h                         # 显示基础定义
     Basic/uitheme.h                          # 石墨灰主题及健康状态展示样式
+    Basic/classicui.h                         # x576 原始主屏图标
     mainPanel/healthstatuswidgets.h          # 健康状态卡片、列表和电源格
     Basic/uifontscale.h                       # Qt样式及绘制字体统一缩放
     Basic/uiscale.h                           # 不依赖协议打包的UI缩放定义
+    Basic/systemtimesync.h                    # 系统校时界面状态
     Basic/ConfigManager.h                     # 配置管理器
     Basic/diagnosticlogwindow.h                # 固定槽单调时钟日志限频
     Basic/hiddenprocess.h                      # Windows 后台探测不弹终端
@@ -379,6 +382,7 @@ set(HDR_FILES
 
     # 主界面模块头文件 - 控制面板和布局
     mainPanel/mainoverlayout.h                # 主界面覆盖布局
+    mainPanel/classichealthwidgets.h          # 经典健康窗口控件引用
     mainPanel/azelrangewidget.h               # 方位角高低角范围控件
     mainPanel/screenrecorderwidget.h          # 屏幕录制与回放
     mainPanel/simpleavi.h                     # 纯Qt AVI视频写入器
@@ -454,7 +458,7 @@ if(WIN32)
     set_target_properties(DispCtrl PROPERTIES WIN32_EXECUTABLE TRUE)
     target_sources(DispCtrl PRIVATE DispCtrl.rc)
     set_property(SOURCE DispCtrl.rc APPEND PROPERTY OBJECT_DEPENDS
-                 "${CMAKE_CURRENT_SOURCE_DIR}/resources/windows/radararray.ico")
+                 "${CMAKE_CURRENT_SOURCE_DIR}/resources/windows/dispctrl-app.ico")
     # Windows 修改系统时间时需要调整 SeSystemtimePrivilege。
     target_link_libraries(DispCtrl PRIVATE advapi32)
 endif()
@@ -472,6 +476,10 @@ if(DISPCTRL_BUILD_TESTS)
     target_include_directories(track_data_rate_test PRIVATE "${CMAKE_SOURCE_DIR}")
     target_link_libraries(track_data_rate_test PRIVATE Qt5::Core Qt5::Test)
     add_test(NAME track_data_rate_test COMMAND track_data_rate_test)
+    add_executable(system_time_sync_test tests/systemtimesync_test.cpp Basic/Protocol.cpp)
+    target_include_directories(system_time_sync_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(system_time_sync_test PRIVATE Qt5::Core Qt5::Test)
+    add_test(NAME system_time_sync_test COMMAND system_time_sync_test)
     add_executable(data_save_test tests/datasave_test.cpp paramWidget/datasaveui.cpp
         paramWidget/datasaveui.h paramWidget/datasaveui.ui Basic/Protocol.cpp Basic/log.cpp
         cusWidgets/custommessagebox.cpp cusWidgets/custommessagebox.h)
@@ -497,6 +505,11 @@ if(DISPCTRL_BUILD_TESTS)
     target_include_directories(ui_font_scale_test PRIVATE "${CMAKE_SOURCE_DIR}")
     target_link_libraries(ui_font_scale_test PRIVATE Qt5::Core Qt5::Widgets Qt5::Test)
     add_test(NAME ui_font_scale_test COMMAND ui_font_scale_test)
+    add_executable(ui_theme_test tests/uitheme_test.cpp Basic/log.cpp)
+    target_include_directories(ui_theme_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(ui_theme_test PRIVATE Qt5::Core Qt5::Widgets Qt5::Test)
+    add_test(NAME ui_theme_test COMMAND ui_theme_test)
+    set_tests_properties(ui_theme_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     set_tests_properties(ui_font_scale_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     add_executable(map_no_map_test tests/mapnomap_test.cpp mapDisp/mapprox.cpp mapDisp/mapprox.h Basic/log.cpp)
     set_target_properties(map_no_map_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/map_no_map_fixture")
@@ -516,6 +529,19 @@ if(DISPCTRL_BUILD_TESTS)
     target_link_libraries(scan_layer_render_test PRIVATE Qt5::Core Qt5::Widgets Qt5::Test)
     add_test(NAME scan_layer_render_test COMMAND scan_layer_render_test)
     set_tests_properties(scan_layer_render_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    add_executable(detection_color_render_test tests/detectioncolor_render_test.cpp
+        PointManager/detmanager.cpp PointManager/detmanager.h
+        PointManager/sectordetmanager.cpp PointManager/sectordetmanager.h PointManager/point.cpp
+        PolarDisp/polaraxis.cpp PolarDisp/polaraxis.h PolarDisp/tooltip.cpp
+        PolarDisp/rangeazimuthchart.cpp PolarDisp/rangeazimuthchart.h
+        PolarDisp/rangeheightchart.cpp PolarDisp/rangeheightchart.h
+        cusWidgets/customlinechart.cpp cusWidgets/customlinechart.h
+        Controller/RadarDataManager.cpp Controller/RadarDataManager.h
+        Controller/ErrorHandler.cpp Controller/ErrorHandler.h Basic/log.cpp)
+    target_include_directories(detection_color_render_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(detection_color_render_test PRIVATE Qt5::Core Qt5::Widgets Qt5::Test)
+    add_test(NAME detection_color_render_test COMMAND detection_color_render_test)
+    set_tests_properties(detection_color_render_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     add_executable(tas_control_format_test tests/tascontrolformat_test.cpp)
     target_include_directories(tas_control_format_test PRIVATE "${CMAKE_SOURCE_DIR}")
     target_link_libraries(tas_control_format_test PRIVATE Qt5::Core Qt5::Test)
@@ -757,6 +783,17 @@ add_custom_target(copy_config ALL
     COMMENT "Copying config.toml to output directories (only if not exists)"
     VERBATIM
 )
+
+# classic HTML 与瓦片及 JS 同目录加载，确保直接运行 CMake 产物时也能找到。
+set(CLASSIC_MAP_PAGES
+    "${CMAKE_CURRENT_SOURCE_DIR}/htmls/indexNoL_classic.html"
+    "${CMAKE_CURRENT_SOURCE_DIR}/htmls/index_classic.html"
+    "${CMAKE_CURRENT_SOURCE_DIR}/htmls/indexS_classic.html"
+    "${CMAKE_CURRENT_SOURCE_DIR}/htmls/index3d_classic.html")
+add_custom_command(TARGET DispCtrl POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CLASSIC_MAP_PAGES} "$<TARGET_FILE_DIR:DispCtrl>"
+    COMMENT "Copying classic map pages to the executable directory"
+    VERBATIM)
 
 # 复制OSM道路数据到输出目录
 if(EXISTS "${CMAKE_SOURCE_DIR}/osm")

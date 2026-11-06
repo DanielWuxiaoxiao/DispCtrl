@@ -2,6 +2,7 @@
 #define OFFLINERAE_H
 
 #include <QColor>
+#include "uitheme.h"
 #include "Basic/Protocol.h"
 
 namespace OfflineRae {
@@ -12,9 +13,9 @@ constexpr unsigned kColorRed = 102;
 constexpr unsigned kColorBlue = 103;
 
 // 离线分类代码不变；批绘制、最新点和 3D 使用同一组显示颜色。
-const QColor kCyanDisplayColor(120, 203, 216);
-const QColor kRedDisplayColor(234, 140, 147);
-const QColor kBlueDisplayColor(130, 169, 220);
+inline const QColor& kCyanDisplayColor = UiTheme::radarPalette().offlineCyan;
+inline const QColor& kRedDisplayColor = UiTheme::radarPalette().offlineRed;
+inline const QColor& kBlueDisplayColor = UiTheme::radarPalette().offlineBlue;
 
 inline bool isOffline(const PointInfo& info)
 {

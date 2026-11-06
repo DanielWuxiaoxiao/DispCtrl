@@ -94,6 +94,8 @@ cmake --build . --config Debug
 - Windows 的 `DispCtrl.exe` 直接启动时不会打开终端。发布时可用资源管理器将新版 `DispCtrl.exe` 发送到桌面（创建快捷方式），快捷方式会使用程序内嵌的雷达图标；已有快捷方式如果覆盖了图标，可重新创建。
 
 ## 开发指引
+
+配色在 `config.toml` 的 `[ui]` 中设置 `theme = "graphite"`（默认石墨灰/冷青）或 `theme = "classic"`（完整恢复 x576/f338142 的黑绿样式、原字号/图标/弹窗及健康管理布局），重启后生效。两套方案内置于软件，部署机器无需安装 Git；发布时请同步复制 `htmls/` 下的 `*_classic.html` 页面。新版检测点开关和 3D 连线等功能继续可用。
 - 新增显示模块：继承 `QGraphicsItem` 或 `QGraphicsScene`，实现 `paint()`/`boundingRect()`，在对应 Manager 注册，并更新 `CMakeLists.txt`。
 - 扩展协议/数据流：修改 `Basic/Protocol.h`，在相关 *Manager* 增加解析与分发逻辑，必要时补充 `config.toml` 的端口/ID。
 - 地图前端：`htmls/` 下为 WebEngine 页面，可根据需要调整地图样式或坐标转换逻辑。

@@ -14,7 +14,7 @@
  * @details 显示在主界面标题区（原英文名 SubtitleLabel 处）。
  *          发布新版本时只需修改此处一处。
  */
-#define APP_VERSION_STR "V8.0"
+#define APP_VERSION_STR "V8.2.2"
 
 #include <QColor>
 #include <QString>
@@ -28,17 +28,18 @@
 #include "Protocol.h"
 
 #include "uiscale.h"
+#include "uitheme.h"
 
 // V7 显示配色：保留原目标类别映射，PPI / B显 / 高显 / 3D 共用。
-const QColor DET_COLOR(120, 212, 165);           // 检测点：薄荷绿
-const QColor TRA_COLOR(234, 140, 147);           // 普通航迹 targetRecResult==1：柔红
-const QColor DRONE_COLOR(223, 189, 130);          // 保留历史名称；普通航迹其它类别：琥珀
-const QColor TBD_COLOR(181, 154, 223);           // TBD航迹：浅紫
-const QColor CO_TRACK_COLOR(120, 203, 216);      // 协同航迹：冷青
-const QColor PPI_ACCENT_COLOR(120, 203, 216);
-const QColor PPI_GRID_COLOR(126, 153, 165, 160);
-const QColor PPI_TEXT_COLOR(232, 237, 241);
-const QColor PPI_MEASURE_COLOR(223, 189, 130);
+inline const QColor& DET_COLOR = UiTheme::radarPalette().detection;
+inline const QColor& TRA_COLOR = UiTheme::radarPalette().track;
+inline const QColor& DRONE_COLOR = UiTheme::radarPalette().other;
+inline const QColor& TBD_COLOR = UiTheme::radarPalette().tbd;
+inline const QColor& CO_TRACK_COLOR = UiTheme::radarPalette().cooperative;
+inline const QColor& PPI_ACCENT_COLOR = UiTheme::radarPalette().accent;
+inline const QColor& PPI_GRID_COLOR = UiTheme::radarPalette().grid;
+inline const QColor& PPI_TEXT_COLOR = UiTheme::radarPalette().text;
+inline const QColor& PPI_MEASURE_COLOR = UiTheme::radarPalette().measure;
 
 //STRING
 constexpr char APP_NAME[] = "雷达控制平台";

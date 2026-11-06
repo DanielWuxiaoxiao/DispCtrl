@@ -1,7 +1,9 @@
+#include "Basic/uitheme.h"
 #include "radarpanelpositiondialog.h"
 #pragma pack(push, 8)
 #include <QDialogButtonBox>
 #include <QGridLayout>
+#include <QHBoxLayout>
 #include <QGuiApplication>
 #include <QLabel>
 #include <QLineEdit>
@@ -28,18 +30,18 @@ public:
 protected:
     void paintEvent(QPaintEvent*) override {
         QPainter p(this);
-        p.fillRect(rect(), QColor("#1b2228"));
+        p.fillRect(rect(), (UiTheme::classicEnabled ? QColor("#111e1b") : UiTheme::color(QColor("#1b2228"))));
         p.setFont(UiFontScale::pointFont(p.font().family(), 10));
         const QRectF area = QRectF(rect()).adjusted(62, 28, -24, -32);
         if (area.width() <= 0 || area.height() <= 0) return;
-        p.setPen(QColor("#92bdb4"));
+        p.setPen((UiTheme::classicEnabled ? QColor("#92bdb4") : UiTheme::color(QColor("#92bdb4"))));
         p.drawText(8, 18, QStringLiteral("解锁阵面偏航(°)  青色：原始值  黄色：最新100次滑动平均"));
         const auto series = RadarPanelState::yawPlotData(m_data);
         for (int tick = 0; tick <= 4; ++tick) {
             const double degree = series.lower + (series.upper - series.lower) * tick / 4.0;
             const double y = area.bottom() - area.height() * tick / 4.0;
-            p.setPen(QColor("#2d4941")); p.drawLine(QPointF(area.left(), y), QPointF(area.right(), y));
-            p.setPen(QColor("#b9d8d0")); p.drawText(QRectF(0, y - 9, 55, 18), Qt::AlignRight, QString::number(degree, 'f', 2));
+            p.setPen((UiTheme::classicEnabled ? QColor("#2d4941") : UiTheme::color(QColor("#2d4941")))); p.drawLine(QPointF(area.left(), y), QPointF(area.right(), y));
+            p.setPen((UiTheme::classicEnabled ? QColor("#b9d8d0") : UiTheme::color(QColor("#b9d8d0")))); p.drawText(QRectF(0, y - 9, 55, 18), Qt::AlignRight, QString::number(degree, 'f', 2));
         }
         p.drawRect(area);
         if (!m_data.historyCount) { p.drawText(area, Qt::AlignCenter, QStringLiteral("等待有效BIT偏航")); return; }
@@ -57,11 +59,11 @@ protected:
                 area.bottom() - area.height() * (series.average[i] - series.lower) / (series.upper - series.lower));
         }
         p.setRenderHint(QPainter::Antialiasing);
-        p.setPen(QPen(QColor("#e8edf1"), 2));
+        p.setPen(QPen((UiTheme::classicEnabled ? QColor("#66ffcc") : UiTheme::color(QColor("#e8edf1"))), 2));
         if (points.size() == 1) p.drawEllipse(points[0], 3, 3); else p.drawPolyline(points);
-        p.setPen(QPen(QColor("#dfbd82"), 2));
+        p.setPen(QPen((UiTheme::classicEnabled ? QColor("#ffcc66") : UiTheme::color(QColor("#dfbd82"))), 2));
         if (averages.size() == 1) p.drawEllipse(averages[0], 2, 2); else p.drawPolyline(averages);
-        p.setPen(QColor("#b9d8d0"));
+        p.setPen((UiTheme::classicEnabled ? QColor("#b9d8d0") : UiTheme::color(QColor("#b9d8d0"))));
         p.drawText(QPointF(area.left(), area.bottom() + 20), QString::number(first));
         p.drawText(QRectF(area.right() - 150, area.bottom() + 3, 150, 22), Qt::AlignRight,
                    QStringLiteral("%1 帧").arg(last));
@@ -79,13 +81,22 @@ RadarPanelPositionDialog::RadarPanelPositionDialog(const RadarPanelValues& value
     const std::array<bool, 4>& locked, Actions actions, QWidget* parent)
     : QDialog(parent), m_actions(std::move(actions))
 {
-    setWindowTitle(QStringLiteral("雷达阵面经纬高/姿态下发"));
+    setWindowTitle(QStringLiteral("四面阵配置"));
     setWindowModality(Qt::NonModal);
     setWindowFlag(Qt::WindowContextHelpButtonHint, false);
     setWindowFlag(Qt::WindowMinMaxButtonsHint, true);
     setObjectName(QStringLiteral("panelPositionDialog"));
     setStyleSheet(UiFontScale::style(
-        "QDialog#panelPositionDialog {background:#12171c;}"
+        (UiTheme::classicEnabled ? "QDialog#panelPositionDialog {background:#101818;}"
+        "QScrollArea,QWidget#panelPositionViewport {background:#101818;border:0;}"
+        "QWidget#panelPositionContent {background:#111e1b;border:1px solid #42665c;border-radius:6px;}"
+        "QLabel {background:transparent;color:#d9ffff;font-size:16px;}"
+        "QLabel#panelPositionTitle {color:#66ffcc;font-size:22px;font-weight:bold;}"
+        "QLineEdit {background:#142d28;color:#66ffcc;border:1px solid #66aa99;padding:6px;font-size:16px;}"
+        "QLineEdit[readOnly=\"true\"] {background:#253a35;color:#a4e4cc;}"
+        "QPushButton {background:#123630;color:#66ffcc;border:1px solid #66aa99;padding:7px;font-size:16px;}"
+        "QPushButton:hover {background:#205247;}"
+        "QPushButton:disabled {background:#25332e;color:#a2b8b0;border-color:#52665f;}" : "QDialog#panelPositionDialog {background:#12171c;}"
         "QScrollArea,QWidget#panelPositionViewport {background:#12171c;border:0;}"
         "QWidget#panelPositionContent {background:#1b2228;border:1px solid #303b44;border-radius:6px;}"
         "QLabel {background:transparent;color:#e8edf1;font-size:16px;}"
@@ -94,11 +105,11 @@ RadarPanelPositionDialog::RadarPanelPositionDialog(const RadarPanelValues& value
         "QLineEdit[readOnly=\"true\"] {background:#202930;color:#a6b2bd;}"
         "QPushButton {background:#232d34;color:#e8edf1;border:1px solid #303b44;padding:7px;font-size:16px;}"
         "QPushButton:hover {background:#293b43;}"
-        "QPushButton:disabled {background:#1b2228;color:#82919e;border-color:#303b44;}"));
+        "QPushButton:disabled {background:#1b2228;color:#82919e;border-color:#303b44;}")));
     auto* outer = new QVBoxLayout(this);
     outer->setContentsMargins(16, 14, 16, 14);
     outer->setSpacing(12);
-    auto* title = new QLabel(QStringLiteral("雷达阵面经纬高 / 姿态下发"), this);
+    auto* title = new QLabel(windowTitle(), this);
     title->setObjectName(QStringLiteral("panelPositionTitle"));
     outer->addWidget(title);
     auto* scroll = new QScrollArea(this);
@@ -187,7 +198,7 @@ RadarPanelPositionDialog::RadarPanelPositionDialog(const RadarPanelValues& value
         refresh(); timer->start();
     }
     m_error = new QLabel(this);
-    m_error->setStyleSheet(UiFontScale::style("color:#ea8c93;"));
+    m_error->setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? "color:#ff9999;" : "color:#ea8c93;")));
     m_error->setWordWrap(true); m_error->hide();
     outer->addWidget(m_error);
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
@@ -196,7 +207,22 @@ RadarPanelPositionDialog::RadarPanelPositionDialog(const RadarPanelValues& value
     buttons->button(QDialogButtonBox::Cancel)->setText(QStringLiteral("取消"));
     connect(buttons, &QDialogButtonBox::accepted, this, [this] { submit(); });
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    outer->addWidget(buttons);
+    auto* footer = new QHBoxLayout;
+    m_timeSyncButton = new QPushButton(QStringLiteral("系统校时"), this);
+    m_timeSyncButton->setObjectName(QStringLiteral("systemTimeSyncButton"));
+    m_timeSyncButton->setAutoDefault(false);
+    m_timeSyncButton->setToolTip(QStringLiteral("请求资源调度使用 GPS 时间校准系统时间"));
+    m_timeSyncStatus = new QLabel(this);
+    m_timeSyncStatus->setObjectName(QStringLiteral("systemTimeSyncStatus"));
+    m_timeSyncStatus->setWordWrap(true);
+    if (m_actions.requestTimeSync) {
+        connect(m_timeSyncButton, &QPushButton::clicked, this, [this] { m_actions.requestTimeSync(); });
+    }
+    setSystemTimeSyncState(SystemTimeSyncState::Idle);
+    footer->addWidget(m_timeSyncButton);
+    footer->addWidget(m_timeSyncStatus, 1);
+    footer->addWidget(buttons);
+    outer->addLayout(footer);
     auto* screen = parent ? QGuiApplication::screenAt(parent->mapToGlobal(parent->rect().center())) : nullptr;
     if (!screen) screen = QGuiApplication::primaryScreen();
     const int widthLimit = screen ? qMax(400, screen->availableGeometry().width() - 60) : 1280;
@@ -207,6 +233,40 @@ RadarPanelPositionDialog::RadarPanelPositionDialog(const RadarPanelValues& value
     }
     resize(qMin(ScaleHelper::uiScaled(1320), widthLimit), qMin(ScaleHelper::uiScaled(800),
         screen ? screen->availableGeometry().height() - 60 : 680));
+}
+
+void RadarPanelPositionDialog::setSystemTimeSyncState(SystemTimeSyncState state)
+{
+    QString text;
+    const char* color = UiTheme::Secondary;
+    switch (state) {
+    case SystemTimeSyncState::Idle:
+        text = QStringLiteral("尚未校时");
+        break;
+    case SystemTimeSyncState::Waiting:
+        text = QStringLiteral("等待校时回执…");
+        color = UiTheme::Accent;
+        break;
+    case SystemTimeSyncState::Succeeded:
+        text = QStringLiteral("校时成功");
+        color = UiTheme::Normal;
+        break;
+    case SystemTimeSyncState::Failed:
+        text = QStringLiteral("校时失败");
+        color = UiTheme::Fault;
+        break;
+    case SystemTimeSyncState::TimedOut:
+        text = QStringLiteral("校时超时（未收到回执）");
+        color = UiTheme::Fault;
+        break;
+    case SystemTimeSyncState::Unavailable:
+        text = QStringLiteral("校时请求未提交（链路未初始化）");
+        color = UiTheme::Fault;
+        break;
+    }
+    m_timeSyncStatus->setText(text);
+    m_timeSyncStatus->setStyleSheet(UiFontScale::style(QStringLiteral("color:%1;").arg(QLatin1String(color))));
+    m_timeSyncButton->setEnabled(m_actions.requestTimeSync && state != SystemTimeSyncState::Waiting);
 }
 
 void RadarPanelPositionDialog::attachToWindow(CusWindow* host)
@@ -248,7 +308,7 @@ void RadarPanelPositionDialog::setLocked(int id, bool locked)
     for (auto* edit : m_edits[id]) edit->setReadOnly(!locked);
     m_lock[id]->setEnabled(!locked); m_unlock[id]->setEnabled(locked);
     m_status[id]->setText(locked ? QStringLiteral("已锁定") : QStringLiteral("未锁定"));
-    m_status[id]->setStyleSheet(UiFontScale::style(locked ? "color:#dfbd82;" : "color:#e8edf1;"));
+    m_status[id]->setStyleSheet(UiFontScale::style(locked ? (UiTheme::classicEnabled ? "color:#ffcc66;" : "color:#dfbd82;") : (UiTheme::classicEnabled ? "color:#66ffcc;" : "color:#e8edf1;")));
 }
 
 void RadarPanelPositionDialog::lockRow(int id)

@@ -6,6 +6,7 @@
  * @LastEditTime: 2026-09-17 22:45:14
  * @Description: 
  */
+#include "Basic/uitheme.h"
 #include "commandcontrolwindow.h"
 
 #include "commandcontrolmodule.h"
@@ -359,8 +360,8 @@ void CommandControlWindow::applyNetworkStatus(QPushButton* button, int index)
     const bool ok = m_module->networkStatusOk(index);
     const QString text = m_module->networkStatusText(index);
     const QString style = ok
-        ? QStringLiteral("QPushButton, QPushButton:disabled { background:#23322d; color:#78d4a5; border:1px solid #303b44; border-radius:5px; padding:7px; font-size:13px; }")
-        : QStringLiteral("QPushButton, QPushButton:disabled { background:#35252d; color:#ea8c93; border:1px solid #ea8c93; border-radius:5px; padding:7px; font-size:13px; }");
+        ? (UiTheme::classicEnabled ? QStringLiteral("QPushButton { background:#00aa55; color:#ffffff; border:1px solid #66ffcc; border-radius:5px; padding:7px; font-size:13px; }") : QStringLiteral("QPushButton, QPushButton:disabled { background:#23322d; color:#78d4a5; border:1px solid #303b44; border-radius:5px; padding:7px; font-size:13px; }"))
+        : (UiTheme::classicEnabled ? QStringLiteral("QPushButton { background:#a02a2a; color:#ffffff; border:1px solid #ff6666; border-radius:5px; padding:7px; font-size:13px; }") : QStringLiteral("QPushButton, QPushButton:disabled { background:#35252d; color:#ea8c93; border:1px solid #ea8c93; border-radius:5px; padding:7px; font-size:13px; }"));
     button->setText(text);
     button->setToolTip(text);
     button->setStyleSheet(UiFontScale::style(style));
@@ -408,8 +409,8 @@ void CommandControlWindow::applyLoginStatus()
     const QString text = loggedIn ? QStringLiteral("登录状态：已登录")
                                   : QStringLiteral("登录状态：未登录");
     const QString style = loggedIn
-        ? QStringLiteral("QPushButton, QPushButton:disabled { background:#23322d; color:#78d4a5; border:1px solid #303b44; border-radius:5px; padding:7px; font-size:13px; }")
-        : QStringLiteral("QPushButton, QPushButton:disabled { background:#35252d; color:#ea8c93; border:1px solid #ea8c93; border-radius:5px; padding:7px; font-size:13px; }");
+        ? (UiTheme::classicEnabled ? QStringLiteral("QPushButton { background:#00aa55; color:#ffffff; border:1px solid #66ffcc; border-radius:5px; padding:7px; font-size:13px; }") : QStringLiteral("QPushButton, QPushButton:disabled { background:#23322d; color:#78d4a5; border:1px solid #303b44; border-radius:5px; padding:7px; font-size:13px; }"))
+        : (UiTheme::classicEnabled ? QStringLiteral("QPushButton { background:#a02a2a; color:#ffffff; border:1px solid #ff6666; border-radius:5px; padding:7px; font-size:13px; }") : QStringLiteral("QPushButton, QPushButton:disabled { background:#35252d; color:#ea8c93; border:1px solid #ea8c93; border-radius:5px; padding:7px; font-size:13px; }"));
     m_loginStatusButton->setText(text);
     m_loginStatusButton->setToolTip(m_module->statusText());
     m_loginStatusButton->setStyleSheet(UiFontScale::style(style));

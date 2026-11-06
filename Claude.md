@@ -2,9 +2,9 @@
 
 > **文档用途**: 本文档专为 AI 开发助手（Claude、GitHub Copilot、Cursor 等）提供项目全局上下文，整合了项目**所有 MD 文档**的核心知识，便于快速理解项目架构、代码规范、常见任务与注意事项。
 >
-> **最后更新**: 2026-11-04（V8.0 Windows 无终端启动、桌面图标与 3D 航迹线）
+> **最后更新**: 2026-11-06（V8.2.2 经典地图、健康状态配色与图标修正）
 >
-> **当前软件版本**: `V8.0`，唯一运行期版本常量为`Basic/DispBasci.h::APP_VERSION_STR`；UI占位文本、发布包VERSION、桌面入口均须同步或从该常量派生。后续版本迭代必须在本文版本历史记录日期、前版、变更及验证边界，不只修改标题数字。
+> **当前软件版本**: `V8.2.2`，唯一运行期版本常量为 `Basic/DispBasci.h::APP_VERSION_STR`。UI 占位文本与该常量同步，发布包 VERSION 和桌面入口从该常量派生。后续采用三段版本号，并在本文版本历史记录日期、前版、变更和验证范围。
 >
 > **版本确认规则（用户要求）**：每轮新的实现/发布修改开始前，先读取当前软件版本，询问“保留 / 小版本 / 大版本”，给出实际候选值，例如V6.0→保留V6.0、小版本V6.1、大版本V7.0；未经确认不自行升级。用户已指定版本的同一轮修改/重打包不反复询问，只读排查不询问。等待选择时可继续实现但保持原版本，正式打包前必须确认。同步规则见AGENTS.md；版本确认不等于授权构建或提交推送。
 >
@@ -220,11 +220,13 @@ DispCtrl/
 信号处理子系统 —UDP→ ThreadedUdpSocket(端口8003)
     → sig2dispmanager::handleDatagram()
     → Controller::detInfoProcess 信号
-    → PPIScene::DetManager::addDetPoint()           # PPI显示（绿色）
-    → SectorDetManager::addDetPoint()              # 扇区显示（绿色）
-    → RangeAzimuthChart::addDetectionPoint()       # 距离-方位图（绿色，鼠标悬停Tooltip）
+    → PPIScene::DetManager::addDetPoint()           # PPI显示（默认绿色）
+    → SectorDetManager::addDetPoint()              # 扇区显示（默认绿色）
+    → RangeAzimuthChart::addDetectionPoint()       # 距离-方位图（默认绿色，鼠标悬停Tooltip）
     → MainOverLayOut::updateTrackList()            # 航迹表格（航迹同理，不含检测点）
 ```
+
+`displayConfig.detection_drone_red_enabled` 默认 `false`，启动时缓存。设为 `true` 后，PPI、B显、高显和已启用扇区中的 `targetRecResult == 1` 检测点使用主题红色 `TRA_COLOR`，其余检测点使用原检测点绿色。识别字段沿用 DD01 解码结果。
 
 ### 4. 线程模型
 - **主线程**: 全部 UI 操作与 Qt 事件循环
@@ -269,6 +271,7 @@ DispCtrl/
 |--------|------|------|----------|
 | 0xAA01 | 显控→资调 | 象限电源控制 | disp2resmanager |
 | 0xAA05 | 显控→资调 | 波束控制（系统控制表512B）| waveandsample |
+| 0xAA10 | 显控→资调 | GPS 系统校时请求 | disp2resmanager |
 | 0xCC01 | 显控→信处 | 数据存储开关 | datasaveui |
 | 0xCC02 | 显控→信处 | 数据删除 | datasaveui |
 | 0xCC03 | 显控→信处 | 离线处理控制 | datasaveui |
@@ -277,6 +280,7 @@ DispCtrl/
 | 0xDD03 | 信处→显控 | 数据删除成功回执 | Controller信号 |
 | 0xDD04 | 信处→显控 | 离线处理状态回执 | Controller信号 |
 | 0xDE02 | 资调→显控 | BIT硬件状态上报（10项+温度+角度）| mon2dispmanager |
+| 0xDE03 | 资调→显控 | 系统校时结果 | threadudpsocket → res2dispmanager → Controller |
 
 ### 协议单位注意（重要！已有Bug修复记录）
 | 数据类型 | 字段 | 协议单位 | 显控内部单位 | 转换 |
@@ -409,9 +413,10 @@ ExternalCtrlManager::externalCtrlLog(QString)     // 日志
 - 同步：主PPI `PolarAxis::rangeChanged → setRangeFromMain`；`MousePositionInfo` spinbox/checkbox → 三路视图统一大小/显隐；`DetManager::setMaxPoints` → 各路 `setMaxDetectionPoints`。
 - 配置 `[rangeAzimuthDisp.angle] min/max`；QSS 对象名 `#RangeAzimuthChartToolBar`、`#RangeAzimuthChart`。
 - `3D显`：`Track3DWidget` 使用 Qt WebEngine + WebChannel 承载随程序资源打包的 Three.js r128。按 `(PointInfo.type, batch)` 和到达顺序连线，每批保留最近 `displayConfig.max_track_points` 个位置，末端点保留悬停详情。普通/TBD/协同、无人机筛选、点大小、显清和离线 RAE 直投沿用原 3D 路径，不接收检测点。每段使用后一个点的航迹颜色，与 P 显一致；两端须同时在当前斜距和高度范围内，范围外的点不会被跨接。
-- 三维坐标：水平距离为 `range*cos(elevation)`，X=东向、Z=北向、Y=`altitute`；水平范围同步 PPI，垂直范围同步 H显。Web 端独立归一化三轴但保持真实单位标签，范围外航迹仍保留在 C++ 最新点模型中。
-- 3D 性能/稳定性：GUI 线程维护每批环形缓存，满后覆盖最旧样本；C++ 以 50ms 合并 WebChannel 增量，正常只发新增位置和最新点详情，隐藏页不发渲染增量；显示、恢复或点数上限变化时发完整快照。JS 按颜色批绘 `THREE.LineSegments` 和末端 `THREE.Points`，按需渲染。批次终止及显清移除历史和末端；同类型同批号在一次增量内终止并重现时，先清除旧批再建立新批。WebEngine 页面/渲染进程首次异常限次重载，再次失败显示占位并写文件日志。
+- 三维坐标：水平距离为 `range*cos(elevation)`，X=东向、Z=北向、Y=`altitute`。水平范围同步 PPI，垂直范围由 3D 工具栏独立设置，默认 0–500 m。Web 端独立归一化三轴但保持真实单位标签，范围外航迹仍保留在 C++ 模型中。默认和复位视角从南向北看，+Z 标注「0° 正北」，东在画面左侧。左键旋转，右键或 Shift+左键平移，滚轮缩放。最新点为按航迹类别着色的屏幕朝上三角，悬停详情与原末端点一致。
+- 3D 性能/稳定性：GUI 线程维护每批环形缓存，满后覆盖最旧样本。C++ 以 50ms 合并 WebChannel 增量，正常只发新增位置和最新点详情，隐藏页不发渲染增量，显示、恢复或点数上限变化时发完整快照。JS 也使用每批环形缓存，历史线段共用一个带顶点颜色的动态缓冲。常规增量复用淘汰线段的槽位，绘制前仅提交改动所覆盖的缓冲范围。量程、高度或全局筛选变化时重新生成可见线段，末端 `THREE.Points` 按颜色分组并合并到下一帧刷新。批次终止及显清移除历史和末端，同类型同批号在一次增量内终止并重现时，先清除旧批再建立新批。WebEngine 页面/渲染进程首次异常限次重载，再次失败显示占位并写文件日志。
 - 3D 兼容/就绪：Qt 5.14 基于 Chromium 77，场景和状态覆盖层使用显式四边定位，不能仅依赖较新 CSS `inset`，图例间距也不依赖 flex `gap`。WebChannel 先连接再初始化 Three.js；只有有效容器尺寸下首帧渲染成功才通知 C++ 就绪，隐藏页零尺寸等待重新布局，不能钳成1像素并假报成功。尺寸变化写 `[Track3DWidget][VIEWPORT]`，可见未就绪10秒触发一次受限重载，重复初始化错误合并，控制台错误/警告按级别5秒限频。
+- qmake 网页资源：Qt Creator 的 Enable Qt Quick Compiler 会增加 `CONFIG+=qtquickcompiler`，使资源内的 `.js` 进入 `qmlcachegen`。Three.js 和 OrbitControls 由 WebEngine Chromium 执行，`DispCtrl.pro` 使用 `QTQUICK_COMPILER_SKIPPED_RESOURCES += resource.qrc` 保留原始脚本并跳过该资源的 QML 预编译。Qt 5.14.2 的 `three.min.js:6:326646: Expected token ','` 可由 qmlcachegen 精确复现，普通 rcc 打包同一资源成功。
 
 ### 8. 多通道航迹显示开关（2026-05-09）
 - 通道：TBD `0xEE02`(`6010→8010`)、协同 `0xEE03`(`6020→8020`，复用 `TBDTrackHead+TBDTrackInfo+TBDPoint`)；`PointInfo.type` 新增 `CooperativeTrackPointType=4`。
@@ -498,6 +503,7 @@ mode = "standard"                  # standard|satellite|none|noroad|3d
 
 [displayConfig]
 max_points = 1000                  # 检测点FIFO上限
+detection_drone_red_enabled = false # true：无人机检测点显示主题红色，启动时读取
 max_track_points = 200            # 单批航迹FIFO上限
 
 [params.servo]                     # 参数保存功能写入的段落
@@ -598,6 +604,7 @@ connect(sender, SIGNAL(signal(int)), receiver, SLOT(slot(int)));
 `darkstyle.qss` 中特定对话框的 `QDialogButtonBox QPushButton` 规则会覆盖全局按钮样式。
 - 解决：删除特定对话框的内联QSS覆盖，继承全局规则
 - V7.0 主题入口为 `resources/style/darkstyle.qss`，健康状态样式为 `Basic/uitheme.h::statusStyle()`；后者返回未缩放 QSS，调用方只应用一次 `UiFontScale::style()`，变化比较必须针对缩放后的结果。不要给通用 `QWidget` 设置背景，主 PPI/地图透明层必须保留。主布局和 PPI 几何不得随主题重排；后续颜色改动同时检查控件局部 QSS、图表构造色及全局样式。
+- V8.2 双主题：`[ui] theme = "graphite"` 默认使用当前石墨/冷青方案，`"classic"` 完整恢复 `x576/f338142` 的显示外观，不再对新布局做近似调色。原始 QSS、局部样式、PNG 图标、字体大小、独立弹窗、健康管理按钮/网格布局、窗口透明度和四种地图原页均独立保留；classic 字号仅乘 `ui_scale`，graphite 继续乘 1.08 可读性系数。启动时在 Controller/UI 创建前选择，重启生效；未知值回退 graphite 并记录日志。雷达颜色使用稳定地址的 QColor，绘制热路径不读 TOML。`classichealthwindow.cpp` 通过单独控件引用读取当前共享的五秒快照，不改变健康聚合、命令或数据协议。3D 使用经典 CSS 和同名场景色；当前连线/检测点红色开关等功能继续共用。classic 地图直接加载四个原始 `*_classic.html`，包括历史蒙版/滤镜（用户明确要求与 x576 完全一致）；graphite 自然影像策略不变，共用真实 black.html 缺图回退。方案随软件部署，无需 Git。
 - **主屏透明与场景色（2026-11-03 更新）**：主屏左右容器透明，日志、表格、控制页、图形外壳和浮层使用带 alpha 的石墨底；独立 CusWindow 内部维持实底，整窗用 setWindowOpacity(0.96) 轻微透底，避免子面板层层叠加 alpha。不要用多层不透明 pane/viewport 或通用 QWidget 背景遮住全屏地图。Qt 表格不通过 QSS 额外铺实底 item；Base/AlternateBase 提供半透明底色，行画刷保留作无 QSS 回退，代理继续绘制高度/上报标识。PPI/B/H/3D 的数据色由 DispBasci.h 和 offlinerae.h 共用，菜单使用全局 QMenu 规则；颜色变化不允许改变目标识别值、坐标、批绘制或刷新节拍。
 - **字号与几何分离（2026-11-03）**：UiFontScale 默认字号因子为 ui_scale×1.08；全局字体、QSS、显式 painter/widget 字体共用入口，只缩放一次。显式 style(base, factor) 仍精确按传入因子处理。ScaleHelper 的布局/图标/PPI 几何因子不变，不通过修改配置中的 ui_scale 来放大字号；3D 网页图例/提示/状态字号分别为 13/13/15px。控制按钮内边距、图表文字文档边距和横轴标题间隔、光电表行高随可读性需要微调，不改数据坐标及主屏分区。
 - **地图影像调色（2026-11-03 实屏反馈后）**：用户明确反馈 70% 去饱和后土灰、发雾，四个活动地图页已删除 mapDesaturate、mix-blend-mode 和 isolation，恢复去饱和调整前的自然瓦片颜色。仅保留冷石墨 mapMask：rgba(18,29,38,alpha)，路网/标准 alpha=0.56、卫星 0.38、三维底图 0.50。恢复原 setGrayscale 显式灰度入口，默认不调用、不强制灰度；不改 Qt 点迹/航迹、瓦片、坐标、范围、布局或 black.html。不要把独立 Chrome 色块/混合效果检查视为真实 QtWebEngine 影像美观度验收；本轮以用户实屏偏好为准，不继续增加灰色混合层。
@@ -1443,6 +1450,67 @@ dataToScene            # RangeAzimuth坐标转换
 - **Windows 启动与桌面入口**：CMake 与 qmake 均链接 Windows GUI 子系统及 `DispCtrl.rc`。总控、分系统和电磁设备的 Windows 网络探测子进程使用 `CREATE_NO_WINDOW`，保留异步输出、超时处理及文件日志。Windows EXE 图标由 Linux 桌面入口使用的 `resources/icon/radararray.png` 生成多分辨率 ICO，快捷方式直接指向 EXE 即可继承；更换源图时同步更新 ICO。Linux 启动器及图标路径保持不变。
 - **3D 航迹**：按类型和批号连相邻历史点，保留原末端点及提示，单批历史和 P 显共用上限。关闭页签时保留有界历史，恢复后发快照。批次终止、显清和筛选同时作用于历史线。P 显绘制、主屏布局、3D 物理坐标和协议保持不变。
 - **验证边界**：CMake/qmake Windows 配置和资源编译通过；隔离 Windows GUI 程序验证主进程及后台控制台子进程均无终端、子进程输出可读，Windows Shell 可提取大小两档 EXE 图标。改动 C++ 和 MOC 通过 Qt 5.14.2/MSVC 语法检查（对本机 MSVC 2026 与旧 Qt STL 的兼容处理仅用于临时验证）；3D 坐标/缓存 QTest、12 项 JS 回归及独立 Chromium/WebGL 航迹线实绘通过。未完整构建或运行显控、打包、现场验收或提交推送。
+
+### V8.0 Qt Creator/qmake 网页资源编译兼容修复 (2026-11-04，延续已确认版本)
+
+- 同事使用 Qt Creator 编译 `.pro` 时，Qt Quick Compiler 将内嵌的 Three.js 送入 QML JavaScript 预编译器。在本机 Qt 5.14.2 用 `qmlcachegen --resource=resource.qrc` 精确复现第 6 行 326646 列的语法报错。
+- `.pro` 增加 `QTQUICK_COMPILER_SKIPPED_RESOURCES += resource.qrc`，该资源走普通 rcc，WebEngine 可读取原始 JavaScript。重新运行 qmake 后生效。
+- 验证：显式开启 `CONFIG+=qtquickcompiler` 生成 Debug/Release Makefile，均保留全部网页 JavaScript 的 rcc 依赖且没有 qmlcachegen 编译命令；实际执行 qmake 生成的资源目标成功，diff 检查通过。完整工程编译及同事机器验证仍待执行。
+
+### V8.1 临时功能：无人机检测点红色显示 (2026-11-04)
+
+- **版本**：用户确认 V8.0 → V8.1，运行期常量和主界面占位同步。Linux 发布版本和桌面入口继续从同一常量派生。
+- **配置与效果**：新增 `[displayConfig] detection_drone_red_enabled = false`，配置为 `true` 后重启生效。PPI、B显、高显及已启用扇区的检测点按 `PointInfo.targetRecResult == 1` 显示主题红色，其余检测点保持绿色。沿用现有 DD01 识别值，临时开关只负责着色。
+- **绘制**：PPI/B/H 保留批图元，将可见检测点分为普通和无人机两组调用 `drawPoints`。开关在图元/管理器构造时缓存，接收及绘制热路径不读取配置文件。扇区沿用现有 DetPoint 着色。显示过滤、点大小、FIFO 和清除由原入口处理。
+- **验证**：新增 `detection_color_render_test`，用真实 Qt 5.14.2 图元在离屏图像中检查四个视图。缺省/关闭/开启三种配置 × 0/1/2/65537 四个识别值共 12 组，连同初始化和清理共 14 项通过，覆盖显隐及清除。定向构建使用临时的旧 Qt/MSVC 2026 STL 兼容头，未写入工程。diff、TOML 与版本一致性检查通过。未完整构建显控、生成发布包或进行设备联调。
+
+### V8.2 配置双主题及默认分支调整 (2026-11-04)
+
+- **版本与配置**：用户确认 V8.1 → V8.2。新增 `[ui] theme = "graphite"`，可设 `"classic"`，重启生效。运行期常量、UI 占位及发布版本派生同步。
+- **用户修正与外观基准**：用户指出初版 classic（旧色套新布局）与 x576 不一致，要求完全恢复。以 `x576` 的 `f338142adc3a85a5165bb525bd1002c0e3d6c8c0`（`893b4917d669616de7c058098236282596e75e12` 的父提交）为固定基准，版本保持本轮已确认的 V8.2。
+- **完整经典方案**：`classic.qss`、四个 `*_classic.html` 和 `track3d_classic.css` 直接保留基准原件；局部 QSS、PNG 图标、表格/提示/箭头颜色、原字号和图表文字留白恢复原样。主窗口 `.ui` 的旧图标按对象名恢复，主 PPI/splitter 几何保持原值。classic 的 CusWindow 使用原始绘制与 1.0 窗口 opacity，开发者验证、雷达经纬高配置等弹窗恢复原始布局。健康管理通过独立 `ClassicHealthWidgets` / `classichealthwindow.cpp` 还原按钮式软件/网络状态、阵面 BIT 和 6×6 子阵电源，含原始 1200×1200 最小尺寸与原标题栏；保留当前五秒快照、网络数据和可选模块的连接及生命周期。
+- **隔离与兼容**：取消近似 QSS/RGB 映射；classic 字体仅按 ui_scale 缩放，graphite 仍保留 1.08。类别色直接引用启动时配置的稳定 QColor，热路径不读配置或 Git。classic 使用旧地图页面及历史蒙版/滤镜，graphite 不套用旧滤镜；黑色无图页保持独立。当前新增的检测点识别开关、3D 航迹连线、隐藏控制台及 Windows 图标功能仍保留。发布资源包含两个主题，部署时同步 htmls 下的 classic 页面。
+- **默认分支**：按用户要求将 GitHub 默认分支从 `main` 设为 `codex/graphite-cyan-ui`，API 读取确认，本地 `origin/HEAD` 同步。分支名保持当前名称，工作区本轮源码尚未提交推送。
+- **验证**：6 份经典样式/地图资产与 x576 原件逐字节一致，原始局部 QSS 字面量无遗漏。独立 Qt 5.14 Windows 原生字体渲染中，主 `.ui` 骨架在 0.85/1.0/1.25 × 1920×1080/2560×1600 共 6 组与基准像素差异为 0（版本文本统一 V8.2）；开发者验证与 CusWindow 外壳也像素一致。此对比未包含实际主窗口 Controller、地图瓦片与动态雷达叠加层，不能代替全应用实屏验收。主题/资产/原字号 9 项、检测点双主题四视图 18 项、字号 9 项及 3D JS/VM 14 项通过；独立 Chromium/WebGL 双主题可见网格及航迹检查通过。40 个修改的产品 C++ 文件通过 Qt 5.14.2/MSVC 语法检查（临时兼容头只用于本机 MSVC 2026/旧 Qt STL，原有 PPI C4804 警告仍在）；rcc 的 54 份资源路径可解析，qmake 开启 qtquickcompiler 后含经典健康源文件且不生成 JS qmlcachegen 规则。此前扫描定向测试 4 过/1 失败，在 HEAD 实现独立链接复测同样失败，属于本机 offscreen 基线限制。未完整构建显控、生成发布包或进行设备/实屏验收。
+
+### V8.2 四面阵配置与系统校时（2026-11-05，用户确认保持 V8.2）
+
+- 多面阵左上入口和配置窗口统一命名为「四面阵配置」。窗口底部的「系统校时」与 AA08「确定下发」是独立操作。校时只由点击触发，使用既有资源调度 UDP 封装发送 25B AA10 帧，负载为 `10 AA 01 00 00 00`。
+- 用户确认 AA10（2.2.1.10）和 DE03（2.2.7.3）均为独立消息，Word 表内误编号统一改为各自负载从 1 起算。负载第 1–2 字节为信息编号，第 3 字节为对时标志或执行结果，第 4–6 字节为预留。两条消息均使用 14B 帧头和 5B 帧尾，编号与标志/结果对应 UDP 从 0 起算的偏移 14 和 16。DE03 在资源调度回执通道验证 25B 总长、源/目的 ID、`dataLen=20`、头尾及 XOR，只接受结果 0/1。通过队列信号将布尔结果送入 GUI 线程。
+- Controller 缓存校时状态，窗口重开时恢复。提交后等待最多 10 秒，期间防重复提交，超时允许手动重试。DE03 不含请求关联字段，有效回执更新最近结果。成功用当前主题的正常色，失败或超时用故障色。两个主题共享同一窗口、控件和协议逻辑，标准按钮继承当前对话框 QSS，状态文字取 `UiTheme` 语义色并使用 `UiFontScale`。
+- 定向验证通过 Qt 5.14.2 UIC/MOC 及 MSVC 语法检查，覆盖 7 个产品源文件、2 个测试源文件和 3 个 MOC 生成文件。独立计算的 AA10 请求及 DE03 成败完整帧与测试向量一致。新增协议和双主题 UI 用例待本地构建运行，DE03 帧格式待资源调度实包验证。
+
+### V8.2.1 透明迷彩雷达应用图标（2026-11-05）
+
+- 用户确认从 V8.2 升为 V8.2.1，后续使用三段版本号。更新 `APP_VERSION_STR` 和主界面 UI 占位，Qt 版本和 Linux `VERSION`/桌面名称沿用既有派生路径。
+- 使用 imagegen 将上一版工业风雷达阵面改为哑光林地迷彩，保留雷达本体，画布及三脚架间隙透明。`resources/icon/dispctrl-app.png` 是 512px 应用图标。Qt 通过 `resource.qrc` 嵌入，主窗口继承 `QApplication` 图标。Linux 发布复制及校验同一 PNG，启动器生成的桌面入口优先选择它。
+- `DispCtrl.rc` 嵌入同源 `resources/windows/dispctrl-app.ico`，CMake 和 qmake 均使用该资源。ICO 含 16–256px 共 10 个 32 位尺寸。应用图标单独命名，两个主题共用，主题内部图标继续引用原有资源。
+- Windows SDK `rc` 和 Qt 5.14 `rcc` 资源编译通过。核对 `.res` 中 10 个图像与 ICO 字节一致，原生 32px 解码及 512px PNG 透明度检查通过。CMake 和 qmake 生成包含 `DispCtrl.rc` 的构建规则。WSL 中 Linux 桌面入口回归、资源复制和校验清单检查通过。验证范围为图标资源与入口，完整显控编译和运行留待本地验证。
+
+### V8.2.2 经典地图、健康状态配色与图标修正（2026-11-06）
+
+- 用户确认 V8.2.1 → V8.2.2。同步运行版本、UI 占位及既有发布版本派生。
+- 现场 classic 卫星图缺页。发布目录有普通卫星页面及瓦片目录，但缺少 classic 专用 HTML。`MapProxyWidget` 优先加载可读的经典页面，缺页时记录 `[MAP][CLASSIC_PAGE_MISSING]`，使用同一地图类型的普通页面及主题参数。CMake 链接后把四个经典 HTML 复制到 EXE 目录。经典页面齐备时沿用原始外观，瓦片缺失仍加载真实 `black.html`。
+- graphite 健康状态的值文字使用正常绿、故障红、未上报琥珀黄，已关闭仍为中性色。未上报的子阵电源格显示黄色边框与文字，电源图例、待上报摘要和健康提示同步。状态映射只用于显示，健康快照、5 秒统计和故障阈值沿用原逻辑。
+- 检查实际 CMake/Ninja Release EXE 和桌面快捷方式目标，V8.2.1 两份 EXE 内容相同且内嵌上版 10 档迷彩 ICO。旧 Debug 产物与主界面右上角独立的旧标识可造成显示差异。使用 imagegen 移除迷彩图两侧黑色天线和外伸支架，重新导出应用 PNG/ICO，主界面右上角也引用同源 PNG。
+- Qt 5.14.2 UIC/RCC、Windows RC、图标透明度和 32px 解码检查通过。`mapprox.cpp` 和 `mainoverlayout.cpp` 通过 MSVC 定向语法检查。Ninja 配置生成后的规则含四个经典页复制及 ICO 依赖，复制结果与源文件逐一一致。V8.2.2 整包构建及实屏显示待本地验证。
+
+### 3D 航迹增量绘制优化（2026-11-06）
+
+- 航迹增量复用现有 WebGL 线段缓冲，缓存满后覆盖最早样本，并优先用淘汰线段的槽位写入新线段。全局范围和筛选变化时重算可见线段，单批识别变化时只重算该批。保留两个主题的原有航迹色、类型与批号隔离、悬停详情和筛选断线规则。
+- Node VM 定向对比使用 128 批各 300 点、每次更新 8 批、预热后统计 100 次，JS 增量处理 P95 从 7.69 ms 降至 0.15 ms。该组的全量快照从 9.04 ms 增至 14.67 ms。512 批各 300 点的全量快照从 19.19 ms 增至 58.13 ms，切页恢复大量历史仍可能出现短暂停顿。计时覆盖模拟桥接事件和场景更新，渲染器为测试桩。
+- 16 项 VM 回归、300 帧与旧实现的定向输出对照通过。真实 Chromium/WebGL 独立验证两个主题、可见航迹、增量替换后新旧线段的像素和窗口尺寸恢复。显控整包与目标机 Qt WebEngine 帧率尚未验证。
+
+### 3D 高度量程、方位标记和视图交互（2026-11-06）
+
+- 3D 工具栏可设置最小和最大显示高度，单位 m，最多两位小数。点击应用或回车提交，上限必须大于下限。设置在当前运行期间随 3D 窗口保留，3D 与高显分别控制各自的高度范围。
+- 默认相机沿北向轴从南侧观察，标出「0° 正北」和东西方向，窄窗口调整投影视角以容纳方位标记。拖动平移沿屏幕平面移动相机和观察点，视角复位恢复默认朝向和中心。航迹头共用一份三角纹理，仍使用按颜色分批的末端点绘制。
+- 18 项 JS VM 回归、独立 Chromium/WebGL 三角像素及悬停、右键/Shift+左键平移及视角复位通过。两个受影响 C++ 源文件通过 Qt 5.14.2/MSVC 语法检查，`Track3DWidget` MOC 通过。目标机显控整包与原生窗口操作尚未验证。
+
+### P 显外部上报状态与逐点颜色（2026-11-06）
+
+- 修正 P 显在电磁自动/手动下发等外部上报状态下取最新点颜色重画整批的问题。点使用各自识别色，线段使用其末端点的颜色。外报标记用于状态标签和列表强调，航迹的关注样式与显式整批配色沿用原逻辑。
+- Qt 5.14.2/MSVC 语法检查通过。从新旧生产代码提取 P 显批量绘制，用真实 QPainter 离屏对比，旧实现复现状态切换后图像变化，新实现通过两个主题、普通/关注和显式配色组合。电磁设备实机下发未参与验证。
 
 **文档结束**
 

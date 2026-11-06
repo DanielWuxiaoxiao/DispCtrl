@@ -564,6 +564,14 @@ struct TrackDataRateControl {
 static_assert(sizeof(TrackDataRateControl) == 5 && offsetof(TrackDataRateControl, batch) == 2
               && offsetof(TrackDataRateControl, rateHz) == 4, "AA09 layout changed");
 
+struct SystemTimeSyncControl {
+    quint16 mesID = 0xAA10;
+    quint8 syncFlag = 1;
+    quint8 reserve[3]{};
+};
+static_assert(sizeof(SystemTimeSyncControl) == 6 && offsetof(SystemTimeSyncControl, syncFlag) == 2
+              && offsetof(SystemTimeSyncControl, reserve) == 3, "AA10 layout changed");
+
 typedef struct _DataProParam
 {
     unsigned short mesID;
@@ -902,6 +910,15 @@ typedef struct _ServoCtrlRet
     }
 }ServoCtrlRet;
 
+struct SystemTimeSyncReply {
+    static constexpr quint16 MessageId = 0xDE03;
+    quint16 mesID;
+    quint8 result;  // 0: 失败，1: 成功
+    quint8 reserve[3];
+};
+static_assert(sizeof(SystemTimeSyncReply) == 6 && offsetof(SystemTimeSyncReply, result) == 2
+              && offsetof(SystemTimeSyncReply, reserve) == 3, "DE03 layout changed");
+
 // BIT 上报 0xDE02
 typedef struct _BITReport
 {
@@ -1087,6 +1104,7 @@ unsigned char calculateXOR(const char* data, unsigned len);
 char checkAccusation(char* data, unsigned len);
 
 char* packData(char* data, unsigned dataLen, unsigned short srcID, unsigned short destID, unsigned commCount);
+bool decodeSystemTimeSyncReply(const char* frame, int size, quint16 sourceId, quint16 destId, bool& succeeded);
 
 // =========================
 // 扩展功能新协议（A显 / 波束调度）

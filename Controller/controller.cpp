@@ -120,6 +120,15 @@ Controller::Controller(QObject* parent)
     healthTimer->setTimerType(Qt::PreciseTimer);
     connect(healthTimer, &QTimer::timeout, this, &Controller::flushHealthStateWindow);
     healthTimer->start();
+
+    m_systemTimeSyncTimeout = new QTimer(this);
+    m_systemTimeSyncTimeout->setSingleShot(true);
+    m_systemTimeSyncTimeout->setTimerType(Qt::PreciseTimer);
+    m_systemTimeSyncTimeout->setInterval(10000);
+    connect(m_systemTimeSyncTimeout, &QTimer::timeout, this, [this] {
+        LOG_WARNING("[AA10][TIMEOUT] 10 秒内未收到系统校时回执");
+        setSystemTimeSyncState(SystemTimeSyncState::TimedOut);
+    });
 }
 
 /**
@@ -215,6 +224,7 @@ void Controller::init()
     connect(this, &Controller::sendSPParam, resMgr, &Disp2ResManager::sendSPParam);
     connect(this, &Controller::sendRadarPositionControl, resMgr, &Disp2ResManager::sendRadarPositionControl);
     connect(this, &Controller::sendTrackDataRateControl, resMgr, &Disp2ResManager::sendTrackDataRateControl);
+    connect(this, &Controller::sendSystemTimeSyncControl, resMgr, &Disp2ResManager::sendSystemTimeSyncControl);
     connect(this, &Controller::sendDPParam, resMgr, &Disp2ResManager::sendDPParam);
 
     // 向光电系统发送控制参数
@@ -475,6 +485,35 @@ bool Controller::sendRadarPanelPositions(const RadarPanelValues& values)
             m_radarReference.value(RadarReference::Longitude), m_radarReference.value(RadarReference::Altitude));
     }
     return true;
+}
+
+void Controller::requestSystemTimeSync()
+{
+    if (m_systemTimeSyncState == SystemTimeSyncState::Waiting) return;
+    if (!resMgr) {
+        LOG_WARNING("[AA10][REJECT] 资源调度发送管理器未初始化");
+        setSystemTimeSyncState(SystemTimeSyncState::Unavailable);
+        return;
+    }
+    m_systemTimeSyncTimeout->start();
+    setSystemTimeSyncState(SystemTimeSyncState::Waiting);
+    LOG_INFO("[AA10][SUBMIT] 系统校时下发请求，标志=1");
+    emit sendSystemTimeSyncControl();
+}
+
+void Controller::setSystemTimeSyncState(SystemTimeSyncState state)
+{
+    if (m_systemTimeSyncState == state) return;
+    m_systemTimeSyncState = state;
+    emit systemTimeSyncStateChanged(state);
+}
+
+void Controller::onSystemTimeSyncResult(bool succeeded)
+{
+    m_systemTimeSyncTimeout->stop();
+    LOG_INFO(QStringLiteral("[DE03][RESULT] 系统校时%1")
+             .arg(succeeded ? QStringLiteral("成功") : QStringLiteral("失败")));
+    setSystemTimeSyncState(succeeded ? SystemTimeSyncState::Succeeded : SystemTimeSyncState::Failed);
 }
 
 bool Controller::lockRadarPanelReference(int id, const RadarReference::Pose& values)

@@ -29,6 +29,7 @@
  */
 
 // sectorpolargrid.cpp
+#include "Basic/uitheme.h"
 #include "sectorpolargrid.h"
 #include "PolarDisp/polaraxis.h"
 #include <QPainter>
@@ -67,10 +68,10 @@ SectorPolarGrid::SectorPolarGrid(PolarAxis* axis, QGraphicsItem* parent)
     : QObject(nullptr), QGraphicsItem(parent), m_axis(axis)
 {
     // 设置画笔样式 - 调整为更符合雷达显示的颜色
-    m_rangePen = QPen(QColor(76, 103, 116), 1, Qt::SolidLine);   // 距离圈：蓝灰
-    m_anglePen = QPen(QColor(58, 82, 94), 1, Qt::SolidLine);     // 角度线：深蓝灰
-    m_textPen = QPen(QColor(166, 178, 189), 1);                 // 文字：次级灰
-    m_borderPen = QPen(QColor(120, 203, 216), 2, Qt::SolidLine); // 边界线：冷青
+    m_rangePen = QPen((UiTheme::classicEnabled ? QColor(80, 80, 80) : UiTheme::color(QColor(76, 103, 116))), 1, Qt::SolidLine);   // 距离圈：蓝灰
+    m_anglePen = QPen((UiTheme::classicEnabled ? QColor(85, 85, 85) : UiTheme::color(QColor(58, 82, 94))), 1, Qt::SolidLine);     // 角度线：深蓝灰
+    m_textPen = QPen((UiTheme::classicEnabled ? QColor(150, 150, 150) : UiTheme::color(QColor(166, 178, 189))), 1);                 // 文字：次级灰
+    m_borderPen = QPen((UiTheme::classicEnabled ? QColor(100, 100, 100) : UiTheme::color(QColor(120, 203, 216))), 2, Qt::SolidLine); // 边界线：冷青
 
     setZValue(-1); // 确保网格在背景层
     
@@ -410,7 +411,7 @@ void SectorPolarGrid::drawSectorBackground(QPainter* painter)
     }
     
     // 使用更明显的灰色半透明填充
-    QBrush sectorBrush(QColor(120, 203, 216, 24)); // 低对比度冷青覆盖
+    QBrush sectorBrush((UiTheme::classicEnabled ? QColor(80, 80, 80, 40) : UiTheme::color(QColor(120, 203, 216, 24)))); // 低对比度冷青覆盖
     painter->setBrush(sectorBrush);
     painter->setPen(Qt::NoPen);
     painter->drawPath(sectorPath);

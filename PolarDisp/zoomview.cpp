@@ -28,6 +28,7 @@
  * @date 2024
  */
 
+#include "Basic/uitheme.h"
 #include "zoomview.h"
 #include "ppisscene.h"
 #include "polaraxis.h"
@@ -78,19 +79,19 @@ ZoomViewToolBar::ZoomViewToolBar(QWidget* parent)
 
     // 放大按钮（icon）
     m_zoomInBtn = new QPushButton(this);
-    m_zoomInBtn->setIcon(QIcon(":/resources/icon/ui/plus.svg"));
+    m_zoomInBtn->setIcon((UiTheme::classicEnabled ? QIcon(":/resources/icon/plus.png") : QIcon(":/resources/icon/ui/plus.svg")));
     m_zoomInBtn->setToolTip("放大视图");
     m_zoomInBtn->setObjectName("ZoomInBtn");
 
     // 缩小按钮（icon）
     m_zoomOutBtn = new QPushButton(this);
-    m_zoomOutBtn->setIcon(QIcon(":/resources/icon/ui/minus.svg"));
+    m_zoomOutBtn->setIcon((UiTheme::classicEnabled ? QIcon(":/resources/icon/min.png") : QIcon(":/resources/icon/ui/minus.svg")));
     m_zoomOutBtn->setToolTip("缩小视图");
     m_zoomOutBtn->setObjectName("ZoomOutBtn");
 
     // 重置视图按钮（icon）
     m_resetBtn = new QPushButton(this);
-    m_resetBtn->setIcon(QIcon(":/resources/icon/ui/reset.svg"));
+    m_resetBtn->setIcon((UiTheme::classicEnabled ? QIcon(":/resources/icon/reset.png") : QIcon(":/resources/icon/ui/reset.svg")));
     m_resetBtn->setToolTip("重置视图");
     m_resetBtn->setObjectName("ResetBtn");
 
@@ -103,13 +104,13 @@ ZoomViewToolBar::ZoomViewToolBar(QWidget* parent)
     // 拖动/测距模式按钮（icon + 互斥按钮组）
     m_dragBtn = new QPushButton(this);
     m_dragBtn->setCheckable(true);
-    m_dragBtn->setIcon(QIcon(":/resources/icon/ui/hand.svg"));
+    m_dragBtn->setIcon((UiTheme::classicEnabled ? QIcon(":/resources/icon/hand.png") : QIcon(":/resources/icon/ui/hand.svg")));
     m_dragBtn->setToolTip("拖动模式");
     m_dragBtn->setObjectName("DragBtn");
 
     m_measureBtn = new QPushButton(this);
     m_measureBtn->setCheckable(true);
-    m_measureBtn->setIcon(QIcon(":/resources/icon/ui/ruler.svg"));
+    m_measureBtn->setIcon((UiTheme::classicEnabled ? QIcon(":/resources/icon/meas.png") : QIcon(":/resources/icon/ui/ruler.svg")));
     m_measureBtn->setToolTip("测量模式");
     m_measureBtn->setObjectName("MeasureBtn");
 

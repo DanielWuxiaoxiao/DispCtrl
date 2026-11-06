@@ -10,6 +10,7 @@
  * @file statspanel.cpp
  * @brief 多目标统计面板实现
  */
+#include "Basic/uitheme.h"
 #include "statspanel.h"
 #include <QPainter>
 #include <QPaintEvent>
@@ -23,7 +24,7 @@ StatsChart::StatsChart(QWidget* parent)
     : QWidget(parent)
 {
     setMinimumHeight(120);
-    setStyleSheet(UiFontScale::style("background: #12171c;"));
+    setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? "background: #0d0d0d;" : "background: #12171c;")));
 }
 
 void StatsChart::setWindowSec(int seconds)
@@ -55,10 +56,10 @@ void StatsChart::paintEvent(QPaintEvent*)
     const int chartW = W - marginL - marginR;
     const int chartH = H - marginT - marginB;
 
-    p.fillRect(rect(), QColor(0x12, 0x17, 0x1c));
+    p.fillRect(rect(), (UiTheme::classicEnabled ? QColor(0x0d, 0x0d, 0x0d) : UiTheme::color(QColor(0x12, 0x17, 0x1c))));
 
     if (m_samples.isEmpty()) {
-        p.setPen(QColor(0xa6, 0xb2, 0xbd));
+        p.setPen((UiTheme::classicEnabled ? QColor(0x44, 0x44, 0x44) : UiTheme::color(QColor(0xa6, 0xb2, 0xbd))));
         p.drawText(rect(), Qt::AlignCenter, QStringLiteral("等待数据..."));
         return;
     }
@@ -72,18 +73,18 @@ void StatsChart::paintEvent(QPaintEvent*)
     }
 
     // 网格
-    p.setPen(QPen(QColor(0x30, 0x3b, 0x44)));
+    p.setPen(QPen((UiTheme::classicEnabled ? QColor(0x22, 0x22, 0x22) : UiTheme::color(QColor(0x30, 0x3b, 0x44)))));
     for (int i = 0; i <= 4; ++i) {
         int y = marginT + chartH - i * chartH / 4;
         p.drawLine(marginL, y, W - marginR, y);
-        p.setPen(QColor(0xa6, 0xb2, 0xbd));
+        p.setPen((UiTheme::classicEnabled ? QColor(0x44, 0x44, 0x44) : UiTheme::color(QColor(0xa6, 0xb2, 0xbd))));
         p.setFont(UiFontScale::pointFont("Consolas", 9));
         p.drawText(0, y - 6, marginL - 2, 14, Qt::AlignRight, QString::number(i * yMax / 4));
-        p.setPen(QPen(QColor(0x30, 0x3b, 0x44)));
+        p.setPen(QPen((UiTheme::classicEnabled ? QColor(0x22, 0x22, 0x22) : UiTheme::color(QColor(0x30, 0x3b, 0x44)))));
     }
 
     // X轴标签（每10s一格）
-    p.setPen(QColor(0xa6, 0xb2, 0xbd));
+    p.setPen((UiTheme::classicEnabled ? QColor(0x55, 0x55, 0x55) : UiTheme::color(QColor(0xa6, 0xb2, 0xbd))));
     p.setFont(UiFontScale::pointFont("Consolas", 8));
     p.drawText(marginL, H - marginB + 4, chartW, 20, Qt::AlignLeft,
                QStringLiteral("-%1s").arg(m_samples.size()));
@@ -145,7 +146,7 @@ StatsPanel::StatsPanel(QWidget* parent)
     auto mkRateLbl = [&]() {
         auto* l = new QLabel(QStringLiteral("0/s"), this);
         l->setAlignment(Qt::AlignCenter);
-        l->setStyleSheet(UiFontScale::style(QStringLiteral("color:#a6b2bd; font-size:11px;")));
+        l->setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? QStringLiteral("color:#888; font-size:11px;") : QStringLiteral("color:#a6b2bd; font-size:11px;"))));
         return l;
     };
 
@@ -229,8 +230,10 @@ void StatsPanel::onSecondTick()
 void StatsPanel::applyStyle()
 {
     setStyleSheet(UiFontScale::style(
-        "StatsPanel { background: #12171c; }"
+        (UiTheme::classicEnabled ? "StatsPanel { background: #0a0a0a; }"
+        "QWidget { background: #0a0a0a; }"
+        "QLabel  { background: transparent; }" : "StatsPanel { background: #12171c; }"
         "QWidget { background: #12171c; }"
-        "QLabel  { background: transparent; }"
+        "QLabel  { background: transparent; }")
     ));
 }

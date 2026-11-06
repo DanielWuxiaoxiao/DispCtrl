@@ -197,6 +197,7 @@ private:
 
     // 显示控制参数
     bool m_visible = true;                 ///< 全局可见性标志
+    bool m_droneRedEnabled = false;        ///< 启动时读取无人机检测点红色开关
     float m_pointSizeRatio = 1.0f;         ///< 点尺寸缩放比例
     int m_maxPoints = 1000;                ///< 最大检测点数量限制
 

@@ -161,7 +161,7 @@ struct TrackSeries {
     QGraphicsLineItem* labelLine = nullptr;     ///< 标签到最新点的连线
     bool visible = true;                        ///< 航迹可见性标志
     bool focused = false;                       ///< 是否关注该批次
-    bool externallyReported = false;            ///< 是否正在被总控或激光上报
+    bool externallyReported = false;            ///< 外部上报状态，供航迹标签显示
     QString externalReportText;                 ///< 外部上报状态文字，例如“自动上报中”
     QColor color;                               ///< 航迹颜色
     bool hasCustomColor = false;                ///< 外部指定的固定颜色，不被常规识别颜色覆盖

@@ -10,6 +10,7 @@
  * @file logpanel.cpp
  * @brief 操作日志时间轴面板实现
  */
+#include "Basic/uitheme.h"
 #include "logpanel.h"
 #include <QDateTime>
 #include <QFileDialog>
@@ -37,7 +38,7 @@ LogPanel::LogPanel(QWidget* parent)
     toolbar->setContentsMargins(4, 2, 4, 2);
     toolbar->setSpacing(6);
     auto* filterLbl = new QLabel(QStringLiteral("过滤:"), this);
-    filterLbl->setStyleSheet(UiFontScale::style("color:#a6b2bd; font-size:12px;"));
+    filterLbl->setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? "color:#aaa; font-size:12px;" : "color:#a6b2bd; font-size:12px;")));
     toolbar->addWidget(filterLbl);
     toolbar->addWidget(m_filterCombo);
     toolbar->addStretch();
@@ -178,7 +179,17 @@ void LogPanel::rebuildDisplay()
 void LogPanel::applyStyle()
 {
     setStyleSheet(UiFontScale::style(
-        "LogPanel { background: #12171c; }"
+        (UiTheme::classicEnabled ? "LogPanel { background: #0a0a0a; }"
+        "QListWidget { background: #0d0d0d; border: 1px solid #333; color: #ccc; }"
+        "QListWidget::item:selected { background: #1a2a3a; }"
+        "QComboBox { background: #1a1a1a; color: #ccc; border: 1px solid #444; "
+        "           padding: 2px 6px; min-width: 90px; }"
+        "QComboBox QAbstractItemView { background: #1a1a1a; color: #ccc; "
+        "                              selection-background-color: #2a3a4a; }"
+        "QPushButton { background: #1c2c1c; color: #44ff44; border: 1px solid #44ff44; "
+        "              padding: 2px 10px; border-radius: 3px; font-size:12px; }"
+        "QPushButton:hover { background: #2c3c2c; }"
+        "QLabel { color: #ccc; font-size: 12px; }" : "LogPanel { background: #12171c; }"
         "QListWidget { background: #12171c; border: 1px solid #303b44; color: #e8edf1; }"
         "QListWidget::item:selected { background: #275260; }"
         "QComboBox { background: #1b2228; color: #e8edf1; border: 1px solid #303b44; "
@@ -188,7 +199,7 @@ void LogPanel::applyStyle()
         "QPushButton { background: #232d34; color: #e8edf1; border: 1px solid #303b44; "
         "              padding: 2px 10px; border-radius: 3px; font-size:12px; }"
         "QPushButton:hover { background: #293b43; }"
-        "QLabel { color: #e8edf1; font-size: 12px; }"
+        "QLabel { color: #e8edf1; font-size: 12px; }")
     ));
 }
 

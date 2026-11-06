@@ -6,6 +6,7 @@
  * @LastEditTime: 2026-09-12 12:22:53
  * @Description: 
  */
+#include "Basic/uitheme.h"
 #include "scanlayer.h"
 #include "polaraxis.h"
 #include "../Basic/ConfigManager.h"
@@ -86,12 +87,12 @@ void ScanLayer::paint(QPainter* painter,
     painter->setRenderHint(QPainter::Antialiasing);
 
     const QPainterPath scanAreas = coveragePath();
-    painter->fillPath(scanAreas, QColor(120, 203, 216, 30));
-    painter->setPen(QPen(QColor(120, 203, 216, 120), 3.0));
+    painter->fillPath(scanAreas, (UiTheme::classicEnabled ? QColor(0, 255, 136, 30) : UiTheme::color(QColor(120, 203, 216, 30))));
+    painter->setPen(QPen((UiTheme::classicEnabled ? QColor(0, 255, 136, 120) : UiTheme::color(QColor(120, 203, 216, 120))), 3.0));
     painter->setBrush(Qt::NoBrush);
     painter->drawPath(scanAreas);
 
-    QPen boundaryPen(QColor(234, 140, 147), 2.0, Qt::DashLine);
+    QPen boundaryPen((UiTheme::classicEnabled ? QColor(255, 70, 70) : UiTheme::color(QColor(234, 140, 147))), 2.0, Qt::DashLine);
     boundaryPen.setCosmetic(true);
     painter->setPen(boundaryPen);
     for (const auto& line : tasBoundaryLines()) if (!line.isNull()) painter->drawLine(line);
@@ -183,11 +184,11 @@ void ScanLayer::paintMarker(QPainter* painter, const QPainterPath& path)
 {
     if (path.isEmpty()) return;
     QLinearGradient gradient(path.pointAtPercent(0), path.pointAtPercent(1));
-    gradient.setColorAt(0, QColor(234, 140, 147, 0));
-    gradient.setColorAt(0.25, QColor(234, 140, 147, 180));
-    gradient.setColorAt(0.5, QColor(234, 140, 147, 255));
-    gradient.setColorAt(0.75, QColor(234, 140, 147, 180));
-    gradient.setColorAt(1, QColor(234, 140, 147, 0));
+    gradient.setColorAt(0, (UiTheme::classicEnabled ? QColor(255, 0, 0, 0) : UiTheme::color(QColor(234, 140, 147, 0))));
+    gradient.setColorAt(0.25, (UiTheme::classicEnabled ? QColor(255, 0, 0, 180) : UiTheme::color(QColor(234, 140, 147, 180))));
+    gradient.setColorAt(0.5, (UiTheme::classicEnabled ? QColor(255, 0, 0, 255) : UiTheme::color(QColor(234, 140, 147, 255))));
+    gradient.setColorAt(0.75, (UiTheme::classicEnabled ? QColor(255, 0, 0, 180) : UiTheme::color(QColor(234, 140, 147, 180))));
+    gradient.setColorAt(1, (UiTheme::classicEnabled ? QColor(255, 0, 0, 0) : UiTheme::color(QColor(234, 140, 147, 0))));
     QPen pen(QBrush(gradient), MarkerWidth, Qt::SolidLine, Qt::RoundCap);
     pen.setCosmetic(true); // Five logical display pixels, independent of view zoom.
     painter->setPen(pen);

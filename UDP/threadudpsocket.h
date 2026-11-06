@@ -226,6 +226,7 @@ signals:
 
     /// 伺服回送信号
     void servoCtrlRet(ServoCtrlRet);
+    void systemTimeSyncResult(bool succeeded);
 
     /// BIT 上报信号
     void bitReport(BITReport);

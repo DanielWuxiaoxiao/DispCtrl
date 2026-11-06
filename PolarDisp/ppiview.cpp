@@ -16,6 +16,7 @@
  * @version 1.0
  */
 
+#include "Basic/uitheme.h"
 #include "ppiview.h"
 #include "ppisscene.h"
 #include "pviewtopleft.h"
@@ -424,12 +425,17 @@ void PPIView::setupOverlay() {
     m_externalQuickActionPanel = new QFrame(this);
     m_externalQuickActionPanel->setObjectName(QStringLiteral("externalQuickActionPanel"));
     m_externalQuickActionPanel->setStyleSheet(UiFontScale::style(
-        QStringLiteral("QFrame#externalQuickActionPanel { background: rgba(18,23,28,175); "
+        (UiTheme::classicEnabled ? QStringLiteral("QFrame#externalQuickActionPanel { background: rgba(4, 25, 25, 210); "
+                       "border: 1px solid #00BFA5; border-radius: 4px; }"
+                       "QPushButton { min-height: 28px; padding: 2px 10px; color: #D9FFFF; "
+                       "background: #075A58; border: 1px solid #00D7C0; border-radius: 3px; }"
+                       "QPushButton:hover { background: #087A75; }"
+                       "QPushButton:disabled { color: #809090; border-color: #426060; background: #183232; }") : QStringLiteral("QFrame#externalQuickActionPanel { background: rgba(18,23,28,175); "
                        "border: 1px solid #303b44; border-radius: 4px; }"
                        "QPushButton { min-height: 28px; padding: 2px 10px; color: #e8edf1; "
                        "background: rgba(27,34,40,100); border: 1px solid #303b44; border-radius: 3px; }"
                        "QPushButton:hover { background: rgba(41,59,67,210); }"
-                       "QPushButton:disabled { color: #82919e; border-color: #303b44; background: rgba(27,34,40,100); }")));
+                       "QPushButton:disabled { color: #82919e; border-color: #303b44; background: rgba(27,34,40,100); }"))));
     auto* quickActionLayout = new QHBoxLayout(m_externalQuickActionPanel);
     quickActionLayout->setContentsMargins(6, 5, 6, 5);
     quickActionLayout->setSpacing(6);
@@ -1828,6 +1834,29 @@ void PPIView::replayCommandControlTrack(const PointInfo& info, quint32 sourceDev
 
 QColor PPIView::commandControlReplayColor(quint32 sourceDeviceId, bool sourceIsLocal)
 {
+    if (UiTheme::classicEnabled) {
+        auto colorIt = m_commandControlReplayColors.find(sourceDeviceId);
+        if (colorIt != m_commandControlReplayColors.end()) {
+            return colorIt.value();
+        }
+
+        static const QColor remoteColors[] = {
+            QColor(QStringLiteral("#00D7FF")), QColor(QStringLiteral("#FFB000")),
+            QColor(QStringLiteral("#C080FF")), QColor(QStringLiteral("#80FF80")),
+            QColor(QStringLiteral("#FF70C8")), QColor(QStringLiteral("#4FA8FF"))
+        };
+        const QColor color = sourceIsLocal
+                                 ? QColor(QStringLiteral("#FF3030"))
+                                 : remoteColors[m_commandControlReplayColors.size()
+                                                % (sizeof(remoteColors) / sizeof(remoteColors[0]))];
+        m_commandControlReplayColors.insert(sourceDeviceId, color);
+        if (sourceIsLocal) {
+            m_commandControlReplayLocalDevices.insert(sourceDeviceId);
+        }
+        updateCommandControlReplayLegend();
+        return color;
+    }
+
     auto colorIt = m_commandControlReplayColors.find(sourceDeviceId);
     if (colorIt != m_commandControlReplayColors.end()) {
         return colorIt.value();
@@ -1856,15 +1885,16 @@ void PPIView::updateCommandControlReplayLegend()
         m_commandControlReplayLegend = new QFrame(this);
         m_commandControlReplayLegend->setObjectName(QStringLiteral("commandControlReplayLegend"));
         m_commandControlReplayLegend->setStyleSheet(UiFontScale::style(
-            QStringLiteral("QFrame#commandControlReplayLegend { background: rgba(18,23,28,175); "
-                           "border: 1px solid #303b44; border-radius: 4px; }")));
+            (UiTheme::classicEnabled ? QStringLiteral("QFrame#commandControlReplayLegend { background: rgba(4, 25, 25, 210); "
+                           "border: 1px solid #00BFA5; border-radius: 4px; }") : QStringLiteral("QFrame#commandControlReplayLegend { background: rgba(18,23,28,175); "
+                           "border: 1px solid #303b44; border-radius: 4px; }"))));
         auto* layout = new QVBoxLayout(m_commandControlReplayLegend);
         layout->setContentsMargins(8, 6, 8, 6);
         layout->setSpacing(2);
         m_commandControlReplayLegendText = new QLabel(m_commandControlReplayLegend);
         m_commandControlReplayLegendText->setTextFormat(Qt::RichText);
         m_commandControlReplayLegendText->setStyleSheet(UiFontScale::style(
-            QStringLiteral("QLabel { color: #e8edf1; font-size: 12px; background: transparent; }")));
+            (UiTheme::classicEnabled ? QStringLiteral("QLabel { color: #D9FFFF; font-size: 12px; background: transparent; }") : QStringLiteral("QLabel { color: #e8edf1; font-size: 12px; background: transparent; }"))));
         layout->addWidget(m_commandControlReplayLegendText);
     }
 

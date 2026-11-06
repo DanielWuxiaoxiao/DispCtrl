@@ -16,6 +16,7 @@
  * @version 1.0
  */
 
+#include "Basic/uitheme.h"
 #include "polargrid.h"
 #include <QPen>
 #include <QFont>
@@ -189,7 +190,7 @@ void PolarGrid::updateGrid() {
 
     // === 5. 主方向十字分割线绘制（90°间隔） ===
     // 绘制四条主要方向的径向线：北(0°)、东(90°)、南(180°)、西(270°)
-    QPen crossPen(QColor(120, 203, 216, 128));  // 半透明冷青
+    QPen crossPen((UiTheme::classicEnabled ? QColor(0, 255, 136, 128) : QColor(120, 203, 216, 128)));  // 半透明冷青
     crossPen.setStyle(Qt::DashLine);
     for (int angle=0; angle<360; angle+=90) {
         double ang = angle;

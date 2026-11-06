@@ -1,3 +1,4 @@
+#include "Basic/uitheme.h"
 #include "track3dwidget.h"
 
 #include "../Basic/ConfigManager.h"
@@ -8,14 +9,18 @@
 
 #include <QColor>
 #include <QDateTime>
+#include <QDoubleValidator>
 #include <QElapsedTimer>
 #include <QHideEvent>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLineEdit>
+#include <QLocale>
 #include <QPushButton>
 #include <QShowEvent>
 #include <QTimer>
 #include <QUrl>
+#include <QUrlQuery>
 #include <QVBoxLayout>
 #include <QWebChannel>
 #include <QWebEnginePage>
@@ -32,7 +37,15 @@ constexpr int kWebUpdateIntervalMs = 50;
 constexpr int kPageReadyTimeoutMs = 10000;
 constexpr int kConsoleLogIntervalMs = 5000;
 constexpr qint64 kInvalidPointLogIntervalMs = 5000;
-const QUrl kTrack3DPageUrl(QStringLiteral("qrc:///track3d/index.html"));
+QUrl track3DPageUrl()
+{
+    QUrl url(UiTheme::classicEnabled ? QStringLiteral("qrc:///track3d/index_classic.html")
+                                    : QStringLiteral("qrc:///track3d/index.html"));
+    QUrlQuery query;
+    query.addQueryItem(QStringLiteral("theme"), UiTheme::name());
+    url.setQuery(query);
+    return url;
+}
 
 bool fuzzyEqual(double lhs, double rhs)
 {
@@ -127,12 +140,17 @@ Track3DWidget::Track3DWidget(QWidget* parent)
     auto* toolbar = new QWidget(this);
     toolbar->setObjectName(QStringLiteral("Track3DToolBar"));
     toolbar->setAttribute(Qt::WA_StyledBackground, true);
-    auto* toolbarLayout = new QHBoxLayout(toolbar);
-    toolbarLayout->setContentsMargins(5, 2, 5, 2);
+    auto* toolbarRows = new QVBoxLayout(toolbar);
+    toolbarRows->setContentsMargins(5, 2, 5, 2);
+    toolbarRows->setSpacing(3);
+    auto* toolbarLayout = new QHBoxLayout;
+    toolbarRows->addLayout(toolbarLayout);
     toolbarLayout->setSpacing(10);
 
+    const QString controlsHelp = tr("左键拖动旋转，右键或 Shift+左键拖动平移，滚轮缩放");
     auto* titleLabel = new QLabel(tr("三维航迹"), toolbar);
     titleLabel->setObjectName(QStringLiteral("Track3DTitleLabel"));
+    titleLabel->setToolTip(controlsHelp);
     toolbarLayout->addWidget(titleLabel);
 
     m_trackCountLabel = new QLabel(tr("航迹: 0"), toolbar);
@@ -146,7 +164,51 @@ Track3DWidget::Track3DWidget(QWidget* parent)
 
     m_resetButton = new QPushButton(tr("视角复位"), toolbar);
     m_resetButton->setObjectName(QStringLiteral("Track3DResetButton"));
+    m_resetButton->setToolTip(controlsHelp);
     toolbarLayout->addWidget(m_resetButton);
+
+    auto* heightLayout = new QHBoxLayout;
+    heightLayout->setSpacing(5);
+    toolbarRows->addLayout(heightLayout);
+    heightLayout->addWidget(new QLabel(tr("高度 (m)"), toolbar));
+    auto* minHeightEdit = new QLineEdit(QString::number(m_minHeightM), toolbar);
+    auto* maxHeightEdit = new QLineEdit(QString::number(m_maxHeightM), toolbar);
+    minHeightEdit->setToolTip(tr("最小显示高度 (m)"));
+    maxHeightEdit->setToolTip(tr("最大显示高度 (m)"));
+    for (auto* edit : {minHeightEdit, maxHeightEdit}) {
+        edit->setMaximumWidth(UiFontScale::pixels(80));
+        auto* validator = new QDoubleValidator(edit);
+        validator->setDecimals(2);
+        validator->setNotation(QDoubleValidator::StandardNotation);
+        QLocale locale = QLocale::c();
+        locale.setNumberOptions(QLocale::RejectGroupSeparator);
+        validator->setLocale(locale);
+        edit->setValidator(validator);
+    }
+    heightLayout->addWidget(minHeightEdit);
+    heightLayout->addWidget(new QLabel(QStringLiteral("~"), toolbar));
+    heightLayout->addWidget(maxHeightEdit);
+    auto* applyHeightButton = new QPushButton(tr("应用"), toolbar);
+    applyHeightButton->setToolTip(tr("应用 3D 高度量程，上限须大于下限"));
+    heightLayout->addWidget(applyHeightButton);
+    heightLayout->addStretch();
+
+    const auto updateHeightRange = [this, minHeightEdit, maxHeightEdit, applyHeightButton](bool apply) {
+        bool minOk = false;
+        bool maxOk = false;
+        const double minHeight = minHeightEdit->text().toDouble(&minOk);
+        const double maxHeight = maxHeightEdit->text().toDouble(&maxOk);
+        const bool valid = minOk && maxOk && minHeightEdit->hasAcceptableInput()
+                        && maxHeightEdit->hasAcceptableInput()
+                        && std::isfinite(maxHeight - minHeight) && maxHeight > minHeight;
+        applyHeightButton->setEnabled(valid);
+        if (apply && valid) setHeightRange(minHeight, maxHeight);
+    };
+    for (auto* edit : {minHeightEdit, maxHeightEdit}) {
+        connect(edit, &QLineEdit::textChanged, this, [updateHeightRange] { updateHeightRange(false); });
+        connect(edit, &QLineEdit::returnPressed, this, [updateHeightRange] { updateHeightRange(true); });
+    }
+    connect(applyHeightButton, &QPushButton::clicked, this, [updateHeightRange] { updateHeightRange(true); });
 
     mainLayout->addWidget(toolbar);
 
@@ -207,7 +269,7 @@ Track3DWidget::Track3DWidget(QWidget* parent)
                 .arg(exitCode));
     });
 
-    m_webView->load(kTrack3DPageUrl);
+    m_webView->load(track3DPageUrl());
 }
 
 Track3DWidget::~Track3DWidget() = default;
@@ -284,6 +346,7 @@ QVariantMap Track3DWidget::trackPayload(const TrackSeries& track, int sampleCoun
 QVariantMap Track3DWidget::sceneState() const
 {
     QVariantMap state;
+    state.insert(QStringLiteral("theme"), UiTheme::name());
     state.insert(QStringLiteral("minRangeM"), m_minRangeM);
     state.insert(QStringLiteral("maxRangeM"), m_maxRangeM);
     state.insert(QStringLiteral("minHeightM"), m_minHeightM);
@@ -662,7 +725,7 @@ void Track3DWidget::handleRendererFailure(const QString& reason)
             }
             LOG_WARNING("[Track3DWidget] Reloading 3D page after renderer failure");
             m_failurePending = false;
-            m_webView->load(kTrack3DPageUrl);
+            m_webView->load(track3DPageUrl());
             // loadStarted normally arms this; also cover an early load failure.
             startPageReadyWatchdog();
         });
@@ -679,13 +742,18 @@ void Track3DWidget::showRendererFailurePage(const QString& reason)
     m_pageReady = false;
     m_flushTimer->stop();
     m_pageReadyTimer->stop();
-    const QString html = QStringLiteral(
-        "<!doctype html><html><head><meta charset='utf-8'></head>"
+    const QString html = QString(
+        (UiTheme::classicEnabled ? "<!doctype html><html><head><meta charset='utf-8'></head>"
+        "<body style='margin:0;background:#0a1010;color:#66ffcc;font-family:Microsoft YaHei,sans-serif;"
+        "display:flex;align-items:center;justify-content:center;height:100vh;'>"
+        "<div style='border:1px solid #00ff88;padding:18px 28px;background:#101818;'>"
+        "<div style='font-size:18px;margin-bottom:8px;'>3D渲染不可用</div>"
+        "<div style='font-size:12px;color:#9ab8ad;'>%1</div></div></body></html>" : "<!doctype html><html><head><meta charset='utf-8'></head>"
         "<body style='margin:0;background:#12171c;color:#e8edf1;font-family:Microsoft YaHei,sans-serif;"
         "display:flex;align-items:center;justify-content:center;height:100vh;'>"
         "<div style='border:1px solid #303b44;padding:18px 28px;background:#1b2228;'>"
         "<div style='font-size:18px;margin-bottom:8px;'>3D渲染不可用</div>"
-        "<div style='font-size:12px;color:#a6b2bd;'>%1</div></div></body></html>")
+        "<div style='font-size:12px;color:#a6b2bd;'>%1</div></div></body></html>"))
         .arg(reason.toHtmlEscaped());
     m_webView->setHtml(UiFontScale::style(html));
 }

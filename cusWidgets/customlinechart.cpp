@@ -302,7 +302,7 @@ void CustomLineChart::drawAxes()
 
             QGraphicsTextItem* label = new QGraphicsTextItem(labelText);
             label->setFont(labelFont);
-            label->document()->setDocumentMargin(0);
+            if (!UiTheme::classicEnabled) label->document()->setDocumentMargin(0);
             label->setDefaultTextColor(m_textColor);
 
             // 居中对齐
@@ -330,7 +330,7 @@ void CustomLineChart::drawAxes()
 
             QGraphicsTextItem* label = new QGraphicsTextItem(labelText);
             label->setFont(labelFont);
-            label->document()->setDocumentMargin(0);
+            if (!UiTheme::classicEnabled) label->document()->setDocumentMargin(0);
             label->setDefaultTextColor(m_textColor);
 
             // 右对齐
@@ -350,12 +350,12 @@ void CustomLineChart::drawAxes()
         titleFont.setBold(true);
         titleFont.setPixelSize(UiFontScale::pixels(14));
         xTitle->setFont(titleFont);
-        xTitle->document()->setDocumentMargin(0);
+        if (!UiTheme::classicEnabled) xTitle->document()->setDocumentMargin(0);
         xTitle->setDefaultTextColor(m_textColor);
 
         QRectF titleRect = xTitle->boundingRect();
         xTitle->setPos(m_leftMargin + width / 2 - titleRect.width() / 2,
-                      qMax(m_topMargin + height + 25, xLabelsBottom + 2));
+                      (UiTheme::classicEnabled ? m_topMargin + height + 25 : qMax(m_topMargin + height + 25, xLabelsBottom + 2)));
 
         m_scene->addItem(xTitle);
         m_axisLabels.append(xTitle);
@@ -368,7 +368,7 @@ void CustomLineChart::drawAxes()
         titleFont.setBold(true);
         titleFont.setPixelSize(UiFontScale::pixels(14));
         yTitle->setFont(titleFont);
-        yTitle->document()->setDocumentMargin(0);
+        if (!UiTheme::classicEnabled) yTitle->document()->setDocumentMargin(0);
         yTitle->setDefaultTextColor(m_textColor);
 
         QRectF titleRect = yTitle->boundingRect();

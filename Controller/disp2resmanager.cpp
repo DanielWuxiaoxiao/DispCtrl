@@ -154,6 +154,12 @@ void Disp2ResManager::sendTrackDataRateControl(quint16 batch, quint8 rateHz)
     sendParam(reinterpret_cast<char*>(&command), sizeof(command));
 }
 
+void Disp2ResManager::sendSystemTimeSyncControl()
+{
+    SystemTimeSyncControl command;
+    sendParam(reinterpret_cast<char*>(&command), sizeof(command));
+}
+
 void Disp2ResManager::sendSPParam(SigProParam param)
 {
     LOG_DEBUG(QString("[Disp2ResManager] sendSPParam called, commCount: %1").arg(commCount));

@@ -10,6 +10,20 @@
 #include <QBoxLayout>
 
 namespace HealthUi {
+inline constexpr char Unreported[] = "#dfbd82";
+inline constexpr char UnreportedSurface[] = "#342d20";
+
+inline const char* statusColor(UiTheme::Status state)
+{
+    switch (state) {
+    case UiTheme::Status::Normal: return UiTheme::Normal;
+    case UiTheme::Status::Fault: return UiTheme::Fault;
+    case UiTheme::Status::Unknown: return Unreported;
+    case UiTheme::Status::Inactive: return UiTheme::Secondary;
+    }
+    return UiTheme::Secondary;
+}
+
 inline void applyStyle(QWidget* widget, const QString& designStyle)
 {
     const QString scaled = UiFontScale::style(designStyle);
@@ -50,8 +64,7 @@ public:
     void setStatus(UiTheme::Status state, const QString& text, bool marker = true)
     {
         const bool fault = state == UiTheme::Status::Fault;
-        const char* color = fault ? UiTheme::Fault
-            : state == UiTheme::Status::Normal && m_presentation != Layout::Row ? UiTheme::Normal : UiTheme::Secondary;
+        const char* color = statusColor(state);
         QString prefix;
         if (marker && m_presentation != Layout::Row) {
             prefix = state == UiTheme::Status::Normal ? QStringLiteral("● ")
@@ -92,6 +105,7 @@ public:
     {
         const bool normal = state == UiTheme::Status::Normal;
         const bool fault = state == UiTheme::Status::Fault;
+        const bool unknown = state == UiTheme::Status::Unknown;
         const QString number = QStringLiteral("%1").arg(m_number, 2, 10, QLatin1Char('0'));
         const QString value = number + (fault ? QStringLiteral(" !") : normal ? QString() : QStringLiteral(" —"));
         if (text() != value) setText(value);
@@ -100,9 +114,8 @@ public:
         setToolTip(description);
         setAccessibleName(description);
         applyStyle(this, QStringLiteral("QLabel {background:%1;color:%2;border:1px solid %3;border-radius:5px;font-size:16px;padding:0;}")
-            .arg(normal ? UiTheme::NormalSurface : fault ? UiTheme::FaultSurface : UiTheme::Surface,
-                 normal ? UiTheme::Normal : fault ? UiTheme::Fault : UiTheme::Secondary,
-                 fault ? UiTheme::Fault : "transparent"));
+            .arg(normal ? UiTheme::NormalSurface : fault ? UiTheme::FaultSurface : UnreportedSurface,
+                 statusColor(state), fault || unknown ? statusColor(state) : "transparent"));
     }
 private:
     int m_number;

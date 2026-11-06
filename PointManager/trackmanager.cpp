@@ -46,7 +46,11 @@ constexpr qreal kFocusedLabelZ = INFO_Z + 21;
 constexpr qreal kFocusedLabelFontScale = 1.2;
 constexpr int kPpiRefreshIntervalMs = 16; // ~60 FPS when the GUI thread keeps up.
 
-const QColor kExternalReportLabelColor(120, 203, 216);
+const QColor kClassicExternalReportLabelColor(0, 222, 166);
+const QColor& externalReportLabelColor()
+{
+    return UiTheme::classicEnabled ? kClassicExternalReportLabelColor : PPI_ACCENT_COLOR;
+}
 
 quint64 makeTrackKey(PointType type, int batch)
 {
@@ -176,10 +180,10 @@ public:
         }
 
         painter->save();
-        painter->setRenderHint(QPainter::Antialiasing,
-                               m_series->focused || m_series->externallyReported);
+        painter->setRenderHint(QPainter::Antialiasing, m_series->focused);
 
-        if (m_series->hasCustomColor || m_series->externallyReported) {
+        // Reporting is shown in the label; only an explicit color overrides the batch.
+        if (m_series->hasCustomColor) {
             QVarLengthArray<QLineF, 256> lines;
             QVarLengthArray<QPointF, 256> points;
             for (int i = 1; i < m_series->nodes.size(); ++i) {
@@ -194,18 +198,16 @@ public:
                 }
             }
 
-            const QColor seriesColor = displayedSeriesColor(*m_series, m_series->nodes.last().info);
-            QPen linePen(seriesColor);
-            linePen.setWidth((m_series->focused || m_series->externallyReported) ? 2 : 1);
+            QPen linePen(m_series->color);
+            linePen.setWidth(m_series->focused ? 2 : 1);
             linePen.setCapStyle(Qt::RoundCap);
             painter->setPen(linePen);
             if (!lines.isEmpty()) {
                 painter->drawLines(lines.constData(), lines.size());
             }
 
-            QPen pointPen(seriesColor);
-            pointPen.setWidthF((m_series->focused || m_series->externallyReported)
-                ? 2.0 : qMax<qreal>(1.0, m_pointRadius * 2.0));
+            QPen pointPen(m_series->color);
+            pointPen.setWidthF(m_series->focused ? 2.0 : qMax<qreal>(1.0, m_pointRadius * 2.0));
             pointPen.setCapStyle(Qt::RoundCap);
             painter->setPen(pointPen);
             if (!points.isEmpty()) {
@@ -550,7 +552,7 @@ void DraggableLabel::paint(QPainter* painter, const QStyleOptionGraphicsItem* op
         // boundingRect() 已包含该边距；背景本身只围绕文字原始区域扩展一次。
         QRectF backgroundRect = QGraphicsTextItem::boundingRect().adjusted(-6.0, -4.0, 6.0, 4.0);
         QColor borderColor = defaultTextColor();
-        const QColor fillColor(27, 34, 40, 230);
+        const QColor fillColor = (UiTheme::classicEnabled ? QColor(8, 18, 18, 230) : QColor(27, 34, 40, 230));
         painter->setPen(QPen(borderColor, 1.5));
         painter->setBrush(QBrush(fillColor));
         painter->drawRoundedRect(backgroundRect, 4.0, 4.0);
@@ -1060,7 +1062,7 @@ void TrackManager::updateLatestLabel(quint64 trackKey, bool force)
         return;
     }
     const QColor seriesColor = displayedSeriesColor(s, pi);
-    const QColor labelColor = s.externallyReported ? kExternalReportLabelColor : seriesColor;
+    const QColor labelColor = s.externallyReported ? externalReportLabelColor() : seriesColor;
     const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
     const bool labelExists = (s.label != nullptr);
 

@@ -1,3 +1,4 @@
+#include "Basic/uitheme.h"
 #include "devicemodule.h"
 #include "devicetransport.h"
 #include "Basic/ConfigManager.h"
@@ -431,6 +432,49 @@ void ElectromagneticDeviceModule::restoreAutomaticRadarPosition()
 
 void ElectromagneticDeviceModule::showOriginDialog(QWidget* parent)
 {
+    if (UiTheme::classicEnabled) {
+        if (!m_enabled) return;
+        QDialog dialog(parent);
+        dialog.setWindowTitle(QStringLiteral("手动配置经纬高"));
+        dialog.setStyleSheet(UiFontScale::style("QDialog { background:#071b17; color:#66ffcc; } QLabel { color:#66ffcc; }"
+            "QDoubleSpinBox { background:#102820; color:#d9ffff; padding:6px; border:1px solid #00bfa5; }"
+            "QPushButton { background:#075a58; color:#d9ffff; padding:6px 12px; border:1px solid #00bfa5; }"));
+        auto* layout = new QVBoxLayout(&dialog);
+        Wgs84Coordinate::Lla origin; QString source;
+        currentRadarOrigin(origin, source);
+        auto* hint = new QLabel(&dialog);
+        hint->setWordWrap(true);
+        hint->hide();
+        layout->addWidget(hint);
+        auto* form = new QFormLayout(); layout->addLayout(form);
+        auto makeInput = [&dialog, form](const QString& name, double minimum, double maximum, int decimals, double value) {
+            auto* input = new QDoubleSpinBox(&dialog); input->setLocale(QLocale::c());
+            input->setDecimals(decimals); input->setRange(minimum, maximum); input->setValue(value);
+            form->addRow(name, input); return input;
+        };
+        auto* longitude = makeInput(QStringLiteral("经度(°)"), -180, 180, 7, origin.longitudeDeg);
+        auto* latitude = makeInput(QStringLiteral("纬度(°)"), -90, 90, 7, origin.latitudeDeg);
+        auto* altitude = makeInput(QStringLiteral("海拔高度(m)"), -2147483648.0, 2147483647.0, 3, origin.altitudeM);
+        auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        buttons->button(QDialogButtonBox::Ok)->setText(QStringLiteral("确定"));
+        buttons->button(QDialogButtonBox::Cancel)->setText(QStringLiteral("取消"));
+        auto* automatic = buttons->addButton(QStringLiteral("恢复自动"), QDialogButtonBox::ResetRole);
+        layout->addWidget(buttons);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, [&] {
+            if (!longitude->hasAcceptableInput() || !latitude->hasAcceptableInput() || !altitude->hasAcceptableInput()) {
+                hint->setText(QStringLiteral("请输入有效的经纬度和高度。"));
+                hint->show();
+                return;
+            }
+            longitude->interpretText(); latitude->interpretText(); altitude->interpretText();
+            if (setManualRadarPosition(latitude->value(), longitude->value(), altitude->value())) dialog.accept();
+        });
+        connect(automatic, &QPushButton::clicked, &dialog, [&] { restoreAutomaticRadarPosition(); dialog.accept(); });
+        dialog.exec();
+        return;
+    }
+
     if (!m_enabled) return;
     QPointer<CusWindow> host = new CusWindow(QStringLiteral("手动配置经纬高"),
         QIcon(":/resources/icon/ui/sliders.svg"), parent);
@@ -853,9 +897,11 @@ void ElectromagneticDeviceModule::showWindow(QWidget* parent)
         dialog->setObjectName("ElectromagneticDeviceWindow");
         dialog->setAttribute(Qt::WA_DeleteOnClose);
         dialog->resize(720, 430);
-        dialog->setStyleSheet(UiFontScale::style("QDialog#ElectromagneticDeviceWindow { background:#12171c; color:#e8edf1; }"
+        dialog->setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? "QDialog#ElectromagneticDeviceWindow { background:#071b17; color:#66ffcc; }"
+                              "QDialog#ElectromagneticDeviceWindow QLabel { color:#66ffcc; padding:6px; }"
+                              "QDialog#ElectromagneticDeviceWindow QCheckBox { color:#66ffcc; padding:6px; }" : "QDialog#ElectromagneticDeviceWindow { background:#12171c; color:#e8edf1; }"
                               "QDialog#ElectromagneticDeviceWindow QLabel { color:#e8edf1; padding:6px; }"
-                              "QDialog#ElectromagneticDeviceWindow QCheckBox { color:#e8edf1; padding:6px; }"));
+                              "QDialog#ElectromagneticDeviceWindow QCheckBox { color:#e8edf1; padding:6px; }")));
         auto* layout = new QVBoxLayout(dialog);
         layout->addWidget(new QLabel(QStringLiteral("显控 %1:%2 (0x%3) → 电磁设备 %4:%5 (0x%6)")
             .arg(m_localIp).arg(m_localPort).arg(m_localId, 4, 16, QLatin1Char('0'))
@@ -915,7 +961,7 @@ void ElectromagneticDeviceModule::updateUi()
     if (!m_window || !m_window->isVisible()) return;
     auto show = [this](int index, bool good, const QString& text) {
         m_labels[index]->setText(text);
-        m_labels[index]->setStyleSheet(UiFontScale::style(QStringLiteral("color:%1; background:#1b2228; padding:6px;")
+        m_labels[index]->setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? QStringLiteral("color:%1; background:#102820; padding:6px;") : QStringLiteral("color:%1; background:#1b2228; padding:6px;"))
             .arg(good ? "#78d4a5" : "#ea8c93")));
     };
     show(0, m_localOk, m_networkEnabled ? QStringLiteral("本机网口：%1").arg(m_localOk ? "正常" : "不可用") : QStringLiteral("网络检测已关闭"));

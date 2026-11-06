@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <script>
+      document.documentElement.setAttribute("data-theme",
+        new URLSearchParams(window.location.search).get("theme") === "classic" ? "classic" : "graphite");
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
@@ -29,6 +33,7 @@
         z-index: 9999;
         background: rgba(18, 29, 38, 0.50);
       }
+      html[data-theme="classic"] #mapMask { background: rgba(2,40,18,0.55); }
     </style>
   </head>
 

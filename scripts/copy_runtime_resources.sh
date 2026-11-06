@@ -30,7 +30,7 @@ copy_tree "$SOURCE/resources/style" 'resources/style/'
 copy_tree "$SOURCE/resources/icon" 'resources/icon/'
 for required in config.toml black.html index.html indexNoL.html indexS.html index3d.html \
     maplibre.html qwebchannel.js amap/AMap3.js amap/2.0.1 amap/init.js amap/mapsplugin.js \
-    resources/style/darkstyle.qss resources/icon/radararray.png; do
+    resources/style/darkstyle.qss resources/icon/dispctrl-app.png resources/icon/radararray.png; do
     [[ -s "$DEST/$required" ]] || { echo "Missing runtime resource: $required" >&2; exit 1; }
 done
 # config.toml is mutable after deployment; only immutable resources are verified.

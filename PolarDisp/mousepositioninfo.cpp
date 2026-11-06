@@ -6,6 +6,7 @@
  * @LastEditTime: 2026-09-12 12:22:51
  * @Description: 
  */
+#include "Basic/uitheme.h"
 #include "mousepositioninfo.h"
 #include "ui_mousepositioninfo.h"
 #include "Basic/ConfigManager.h"
@@ -39,14 +40,14 @@ MousePositionInfo::MousePositionInfo(QWidget *parent) :
     // 检测点：绿色圆圈
     {
         QLabel* detColorLabel = new QLabel("●", this);
-        detColorLabel->setStyleSheet(UiFontScale::style(QString("color: %1; font-size: 18px;").arg(DET_COLOR.name())));
+        detColorLabel->setStyleSheet(UiFontScale::style(QString((UiTheme::classicEnabled ? "color: #00FF00; font-size: 18px;" : "color: %1; font-size: 18px;")).arg(DET_COLOR.name())));
         detColorLabel->setFixedWidth(16);
         ui->checkboxLayout->insertWidget(1, detColorLabel);
     }
     // 跟踪点：红色圆圈
     {
         QLabel* trackColorLabel = new QLabel("●", this);
-        trackColorLabel->setStyleSheet(UiFontScale::style(QString("color: %1; font-size: 18px;").arg(TRA_COLOR.name())));
+        trackColorLabel->setStyleSheet(UiFontScale::style(QString((UiTheme::classicEnabled ? "color: #FF0000; font-size: 18px;" : "color: %1; font-size: 18px;")).arg(TRA_COLOR.name())));
         trackColorLabel->setFixedWidth(16);
         ui->checkboxLayout->addWidget(trackColorLabel);
     }

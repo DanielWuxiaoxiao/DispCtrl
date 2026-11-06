@@ -98,6 +98,8 @@
 #include "Basic/uifontscale.h"
 #include "Basic/uitheme.h"
 #include "healthstatuswidgets.h"
+#include "classichealthwidgets.h"
+#include "Basic/classicui.h"
 #include <QScrollArea>
 #include <QScreen>
 
@@ -189,7 +191,7 @@ public:
         const bool externallyReporting = index.data(kTrackExternalReportingRole).toBool();
         if (externallyReporting) {
             // 保持黑色主题底色，仅以细框强调，避免破坏普通行和交替行的可读性。
-            QPen reportingPen{QColor(UiTheme::Accent)};
+            QPen reportingPen{(UiTheme::classicEnabled ? QColor(0, 222, 166) : QColor(UiTheme::Accent))};
             reportingPen.setWidth(2);
             painter->setPen(reportingPen);
             painter->setBrush(Qt::NoBrush);
@@ -198,7 +200,7 @@ public:
 
         if (index.data(kTrackReportingBoundaryRole).toBool()) {
             // 第一条未上报航迹上方的粗分割线，将上报与未上报两组清晰分开。
-            QPen boundaryPen{QColor(UiTheme::Accent)};
+            QPen boundaryPen{(UiTheme::classicEnabled ? QColor(0, 255, 200) : QColor(UiTheme::Accent))};
             boundaryPen.setWidth(3);
             painter->setPen(boundaryPen);
             painter->drawLine(option.rect.topLeft(), option.rect.topRight());
@@ -209,7 +211,7 @@ public:
             QFont heightFont = itemOption.font;
             heightFont.setBold(true);
             painter->setFont(heightFont);
-            painter->setPen(QColor(UiTheme::Normal));
+            painter->setPen((UiTheme::classicEnabled ? QColor(90, 255, 185) : QColor(UiTheme::Normal)));
             const QRect textRect = style->subElementRect(QStyle::SE_ItemViewItemText,
                                                          &itemOption, itemOption.widget);
             painter->drawText(textRect, itemOption.displayAlignment,
@@ -227,9 +229,10 @@ quint64 makeTrackTableUpdateKey(unsigned type, unsigned int batch)
 
 MainOverLayOut::MainOverLayOut(QWidget* parent) : QWidget(parent), ui(new Ui::MainOverLayOut) {
     ui->setupUi(this);
+    UiTheme::applyClassicMainIcons(this);
     // Scope the slightly larger text to these pages, including dynamically added test buttons.
     // 字号微增后收紧按钮内留白，小屏侧栏仍保留完整操作文字。
-    const QString controlButtonFont = UiFontScale::style(QStringLiteral("QPushButton { font-size:16px; padding:6px 14px; }"));
+    const QString controlButtonFont = UiFontScale::style((UiTheme::classicEnabled ? QStringLiteral("QPushButton { font-size:16px; }") : QStringLiteral("QPushButton { font-size:16px; padding:6px 14px; }")));
     ui->tab_4->setStyleSheet(controlButtonFont);
     ui->tab->setStyleSheet(controlButtonFont);
     setupResizableMainLayout();
@@ -804,10 +807,12 @@ void MainOverLayOut::topRightSet() {
     m_modeSwitchButton = new QPushButton(ui->SubtitleLabel->parentWidget());
     m_modeSwitchButton->setObjectName(QStringLiteral("modeSwitchButton"));
     m_modeSwitchButton->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
-    m_modeSwitchButton->setStyleSheet(UiFontScale::style(QStringLiteral(
-        "QPushButton#modeSwitchButton { color:#c4d3dd; background:rgba(32,46,55,150); border:1px solid #364a57; "
+    m_modeSwitchButton->setStyleSheet(UiFontScale::style(QString(
+        (UiTheme::classicEnabled ? "QPushButton#modeSwitchButton { color:#66FFCC; background:#123630; border:1px solid #66CCAA; "
         "border-radius:5px; font-size:15px; padding:3px 10px; min-height:24px; }"
-        "QPushButton#modeSwitchButton:hover { background:rgba(38,59,71,210); }")));
+        "QPushButton#modeSwitchButton:hover { background:#195046; }" : "QPushButton#modeSwitchButton { color:#c4d3dd; background:rgba(32,46,55,150); border:1px solid #364a57; "
+        "border-radius:5px; font-size:15px; padding:3px 10px; min-height:24px; }"
+        "QPushButton#modeSwitchButton:hover { background:rgba(38,59,71,210); }"))));
     modeRow->addWidget(m_modeSwitchButton, 0, Qt::AlignVCenter);
     modeRow->addStretch();
     ui->verticalLayout_6->addLayout(modeRow);
@@ -858,7 +863,7 @@ void MainOverLayOut::mainPView() {
     m_zoomView = new ZoomViewWidget(this);  // 添加父对象
     // 设置窗口属性
     layout1->addWidget(
-        new DetachableWidget("P显", m_zoomView, QIcon(":/resources/icon/ui/radar.svg"), this));
+        new DetachableWidget("P显", m_zoomView, (UiTheme::classicEnabled ? QIcon(":/resources/icon/scan.png") : QIcon(":/resources/icon/ui/radar.svg")), this));
 
     // 如果场景已设置，同步场景
     m_zoomView->setPPIScene(mScene);
@@ -884,13 +889,6 @@ void MainOverLayOut::mainPView() {
     m_rangeAzimuthWidget = new RangeAzimuthChartWidget(this);  // 新的直角坐标系图表显示
     m_rangeHeightWidget = new RangeHeightChartWidget(this);    // 新的距离-高度图表显示
     m_track3DWidget = new Track3DWidget(this);                  // 三维航迹显示
-
-    if (m_rangeHeightWidget && m_rangeHeightWidget->chart() && m_track3DWidget) {
-        connect(m_rangeHeightWidget->chart(), &RangeHeightChart::heightRangeChanged,
-                m_track3DWidget, &Track3DWidget::setHeightRange);
-        m_track3DWidget->setHeightRange(m_rangeHeightWidget->chart()->minHeight(),
-                                        m_rangeHeightWidget->chart()->maxHeight());
-    }
 
     // 从配置文件读取并应用初始最大检测点数量
     if (m_rangeAzimuthWidget && m_rangeAzimuthWidget->chart()) {
@@ -924,11 +922,11 @@ void MainOverLayOut::mainPView() {
 
     // 将距离-方位显示包装为可分离的widget
     DetachableWidget* rangeAzDetachable = new DetachableWidget(
-        "B显", m_rangeAzimuthWidget, QIcon(":/resources/icon/ui/radar.svg"), this);
+        "B显", m_rangeAzimuthWidget, (UiTheme::classicEnabled ? QIcon(":/resources/icon/radararray.png") : QIcon(":/resources/icon/ui/radar.svg")), this);
     DetachableWidget* rangeHeightDetachable = new DetachableWidget(
-        "高显", m_rangeHeightWidget, QIcon(":/resources/icon/ui/radar.svg"), this);
+        "高显", m_rangeHeightWidget, (UiTheme::classicEnabled ? QIcon(":/resources/icon/radararray.png") : QIcon(":/resources/icon/ui/radar.svg")), this);
     DetachableWidget* track3DDetachable = new DetachableWidget(
-        "3D显", m_track3DWidget, QIcon(":/resources/icon/ui/radar.svg"), this);
+        "3D显", m_track3DWidget, (UiTheme::classicEnabled ? QIcon(":/resources/icon/radararray.png") : QIcon(":/resources/icon/ui/radar.svg")), this);
 
     // 添加到TabWidget
     //displayTabWidget->addTab(sectorDetachable, "扇区显示");
@@ -1139,12 +1137,17 @@ void MainOverLayOut::setupRangeSettings() {
     // rangeLayout->addStretch();
 
     // 设置tab的样式，与其他tab保持一致的背景
-    rangeTab->setStyleSheet(UiFontScale::style(R"(
+    rangeTab->setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? R"(
+        QWidget {
+            background: rgba(16, 24, 24, 0.8);
+            border-radius: 8px;
+        }
+    )" : R"(
         QWidget {
             background: transparent;
             border-radius: 8px;
         }
-    )"));
+    )")));
 
     // 连接"设置"按钮点击信号，打开详细设置对话框
     connect(m_azElRangeWidget, &AzElRangeWidget::settingsButtonClicked,
@@ -1512,6 +1515,52 @@ void MainOverLayOut::updateTrackStatsWidgets()
 
 void MainOverLayOut::setupTrackTable(QTableWidget* tableWidget, FrozenColumnHelper*& frozenHelper)
 {
+    if (UiTheme::classicEnabled) {
+        if (!tableWidget) return;
+
+        QStringList headers;
+        headers << "ID" << "距离" << "方位" << "高度" << "速度" << "类型" << "SNR" << "幅度" << "俯仰";
+
+        tableWidget->setColumnCount(headers.size());
+        tableWidget->setHorizontalHeaderLabels(headers);
+        tableWidget->horizontalHeader()->setVisible(true);
+        tableWidget->verticalHeader()->setVisible(false);
+        tableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
+        tableWidget->setAlternatingRowColors(true);
+        tableWidget->setItemDelegate(new TrackTableItemDelegate(tableWidget));
+        tableWidget->setShowGrid(true);
+        tableWidget->setWordWrap(false);
+        tableWidget->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        tableWidget->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
+
+        QHeaderView* headerView = tableWidget->horizontalHeader();
+        // 初始列宽由 fitTrackTableColumnsToViewport 均匀分配；各列仍可手动调整。
+        headerView->setStretchLastSection(false);
+        headerView->setMinimumSectionSize(48);
+        for (int i = 0; i < headers.size(); ++i) {
+            headerView->setSectionResizeMode(i, QHeaderView::Interactive);
+        }
+        tableWidget->setProperty("trackColumnsNeedInitialFit", true);
+        tableWidget->setProperty("trackColumnsUserResized", false);
+        tableWidget->setProperty("trackColumnsFitting", false);
+        connect(headerView, &QHeaderView::sectionResized, tableWidget,
+                [tableWidget](int, int, int) {
+                    if (!tableWidget->property("trackColumnsFitting").toBool()) {
+                        tableWidget->setProperty("trackColumnsUserResized", true);
+                    }
+                });
+        fitTrackTableColumnsToViewport(tableWidget);
+        QTimer::singleShot(0, tableWidget, [this, tableWidget]() {
+            if (tableWidget->viewport()->width() > 0) {
+                fitTrackTableColumnsToViewport(tableWidget);
+                tableWidget->setProperty("trackColumnsNeedInitialFit", false);
+            }
+        });
+
+        frozenHelper = nullptr;
+        return;
+    }
+
     if (!tableWidget) return;
 
     QStringList headers;
@@ -1559,6 +1608,34 @@ void MainOverLayOut::setupTrackTable(QTableWidget* tableWidget, FrozenColumnHelp
 
 void MainOverLayOut::fitTrackTableColumnsToViewport(QTableWidget* tableWidget)
 {
+    if (UiTheme::classicEnabled) {
+        if (!tableWidget || tableWidget->columnCount() <= 0) {
+            return;
+        }
+
+        const int viewportWidth = tableWidget->viewport()->width();
+        if (viewportWidth <= 0 || tableWidget->columnCount() != TrackTableColumnCount) {
+            return;
+        }
+
+        // 前 8 列刚好铺满可视区；第 9 列“俯仰”固定放在右侧滚动区，默认不挤占主信息。
+        const int idWidth = qBound(54, viewportWidth / 10, 78);
+        const int remainingWidth = qMax(7 * 48, viewportWidth - idWidth);
+        const int commonWidth = remainingWidth / 7;
+        tableWidget->setProperty("trackColumnsFitting", true);
+        tableWidget->setColumnWidth(TrackIdColumn, idWidth);
+        int assignedWidth = idWidth;
+        for (int column = TrackRangeColumn; column <= TrackAmplitudeColumn; ++column) {
+            const int width = column == TrackAmplitudeColumn
+                ? qMax(48, viewportWidth - assignedWidth) : qMax(48, commonWidth);
+            tableWidget->setColumnWidth(column, width);
+            assignedWidth += width;
+        }
+        tableWidget->setColumnWidth(TrackElevationColumn, 72);
+        tableWidget->setProperty("trackColumnsFitting", false);
+        return;
+    }
+
     if (!tableWidget || tableWidget->columnCount() <= 0 ||
         tableWidget->property("trackColumnsUserResized").toBool()) {
         return;
@@ -1987,7 +2064,7 @@ int MainOverLayOut::addOrUpdateTrackRow(QTableWidget* tableWidget, const PointIn
     const QString rangeText = QString::number(info.range, 'f', 1);
     ensureItem(TrackRangeColumn)->setText(rangeText);
     // 仅首次遇到更长距离时扩容，不逐点测量字体或扫描整表，且尊重手动列宽。
-    if (!tableWidget->property("trackColumnsUserResized").toBool() &&
+    if (!UiTheme::classicEnabled && !tableWidget->property("trackColumnsUserResized").toBool() &&
         rangeText.size() > tableWidget->property("trackRangeTextCapacity").toInt()) {
         tableWidget->setProperty("trackRangeTextCapacity", rangeText.size());
         fitTrackTableColumnsToViewport(tableWidget);
@@ -2151,24 +2228,58 @@ QString MainOverLayOut::externalControlStatus(const PointInfo& info) const
 void MainOverLayOut::applyTrackRowAppearance(QTableWidget* tableWidget, int row, unsigned type,
                                              const QString& controlStatus) const
 {
+    if (UiTheme::classicEnabled) {
+        if (!tableWidget || row < 0 || row >= tableWidget->rowCount()) {
+            return;
+        }
+        const bool externallyControlled = isExternalControlStatus(controlStatus);
+        // 所有普通行都显式写入深色背景，避免交替行回退到系统白色调色板。
+        const QBrush normalBackground(row % 2 == 0 ? QColor(16, 24, 24)
+                                                    : QColor(25, 39, 37));
+        // QSS 统一负责黑色主题底色；这里保留画刷作为无 QSS 场景的安全回退。
+        // 实际的上报强调由代理绘制青色细框，避免使用浅色背景破坏原始主题。
+        const QBrush background = externallyControlled
+            ? QBrush(QColor(0, 104, 88))
+            : (type != PointType::Track ? QBrush(trackTypeColor(type).darker(170)) : normalBackground);
+        // 深色主题下显式指定浅色文字；空画刷会回退到系统调色板，导致黑灰字不可读。
+        const QBrush foreground = externallyControlled ? QBrush(QColor(240, 255, 251))
+                                                         : QBrush(QColor(238, 245, 245));
+        const QBrush heightForeground(QColor(90, 255, 185));
+        for (int col = 0; col < tableWidget->columnCount(); ++col) {
+            QTableWidgetItem* item = tableWidget->item(row, col);
+            if (!item) {
+                continue;
+            }
+            item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+            item->setBackground(background);
+            item->setForeground(col == TrackHeightColumn ? heightForeground : foreground);
+            item->setData(kTrackExternalReportingRole, externallyControlled);
+            item->setData(kTrackReportingBoundaryRole, false);
+            QFont font = item->font();
+            font.setBold(externallyControlled || col == TrackHeightColumn);
+            item->setFont(font);
+        }
+        return;
+    }
+
     if (!tableWidget || row < 0 || row >= tableWidget->rowCount()) {
         return;
     }
     const bool externallyControlled = isExternalControlStatus(controlStatus);
     // 表格在全屏地图上使用半透明底；同时保留无 QSS 时的深色回退。
-    const QBrush normalBackground(row % 2 == 0 ? QColor(18, 23, 28, 120)
-                                                : QColor(27, 34, 40, 140));
+    const QBrush normalBackground(row % 2 == 0 ? (UiTheme::classicEnabled ? QColor(16, 24, 24) : UiTheme::color(QColor(18, 23, 28, 120)))
+                                                : (UiTheme::classicEnabled ? QColor(25, 39, 37) : UiTheme::color(QColor(27, 34, 40, 140))));
     // QSS 统一负责黑色主题底色；这里保留画刷作为无 QSS 场景的安全回退。
     // 实际的上报强调由代理绘制青色细框，避免使用浅色背景破坏原始主题。
     QColor typeBackground = trackTypeColor(type).darker(170);
     typeBackground.setAlpha(140);
     const QBrush background = externallyControlled
-        ? QBrush(QColor(46, 75, 87, 160))
+        ? QBrush((UiTheme::classicEnabled ? QColor(0, 104, 88) : UiTheme::color(QColor(46, 75, 87, 160))))
         : (type != PointType::Track ? QBrush(typeBackground) : normalBackground);
     // 深色主题下显式指定浅色文字；空画刷会回退到系统调色板，导致黑灰字不可读。
-    const QBrush foreground = externallyControlled ? QBrush(QColor(UiTheme::Text))
-                                                     : QBrush(QColor(UiTheme::Text));
-    const QBrush heightForeground{QColor(UiTheme::Normal)};
+    const QBrush foreground = externallyControlled ? QBrush((UiTheme::classicEnabled ? QColor(240, 255, 251) : QColor(UiTheme::Text)))
+                                                     : QBrush((UiTheme::classicEnabled ? QColor(238, 245, 245) : QColor(UiTheme::Text)));
+    const QBrush heightForeground{(UiTheme::classicEnabled ? QColor(90, 255, 185) : QColor(UiTheme::Normal))};
     for (int col = 0; col < tableWidget->columnCount(); ++col) {
         QTableWidgetItem* item = tableWidget->item(row, col);
         if (!item) {
@@ -2254,6 +2365,7 @@ void MainOverLayOut::onStartSoftwareClicked() {
  */
 void MainOverLayOut::bindHealthPanel(int panelId)
 {
+    if (UiTheme::classicEnabled) { bindClassicHealthPanel(panelId); return; }
     if (panelId < 0 || panelId >= kRadarPanelCount) {
         return;
     }
@@ -2282,6 +2394,7 @@ void MainOverLayOut::scheduleHealthWindowRefresh()
 
 void MainOverLayOut::updateHealthWindow()
 {
+    if (UiTheme::classicEnabled) { updateClassicHealthWindow(); return; }
     // Periodic refresh comes only from Controller's complete 5-second window.
     // 如果窗口不存在或不可见，直接返回
     if (!m_healthWindow || !m_healthWindow->isVisible()) {
@@ -2385,18 +2498,22 @@ void MainOverLayOut::updateHealthWindow()
     if (widgets.powerCountLabel) {
         widgets.powerCountLabel->setText(visualState.hasConfirmedStatus
             ? QStringLiteral("%1 / 36 正常").arg(normalCount) : QStringLiteral("36 路 · 待上报"));
+        setStyleSheetIfChanged(widgets.powerCountLabel, visualState.hasConfirmedStatus ? QString()
+            : QStringLiteral("color:%1;").arg(HealthUi::Unreported));
     }
     if (widgets.subArrayPowerSummaryLabel) {
         widgets.subArrayPowerSummaryLabel->setText(visualState.hasConfirmedStatus
             ? QStringLiteral("正常 %1 · 故障 %2\n5秒窗口 %3 帧 · 故障率 >90% 为故障")
                   .arg(normalCount).arg(faultyCount).arg(visualState.sampleCount)
             : QStringLiteral("尚未收到子阵电源 BIT 上报"));
+        setStyleSheetIfChanged(widgets.subArrayPowerSummaryLabel, visualState.hasConfirmedStatus ? QString()
+            : QStringLiteral("color:%1;").arg(HealthUi::Unreported));
     }
     if (faultyCount) faults.append(QStringLiteral("子阵电源 %1 路故障").arg(faultyCount));
 
     auto measurement = [hasPanelSnapshot](HealthUi::Field* field, const QString& value) {
         if (field) field->setStatus(hasPanelSnapshot ? Status::Inactive : Status::Unknown,
-                                  hasPanelSnapshot ? value : QStringLiteral("—"), false);
+                                  hasPanelSnapshot ? value : QStringLiteral("未上报"), false);
     };
     measurement(widgets.panelTemp, QStringLiteral("%1 °C").arg(m_lastBITReport.panelTemp * 0.1, 0, 'f', 1));
     measurement(widgets.fpgaTemp, QStringLiteral("%1 °C").arg(m_lastBITReport.fpgaTemp * 0.1, 0, 'f', 1));
@@ -2418,14 +2535,16 @@ void MainOverLayOut::updateHealthWindow()
     if (m_electromagneticHealthButton && !m_electromagneticLinkOk) faults.append(QStringLiteral("电磁设备状态异常"));
     if (m_healthAlert) {
         const bool fault = !faults.isEmpty();
+        const bool pending = !hasPanelSnapshot || !m_softwareStatusReceived || !visualState.hasConfirmedStatus;
         const QString text = fault ? QStringLiteral("!  %1").arg(faults.join(QStringLiteral("　/　")))
-            : !hasPanelSnapshot || !m_softwareStatusReceived
+            : pending
                 ? QStringLiteral("—  等待健康状态上报") : QStringLiteral("●  当前软件及阵面快照无异常");
         if (m_healthAlert->text() != text) m_healthAlert->setText(text);
         setStyleSheetIfChanged(m_healthAlert, QStringLiteral(
             "QLabel {background:%1;color:%2;border:none;border-left:3px solid %2;"
             "padding:14px 18px;font-size:16px;}")
-            .arg(fault ? UiTheme::FaultSurface : UiTheme::Surface, fault ? UiTheme::Fault : UiTheme::Secondary));
+            .arg(fault ? UiTheme::FaultSurface : UiTheme::Surface,
+                 fault ? UiTheme::Fault : pending ? HealthUi::Unreported : UiTheme::Normal));
     }
 }
 
@@ -2442,6 +2561,7 @@ void MainOverLayOut::updateNetworkHealthStatus(int index, bool ok, const QString
 
 void MainOverLayOut::applyNetworkHealthStatus(int index)
 {
+    if (UiTheme::classicEnabled) { applyClassicNetworkHealthStatus(index); return; }
     HealthUi::Field* button = nullptr;
     switch (index) {
     case SubsystemNetworkMonitor::RadarLocal: button = m_radarLocalNetworkBtn; break;
@@ -2491,7 +2611,7 @@ void MainOverLayOut::onTWSModeClicked() {
     logCommand("TWS模式设置", "打开TWS模式设置对话框");
 
     // 先创建CusWindow容器
-    CusWindow* cusWin = new CusWindow(tr("TWS模式设置"), QIcon(":/resources/icon/ui/radar.svg"), this);
+    CusWindow* cusWin = new CusWindow(tr("TWS模式设置"), (UiTheme::classicEnabled ? QIcon(":/resources/icon/radararray.png") : QIcon(":/resources/icon/ui/radar.svg")), this);
     cusWin->setAttribute(Qt::WA_DeleteOnClose);
 
     // 创建TWS模式对话框，传入cusWin作为父对象
@@ -2563,7 +2683,7 @@ void MainOverLayOut::onTASModeClicked() {
     logCommand("TAS模式设置", "打开TAS模式设置对话框");
 
     // 先创建CusWindow容器
-    CusWindow* cusWin = new CusWindow(tr("TAS模式设置"), QIcon(":/resources/icon/ui/radar.svg"), this);
+    CusWindow* cusWin = new CusWindow(tr("TAS模式设置"), (UiTheme::classicEnabled ? QIcon(":/resources/icon/radararray.png") : QIcon(":/resources/icon/ui/radar.svg")), this);
     cusWin->setAttribute(Qt::WA_DeleteOnClose);
 
     // 创建TAS模式对话框，传入cusWin作为父对象
@@ -2629,7 +2749,7 @@ void MainOverLayOut::onDataStorageClicked() {
 
     // 创建新窗口
     m_dataStorageWindow =
-        new CusWindow("数据存储管理", QIcon(":/resources/icon/ui/radar.svg"), this);
+        new CusWindow("数据存储管理", (UiTheme::classicEnabled ? QIcon(":/resources/icon/radararray.png") : QIcon(":/resources/icon/ui/radar.svg")), this);
     // CusWindow 已启用 WA_DeleteOnClose，关闭时由 destroyed 回调清空持有指针。
 
     m_dataStorageDialog = new DataSaveUI(m_dataStorageWindow);
@@ -2693,7 +2813,7 @@ void MainOverLayOut::onDataStorageClicked() {
  */
 void MainOverLayOut::onDataProcessClicked() {
     CusWindow* window =
-        new CusWindow("数据处理参数", QIcon(":/resources/icon/ui/radar.svg"), this);
+        new CusWindow("数据处理参数", (UiTheme::classicEnabled ? QIcon(":/resources/icon/radararray.png") : QIcon(":/resources/icon/ui/radar.svg")), this);
     window->setAttribute(Qt::WA_DeleteOnClose);
 
     DataProcessUI* dialog = new DataProcessUI(window);
@@ -2720,7 +2840,7 @@ void MainOverLayOut::onDataProcessClicked() {
    */
 void MainOverLayOut::onSignalProcessClicked() {
     CusWindow* window =
-        new CusWindow("信号处理参数", QIcon(":/resources/icon/ui/radar.svg"), this);
+        new CusWindow("信号处理参数", (UiTheme::classicEnabled ? QIcon(":/resources/icon/radararray.png") : QIcon(":/resources/icon/ui/radar.svg")), this);
     window->setAttribute(Qt::WA_DeleteOnClose);
 
     sigParamUI* dialog = new sigParamUI(window);
@@ -2752,7 +2872,7 @@ void MainOverLayOut::onFreqControlClicked() {
     }
     // 创建自定义窗口，使用雷达图标
     CusWindow* window =
-        new CusWindow("波形及采样控制", QIcon(":/resources/icon/ui/radar.svg"), this);
+        new CusWindow("波形及采样控制", (UiTheme::classicEnabled ? QIcon(":/resources/icon/radararray.png") : QIcon(":/resources/icon/ui/radar.svg")), this);
     window->setAttribute(Qt::WA_DeleteOnClose);
 
     // 创建对话框作为内容
@@ -2782,7 +2902,7 @@ void MainOverLayOut::onFreqControlClicked() {
 void MainOverLayOut::onBatteryControlClicked() {
     // 创建自定义窗口，使用雷达图标
     CusWindow* window =
-        new CusWindow("阵面开启控制", QIcon(":/resources/icon/ui/radar.svg"), this);
+        new CusWindow("阵面开启控制", (UiTheme::classicEnabled ? QIcon(":/resources/icon/radararray.png") : QIcon(":/resources/icon/ui/radar.svg")), this);
     window->setAttribute(Qt::WA_DeleteOnClose);
 
     // 创建对话框作为内容
@@ -2814,7 +2934,7 @@ void MainOverLayOut::onBatteryControlClicked() {
 }
 
 void MainOverLayOut::onServoControlClicked() {
-    CusWindow* window = new CusWindow("伺服控制", QIcon(":/resources/icon/ui/radar.svg"), this);
+    CusWindow* window = new CusWindow("伺服控制", (UiTheme::classicEnabled ? QIcon(":/resources/icon/radararray.png") : QIcon(":/resources/icon/ui/radar.svg")), this);
     window->setAttribute(Qt::WA_DeleteOnClose);
 
     ServoControl* dialog = new ServoControl(window);
@@ -2862,7 +2982,7 @@ void MainOverLayOut::onServoNorthClicked()
  */
 void MainOverLayOut::onScanRangeClicked() {
     CusWindow* window =
-        new CusWindow("工作模式控制", QIcon(":/resources/icon/ui/radar.svg"), this);
+        new CusWindow("工作模式控制", (UiTheme::classicEnabled ? QIcon(":/resources/icon/radararray.png") : QIcon(":/resources/icon/ui/radar.svg")), this);
     window->setAttribute(Qt::WA_DeleteOnClose);
 
     ScanRangeUI* dialog = new ScanRangeUI(window);
@@ -2889,7 +3009,7 @@ void MainOverLayOut::onScanRangeClicked() {
    */
 void MainOverLayOut::onPhotoelectricClicked() {
     CusWindow* window =
-        new CusWindow("光电系统控制", QIcon(":/resources/icon/ui/radar.svg"), this);
+        new CusWindow("光电系统控制", (UiTheme::classicEnabled ? QIcon(":/resources/icon/radararray.png") : QIcon(":/resources/icon/ui/radar.svg")), this);
     window->setAttribute(Qt::WA_DeleteOnClose);
 
     PhotoElectricParam* dialog = new PhotoElectricParam(window);
@@ -3097,9 +3217,10 @@ void MainOverLayOut::flushStatusUi()
 {
     // Called once after Controller has delivered the complete 5-second window.
     if (m_softwareUiPending) {
-        setStyleSheetIfChanged(ui->radarsystem, m_systemNormal ? QString() : QStringLiteral(
-            "QToolButton#radarsystem { background-color:rgba(53,37,45,190); color:#ea8c93; border:1px solid #d46574; border-radius:5px; }"
-            "QToolButton#radarsystem:hover { background-color:rgba(67,41,50,220); border:1px solid #ea8c93; }"));
+        setStyleSheetIfChanged(ui->radarsystem, m_systemNormal ? QString() : QString(
+            (UiTheme::classicEnabled ? "QToolButton#radarsystem { background-color:rgba(255,0,0,0.3); border:2px solid #cc0000; border-radius:5px; }"
+            "QToolButton#radarsystem:hover { background-color:rgba(255,0,0,0.5); border:2px solid #ff0000; }" : "QToolButton#radarsystem { background-color:rgba(53,37,45,190); color:#ea8c93; border:1px solid #d46574; border-radius:5px; }"
+            "QToolButton#radarsystem:hover { background-color:rgba(67,41,50,220); border:1px solid #ea8c93; }")));
         m_softwareUiPending = false;
     }
     if (m_servoUiPending) {
@@ -3159,6 +3280,7 @@ BITReport MainOverLayOut::currentElectromagneticPanelStatus() const
  * @details 显示信号处理、数据处理、波束调度、目标识别四个子系统的运行状态，实时更新
  */
 void MainOverLayOut::onRadarSystemClicked() {
+    if (UiTheme::classicEnabled) { createClassicHealthWindow(); return; }
     LOG_INFO("[UI_WINDOW][Health] open entered");
     // 如果窗口已存在，则直接显示
     if (m_healthWindow) {
@@ -3394,7 +3516,10 @@ void MainOverLayOut::onRadarSystemClicked() {
             powerGrid->addWidget(powerCell, row, column);
         }
         powerSection->addLayout(powerGrid);
-        powerSection->addWidget(new QLabel(QStringLiteral("● 正常　! 故障　— 未上报"), panelPage));
+        powerSection->addWidget(new QLabel(QStringLiteral(
+            "<span style='color:%1'>● 正常</span>　<span style='color:%2'>! 故障</span>　"
+            "<span style='color:%3'>— 未上报</span>")
+            .arg(UiTheme::Normal, UiTheme::Fault, HealthUi::Unreported), panelPage));
         widgets.subArrayPowerSummaryLabel = new QLabel(panelPage);
         widgets.subArrayPowerSummaryLabel->setWordWrap(true);
         HealthUi::applyStyle(widgets.subArrayPowerSummaryLabel,
@@ -3559,6 +3684,95 @@ void MainOverLayOut::refreshModeControls()
 
 void MainOverLayOut::arrangeParamSettingsButtons()
 {
+    if (UiTheme::classicEnabled) {
+        const bool multiPanelMode = CF_INS.defaultPanelCount() > 1;
+        const QList<QPushButton*> radarButtons = {
+            ui->btnStartSoftware, ui->btnStopSoftware, ui->btnTWSMode, ui->btnTASMode,
+            ui->btnDataStorage, ui->btnServoNorth, ui->btnRadarStandby, ui->btnTransmitControl
+        };
+        for (auto* button : radarButtons) {
+            ui->radarControlGrid->removeWidget(button);
+            button->hide();
+        }
+        int visibleRadarCount = 0;
+        for (auto* button : radarButtons) {
+            if (multiPanelMode && (button == ui->btnTWSMode || button == ui->btnServoNorth)) continue;
+            ui->radarControlGrid->addWidget(button, visibleRadarCount / 2, visibleRadarCount % 2);
+            button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+            button->show();
+            ++visibleRadarCount;
+        }
+        const int radarRows = (visibleRadarCount + 1) / 2;
+        for (int row = 0; row < ui->radarControlGrid->rowCount(); ++row) {
+            ui->radarControlGrid->setRowMinimumHeight(row, 0);
+            ui->radarControlGrid->setRowStretch(row, row < radarRows ? 1 : 0);
+        }
+        for (int column = 0; column < ui->radarControlGrid->columnCount(); ++column) {
+            ui->radarControlGrid->setColumnMinimumWidth(column, 0);
+            ui->radarControlGrid->setColumnStretch(column, column < 2 ? 1 : 0);
+        }
+        const QList<QPushButton*> managedButtons = {
+            ui->btnDataProcess,
+            ui->btnSignalProcess,
+            ui->btnServoControl,
+            ui->btnScanRange,
+            ui->btnFreqControl,
+            ui->btnBatteryControl,
+            m_commandControlButton
+        };
+
+        QList<QPushButton*> allManagedButtons = managedButtons;
+        if (m_electromagneticButton) allManagedButtons.append(m_electromagneticButton);
+        if (m_testDetectionButton) allManagedButtons.append(m_testDetectionButton);
+        if (m_testTrackButton) {
+            allManagedButtons.append(m_testTrackButton);
+        }
+
+        for (auto* btn : allManagedButtons) {
+            ui->paramSettingsGrid->removeWidget(btn);
+            btn->hide();
+        }
+
+        QList<QPushButton*> visibleButtons = {
+            ui->btnDataProcess,
+            ui->btnSignalProcess,
+            ui->btnServoControl,
+            ui->btnScanRange
+        };
+
+        if (AuthManager::instance().isAdminMode()) {
+            visibleButtons.append(ui->btnFreqControl);
+        }
+        visibleButtons.append(ui->btnBatteryControl);
+        if (m_commandControlModule && m_commandControlModule->isEnabled())
+            visibleButtons.append(m_commandControlButton);
+        if (m_electromagneticButton) visibleButtons.append(m_electromagneticButton);
+        if (m_testDetectionButton) visibleButtons.append(m_testDetectionButton);
+        if (m_testTrackButton) {
+            visibleButtons.append(m_testTrackButton);
+        }
+
+        for (int i = 0; i < visibleButtons.size(); ++i) {
+            auto* btn = visibleButtons.at(i);
+            // 动态创建的“总控通信”与 .ui 中按钮采用相同的尺寸策略，避免末行被压缩。
+            btn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+            btn->setMinimumHeight(56);
+            btn->show();
+            ui->paramSettingsGrid->addWidget(btn, i / 2, i % 2);
+        }
+        const int rowCount = (visibleButtons.size() + 1) / 2;
+        // Remove stale empty-row space when a configuration/permission hides an entry.
+        for (int row = rowCount; row < ui->paramSettingsGrid->rowCount(); ++row) {
+            ui->paramSettingsGrid->setRowMinimumHeight(row, 0);
+            ui->paramSettingsGrid->setRowStretch(row, 0);
+        }
+        for (int row = 0; row < rowCount; ++row) {
+            ui->paramSettingsGrid->setRowMinimumHeight(row, 56);
+            ui->paramSettingsGrid->setRowStretch(row, 1);
+        }
+        return;
+    }
+
     const bool multiPanelMode = CF_INS.defaultPanelCount() > 1;
     const QList<QPushButton*> radarButtons = {
         ui->btnStartSoftware, ui->btnStopSoftware, ui->btnTWSMode, ui->btnTASMode,
@@ -3652,6 +3866,45 @@ void MainOverLayOut::arrangeParamSettingsButtons()
  */
 void MainOverLayOut::updateTransmitButton()
 {
+    if (UiTheme::classicEnabled) {
+        if (m_isTransmitting) {
+            // 发射开启：绿色背景，文本为"关闭发射"
+            ui->btnTransmitControl->setText("关闭发射");
+            ui->btnTransmitControl->setStyleSheet(UiFontScale::style(
+                "QPushButton {"
+                "    background-color: #00ff00;"
+                "    color: #101818;"
+                "    border: 2px solid #66ffcc;"
+                "    border-radius: 8px;"
+                "}"
+                "QPushButton:hover {"
+                "    background-color: #33ff33;"
+                "    border: 2px solid #00ff88;"
+                "}"
+                "QPushButton:pressed {"
+                "    background-color: #00cc00;"
+                "}"));
+        } else {
+            // 发射关闭：红色背景，文本为"开启发射"
+            ui->btnTransmitControl->setText("开启发射");
+            ui->btnTransmitControl->setStyleSheet(UiFontScale::style(
+                "QPushButton {"
+                "    background-color: #ff0000;"
+                "    color: #ffffff;"
+                "    border: 2px solid #ff6666;"
+                "    border-radius: 8px;"
+                "}"
+                "QPushButton:hover {"
+                "    background-color: #ff3333;"
+                "    border: 2px solid #ff8888;"
+                "}"
+                "QPushButton:pressed {"
+                "    background-color: #cc0000;"
+                "}"));
+        }
+        return;
+    }
+
     ui->btnTransmitControl->setText(m_isTransmitting
         ? QStringLiteral("关闭发射\n本机状态：开启") : QStringLiteral("开启发射\n本机状态：关闭"));
     ui->btnTransmitControl->setToolTip(QStringLiteral("第一行为操作；第二行为本机控制状态，不代表设备回执。"));
@@ -3685,6 +3938,47 @@ void MainOverLayOut::resetTransmitState(const QString& reason)
  */
 void MainOverLayOut::updateStandbyButton()
 {
+    if (UiTheme::classicEnabled) {
+        if (m_isStandby) {
+            // 待机模式：红色背景，文本为"进入工作"
+            ui->btnRadarStandby->setText("进入工作");
+            ui->btnRadarStandby->setStyleSheet(UiFontScale::style(
+                "QPushButton {"
+                "    background-color: #ff0000;"
+                "    color: #ffffff;"
+                "    border: 2px solid #ff6666;"
+                "    border-radius: 8px;"
+                "    font-weight: bold;"
+                "}"
+                "QPushButton:hover {"
+                "    background-color: #ff3333;"
+                "    border: 2px solid #ff8888;"
+                "}"
+                "QPushButton:pressed {"
+                "    background-color: #cc0000;"
+                "}"));
+        } else {
+            // 工作模式：绿色背景，文本为"进入待机"
+            ui->btnRadarStandby->setText("进入待机");
+            ui->btnRadarStandby->setStyleSheet(UiFontScale::style(
+                "QPushButton {"
+                "    background-color: #00ff00;"
+                "    color: #101818;"
+                "    border: 2px solid #66ffcc;"
+                "    border-radius: 8px;"
+                "    font-weight: bold;"
+                "}"
+                "QPushButton:hover {"
+                "    background-color: #33ff33;"
+                "    border: 2px solid #00ff88;"
+                "}"
+                "QPushButton:pressed {"
+                "    background-color: #00cc00;"
+                "}"));
+        }
+        return;
+    }
+
     ui->btnRadarStandby->setText(m_isStandby
         ? QStringLiteral("进入工作\n本机状态：待机") : QStringLiteral("进入待机\n本机状态：工作"));
     ui->btnRadarStandby->setToolTip(QStringLiteral("第一行为操作；第二行为本机控制状态，不代表设备回执。"));
@@ -3715,7 +4009,7 @@ void MainOverLayOut::onRecordPlayClicked() {
 
     // 创建自定义窗口
     m_recorderWindow =
-        new CusWindow("记录回放", QIcon(":/resources/icon/ui/replay.svg"), this);
+        new CusWindow("记录回放", (UiTheme::classicEnabled ? QIcon(":/resources/icon/record.png") : QIcon(":/resources/icon/ui/replay.svg")), this);
     m_recorderWindow->setAttribute(Qt::WA_DeleteOnClose);
     m_recorderWindow->setMinimumSize(600, 700);
 
@@ -3765,11 +4059,11 @@ void MainOverLayOut::setupOfflineRaeButtons()
 
     m_offlineAdsbButton = createButton(QStringLiteral("OfflineAdsbButton"),
                                        QStringLiteral("ADSB点迹"),
-                                       QIcon(QStringLiteral(":/resources/icon/ui/awareness.svg")),
+                                       (UiTheme::classicEnabled ? QIcon(QStringLiteral(":/resources/icon/data.png")) : QIcon(QStringLiteral(":/resources/icon/ui/awareness.svg"))),
                                        0);
     m_offlineCompareButton = createButton(QStringLiteral("OfflineCompareButton"),
                                           QStringLiteral("对比点迹"),
-                                          QIcon(QStringLiteral(":/resources/icon/ui/radar.svg")),
+                                          (UiTheme::classicEnabled ? QIcon(QStringLiteral(":/resources/icon/radararray.png")) : QIcon(QStringLiteral(":/resources/icon/ui/radar.svg"))),
                                           1);
 
     connect(m_offlineAdsbButton, &QToolButton::clicked,

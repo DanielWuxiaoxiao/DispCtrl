@@ -22,10 +22,29 @@
     var pointObjects = [];
     var gridGroup = null;
     var pointsGroup = null;
+    var trackHeadTexture;
+    var trailLines;
+    var trailPosition;
+    var trailColor;
+    var segmentEnds = [];
+    var dirtySegmentStart = Infinity;
+    var dirtySegmentEnd = 0;
+    var trailRebuildPending = false;
+    var headsDirty = false;
     var axesSignature = '';
+    var defaultFov = 42;
     var pathStride = 5; // east, north, height, slant range, endpoint RGB
+    var palettes = {
+        graphite: { background: 0x12171c, major: 0x45616b, minor: 0x303b44,
+            axis: 0x78cbd8, label: '#a6b2bd', x: 0xea8c93, y: 0x78d4a5, z: 0x78cbd8 },
+        classic: { background: 0x0a1010, major: 0x00503c, minor: 0x003226,
+            axis: 0x00ff88, label: '#66ffcc', x: 0xff4f4f, y: 0x00ff88, z: 0x00aaff }
+    };
+    var theme = String(window.location.href).indexOf('theme=classic') >= 0 ? 'classic' : 'graphite';
+    var palette = palettes[theme];
 
     var viewState = {
+        theme: theme,
         minRangeM: 0,
         maxRangeM: 5000,
         minHeightM: 0,
@@ -37,6 +56,9 @@
         pointSizeRatio: 1,
         maxTrackPoints: 200
     };
+    var horizontalScaleM = viewState.maxRangeM;
+    var verticalBaseM = viewState.minHeightM;
+    var verticalScaleM = viewState.maxHeightM - verticalBaseM;
 
     var scene;
     var camera;
@@ -110,6 +132,9 @@
             renderPending = false;
             if (active && renderer && !startupFailed && viewportWidth > 0 && viewportHeight > 0) {
                 try {
+                    if (trailRebuildPending) rebuildTrailLines();
+                    uploadTrailChanges();
+                    if (headsDirty) rebuildTrackHeads();
                     renderer.render(scene, camera);
                     firstFrameRendered = true;
                     notifyPageReady();
@@ -121,7 +146,8 @@
     }
 
     function resetCamera() {
-        camera.position.set(1.7, 1.35, -1.7);
+        // From the south, +Z (north) is ahead and +X (east) projects to the left.
+        camera.position.set(0, 1.35, -2.4);
         controls.target.set(0, 0.35, 0);
         controls.update();
         requestRender();
@@ -141,6 +167,10 @@
             return;
         }
         camera.aspect = width / height;
+        // Keep east and west in frame in the narrow dock. OrbitControls uses FOV for panning.
+        var fitScale = Math.min(1, camera.aspect / 1.15);
+        camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(
+            Math.tan(THREE.MathUtils.degToRad(defaultFov) / 2) / fitScale));
         camera.updateProjectionMatrix();
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         renderer.setSize(width, height, false);
@@ -152,7 +182,7 @@
         if (!material) {
             return;
         }
-        if (material.map) {
+        if (material.map && material.map !== trackHeadTexture) {
             material.map.dispose();
         }
         material.dispose();
@@ -209,10 +239,29 @@
             depthTest: false
         });
         var sprite = new THREE.Sprite(material);
+        sprite.name = text;
         var width = Math.max(height * 1.3, height * Math.min(5.0, 0.62 * text.length));
         sprite.scale.set(width, height, 1);
         sprite.renderOrder = 10;
         return sprite;
+    }
+
+    function createTrackHeadTexture() {
+        var canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 64;
+        var context = canvas.getContext('2d');
+        context.fillStyle = '#ffffff';
+        context.beginPath();
+        context.moveTo(32, 5);
+        context.lineTo(7, 50);
+        context.lineTo(57, 50);
+        context.closePath();
+        context.fill();
+        return new THREE.CanvasTexture(canvas);
+    }
+
+    function formatAxisHeight(value) {
+        return String(Number(value.toFixed(2)));
     }
 
     function circlePoints(radius, y) {
@@ -230,10 +279,10 @@
         gridGroup = new THREE.Group();
         scene.add(gridGroup);
 
-        var majorColor = 0x45616b;
-        var minorColor = 0x303b44;
-        var axisColor = 0x78cbd8;
-        var labelColor = '#a6b2bd';
+        var majorColor = palette.major;
+        var minorColor = palette.minor;
+        var axisColor = palette.axis;
+        var labelColor = palette.label;
         var maxRangeKm = Math.max(0.001, Number(viewState.maxRangeM) / 1000);
         var minHeight = Number(viewState.minHeightM);
         var maxHeight = Number(viewState.maxHeightM);
@@ -249,19 +298,25 @@
         }
 
         for (var spoke = 0; spoke < 12; ++spoke) {
+            if (spoke % 3 === 0) continue; // The cardinal axes are drawn separately.
             var spokeAngle = spoke * Math.PI * 2 / 12;
             gridGroup.add(createLine([
                 new THREE.Vector3(0, 0, 0),
                 new THREE.Vector3(Math.sin(spokeAngle), 0, Math.cos(spokeAngle))
-            ], spoke % 3 === 0 ? majorColor : minorColor, spoke % 3 === 0 ? 0.75 : 0.5, false));
+            ], minorColor, 0.5, false));
         }
 
         gridGroup.add(createLine([
             new THREE.Vector3(-1, 0, 0), new THREE.Vector3(1, 0, 0)
-        ], 0xea8c93, 0.85, false));
+        ], palette.x, 0.85, false));
         gridGroup.add(createLine([
-            new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 0, 1)
-        ], 0x78cbd8, 0.85, false));
+            new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 0, 0)
+        ], palette.z, 0.85, false));
+        var northLine = createLine([
+            new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 1)
+        ], axisColor, 1, false);
+        northLine.name = 'north-azimuth-zero';
+        gridGroup.add(northLine);
 
         gridGroup.add(createLine(circlePoints(1, 1), majorColor, 0.42, true));
         var verticalLocations = [
@@ -279,30 +334,31 @@
         gridGroup.add(createLine([
             new THREE.Vector3(heightAxisX, 0, heightAxisZ),
             new THREE.Vector3(heightAxisX, 1, heightAxisZ)
-        ], 0x78d4a5, 0.9, false));
+        ], palette.y, 0.9, false));
         for (var tick = 0; tick <= 5; ++tick) {
             var y = tick / 5;
             gridGroup.add(createLine([
                 new THREE.Vector3(heightAxisX - 0.025, y, heightAxisZ),
                 new THREE.Vector3(heightAxisX + 0.025, y, heightAxisZ)
-            ], 0x78d4a5, 0.8, false));
+            ], palette.y, 0.8, false));
             var heightValue = minHeight + (maxHeight - minHeight) * y;
-            var heightLabel = createTextSprite(heightValue.toFixed(0) + ' m', labelColor, 0.065);
+            var heightLabel = createTextSprite(formatAxisHeight(heightValue) + ' m', labelColor, 0.065);
             heightLabel.position.set(heightAxisX - 0.09, y, heightAxisZ);
             gridGroup.add(heightLabel);
         }
 
         [
-            ['N', 0, 0.02, 1.1], ['S', 0, 0.02, -1.1],
-            ['E', 1.1, 0.02, 0], ['W', -1.1, 0.02, 0]
+            ['0° 正北', 0, 0.05, 1.12, 0.13], ['S', 0, 0.02, -1.1, 0.085],
+            ['E', 1.1, 0.02, 0, 0.085], ['W', -1.1, 0.02, 0, 0.085]
         ].forEach(function (labelData) {
-            var sprite = createTextSprite(labelData[0], '#78cbd8', 0.085);
+            var sprite = createTextSprite(labelData[0], '#' + axisColor.toString(16).padStart(6, '0'),
+                labelData[4]);
             sprite.position.set(labelData[1], labelData[2], labelData[3]);
             gridGroup.add(sprite);
         });
 
         axisRange.textContent = '量程 ' + maxRangeKm.toFixed(1) + ' km | 高度 '
-            + minHeight.toFixed(0) + '–' + maxHeight.toFixed(0) + ' m';
+            + formatAxisHeight(minHeight) + '–' + formatAxisHeight(maxHeight) + ' m';
         requestRender();
     }
 
@@ -330,18 +386,161 @@
             && heightM >= viewState.minHeightM && heightM <= viewState.maxHeightM;
     }
 
-    function rebuildTracks() {
+    function markSegmentDirty(index) {
+        dirtySegmentStart = Math.min(dirtySegmentStart, index);
+        dirtySegmentEnd = Math.max(dirtySegmentEnd, index + 1);
+    }
+
+    function reserveSegments(count) {
+        var capacity = trailPosition ? trailPosition.count / 2 : 0;
+        if (count <= capacity) return;
+        capacity = Math.max(128, capacity * 2, count);
+        var positions = new Float32Array(capacity * 6);
+        var colors = new Uint8Array(capacity * 6);
+        if (trailPosition) {
+            positions.set(trailPosition.array);
+            colors.set(trailColor.array);
+        }
+
+        trailLines.geometry.dispose();
+        trailLines.geometry = new THREE.BufferGeometry();
+        trailPosition = new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage);
+        trailColor = new THREE.BufferAttribute(colors, 3, true).setUsage(THREE.DynamicDrawUsage);
+        trailLines.geometry.setAttribute('position', trailPosition);
+        trailLines.geometry.setAttribute('color', trailColor);
+    }
+
+    function writeSegment(from, to, evicted) {
+        var index = evicted ? evicted.segment : -1;
+        if (index < 0) {
+            index = segmentEnds.length;
+            reserveSegments(index + 1);
+        } else {
+            // Reuse the expired segment's slot so a FIFO update can upload just one segment.
+            evicted.segment = -1;
+        }
+        to.segment = index;
+        segmentEnds[index] = to;
+
+        var positions = trailPosition.array;
+        var colors = trailColor.array;
+        var offset = index * 6;
+        positions[offset] = from.east / horizontalScaleM;
+        positions[offset + 1] = (from.height - verticalBaseM) / verticalScaleM;
+        positions[offset + 2] = from.north / horizontalScaleM;
+        positions[offset + 3] = to.east / horizontalScaleM;
+        positions[offset + 4] = (to.height - verticalBaseM) / verticalScaleM;
+        positions[offset + 5] = to.north / horizontalScaleM;
+        colors[offset] = colors[offset + 3] = (to.rgb >>> 16) & 255;
+        colors[offset + 1] = colors[offset + 4] = (to.rgb >>> 8) & 255;
+        colors[offset + 2] = colors[offset + 5] = to.rgb & 255;
+        markSegmentDirty(index);
+    }
+
+    function removeSegment(sample) {
+        var index = sample.segment;
+        if (index < 0) return;
+        var last = segmentEnds.pop();
+        if (last !== sample) {
+            // Keep the draw range dense when an entire batch or a clipped segment disappears.
+            var from = last.segment * 6;
+            var to = index * 6;
+            trailPosition.array.copyWithin(to, from, from + 6);
+            trailColor.array.copyWithin(to, from, from + 6);
+            segmentEnds[index] = last;
+            last.segment = index;
+            markSegmentDirty(index);
+        }
+        sample.segment = -1;
+    }
+
+    function uploadTrailChanges() {
+        trailLines.visible = segmentEnds.length > 0;
+        trailLines.geometry.setDrawRange(0, segmentEnds.length * 2);
+        if (dirtySegmentStart < dirtySegmentEnd) {
+            // Three r128 accepts a single contiguous dirty range per attribute.
+            var offset = dirtySegmentStart * 6;
+            var count = (dirtySegmentEnd - dirtySegmentStart) * 6;
+            trailPosition.updateRange.offset = trailColor.updateRange.offset = offset;
+            trailPosition.updateRange.count = trailColor.updateRange.count = count;
+            trailPosition.needsUpdate = trailColor.needsUpdate = true;
+            dirtySegmentStart = Infinity;
+            dirtySegmentEnd = 0;
+        }
+    }
+
+    function sampleAt(track, index) {
+        return track.samples[(track.firstSample + index) % track.samples.length];
+    }
+
+    function addVisibleSegments(track) {
+        if (!trackTypeVisible(track)) return;
+        var previous = null;
+        for (var i = 0; i < track.samples.length; ++i) {
+            var sample = sampleAt(track, i);
+            var visible = inView(sample.range, sample.height);
+            if (visible && previous) writeSegment(previous, sample, null);
+            previous = visible ? sample : null;
+        }
+    }
+
+    function rebuildTrailLines() {
+        segmentEnds.length = 0;
+        tracks.forEach(function (track) {
+            track.samples.forEach(function (sample) { sample.segment = -1; });
+            addVisibleSegments(track);
+        });
+        trailRebuildPending = false;
+    }
+
+    function appendSamples(track, incoming, draw) {
+        var samples = track.samples;
+        var limit = viewState.maxTrackPoints;
+        for (var i = Math.max(0, incoming.length - limit * pathStride); i < incoming.length; i += pathStride) {
+            var previous = samples.length ? sampleAt(track, samples.length - 1) : null;
+            var sample;
+            var evicted = null;
+            if (samples.length === limit) {
+                var next = (track.firstSample + 1) % limit;
+                // The new oldest sample must lose its incoming line.
+                evicted = samples[next];
+                sample = samples[track.firstSample];
+                track.firstSample = next;
+            } else {
+                sample = {};
+                samples.push(sample);
+            }
+            sample.east = incoming[i];
+            sample.north = incoming[i + 1];
+            sample.height = incoming[i + 2];
+            sample.range = incoming[i + 3];
+            sample.rgb = incoming[i + 4];
+            sample.segment = -1;
+            if (draw && limit > 1 && previous && inView(previous.range, previous.height)
+                && inView(sample.range, sample.height)) {
+                writeSegment(previous, sample, evicted);
+            } else if (evicted && !trailRebuildPending) {
+                removeSegment(evicted);
+            }
+        }
+    }
+
+    function removeTrack(key) {
+        var track = tracks.get(key);
+        if (!track) return;
+        if (!trailRebuildPending) track.samples.forEach(removeSegment);
+        tracks.delete(key);
+    }
+
+    function rebuildTrackHeads() {
         disposeGroup(pointsGroup);
         pointsGroup = new THREE.Group();
         scene.add(pointsGroup);
         pointObjects = [];
+        headsDirty = false;
 
         var pointBuckets = new Map();
-        var lineBuckets = new Map();
-        var maxRangeM = Math.max(1, Number(viewState.maxRangeM));
-        var minHeightM = Number(viewState.minHeightM);
-        var heightSpanM = Math.max(1, Number(viewState.maxHeightM) - minHeightM);
-        var pointSize = 0.032 * Math.max(0.5, Math.min(3, Number(viewState.pointSizeRatio)));
+        var pointSize = 0.06 * Math.max(0.5, Math.min(3, Number(viewState.pointSizeRatio)));
 
         tracks.forEach(function (track) {
             if (!trackTypeVisible(track)) return;
@@ -350,37 +549,14 @@
                 if (!pointBuckets.has(pointColor)) pointBuckets.set(pointColor, []);
                 pointBuckets.get(pointColor).push(track);
             }
-
-            var path = track.path;
-            var previousVisible = false;
-            for (var i = 0; i < path.length; i += pathStride) {
-                var visible = inView(path[i + 3], path[i + 2]);
-                if (visible && previousVisible) {
-                    var lineColor = path[i + 4];
-                    if (!lineBuckets.has(lineColor)) lineBuckets.set(lineColor, []);
-                    var positions = lineBuckets.get(lineColor);
-                    var prev = i - pathStride;
-                    positions.push(path[prev] / maxRangeM, (path[prev + 2] - minHeightM) / heightSpanM,
-                        path[prev + 1] / maxRangeM, path[i] / maxRangeM,
-                        (path[i + 2] - minHeightM) / heightSpanM, path[i + 1] / maxRangeM);
-                }
-                previousVisible = visible;
-            }
-        });
-
-        lineBuckets.forEach(function (positions, color) {
-            var geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
-            var material = new THREE.LineBasicMaterial({ color: color });
-            pointsGroup.add(new THREE.LineSegments(geometry, material));
         });
 
         pointBuckets.forEach(function (items, color) {
             var positions = new Float32Array(items.length * 3);
             items.forEach(function (track, index) {
-                positions[index * 3] = Number(track.eastM) / maxRangeM;
-                positions[index * 3 + 1] = (Number(track.heightM) - minHeightM) / heightSpanM;
-                positions[index * 3 + 2] = Number(track.northM) / maxRangeM;
+                positions[index * 3] = Number(track.eastM) / horizontalScaleM;
+                positions[index * 3 + 1] = (Number(track.heightM) - verticalBaseM) / verticalScaleM;
+                positions[index * 3 + 2] = Number(track.northM) / horizontalScaleM;
             });
 
             var geometry = new THREE.BufferGeometry();
@@ -388,9 +564,11 @@
             geometry.computeBoundingSphere();
             var material = new THREE.PointsMaterial({
                 color: color,
+                map: trackHeadTexture,
                 size: pointSize,
                 sizeAttenuation: true,
                 transparent: true,
+                alphaTest: 0.15,
                 opacity: 0.96,
                 depthWrite: true
             });
@@ -400,58 +578,89 @@
             pointObjects.push(points);
         });
 
-        raycaster.params.Points.threshold = pointSize * 1.45;
-        requestRender();
+        raycaster.params.Points.threshold = pointSize * 0.9;
     }
 
     function applyState(nextState) {
         var oldAxesSignature = axesSignature;
+        var filterChanged = false;
         Object.keys(viewState).forEach(function (key) {
-            if (Object.prototype.hasOwnProperty.call(nextState, key)) {
-                viewState[key] = nextState[key];
+            if (!Object.prototype.hasOwnProperty.call(nextState, key) || viewState[key] === nextState[key]) return;
+            if (key !== 'theme' && key !== 'pointSizeRatio') filterChanged = true;
+            if (key === 'maxTrackPoints') {
+                tracks.forEach(function (track) {
+                    var start = Math.max(0, track.samples.length - nextState.maxTrackPoints);
+                    if (start === 0 && track.firstSample === 0) return;
+                    var tail = [];
+                    for (var i = start; i < track.samples.length; ++i) {
+                        tail.push(sampleAt(track, i));
+                    }
+                    track.samples = tail;
+                    track.firstSample = 0;
+                });
             }
+            viewState[key] = nextState[key];
         });
+        palette = palettes[viewState.theme] || palettes.graphite;
+        document.documentElement.setAttribute('data-theme', viewState.theme === 'classic' ? 'classic' : 'graphite');
+        scene.background.setHex(palette.background);
+        renderer.setClearColor(palette.background, 1);
         axesSignature = [viewState.minRangeM, viewState.maxRangeM,
-                         viewState.minHeightM, viewState.maxHeightM].join('|');
+                         viewState.minHeightM, viewState.maxHeightM, viewState.theme].join('|');
         if (oldAxesSignature !== axesSignature) {
+            horizontalScaleM = Math.max(1, Number(viewState.maxRangeM));
+            verticalBaseM = Number(viewState.minHeightM);
+            var heightSpan = Number(viewState.maxHeightM) - verticalBaseM;
+            verticalScaleM = heightSpan > 0 && Number.isFinite(heightSpan) ? heightSpan : 1;
             rebuildAxes();
         }
-        rebuildTracks();
+        if (filterChanged) trailRebuildPending = true;
+        headsDirty = true;
+        requestRender();
     }
 
     function applySnapshot(snapshotTracks, state) {
         tracks.clear();
-        (snapshotTracks || []).forEach(function (track) {
-            track.path = track.path || [];
-            tracks.set(String(track.key), track);
-        });
+        segmentEnds.length = 0;
         applyState(state || {});
+        // A snapshot replaces every path, so build each visible line while loading its samples.
+        trailRebuildPending = false;
+        applyDelta(snapshotTracks, []);
     }
 
     function applyDelta(upserts, removals) {
-        (removals || []).forEach(function (key) {
-            tracks.delete(String(key));
-        });
+        (removals || []).forEach(function (key) { removeTrack(String(key)); });
         (upserts || []).forEach(function (track) {
             var key = String(track.key);
             var oldTrack = tracks.get(key);
-            var path = oldTrack ? oldTrack.path : [];
-            var incoming = track.path || [];
-            var limit = viewState.maxTrackPoints * pathStride;
-            var excess = path.length + incoming.length - limit;
-            if (excess > 0) path.splice(0, excess);
-            for (var i = Math.max(0, incoming.length - limit); i < incoming.length; ++i) {
-                path.push(incoming[i]);
+            track.samples = oldTrack ? oldTrack.samples : [];
+            track.firstSample = oldTrack ? oldTrack.firstSample : 0;
+            var visible = trackTypeVisible(track);
+            var rebuildBatch = !trailRebuildPending && oldTrack && trackTypeVisible(oldTrack) !== visible;
+            if (rebuildBatch) {
+                track.samples.forEach(removeSegment);
             }
-            track.path = path;
+            appendSamples(track, track.path || [], visible && !trailRebuildPending && !rebuildBatch);
+            track.path = null;
+            if (rebuildBatch) addVisibleSegments(track);
             tracks.set(key, track);
         });
-        rebuildTracks();
+        headsDirty = true;
+        requestRender();
     }
 
     function clearTracks() {
         tracks.clear();
-        rebuildTracks();
+        segmentEnds.length = 0;
+        trailLines.geometry.dispose();
+        trailLines.geometry = new THREE.BufferGeometry();
+        trailPosition = null;
+        trailColor = null;
+        dirtySegmentStart = Infinity;
+        dirtySegmentEnd = 0;
+        trailRebuildPending = false;
+        headsDirty = true;
+        requestRender();
         hideTooltip();
     }
 
@@ -500,7 +709,7 @@
     }
 
     function onPointerMove(event) {
-        if (!active || !pointObjects.length) {
+        if (!active || event.buttons || !pointObjects.length) {
             hideTooltip();
             return;
         }
@@ -564,17 +773,19 @@
         if (typeof THREE.OrbitControls !== 'function') throw new Error('Local OrbitControls resource did not load');
         pointer = new THREE.Vector2();
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x12171c);
+        document.documentElement.setAttribute('data-theme', theme);
+        scene.background = new THREE.Color(palette.background);
 
-        camera = new THREE.PerspectiveCamera(42, 1, 0.01, 100);
+        camera = new THREE.PerspectiveCamera(defaultFov, 1, 0.01, 100);
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-        renderer.setClearColor(0x12171c, 1);
+        renderer.setClearColor(palette.background, 1);
         renderer.outputEncoding = THREE.sRGBEncoding;
         root.appendChild(renderer.domElement);
 
         controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = false;
-        controls.enablePan = false;
+        controls.enablePan = true;
+        controls.screenSpacePanning = true;
         controls.minDistance = 0.8;
         controls.maxDistance = 8;
         controls.maxPolarAngle = Math.PI * 0.49;
@@ -582,6 +793,7 @@
         controls.addEventListener('start', hideTooltip);
 
         raycaster = new THREE.Raycaster();
+        trackHeadTexture = createTrackHeadTexture();
         renderer.domElement.addEventListener('mousemove', onPointerMove, { passive: true });
         renderer.domElement.addEventListener('mouseleave', hideTooltip, { passive: true });
         renderer.domElement.addEventListener('webglcontextlost', function (event) {
@@ -592,12 +804,19 @@
             console.info('[Track3D] WebGL context restored');
             if (startupFailed) return; // Native one-shot recovery owns a lost context.
             rebuildAxes();
-            rebuildTracks();
+            trailRebuildPending = true;
+            headsDirty = true;
             resizeRenderer();
         }, false);
 
         pointsGroup = new THREE.Group();
         scene.add(pointsGroup);
+        trailLines = new THREE.LineSegments(new THREE.BufferGeometry(),
+            new THREE.LineBasicMaterial({ vertexColors: true }));
+        // The dynamic geometry contains unused capacity and no cached bounding sphere.
+        trailLines.frustumCulled = false;
+        trailLines.visible = false;
+        scene.add(trailLines);
         resetCamera();
         rebuildAxes();
         sceneInitialized = true;

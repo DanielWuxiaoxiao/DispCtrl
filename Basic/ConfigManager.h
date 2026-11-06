@@ -297,6 +297,13 @@ public:
         return getValue("ui.dpi_policy", def).toString();
     }
 
+    QString uiTheme() const {
+        const QString theme = getValue("ui.theme", "graphite").toString().trimmed().toLower();
+        if (theme == QLatin1String("graphite") || theme == QLatin1String("classic")) return theme;
+        LOG_WARNING(QString("Invalid ui.theme=%1; using graphite").arg(theme));
+        return QStringLiteral("graphite");
+    }
+
     double uiScale(double def = 1.0) const {
         bool ok = false;
         const double value = getValue("ui.ui_scale", def).toDouble(&ok);
@@ -1162,6 +1169,7 @@ private:
             content += "[displayConfig]\n";
             content += "# 检测点显示配置 Detection Point Display Configuration\n";
             content += "max_points = 1000\n";
+            content += "detection_drone_red_enabled = false\n";
             content += "max_track_points = 200\n\n";
         }
 

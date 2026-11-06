@@ -35,7 +35,7 @@ win32 {
     CONFIG -= console
     CONFIG += windows
     RC_FILE = DispCtrl.rc
-    DISTFILES += resources/windows/radararray.ico
+    DISTFILES += resources/windows/dispctrl-app.ico
     LIBS += -ladvapi32
 }
 
@@ -192,6 +192,7 @@ SOURCES += \
     # 主界面模块 - 布局和控制面板
     mainPanel/azelrangewidget.cpp \
     mainPanel/mainoverlayout.cpp \
+    mainPanel/classichealthwindow.cpp \
     \
     # 地图显示模块
     mapDisp/mapprox.cpp
@@ -208,9 +209,11 @@ HEADERS += \
     Basic/pointinfovalidation.h \
     Basic/DispBasci.h \
     Basic/uitheme.h \
+    Basic/classicui.h \
     mainPanel/healthstatuswidgets.h \
     Basic/uifontscale.h \
     Basic/uiscale.h \
+    Basic/systemtimesync.h \
     Basic/Protocol.h \
     Basic/bitreportdecoder.h \
     Basic/wgs84coordinate.h \
@@ -335,6 +338,7 @@ HEADERS += \
     # 主界面模块头文件
     mainPanel/azelrangewidget.h \
     mainPanel/mainoverlayout.h \
+    mainPanel/classichealthwidgets.h \
     \
     # 地图显示模块头文件
     mapDisp/mapprox.h
@@ -370,6 +374,10 @@ FORMS += \
 
 RESOURCES += \
     resource.qrc
+
+# WebEngine loads these JavaScript sources in Chromium. Qt Creator may enable
+# qtquickcompiler, whose QML parser cannot compile the bundled Three.js.
+QTQUICK_COMPILER_SKIPPED_RESOURCES += resource.qrc
 
 ##############################################################################
 # 翻译文件配置

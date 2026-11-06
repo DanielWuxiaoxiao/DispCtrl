@@ -342,6 +342,19 @@ void ThreadedUdpSocket::handleDatagram(const QByteArray& data, int senderPort) {
                 emit bitReport(info);
                 break;
             }
+            case SystemTimeSyncReply::MessageId: {
+                if (m_Port != CF_INS.port("DATA_GET_DISP", DATA_GET_DISP)) break;
+                const quint16 sourceId = CF_INS.id("RES_DIS_ID", RES_DIS_ID);
+                const quint16 destId = CF_INS.id("DISP_CTRL_ID", DISP_CTRL_ID);
+                bool succeeded = false;
+                if (!decodeSystemTimeSyncReply(data.constData(), data.size(), sourceId, destId, succeeded)) {
+                    reportError("UDP_INVALID_TIME_SYNC_REPLY", QStringLiteral("Invalid DE03 reply: size=%1 senderPort=%2")
+                                .arg(data.size()).arg(senderPort));
+                    break;
+                }
+                emit systemTimeSyncResult(succeeded);
+                break;
+            }
             default:
                 LOG_DEBUG(QString("Unknown message ID: %1").arg(QString::number(msgID, 16)));
                 break;

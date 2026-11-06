@@ -2,7 +2,7 @@
 # Resource and dynamic-library verification only. It never launches DispCtrl.
 set -euo pipefail
 ROOT="${1:-$(cd "$(dirname "$0")" && pwd)}"
-for file in run.sh install_desktop.sh VERSION RUNTIME-RESOURCES.sha256 bin/resources/icon/radararray.png \
+for file in run.sh install_desktop.sh VERSION RUNTIME-RESOURCES.sha256 bin/resources/icon/dispctrl-app.png \
     bin/DispCtrl bin/QtWebEngineProcess bin/qt.conf bin/config.toml \
     bin/black.html bin/index.html bin/indexNoL.html bin/indexS.html bin/index3d.html bin/maplibre.html bin/qwebchannel.js \
     bin/amap/AMap3.js bin/amap/2.0.1 bin/amap/init.js bin/amap/mapsplugin.js resources/qtwebengine_resources.pak \

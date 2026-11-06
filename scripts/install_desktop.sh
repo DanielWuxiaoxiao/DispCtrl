@@ -48,7 +48,8 @@ RUN_SCRIPT="${SCRIPT_DIR}/run.sh"
 [[ -f "$RUN_SCRIPT" ]] || { echo "Run this script from the extracted DispCtrl release directory." >&2; exit 1; }
 
 ICON_PATH="utilities-system-monitor"
-for candidate in "${SCRIPT_DIR}/bin/resources/icon/radararray.png" \
+for candidate in "${SCRIPT_DIR}/bin/resources/icon/dispctrl-app.png" \
+                 "${SCRIPT_DIR}/bin/resources/icon/radararray.png" \
                  "${SCRIPT_DIR}/bin/resources/icon/logo.png"; do
     if [[ -f "$candidate" ]]; then ICON_PATH="$candidate"; break; fi
 done

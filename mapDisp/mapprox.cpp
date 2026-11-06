@@ -7,6 +7,7 @@
  * @Description: 
  */
 #include "mapprox.h"
+#include "Basic/uitheme.h"
 #include "../Basic/log.h"
 #include <QWebEngineSettings>
 #include <QWebEngineProfile>
@@ -217,9 +218,24 @@ void MapProxyWidget::chooseMap(int index)
     }
     const QStringList pages{QStringLiteral("black.html"), QStringLiteral("indexNoL.html"),
                             QStringLiteral("index.html"), QStringLiteral("indexS.html"), QStringLiteral("index3d.html")};
-    const QString htmlFile = appDir + QLatin1Char('/') + pages.at(m_effectiveMapType);
-    const QFileInfo file(htmlFile);
-    if (!file.isFile() || !file.isReadable() || file.size() == 0) {
+    const QString pageName = pages.at(m_effectiveMapType);
+    const auto readablePage = [](const QString& path) {
+        const QFileInfo file(path);
+        return file.isFile() && file.isReadable() && file.size() > 0;
+    };
+    const QString pageDir = appDir + QLatin1Char('/');
+    QString htmlFile = pageDir + pageName;
+    if (UiTheme::classicEnabled && m_effectiveMapType != 0) {
+        const QString classicFile = pageDir + QFileInfo(pageName).completeBaseName()
+            + QStringLiteral("_classic.html");
+        if (readablePage(classicFile)) {
+            htmlFile = classicFile;
+        } else {
+            LOG_WARNING(QStringLiteral("[MAP][CLASSIC_PAGE_MISSING] path=%1; using %2")
+                .arg(classicFile, htmlFile));
+        }
+    }
+    if (!readablePage(htmlFile)) {
         m_initialLoadPending = false;
         m_mapPageSyncPending = false;
         m_expectedMapUrl = QUrl();
@@ -243,6 +259,7 @@ void MapProxyWidget::chooseMap(int index)
     // 通过URL查询参数把当前中心坐标传给HTML，页面初始化时直接定位，避免闪回默认点
     QUrl baseUrl = QUrl::fromLocalFile(htmlFile);
     QUrlQuery query;
+    query.addQueryItem("theme", UiTheme::name());
     query.addQueryItem("lng", QString::number(m_currentLongitude, 'f', 9));
     query.addQueryItem("lat", QString::number(m_currentLatitude, 'f', 9));
     query.addQueryItem("range", QString::number(m_currentRange, 'f', 3));

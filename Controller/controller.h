@@ -51,6 +51,9 @@
 #include "Basic/radarpanelstate.h"
 #include "Basic/healthstatewindow.h"
 #include "Basic/gpspositionfilter.h"
+#include "Basic/systemtimesync.h"
+
+class QTimer;
 
 // 前向声明 - 各子系统管理器
 class Disp2ResManager;    ///< 显示到资源管理器
@@ -216,6 +219,8 @@ signals:
     void radarPanelPositionRequested(const QString& text);
     void sendTrackDataRateControl(quint16 batch, quint8 rateHz);
     void trackDataRateRequested(const QString& text);
+    void sendSystemTimeSyncControl();
+    void systemTimeSyncStateChanged(SystemTimeSyncState state);
 
     /**
      * @brief 发送数据处理参数
@@ -411,6 +416,8 @@ public:
     bool setManualRadarReference(const RadarReference::Values& values);
     bool sendCurrentRadarPanelPosition();
     bool sendRadarPanelPositions(const RadarPanelValues& values);
+    void requestSystemTimeSync();
+    SystemTimeSyncState systemTimeSyncState() const { return m_systemTimeSyncState; }
     RadarPanelValues radarPanelDialogValues() const { return m_panelState.dialogValues(); }
     RadarPanelState::Snapshot radarPanelSnapshot() const { return m_panelState.snapshot(); }
     const RadarReference& radarPanelReference(int id) const { return m_panelState.reference(id); }
@@ -427,8 +434,12 @@ public slots:
      */
     void onBITReport(BITReport res);
     void onBITReferenceReport(BITReportV2 report);
+    void onSystemTimeSyncResult(bool succeeded);
 
 private:
+    void setSystemTimeSyncState(SystemTimeSyncState state);
+    QTimer* m_systemTimeSyncTimeout = nullptr;
+    SystemTimeSyncState m_systemTimeSyncState = SystemTimeSyncState::Idle;
     void flushHealthStateWindow();
     bool saveRadarPanelReferences(const RadarPanelState& state, const RadarPositionControl* submitted = nullptr);
     void logRadarReferenceDebug(const BITReportV2& report, const RadarPanelState::Update& update);

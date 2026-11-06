@@ -6,6 +6,7 @@
  * @LastEditTime: 2026-09-12 12:22:55
  * @Description: 
  */
+#include "Basic/uitheme.h"
 #include "detachablewidget.h"
 #include "cuswindow.h"
 #include <QHBoxLayout>
@@ -14,7 +15,7 @@ DetachableWidget::DetachableWidget(QString name , QWidget* childWidget, QIcon ic
     : QWidget(parent), m_child(childWidget) , m_name(name) , m_icon(icon)
 {
     m_btn = new QPushButton(); // 小按钮
-    m_btn->setIcon(QIcon(":/resources/icon/ui/expand.svg"));
+    m_btn->setIcon((UiTheme::classicEnabled ? QIcon(":/resources/icon/full.png") : QIcon(":/resources/icon/ui/expand.svg")));
     m_btn->setToolTip("分离窗口");
     m_btn->setObjectName("DetachBtn");
     connect(m_btn, &QPushButton::clicked, this, &DetachableWidget::detach);

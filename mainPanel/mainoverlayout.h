@@ -37,6 +37,9 @@
 #ifndef MAINOVERLAYOUT_H
 #define MAINOVERLAYOUT_H
 
+#include <memory>
+struct ClassicHealthWidgets;
+
 #include <QWidget>
 #include <QMap>
 #include <QDateTime>
@@ -605,6 +608,11 @@ private:
 
     // 健康管理窗口相关
     CusWindow* m_healthWindow;           ///< 雷达系统健康管理窗口指针
+    std::unique_ptr<ClassicHealthWidgets> m_classicHealth;
+    void createClassicHealthWindow();
+    void updateClassicHealthWindow();
+    void bindClassicHealthPanel(int panelId);
+    void applyClassicNetworkHealthStatus(int index);
     bool m_healthUiDirty = true; ///< 仅由Controller五秒窗口统一刷新，接收事件只置脏
     QTabWidget* m_healthTabs = nullptr;  ///< 四个阵面健康信息页
     int m_activeHealthPanel = 0;

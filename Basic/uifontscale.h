@@ -6,19 +6,21 @@
 #include <QRegularExpression>
 #include <QString>
 #include "Basic/uiscale.h"
+#include "Basic/uitheme.h"
 
 namespace UiFontScale {
 // V7 可读性微调：仅字号增加 8%，不改变 ui_scale 的布局/图标/雷达几何含义。
 constexpr double ReadabilityFactor = 1.08;
-inline double factor() { return ScaleHelper::uiScale() * ReadabilityFactor; }
+inline double factor() { return ScaleHelper::uiScale() * (UiTheme::classicEnabled ? 1.0 : ReadabilityFactor); }
 inline int pixels(double designPixels)
 {
     return qMax(1, qRound(designPixels * factor()));
 }
-// Only font declarations are transformed: padding, border widths and radar geometry stay intact.
+// 调用方先选择主题的原始样式；这里只缩放字体声明。
 // 显式 factor 参数仍按传入值精确缩放；默认入口统一应用可读性系数一次。
-inline QString style(const QString& baseStyle, double factor = UiFontScale::factor())
+inline QString style(const QString& graphiteStyle, double factor = UiFontScale::factor())
 {
+    const QString baseStyle = UiTheme::styleColors(graphiteStyle);
     if (qFuzzyCompare(factor, 1.0) || !baseStyle.contains(QStringLiteral("font"), Qt::CaseInsensitive))
         return baseStyle;
     static const QRegularExpression declaration(

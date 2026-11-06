@@ -7,6 +7,9 @@
  * @Description: 
  */
 #include "Protocol.h"
+#pragma pack(push, 8)
+#include <QtEndian>
+#pragma pack(pop)
 
 unsigned char calculateXOR(const char* data, unsigned len)
 {
@@ -45,4 +48,27 @@ char* packData(char* data, unsigned dataLen, unsigned short srcID, unsigned shor
     memcpy(sendData + sizeof(frame) + dataLen, &end, sizeof(end));
 
     return sendData;
+}
+
+bool decodeSystemTimeSyncReply(const char* frame, int size, quint16 sourceId, quint16 destId, bool& succeeded)
+{
+    constexpr int payloadOffset = sizeof(ProtocolFrame);
+    constexpr int checksumOffset = payloadOffset + sizeof(SystemTimeSyncReply);
+    constexpr int frameSize = checksumOffset + sizeof(ProtocolEnd);
+    if (!frame || size != frameSize) return false;
+
+    if (qFromLittleEndian<quint32>(frame) != HEADCODE
+        || qFromLittleEndian<quint16>(frame + offsetof(ProtocolFrame, srcID)) != sourceId
+        || qFromLittleEndian<quint16>(frame + offsetof(ProtocolFrame, destID)) != destId
+        || qFromLittleEndian<quint16>(frame + offsetof(ProtocolFrame, dataLen)) != checksumOffset
+        || qFromLittleEndian<quint16>(frame + payloadOffset) != SystemTimeSyncReply::MessageId
+        || static_cast<quint8>(frame[checksumOffset]) != calculateXOR(frame, checksumOffset)
+        || qFromLittleEndian<quint32>(frame + checksumOffset + offsetof(ProtocolEnd, end)) != ENDCODE) {
+        return false;
+    }
+
+    const auto result = static_cast<quint8>(frame[payloadOffset + offsetof(SystemTimeSyncReply, result)]);
+    if (result > 1) return false;
+    succeeded = result == 1;
+    return true;
 }

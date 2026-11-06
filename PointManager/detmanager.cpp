@@ -54,7 +54,8 @@ class DetBatchItem : public QGraphicsItem
 {
 public:
     explicit DetBatchItem(const QVector<DetNode>* nodes)
-        : m_nodes(nodes)
+        : m_nodes(nodes),
+          m_droneRedEnabled(CF_INS.displayFlag("detection_drone_red_enabled", false))
     {
         setZValue(POINT_Z - 1);
         setAcceptHoverEvents(true);
@@ -132,14 +133,24 @@ public:
         painter->setBrush(Qt::NoBrush);
 
         QVarLengthArray<QPointF, 2048> visiblePoints;
+        QVarLengthArray<QPointF, 256> dronePoints;
         for (const DetNode& node : *m_nodes) {
             if (node.visible) {
-                visiblePoints.append(node.scenePos);
+                if (m_droneRedEnabled && node.info.targetRecResult == 1) {
+                    dronePoints.append(node.scenePos);
+                } else {
+                    visiblePoints.append(node.scenePos);
+                }
             }
         }
 
         if (!visiblePoints.isEmpty()) {
             painter->drawPoints(visiblePoints.constData(), visiblePoints.size());
+        }
+        if (!dronePoints.isEmpty()) {
+            pen.setColor(TRA_COLOR);
+            painter->setPen(pen);
+            painter->drawPoints(dronePoints.constData(), dronePoints.size());
         }
 
         painter->restore();
@@ -195,6 +206,7 @@ private:
 
 private:
     const QVector<DetNode>* m_nodes = nullptr;
+    const bool m_droneRedEnabled;
     QRectF m_bounds = QRectF(-1.0, -1.0, 2.0, 2.0);
     qreal m_radius = qMax<qreal>(1.0, DET_SIZE * 0.5);
     bool m_hasContentBounds = false;

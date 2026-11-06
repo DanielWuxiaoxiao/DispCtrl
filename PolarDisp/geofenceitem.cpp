@@ -10,6 +10,7 @@
  * @file geofenceitem.cpp
  * @brief PPI 电子围栏多边形图形项实现
  */
+#include "Basic/uitheme.h"
 #include "geofenceitem.h"
 
 #include <QPainter>
@@ -25,8 +26,8 @@ GeoFenceItem::GeoFenceItem(int fenceId, QGraphicsItem* parent)
     setFlag(QGraphicsItem::ItemIsSelectable, true);
 
     // 默认外观：半透明琥珀色
-    setPen(QPen(QColor(223, 189, 130, 200), 2));
-    setBrush(QBrush(QColor(223, 189, 130, 30)));
+    setPen(QPen((UiTheme::classicEnabled ? QColor(255, 200, 0, 200) : UiTheme::color(QColor(223, 189, 130, 200))), 2));
+    setBrush(QBrush((UiTheme::classicEnabled ? QColor(255, 200, 0, 30) : UiTheme::color(QColor(223, 189, 130, 30)))));
 }
 
 void GeoFenceItem::setFenceName(const QString& name)
@@ -56,11 +57,11 @@ void GeoFenceItem::setAlert(bool alert)
 {
     m_alert = alert;
     if (alert) {
-        setPen(QPen(QColor(234, 140, 147, 220), 2, Qt::DashLine));
-        setBrush(QBrush(QColor(234, 140, 147, 55)));
+        setPen(QPen((UiTheme::classicEnabled ? QColor(255, 60, 60, 220) : UiTheme::color(QColor(234, 140, 147, 220))), 2, Qt::DashLine));
+        setBrush(QBrush((UiTheme::classicEnabled ? QColor(255, 60, 60, 55) : UiTheme::color(QColor(234, 140, 147, 55)))));
     } else {
-        setPen(QPen(QColor(223, 189, 130, 200), 2));
-        setBrush(QBrush(QColor(223, 189, 130, 30)));
+        setPen(QPen((UiTheme::classicEnabled ? QColor(255, 200, 0, 200) : UiTheme::color(QColor(223, 189, 130, 200))), 2));
+        setBrush(QBrush((UiTheme::classicEnabled ? QColor(255, 200, 0, 30) : UiTheme::color(QColor(223, 189, 130, 30)))));
     }
     update();
 }
@@ -81,14 +82,14 @@ void GeoFenceItem::paint(QPainter* painter,
     // 绘制围栏名称
     if (!m_name.isEmpty()) {
         const QRectF br = boundingRect();
-        painter->setPen(QColor(223, 189, 130));
+        painter->setPen((UiTheme::classicEnabled ? QColor(255, 230, 80) : UiTheme::color(QColor(223, 189, 130))));
         painter->setFont(UiFontScale::pointFont("Microsoft YaHei", 8));
         painter->drawText(br.topLeft() + QPointF(4, 14), m_name);
     }
 
     // 编辑模式：绘制顶点手柄
     if (m_edit) {
-        painter->setBrush(QColor(223, 189, 130, 200));
+        painter->setBrush((UiTheme::classicEnabled ? QColor(255, 220, 0, 200) : UiTheme::color(QColor(223, 189, 130, 200))));
         painter->setPen(Qt::NoPen);
         for (const auto& pt : polygon()) {
             painter->drawEllipse(pt, 5, 5);

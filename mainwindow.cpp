@@ -63,7 +63,7 @@
  * @details 创建和初始化雷达显示系统的主窗口界面
  *
  * 初始化步骤：
- * 1. 设置窗口基本属性（标题、图标）
+ * 1. 设置窗口标题并继承 QApplication 的应用图标
  * 2. 启用全屏显示模式
  * 3. 初始化底层地图中央视图
  * 4. 创建上层透明控制覆盖层
@@ -80,9 +80,6 @@ FramelessMainWindow::FramelessMainWindow(QWidget *parent) : QMainWindow(parent)
     // === 窗口基本属性设置 ===
     // 设置应用程序窗口标题（从DispBasci.h配置文件读取）
     setWindowTitle(APP_NAME);
-
-    // 设置窗口图标为雷达阵列图标，提升专业性
-    setWindowIcon(QIcon(":/resources/icon/radararray.png"));
 
     // === 显示模式配置 ===
     // 启用全屏显示模式，最大化利用屏幕空间

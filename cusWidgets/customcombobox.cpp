@@ -22,6 +22,7 @@
  * @date 2024
  */
 
+#include "Basic/uitheme.h"
 #include "customcombobox.h"
 #include <QStylePainter>
 #include <QPolygon>
@@ -102,7 +103,9 @@ void CustomComboBox::drawCustomArrow(QPainter *painter, const QRect &rect)
 
     // 根据hover状态设置箭头颜色
     bool isHover = underMouse();
-    const QColor arrowColor = isHover ? QColor("#78cbd8") : palette().color(QPalette::Text);
+    const QColor arrowColor = UiTheme::classicEnabled
+        ? (isHover ? QColor(153, 255, 221) : QColor(102, 255, 204))
+        : (isHover ? QColor(120, 203, 216) : palette().color(QPalette::Text));
 
     // 设置绘制参数 - 线条式绘制
     painter->setRenderHint(QPainter::Antialiasing, true);

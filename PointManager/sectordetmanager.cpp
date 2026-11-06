@@ -42,6 +42,7 @@ SectorDetManager::SectorDetManager(QGraphicsScene* scene, PolarAxis* axis, QObje
     : QObject(parent), m_scene(scene), m_axis(axis)
 {
     m_maxPoints = CF_INS.displayConfig("max_points", 1000);
+    m_droneRedEnabled = CF_INS.displayFlag("detection_drone_red_enabled", false);
 
     // 注册到统一数据管理器，使用唯一标识符
     RADAR_DATA_MGR.registerView("SectorDetManager_" + QString::number((quintptr)this), this);
@@ -85,7 +86,7 @@ void SectorDetManager::addDetPoint(const PointInfo& info)
 
     DetPoint* pt = new DetPoint(copy);
     pt->resize(m_pointSizeRatio);
-    pt->setColor(DET_COLOR);
+    pt->setColor(m_droneRedEnabled && copy.targetRecResult == 1 ? TRA_COLOR : DET_COLOR);
 
     // 计算位置
     QPointF pos = polarToPixel(copy.range, copy.azimuth);

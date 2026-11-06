@@ -1,0 +1,2566 @@
+/**
+ * @file darkstyle.qss
+ * @brief DispCtrl雷达显示系统深色主题样式表
+ * @details 专为雷达显示系统设计的深色主题样式：
+ *          - 深色背景减少眼疲劳，适合长时间操作
+ *          - 高对比度确保重要信息清晰可见
+ *          - 专业的雷达显示界面外观
+ *          - 统一的视觉设计语言
+ * @author DispCtrl Team
+ */
+
+/* =============================================================================
+ * Logo组件样式 - 应用程序标识和标题区域
+ * =============================================================================
+ */
+
+/**
+ * LogoWidget - 主要品牌标识容器
+ * 特点：
+ * - 半透明深色背景，融入整体设计
+ * - 圆角设计，提供现代化外观
+ * - 适当的内边距确保内容不贴边
+ */
+#LogoWidget {
+    background-color: rgba(16, 24, 24, 0.8);    /* 深灰色半透明背景 */
+    border-width: 0 0 0 0;                       /* 无边框设计 */
+
+    /* 圆角设计 - 统一15px圆角提供现代化外观 */
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
+    border-bottom-left-radius: 15px;
+    border-bottom-right-radius: 15px;
+
+    padding: 6px 10px;                           /* 内边距：垂直6px，水平10px */
+}
+
+/**
+ * TitleLabel - 主标题文字样式
+ * 特点：
+ * - 纯白色文字确保最高可读性
+ * - 大字体24px突出重要性
+ * - 粗体增强视觉层次
+ */
+#TitleLabel {
+    color: #ffffff;                              /* 纯白色文字 */
+    font-size: 24px;                            /* 大字体强调标题重要性 */
+    font-weight: bold;                          /* 粗体增强视觉重量 */
+}
+
+/**
+ * SubtitleLabel - 副标题文字样式
+ * 特点：
+ * - 青绿色(#66ffcc)体现技术感和专业性
+ * - 中等字体15px作为标题的补充
+ * - 负边距微调与主标题的间距
+ */
+#SubtitleLabel {
+    color: #66ffcc;                             /* 科技感青绿色 */
+    font-size: 15px;                           /* 中等字体作为补充信息 */
+    margin-top: -2px;                          /* 微调与主标题的间距 */
+}
+
+/* =============================================================================
+ * 主视图左上角控制区域样式
+ * =============================================================================
+ */
+
+/**
+ * mainviewTopLeft - 主视图左上角控制容器
+ * 功能：提供雷达参数控制和状态显示区域
+ * 特点：
+ * - 与Logo相同的深色半透明背景，保持视觉一致性
+ * - 小圆角5px设计，不过分突出但保持现代感
+ */
+#mainviewTopLeft {
+    background-color: rgba(16, 24, 24, 0.8);    /* 深灰色半透明背景 */
+    border-radius: 5px;                         /* 5px圆角，适度的现代化设计 */
+}
+
+/**
+ * MousePositionInfo - 鼠标位置信息显示容器
+ * 功能：实时显示鼠标在雷达视图中的位置和方位角信息
+ * 特点：
+ * - 与mainviewTopLeft相同的视觉样式，保持一致性
+ * - 半透明背景不遮挡雷达数据
+ * - 适度圆角保持现代化外观
+ */
+#MousePositionInfo {
+    background-color: rgba(16, 24, 24, 0.8);    /* 深灰色半透明背景 */
+    border-radius: 5px;                         /* 5px圆角，与左上角控制区一致 */
+}
+
+/**
+ * PPIVisualSettings - PPI视觉设置控制容器
+ * 功能：提供PPI显示参数配置界面（距离范围、地图类型等）
+ * 特点：
+ * - 与其他叠加层组件相同的视觉样式，保持整体一致性
+ * - 半透明背景不干扰雷达数据显示
+ * - 适度圆角设计保持现代化外观
+ * - 使用!important确保样式优先级，避免被父组件覆盖
+ */
+#PPIVisualSettings {
+    background-color: rgba(16, 24, 24, 0.8) !important;    /* 深灰色半透明背景，!important确保优先级 */
+    border-radius: 5px !important;                         /* 5px圆角，与其他叠加层组件一致 */
+}
+
+/* 为了确保在#mainPview下的PPIVisualSettings也能正确应用样式 */
+#mainPview #PPIVisualSettings {
+    background-color: rgba(16, 24, 24, 0.8) !important;    /* 深灰色半透明背景 */
+    border-radius: 5px !important;                         /* 5px圆角 */
+}
+
+/**
+ * mainviewTopLeft 内部QLabel样式
+ * 功能：显示参数标签和状态信息
+ * 特点：
+ * - 透明背景融入容器
+ * - 青绿色文字与系统主题色一致
+ * - 18px字体确保清晰可读
+ * - 粗体突出重要参数
+ */
+#mainviewTopLeft QLabel {
+    background-color: transparent;              /* 透明背景融入父容器 */
+    color: #66ffcc;                            /* 青绿色主题色 */
+    font-size: 18px;                          /* 18px确保参数清晰可读 */
+    font-weight: bold;                         /* 粗体突出重要性 */
+}
+
+/**
+ * MousePositionInfo 内部QLabel样式
+ * 功能：显示鼠标位置的距离和方位角标签
+ * 特点：
+ * - 与mainviewTopLeft保持相同的视觉样式
+ * - 青绿色文字确保在深色背景下清晰可见
+ * - 适中字体大小平衡可读性和空间占用
+ */
+#MousePositionInfo QLabel {
+    background-color: transparent;              /* 透明背景融入父容器 */
+    color: #66ffcc;                            /* 青绿色主题色，与系统一致 */
+    font-size: 16px;                          /* 16px适中字体，不过分占用空间 */
+    font-weight: bold;                         /* 粗体确保在复杂背景下可读 */
+}
+
+/**
+ * PPIVisualSettings 内部QLabel样式
+ * 功能：显示距离配置和地图类型的标签文字
+ * 特点：
+ * - 与其他叠加层组件保持一致的视觉风格
+ * - 青绿色文字确保良好的可读性
+ * - 适中字体大小不占用过多空间
+ */
+#PPIVisualSettings QLabel {
+    background-color: transparent;              /* 透明背景融入父容器 */
+    color: #66ffcc;                            /* 青绿色主题色，与系统一致 */
+    font-size: 14px;                          /* 14px适中字体，平衡可读性和空间 */
+    font-weight: bold;                         /* 粗体确保清晰可读 */
+}
+
+/**
+ * PPIVisualSettings 内部QLineEdit样式
+ * 功能：距离配置输入框
+ * 特点：
+ * - 深色背景与容器保持一致
+ * - 青绿色文字确保输入内容清晰
+ * - 适中字体大小便于输入和查看
+ */
+#PPIVisualSettings QLineEdit {
+    background-color: rgba(16, 24, 24, 0.9);    /* 稍深的背景突出输入区域 */
+    color: #66ffcc;                             /* 青绿色文字 */
+    font-size: 14px;                           /* 14px适中字体 */
+    font-weight: bold;                         /* 粗体增强可读性 */
+    border: 1px solid #66ffcc;                 /* 青绿色边框突出输入框 */
+    border-radius: 3px;                        /* 小圆角保持现代感 */
+    padding: 2px 4px;                          /* 内边距提升输入体验 */
+}
+
+/**
+ * PPIVisualSettings QComboBox样式 - 增强版
+ * 功能：地图类型选择下拉框
+ * 特点：
+ * - 与LineEdit保持一致的视觉风格
+ * - 深色背景适应整体主题
+ * - 青绿色文字和边框保持品牌色彩
+ * - 自定义下拉箭头样式
+ */
+#PPIVisualSettings QComboBox {
+    background-color: rgba(16, 24, 24, 0.9);    /* 稍深的背景突出选择区域 */
+    color: #66ffcc;                             /* 青绿色文字 */
+    font-size: 14px;                           /* 14px适中字体 */
+    font-weight: bold;                         /* 粗体增强可读性 */
+    border: 1px solid #66ffcc;                 /* 青绿色边框 */
+    border-radius: 3px;                        /* 小圆角保持现代感 */
+    padding: 2px 20px 2px 4px;                 /* 右侧留出箭头空间 */
+    min-width: 60px;                           /* 最小宽度确保可读性 */
+}
+
+/**
+ * PPIVisualSettings QComboBox hover状态
+ * 悬停时的亮绿色高亮效果
+ */
+#PPIVisualSettings QComboBox:hover {
+    background-color: rgba(20, 30, 30, 0.95);   /* 稍亮的背景 */
+    border: 1px solid #99ffdd;                 /* 更亮的绿色边框 */
+    color: #99ffdd;                            /* 更亮的绿色文字 */
+}
+
+/**
+ * PPIVisualSettings QComboBox focus状态
+ * 获得焦点时的样式
+ */
+#PPIVisualSettings QComboBox:focus {
+    border: 2px solid #99ffdd;                 /* 更粗的亮绿色边框 */
+    background-color: rgba(20, 30, 30, 0.95);   /* 稍亮的背景 */
+}
+
+/**
+ * PPIVisualSettings QComboBox下拉箭头区域
+ * 定义箭头的容器区域
+ */
+#PPIVisualSettings QComboBox::drop-down {
+    width: 16px;                               /* 箭头区域宽度 */
+    border-left: 1px solid #66ffcc;           /* 左侧分割线 */
+    border-top-right-radius: 3px;             /* 右上角圆角 */
+    border-bottom-right-radius: 3px;          /* 右下角圆角 */
+    background-color: rgba(16, 24, 24, 0.9);   /* 与主体背景一致 */
+}
+
+/**
+ * PPIVisualSettings QComboBox下拉箭头区域 hover状态
+ */
+#PPIVisualSettings QComboBox::drop-down:hover {
+    background-color: rgba(20, 30, 30, 0.95);   /* hover时稍亮背景 */
+    border-left: 1px solid #99ffdd;           /* hover时亮绿色分割线 */
+}
+
+/**
+ * PPIVisualSettings QComboBox下拉箭头图标
+ * 使用简单的矩形箭头指示器
+ */
+#PPIVisualSettings QComboBox::down-arrow {
+    width: 8px;                               /* 箭头宽度 */
+    height: 4px;                              /* 箭头高度 */
+    background-color: #66ffcc;                /* 绿色背景 */
+    border: none;                             /* 无边框 */
+    margin: 2px;                              /* 外边距 */
+}
+
+/**
+ * PPIVisualSettings QComboBox下拉箭头图标 hover状态
+ * hover时显示亮绿色箭头
+ */
+#PPIVisualSettings QComboBox::down-arrow:hover {
+    background-color: #99ffdd;                /* hover时亮绿色背景 */
+}
+
+/**
+ * PPIVisualSettings QComboBox下拉列表
+ * 下拉选项列表的样式
+ */
+#PPIVisualSettings QComboBox QAbstractItemView {
+    background-color: rgba(16, 24, 24, 0.95);  /* 下拉列表背景 */
+    border: 1px solid #66ffcc;                /* 绿色边框 */
+    border-radius: 3px;                       /* 圆角 */
+    color: #66ffcc;                           /* 绿色文字 */
+    font-size: 14px;                         /* 与主体一致的字体大小 */
+    font-weight: bold;                        /* 粗体 */
+    outline: none;                            /* 移除焦点轮廓 */
+}
+
+/**
+ * PPIVisualSettings QComboBox下拉列表项
+ * 单个选项项的样式
+ */
+#PPIVisualSettings QComboBox QAbstractItemView::item {
+    padding: 4px 8px;                        /* 选项内边距 */
+    border: none;                             /* 无边框 */
+    min-height: 20px;                        /* 最小高度 */
+}
+
+/**
+ * PPIVisualSettings QComboBox下拉列表项 hover状态
+ */
+#PPIVisualSettings QComboBox QAbstractItemView::item:hover {
+    background-color: rgba(102, 255, 204, 0.2); /* hover时半透明绿色背景 */
+    color: #99ffdd;                           /* hover时亮绿色文字 */
+}
+
+/**
+ * PPIVisualSettings QComboBox下拉列表项 selected状态
+ */
+#PPIVisualSettings QComboBox QAbstractItemView::item:selected {
+    background-color: rgba(102, 255, 204, 0.4); /* 选中时更强的绿色背景 */
+    color: #ffffff;                           /* 选中时白色文字 */
+}
+
+/**
+ * mainviewTopLeft 内部QLineEdit样式
+ * 功能：参数输入和编辑控件
+ * 特点：
+ * - 与容器背景一致的深色调
+ * - 青绿色文字保持视觉统一
+ * - 18px粗体确保输入内容清晰
+ */
+#mainviewTopLeft QLineEdit {
+    background-color: rgba(16, 24, 24, 0.8);    /* 继承容器的深色背景 */
+    color: #66ffcc;                             /* 青绿色文字 */
+    font-size: 18px;                           /* 18px确保输入清晰 */
+    font-weight: bold;                         /* 粗体增强可读性 */
+    border-radius: 5px;
+    /* 为 QLineEdit 添加圆角 */
+    border: 1px solid lightblue;
+    /* 添加一个浅灰色边框，使其更清晰 */
+    padding: 4px;
+    /* 调整内边距 */
+}
+
+/* 鼠标悬停时的样式 */
+#mainviewTopLeft QLineEdit:hover {
+    background-color: rgba(32, 48, 48, 0.9);
+    /* 更深一点的灰色，或者你喜欢的亮色 */
+    border: 1px solid #99ffff;
+    /* 悬停时改变边框颜色，更明显 */
+    color: #ffffff;
+    /* 悬停时改变文字颜色 */
+}
+
+/* 焦点时的样式（可选，但推荐） */
+#mainviewTopLeft QLineEdit:focus {
+    border: 1px solid #66ffcc;
+    /* 获得焦点时，边框颜色变为目标亮色 */
+    background-color: rgba(16, 24, 24, 0.9);
+    /* 稍微加深背景 */
+}
+
+#PointInfoW {
+    background-color: rgba(16, 24, 24, 0.8);
+    /* 这个颜色是深灰色，透明度0.8 */
+    border-radius: 5px;
+    /* 统一设置所有角的圆角 */
+}
+
+/* 移除 #mainPview 的样式 */
+/*QLabel的样式，确保它仍然生效*/
+#PointInfoW QLabel {
+    background-color: transparent;
+    color: #66ffcc;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+QLabel#batch,
+QLabel#range,
+QLabel#azi,
+QLabel#ele,
+QLabel#altitute,
+QLabel#speed,
+QLabel#SNR {
+    background-color: transparent;
+    color: white;
+    font-size: 18px;
+}
+
+/*ppiview 无边框 无颜色*/
+#mainPview {
+    background-color: transparent;
+    border: 0px solid;
+}
+
+#ZoomView {
+    background-color: transparent;
+    border: 0px solid;
+}
+
+#sectorView {
+    background-color: transparent;
+    border: 0px solid;
+}
+
+#timeLabel {
+    color: #66ffcc;
+    font-size: 20px;
+    background-color: rgba(16, 24, 24, 0.8);
+    /* 边框颜色，可根据需要调整 */
+    border-width: 0 0 0 0;
+    /* 设置四个角的圆角半径 */
+    /* 将左上、右上、左下角的圆角半径设为0 */
+    border-top-left-radius: 15px;
+    border-top-right-radius: 15px;
+    border-bottom-left-radius: 15px;
+    /* 仅将右下角的圆角半径设置为你想要的值 */
+    border-bottom-right-radius: 15px;
+    /* 例如，设置为10像素 */
+    padding: 6px 10px;
+}
+
+/* 右上角窗口按钮通用样式 */
+QPushButton#minButton {
+    background-color: rgba(16, 24, 24, 0.8);
+    /* 无背景 */
+    border: 1px solid black;
+    /* 默认细绿色边框 */
+    border-radius: 8px;
+    padding: 4px;
+    margin: 2px;
+    color: #ffffff;
+}
+
+/* 悬浮状态 */
+QPushButton#minButton:hover {
+    border: 2px solid #00ff88;
+    /* 边框变粗且更亮 */
+    background-color: rgb(16, 24, 24);
+    /* 仍然透明 */
+    /* 稍微浮起 */
+    color: #66ffcc;
+}
+
+/* 按下状态 */
+QPushButton#minButton:pressed {
+    border: 2px solid #00ffaa;
+    background-color: rgba(0, 255, 136, 0.15);
+    /* 压下效果 */
+    color: #66ffcc;
+}
+
+/* X 按钮 hover 特效（切换图标） */
+QPushButton#CloseButton {
+    background-color: rgba(16, 24, 24, 0.8);
+    border: 1px solid black;
+    border-radius: 8px;
+    padding: 4px;
+    margin: 2px;
+    color: #ffffff;
+}
+
+QPushButton#CloseButton:hover {
+    border: 2px solid #ff4444;
+    /* 悬浮变成红色边框 */
+    color: #66ffcc;
+}
+
+QPushButton#CloseButton:pressed {
+    border: 2px solid #00ffaa;
+    background-color: rgba(0, 255, 136, 0.15);
+    /* 压下效果 */
+    color: #66ffcc;
+}
+
+
+/* 功能按钮区域背景 */
+/* 功能按钮区域背景 */
+#FuncWidget {
+    background-color: rgb(16, 24, 24, 0.8);
+    border-style: solid;
+    border-color: rgba(0, 100, 0, 0.2);
+    /* 背景边框，深绿 */
+    border-width: 10px 10px 10px 10px;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+    padding: 8px 16px;
+}
+
+/* 默认按钮样式 */
+QToolButton[buttonGroup="A"] {
+    color: #00ff88;
+    /* 默认字体绿色 */
+    font-size: 14px;
+    padding: 8px 20px;
+    border: 2px solid rgba(144, 238, 144, 0.7);
+    /* 较暗的绿色边框 */
+    border-radius: 8px;
+    background-color: transparent;
+    outline: none;
+}
+
+QToolButton:focus {
+    outline: none;
+}
+
+/* 鼠标悬浮 */
+QToolButton[buttonGroup="A"]:hover {
+    color: #ffffff;
+    /* 字体变白 */
+    border: 3px solid #00ff88;
+    /* 边框高亮 + 变粗 */
+    background-color: rgba(0, 100, 20, 0.25);
+    /* 背景色加深 */
+}
+
+/* 按下状态 */
+QToolButton[buttonGroup="A"]:pressed {
+    color: #ffffff;
+    border: 3px solid #00ffaa;
+    background-color: rgba(0, 0, 0, 0.35);
+}
+
+
+/* 当tablewidget添加了控件后， pane的style就不起作用了，需要单独设置这个控件的style */
+/* Tab 栏整体 */
+QTabWidget::pane {
+    border: 0px solid #00ff88;
+}
+
+QTabWidget {
+    border: 0px solid #00ff88;
+}
+
+/* 针对标签栏容器本身的样式 */
+QTabBar {
+    border: none;
+    /* 或者 border: 0px; */
+}
+
+QWidget#tab1,
+QWidget#tab_2,
+QWidget#tab_3,
+QWidget#tab_4,
+QWidget#tab_5,
+QWidget#tab {
+    border: 0px solid #00ff88;
+    border-radius: 8px;
+    background: rgba(16, 24, 24, 0.8);
+}
+
+/* Tab 标签 */
+QTabWidget QTabBar::tab {
+    font-family: "Microsoft YaHei";
+    font-size: 13px;
+    color: #cccccc;
+    background: rgba(0, 40, 40, 0.3);
+    padding: 6px 14px;
+    border: 0px solid;
+    border-radius: 6px;
+    margin: 3px;
+}
+
+/* Tab 被选中 */
+QTabWidget QTabBar::tab:selected {
+    color: #00ff88;
+    border: 2px solid black;
+    background: rgba(0, 80, 80, 0.9);
+}
+
+
+QTabWidget QTabBar::tab {
+    color: #cccccc;
+    background: rgba(0, 40, 40, 0.3);
+    padding: 6px 12px;
+    border: 0px solid #005533;
+    border-radius: 6px;
+    margin: 4px 6px;
+}
+
+QTabWidget QTabBar::tab:selected {
+    color: #00ff88;
+    border: 2px solid black;
+    background: rgba(0, 80, 80, 0.9);
+}
+
+/* 可能因为层级问题  labelgroup = "a"的形式无法生效 */
+/* 状态标签左侧（参数名） */
+#stalabel1,
+#stalabel2,
+#stalabel3,
+#stalabel4,
+#stalabel5 {
+    font-family: "Microsoft YaHei";
+    font-size: 14px;
+    color: #00ff88;
+    /* 绿色 */
+    /* 设置背景色，以防父控件透明导致不显示 */
+    background-color: transparent;
+}
+
+/* 状态标签右侧（值） */
+#stamsg1,
+#stamsg2,
+#stamsg3,
+#stamsg4,
+#stamsg5 {
+    font-family: "Microsoft YaHei";
+    font-size: 14px;
+    color: #ffffff;
+    /* 白色 */
+    /* 设置背景色，以防父控件透明导致不显示 */
+    background-color: transparent;
+}
+
+/* 日志编辑框 */
+QTextEdit#logEdit {
+    background-color: rgba(0, 20, 20, 0.3);
+    border: 1px solid lightblue;
+    border-radius: 8px;
+    font-family: "Microsoft YaHei";
+    font-size: 12px;
+    color: #cccccc;
+}
+
+/* 日志滚动条美化 */
+QTextEdit#logEdit QScrollBar:vertical {
+    background: transparent;
+    width: 8px;
+    margin: 0px;
+}
+
+QTextEdit#logEdit QScrollBar::handle:vertical {
+    background: #00aa66;
+    border-radius: 4px;
+}
+
+QTextEdit#logEdit QScrollBar::handle:vertical:hover {
+    background: #00ff88;
+}
+
+QTextEdit#logEdit QScrollBar::add-line,
+QTextEdit#logEdit QScrollBar::sub-line {
+    height: 0px;
+}
+
+/* QTableWidget 的样式 */
+QTableWidget#tableWidget,
+QTableWidget#droneTableWidget,
+QTableWidget#tbdTrackTableWidget,
+QTableWidget#cooperativeTrackTableWidget {
+    border: 1px solid #333333;
+    background-color: rgba(16, 24, 24, 0.9);
+    color: #E0E0E0;
+    font-size: 14px;
+}
+
+/* 表头样式 */
+QTableWidget#tableWidget QHeaderView::section,
+QTableWidget#droneTableWidget QHeaderView::section,
+QTableWidget#tbdTrackTableWidget QHeaderView::section,
+QTableWidget#cooperativeTrackTableWidget QHeaderView::section {
+    background-color: rgba(24, 36, 36, 0.95);
+    color: #00ffc8;
+    border: 1px solid #444444;
+    padding: 4px;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+/* Item的样式 */
+QTableWidget#tableWidget::item,
+QTableWidget#droneTableWidget::item,
+QTableWidget#tbdTrackTableWidget::item,
+QTableWidget#cooperativeTrackTableWidget::item {
+    border-bottom: 1px solid #333333;
+    padding: 4px 8px;
+    background-color: #101818;
+    color: #eef5f5;
+}
+
+/* 交替行必须显式覆盖系统的 AlternateBase，避免 Windows 回退为白底。 */
+QTableWidget#tableWidget::item:alternate,
+QTableWidget#droneTableWidget::item:alternate,
+QTableWidget#tbdTrackTableWidget::item:alternate,
+QTableWidget#cooperativeTrackTableWidget::item:alternate {
+    background-color: #192725;
+    color: #eef5f5;
+}
+
+/* 选中项的样式 */
+QTableWidget#tableWidget::item:selected,
+QTableWidget#droneTableWidget::item:selected,
+QTableWidget#tbdTrackTableWidget::item:selected,
+QTableWidget#cooperativeTrackTableWidget::item:selected {
+    background-color: rgba(0, 255, 200, 0.3);
+    color: #FFFFFF;
+    border: 1px solid #00ffc8;
+}
+
+/* 航迹表格滚动条样式 */
+QTableWidget#tableWidget QScrollBar:vertical,
+QTableWidget#droneTableWidget QScrollBar:vertical,
+QTableWidget#tbdTrackTableWidget QScrollBar:vertical,
+QTableWidget#cooperativeTrackTableWidget QScrollBar:vertical {
+    background: rgba(32, 32, 32, 0.8);
+    width: 12px;
+    border-radius: 6px;
+    margin: 0px;
+}
+
+QTableWidget#tableWidget QScrollBar::handle:vertical,
+QTableWidget#droneTableWidget QScrollBar::handle:vertical,
+QTableWidget#tbdTrackTableWidget QScrollBar::handle:vertical,
+QTableWidget#cooperativeTrackTableWidget QScrollBar::handle:vertical {
+    background: rgba(0, 255, 200, 0.6);
+    border-radius: 6px;
+    min-height: 20px;
+    margin: 2px;
+}
+
+QTableWidget#tableWidget QScrollBar::handle:vertical:hover,
+QTableWidget#droneTableWidget QScrollBar::handle:vertical:hover,
+QTableWidget#tbdTrackTableWidget QScrollBar::handle:vertical:hover,
+QTableWidget#cooperativeTrackTableWidget QScrollBar::handle:vertical:hover {
+    background: rgba(0, 255, 200, 0.8);
+}
+
+QTableWidget#tableWidget QScrollBar::handle:vertical:pressed,
+QTableWidget#droneTableWidget QScrollBar::handle:vertical:pressed,
+QTableWidget#tbdTrackTableWidget QScrollBar::handle:vertical:pressed,
+QTableWidget#cooperativeTrackTableWidget QScrollBar::handle:vertical:pressed {
+    background: rgba(0, 255, 200, 1.0);
+}
+
+QTableWidget#tableWidget QScrollBar::add-line:vertical,
+QTableWidget#tableWidget QScrollBar::sub-line:vertical,
+QTableWidget#droneTableWidget QScrollBar::add-line:vertical,
+QTableWidget#droneTableWidget QScrollBar::sub-line:vertical,
+QTableWidget#tbdTrackTableWidget QScrollBar::add-line:vertical,
+QTableWidget#tbdTrackTableWidget QScrollBar::sub-line:vertical,
+QTableWidget#cooperativeTrackTableWidget QScrollBar::add-line:vertical,
+QTableWidget#cooperativeTrackTableWidget QScrollBar::sub-line:vertical {
+    border: none;
+    background: none;
+    height: 0px;
+}
+
+QTableWidget#tableWidget QScrollBar:horizontal,
+QTableWidget#droneTableWidget QScrollBar:horizontal,
+QTableWidget#tbdTrackTableWidget QScrollBar:horizontal,
+QTableWidget#cooperativeTrackTableWidget QScrollBar:horizontal {
+    background: rgba(32, 32, 32, 0.8);
+    height: 12px;
+    border-radius: 6px;
+    margin: 0px;
+}
+
+QTableWidget#tableWidget QScrollBar::handle:horizontal,
+QTableWidget#droneTableWidget QScrollBar::handle:horizontal,
+QTableWidget#tbdTrackTableWidget QScrollBar::handle:horizontal,
+QTableWidget#cooperativeTrackTableWidget QScrollBar::handle:horizontal {
+    background: rgba(0, 255, 200, 0.6);
+    border-radius: 6px;
+    min-width: 20px;
+    margin: 2px;
+}
+
+QTableWidget#tableWidget QScrollBar::handle:horizontal:hover,
+QTableWidget#droneTableWidget QScrollBar::handle:horizontal:hover,
+QTableWidget#tbdTrackTableWidget QScrollBar::handle:horizontal:hover,
+QTableWidget#cooperativeTrackTableWidget QScrollBar::handle:horizontal:hover {
+    background: rgba(0, 255, 200, 0.8);
+}
+
+QTableWidget#tableWidget QScrollBar::handle:horizontal:pressed,
+QTableWidget#droneTableWidget QScrollBar::handle:horizontal:pressed,
+QTableWidget#tbdTrackTableWidget QScrollBar::handle:horizontal:pressed,
+QTableWidget#cooperativeTrackTableWidget QScrollBar::handle:horizontal:pressed {
+    background: rgba(0, 255, 200, 1.0);
+}
+
+QTableWidget#tableWidget QScrollBar::add-line:horizontal,
+QTableWidget#tableWidget QScrollBar::sub-line:horizontal,
+QTableWidget#droneTableWidget QScrollBar::add-line:horizontal,
+QTableWidget#droneTableWidget QScrollBar::sub-line:horizontal,
+QTableWidget#tbdTrackTableWidget QScrollBar::add-line:horizontal,
+QTableWidget#tbdTrackTableWidget QScrollBar::sub-line:horizontal,
+QTableWidget#cooperativeTrackTableWidget QScrollBar::add-line:horizontal,
+QTableWidget#cooperativeTrackTableWidget QScrollBar::sub-line:horizontal {
+    border: none;
+    background: none;
+    width: 0px;
+}
+
+/*detach*/
+#pviewFitW {
+    background-color: rgba(0, 40, 40, 0.8);
+    border: 0px solid #00ff88;
+    border-radius: 15px;
+}
+
+#pviewZoomW {
+    background-color: rgba(0, 40, 40, 0.8);
+    border: 0px solid #00ff88;
+    border-radius: 15px;
+}
+
+/* 自定义窗口 */
+#TitleBar {
+    background-color: transparent;
+    border: 0px solid #00ffc8;
+    min-height: 40px;
+}
+
+#TitleLabel {
+    color: #00ff88;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+#dTitleLabel {
+    color: #00ff88;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+/* 右上角窗口按钮通用样式 */
+#cMaxButton {
+    background-color: transparent;
+    /* 无背景 */
+    border: 0px solid black;
+    /* 默认细绿色边框 */
+    border-radius: 8px;
+    padding: 4px;
+    margin: 2px;
+}
+
+/* 悬浮状态 */
+#cMaxButton:hover {
+    border: 2px solid #00ff88;
+    /* 边框变粗且更亮 */
+    background-color: rgb(16, 24, 24);
+}
+
+/* 按下状态 */
+#cMaxButton:pressed {
+    border: 2px solid #00ffaa;
+    background-color: rgba(0, 255, 136, 0.15);
+}
+
+/* 右上角窗口按钮通用样式 */
+#cMinButton {
+    background-color: transparent;
+    /* 无背景 */
+    border: 0px solid black;
+    /* 默认细绿色边框 */
+    border-radius: 8px;
+    padding: 4px;
+    margin: 2px;
+}
+
+/* 悬浮状态 */
+#cMinButton:hover {
+    border: 2px solid #00ff88;
+    /* 边框变粗且更亮 */
+    background-color: rgb(16, 24, 24);
+}
+
+/* 按下状态 */
+#cMinButton:pressed {
+    border: 2px solid #00ffaa;
+    background-color: rgba(0, 255, 136, 0.15);
+}
+
+/* X 按钮 hover 特效（切换图标） */
+#cCloseBtn {
+    background-color: transparent;
+    /* 无背景 */
+    border: 0px solid black;
+    /* 默认细绿色边框 */
+    border-radius: 8px;
+    padding: 4px;
+    margin: 2px;
+}
+
+#cCloseBtn:hover {
+    border: 2px solid #ff4444;
+    /* 悬浮变成红色边框 */
+    background-color: transparent;
+}
+
+#cCloseBtn:pressed {
+    border: 2px solid red;
+    background-color: transparent;
+}
+
+
+/* 默认按钮样式 */
+QPushButton {
+    color: #00ff88;
+    /* 默认字体绿色 */
+    font-size: 14px;
+    padding: 8px 20px;
+    border: 2px solid rgba(144, 238, 144, 0.7);
+    /* 较暗的绿色边框 */
+    border-radius: 8px;
+    background-color: transparent;
+    outline: none;
+}
+
+QPushButton:focus {
+    outline: none;
+}
+
+/* 鼠标悬浮 */
+QPushButton:hover {
+    color: #ffffff;
+    /* 字体变白 */
+    border: 3px solid #00ff88;
+    /* 边框高亮 + 变粗 */
+    background-color: rgba(0, 100, 20, 0.25);
+    /* 背景色加深 */
+}
+
+/* 按下状态 */
+QPushButton:pressed {
+    color: #ffffff;
+    border: 3px solid #00ffaa;
+    background-color: rgba(0, 0, 0, 0.35);
+}
+
+/* ZoomView 工具栏按钮：在 pviewFitW 区域下的样式，使按钮与背景一致 */
+#ZoomViewW QPushButton#ZoomInBtn,
+#ZoomViewW QPushButton#ZoomOutBtn,
+#ZoomViewW QPushButton#ResetBtn,
+#ZoomViewW QPushButton#DragBtn,
+#ZoomViewW QPushButton#PointerBtn,
+#ZoomViewW QPushButton#MeasureBtn {
+    /* 让父背景透出，采用低对比边框以保持简洁 */
+    background-color: transparent;
+    color: #00ff88;
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 5px;
+    padding: 2px;
+    margin: 1px;
+}
+
+/* 悬浮显示高亮边框，略微加深背景以提示交互 */
+#ZoomViewW QPushButton#ZoomInBtn:hover,
+#ZoomViewW QPushButton#ZoomOutBtn:hover,
+#ZoomViewW QPushButton#ResetBtn:hover,
+#ZoomViewW QPushButton#DragBtn:hover,
+#ZoomViewW QPushButton#PointerBtn:hover,
+#ZoomViewW QPushButton#MeasureBtn:hover {
+    background-color: rgba(0,255,136,0.18);
+    border: 2px solid #00ff88;
+}
+
+/* 选中态（checked）更明显：明亮背景 + 内外对比边框 + 轻微发光效果 */
+#ZoomViewW QPushButton#DragBtn:checked,
+#ZoomViewW QPushButton#PointerBtn:checked,
+#ZoomViewW QPushButton#MeasureBtn:checked {
+    border: 2px solid #00ff88;
+    background-color: rgba(16,24,24,0.85);/* 大多数 Qt 版本会忽略 ，但保留为兼容性注释 */
+}
+
+QLabel#ZoomLabel  {
+    background-color: transparent;
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+/* SectorWidget 容器样式 */
+#pviewSectorW {
+    background-color: rgba(16, 24, 24, 0.85);
+    border: 0px solid #00ff88;
+    border-radius: 15px;
+}
+
+/* SectorWidget 工具栏按钮样式：参考 pviewFitW 的样式  实际还是应用的detachwidget的样式*/
+#SectorWidget QPushButton#SectorUpdateBtn,
+#SectorWidget QPushButton#SectorResetBtn {
+    /* 让父背景透出，采用低对比边框以保持简洁 */
+    background-color: transparent;
+    color: #00ff88;
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 8px;
+    padding: 6px;
+    margin: 1px;
+}
+
+/* 悬浮显示高亮边框，略微加深背景以提示交互 */
+#SectorWidget QPushButton#SectorUpdateBtn:hover,
+#SectorWidget QPushButton#SectorResetBtn:hover {
+    background-color: rgba(0,255,136,0.18);
+    border: 2px solid #00ff88;
+}
+
+/* 按下状态 */
+#SectorWidget QPushButton#SectorUpdateBtn:pressed,
+#SectorWidget QPushButton#SectorResetBtn:pressed {
+    border: 2px solid #00ffaa;
+    background-color: rgba(0, 0, 0, 0.35);
+}
+
+/* SectorWidget 标签样式：参考 pviewFitW 的样式 */
+#SectorWidget QLabel#SectorAngleLabel,
+#SectorWidget QLabel#SectorRangeLabel {
+    background-color: transparent;
+    color: #66ffcc;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* SectorWidget 分隔符标签样式 */
+#SectorWidget QLabel#SectorSeparatorLabel {
+    background-color: transparent;
+    color: #66ffcc;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* SectorWidget 状态标签样式 */
+#SectorWidget QLabel#SectorStatusLabel {
+    background-color: transparent;
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* SectorWidget LineEdit样式：参考 mainviewTopLeft 的样式 */
+#SectorWidget QLineEdit#SectorMinAngleEdit,
+#SectorWidget QLineEdit#SectorMaxAngleEdit,
+#SectorWidget QLineEdit#SectorMinRangeEdit,
+#SectorWidget QLineEdit#SectorMaxRangeEdit {
+    background-color: rgba(16, 24, 24, 0.8);    /* 继承容器的深色背景 */
+    color: #66ffcc;                             /* 青绿色文字 */
+    font-size: 14px;                           /* 适中字体 */
+    font-weight: bold;                         /* 粗体增强可读性 */
+    border-radius: 5px;                        /* 圆角 */
+    border: 1px solid lightblue;               /* 浅蓝色边框 */
+    padding: 4px;                              /* 内边距 */
+}
+
+/* SectorWidget LineEdit 鼠标悬停样式 */
+#SectorWidget QLineEdit#SectorMinAngleEdit:hover,
+#SectorWidget QLineEdit#SectorMaxAngleEdit:hover,
+#SectorWidget QLineEdit#SectorMinRangeEdit:hover,
+#SectorWidget QLineEdit#SectorMaxRangeEdit:hover {
+    background-color: rgba(32, 48, 48, 0.9);   /* 更深一点的灰色 */
+    border: 1px solid #99ffff;                 /* 悬停时改变边框颜色 */
+    color: #ffffff;                            /* 悬停时改变文字颜色 */
+}
+
+/* SectorWidget LineEdit 焦点样式 */
+#SectorWidget QLineEdit#SectorMinAngleEdit:focus,
+#SectorWidget QLineEdit#SectorMaxAngleEdit:focus,
+#SectorWidget QLineEdit#SectorMinRangeEdit:focus,
+#SectorWidget QLineEdit#SectorMaxRangeEdit:focus {
+    border: 1px solid #66ffcc;                 /* 获得焦点时，边框颜色变为目标亮色 */
+    background-color: rgba(16, 24, 24, 0.9);   /* 稍微加深背景 */
+}
+
+/* =============================================================================
+ * 全局ToolTip样式 - 统一的提示框外观
+ * =============================================================================
+ */
+
+/**
+ * QToolTip - 全局工具提示样式
+ * 功能：为所有控件的setToolTip()提供统一的视觉样式
+ * 特点：
+ * - 与系统主题一致的深色半透明背景
+ * - 青绿色边框与系统强调色保持一致
+ * - 白色文字确保最佳可读性
+ * - 圆角设计融入整体现代化外观
+ * - 适当的内边距确保文字不贴边
+ * - 半透明效果营造专业的悬浮感
+ */
+QToolTip {
+    background-color: rgba(16, 24, 24, 0.95);   /* 深色半透明背景，比其他控件稍不透明确保可读性 */
+    border: 2px solid #66ffcc;                  /* 青绿色边框与系统主题色一致 */
+    border-radius: 8px;                         /* 8px圆角保持现代化设计 */
+    color: #ffffff;                             /* 纯白色文字确保最高对比度 */
+    font-size: 14px;                           /* 14px适中字体，清晰易读 */
+    font-weight: normal;                        /* 正常字重，不抢夺注意力 */
+    padding: 8px 12px;                          /* 内边距：垂直8px，水平12px，确保文字不贴边 */
+
+    /* 可选：添加轻微阴影效果增强层次感 */
+    /* 注意：部分Qt版本可能不支持box-shadow */
+    /* box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.3); */
+}
+
+/**
+ * QToolTip悬浮动画效果（可选）
+ * 注意：Qt对CSS动画支持有限，此处仅作预留
+ * 实际动画效果可能需要通过C++代码实现
+ */
+/*
+QToolTip:hover {
+    border: 2px solid #00ff88;
+    background-color: rgba(16, 24, 24, 0.98);
+}
+*/
+
+/* =============================================================================
+ * DetachableWidget分离按钮样式 - 窗口分离/最大化按钮
+ * =============================================================================
+ */
+
+/**
+ * DetachBtn - 分离按钮样式
+ * 特点：
+ * - 正常状态透明无边框，与背景融合
+ * - 悬浮时显示边框和背景色，提供视觉反馈
+ * - 统一的绿色主题保持界面一致性
+ */
+#DetachBtn {
+    background-color: transparent;               /* 透明背景，与父容器融合 */
+    border: 1px solid transparent;              /* 透明边框，正常状态下不可见 */
+    border-radius: 6px;                         /* 圆角设计 */
+    padding: 4px;                               /* 内边距确保图标不贴边 */
+    margin: 1px;                                /* 外边距 */
+}
+
+/* 悬浮状态：显示边框和底色 */
+#DetachBtn:hover {
+    background-color: rgba(0, 255, 136, 0.15);  /* 浅绿色半透明背景 */
+    border: 1px solid #00ff88;                  /* 绿色边框 */
+}
+
+/* 按下状态：更明显的反馈 */
+#DetachBtn:pressed {
+    background-color: rgba(0, 255, 136, 0.25);  /* 稍深的绿色背景 */
+    border: 2px solid #00ff88;                  /* 更粗的边框 */
+}
+
+/* =============================================================================
+ * 工作方式Widget样式
+ * ============================================================================= */
+
+/**
+ * 工作方式标签样式
+ * 功能：阵面摆放、扫描方式、工作方式标签
+ * 特点：与整体风格保持一致的青绿色主题
+ */
+#workModeTab QLabel#placementLabel,
+#workModeTab QLabel#scanMethodLabel,
+#workModeTab QLabel#workModeLabel {
+    background-color: transparent;              /* 透明背景融入父容器 */
+    color: #66ffcc;                            /* 青绿色主题色，与系统一致 */
+    font-size: 14px;                          /* 14px适中字体，平衡可读性和空间 */
+    font-weight: bold;                         /* 粗体确保清晰可读 */
+    padding: 4px;                              /* 适当内边距 */
+}
+
+/**
+ * 工作方式组合框样式
+ * 功能：阵面摆放、扫描方式、工作方式选择
+ * 特点：与PPIVisualSettings保持一致的视觉风格
+ */
+#workModeTab CustomComboBox#placementCombo,
+#workModeTab CustomComboBox#scanMethodCombo,
+#workModeTab CustomComboBox#workModeCombo {
+    background-color: rgba(16, 24, 24, 0.9);    /* 稍深的背景突出选择区域 */
+    color: #66ffcc;                             /* 青绿色文字 */
+    font-size: 14px;                           /* 14px适中字体 */
+    font-weight: bold;                         /* 粗体增强可读性 */
+    border: 1px solid #66ffcc;                 /* 青绿色边框 */
+    border-radius: 3px;                        /* 小圆角保持现代感 */
+    padding: 2px 20px 2px 4px;                 /* 右侧留出箭头空间 */
+    min-width: 80px;                           /* 最小宽度确保可读性 */
+    min-height: 24px;                          /* 最小高度 */
+}
+
+/**
+ * 工作方式组合框hover状态
+ */
+#workModeTab CustomComboBox#placementCombo:hover,
+#workModeTab CustomComboBox#scanMethodCombo:hover,
+#workModeTab CustomComboBox#workModeCombo:hover {
+    background-color: rgba(20, 30, 30, 0.95);   /* 稍亮的背景 */
+    border: 1px solid #99ffdd;                 /* 更亮的绿色边框 */
+    color: #99ffdd;                            /* 更亮的绿色文字 */
+}
+
+/**
+ * 工作方式组合框focus状态
+ */
+#workModeTab CustomComboBox#placementCombo:focus,
+#workModeTab CustomComboBox#scanMethodCombo:focus,
+#workModeTab CustomComboBox#workModeCombo:focus {
+    border: 2px solid #99ffdd;                 /* 更粗的亮绿色边框 */
+    background-color: rgba(20, 30, 30, 0.95);   /* 稍亮的背景 */
+}
+
+/**
+ * 工作方式组合框下拉箭头区域
+ */
+#workModeTab CustomComboBox#placementCombo::drop-down,
+#workModeTab CustomComboBox#scanMethodCombo::drop-down,
+#workModeTab CustomComboBox#workModeCombo::drop-down {
+    width: 16px;                               /* 箭头区域宽度 */
+    border-left: 1px solid #66ffcc;           /* 左侧分割线 */
+    border-top-right-radius: 3px;             /* 右上角圆角 */
+    border-bottom-right-radius: 3px;          /* 右下角圆角 */
+    background-color: rgba(16, 24, 24, 0.9);   /* 与主体背景一致 */
+}
+
+/**
+ * 工作方式组合框下拉箭头区域hover状态
+ */
+#workModeTab CustomComboBox#placementCombo::drop-down:hover,
+#workModeTab CustomComboBox#scanMethodCombo::drop-down:hover,
+#workModeTab CustomComboBox#workModeCombo::drop-down:hover {
+    background-color: rgba(20, 30, 30, 0.95);   /* hover时稍亮背景 */
+    border-left: 1px solid #99ffdd;           /* hover时亮绿色分割线 */
+}
+
+/**
+ * 工作方式组合框下拉箭头图标
+ */
+#workModeTab CustomComboBox#placementCombo::down-arrow,
+#workModeTab CustomComboBox#scanMethodCombo::down-arrow,
+#workModeTab CustomComboBox#workModeCombo::down-arrow {
+    width: 8px;                               /* 箭头宽度 */
+    height: 4px;                              /* 箭头高度 */
+    background-color: #66ffcc;                /* 绿色背景 */
+    border: none;                             /* 无边框 */
+    margin: 2px;                              /* 外边距 */
+}
+
+/**
+ * 工作方式组合框下拉箭头图标hover状态
+ */
+#workModeTab CustomComboBox#placementCombo::down-arrow:hover,
+#workModeTab CustomComboBox#scanMethodCombo::down-arrow:hover,
+#workModeTab CustomComboBox#workModeCombo::down-arrow:hover {
+    background-color: #99ffdd;                /* hover时亮绿色背景 */
+}
+
+/**
+ * 工作方式组合框下拉列表
+ */
+#workModeTab CustomComboBox#placementCombo QAbstractItemView,
+#workModeTab CustomComboBox#scanMethodCombo QAbstractItemView,
+#workModeTab CustomComboBox#workModeCombo QAbstractItemView {
+    background-color: rgba(16, 24, 24, 0.95);  /* 下拉列表背景 */
+    border: 1px solid #66ffcc;                /* 绿色边框 */
+    border-radius: 3px;                       /* 圆角 */
+    color: #66ffcc;                           /* 绿色文字 */
+    font-size: 14px;                         /* 与主体一致的字体大小 */
+    font-weight: bold;                        /* 粗体 */
+    outline: none;                            /* 移除焦点轮廓 */
+}
+
+/**
+ * 工作方式组合框下拉列表项
+ */
+#workModeTab CustomComboBox#placementCombo QAbstractItemView::item,
+#workModeTab CustomComboBox#scanMethodCombo QAbstractItemView::item,
+#workModeTab CustomComboBox#workModeCombo QAbstractItemView::item {
+    padding: 4px 8px;                        /* 选项内边距 */
+    border: none;                             /* 无边框 */
+    min-height: 20px;                        /* 最小高度 */
+}
+
+/**
+ * 工作方式组合框下拉列表项hover状态
+ */
+#workModeTab CustomComboBox#placementCombo QAbstractItemView::item:hover,
+#workModeTab CustomComboBox#scanMethodCombo QAbstractItemView::item:hover,
+#workModeTab CustomComboBox#workModeCombo QAbstractItemView::item:hover {
+    background-color: rgba(102, 255, 204, 0.2); /* hover时半透明绿色背景 */
+    color: #99ffdd;                           /* hover时亮绿色文字 */
+}
+
+/**
+ * 工作方式组合框下拉列表项selected状态
+ */
+#workModeTab CustomComboBox#placementCombo QAbstractItemView::item:selected,
+#workModeTab CustomComboBox#scanMethodCombo QAbstractItemView::item:selected,
+#workModeTab CustomComboBox#workModeCombo QAbstractItemView::item:selected {
+    background-color: rgba(102, 255, 204, 0.4); /* 选中时更强的绿色背景 */
+    color: #ffffff;                           /* 选中时白色文字 */
+}
+
+/* =============================================================================
+ * ParamWidget �������öԻ�����ʽ
+ * =============================================================================
+ */
+
+/* QLabel - ������ǩ��ʽ */
+BatteryControl QLabel,
+TranRecvUI QLabel,
+DataSaveUI QLabel,
+DataProcessUI QLabel,
+sigParamUI QLabel,
+FreqControlUI QLabel,
+waveAndSample QLabel,
+ScanRangeUI QLabel,
+PhotoElectricParam QLabel,
+ServoControl QLabel {
+    background-color: transparent;
+    color: #66ffcc;
+    font-size: 14px;
+    font-weight: bold;
+    padding: 2px;
+}
+
+/* QCheckBox - checkbox style */
+BatteryControl QCheckBox,
+TranRecvUI QCheckBox,
+DataSaveUI QCheckBox,
+DataProcessUI QCheckBox,
+sigParamUI QCheckBox,
+FreqControlUI QCheckBox,
+waveAndSample QCheckBox,
+ScanRangeUI QCheckBox,
+PhotoElectricParam QCheckBox,
+ServoControl QCheckBox,
+MousePositionInfo QCheckBox {
+    color: #66ffcc;
+    font-size: 14px;
+    font-weight: bold;
+    spacing: 8px;
+}
+
+/* QCheckBox indicator */
+BatteryControl QCheckBox::indicator,
+TranRecvUI QCheckBox::indicator,
+DataSaveUI QCheckBox::indicator,
+DataProcessUI QCheckBox::indicator,
+sigParamUI QCheckBox::indicator,
+FreqControlUI QCheckBox::indicator,
+waveAndSample QCheckBox::indicator,
+ScanRangeUI QCheckBox::indicator,
+PhotoElectricParam QCheckBox::indicator,
+ServoControl QCheckBox::indicator,
+MousePositionInfo QCheckBox::indicator {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #66ffcc;
+    border-radius: 4px;
+    background-color: rgba(16, 24, 24, 0.8);
+}
+
+/* QCheckBox checked - 使用对勾图标 */
+BatteryControl QCheckBox::indicator:checked,
+TranRecvUI QCheckBox::indicator:checked,
+DataSaveUI QCheckBox::indicator:checked,
+DataProcessUI QCheckBox::indicator:checked,
+sigParamUI QCheckBox::indicator:checked,
+FreqControlUI QCheckBox::indicator:checked,
+waveAndSample QCheckBox::indicator:checked,
+ScanRangeUI QCheckBox::indicator:checked,
+PhotoElectricParam QCheckBox::indicator:checked,
+ServoControl QCheckBox::indicator:checked,
+MousePositionInfo QCheckBox::indicator:checked {
+    background-color: #66ffcc;
+    border: 2px solid #66ffcc;
+    border-radius: 4px;
+    image: url(:/resources/images/checkbox_checked.svg);
+}
+
+/* QCheckBox hover */
+BatteryControl QCheckBox::indicator:hover,
+TranRecvUI QCheckBox::indicator:hover,
+DataSaveUI QCheckBox::indicator:hover,
+DataProcessUI QCheckBox::indicator:hover,
+sigParamUI QCheckBox::indicator:hover,
+FreqControlUI QCheckBox::indicator:hover,
+waveAndSample QCheckBox::indicator:hover,
+ScanRangeUI QCheckBox::indicator:hover,
+PhotoElectricParam QCheckBox::indicator:hover,
+ServoControl QCheckBox::indicator:hover,
+MousePositionInfo QCheckBox::indicator:hover {
+    border-color: rgba(102, 255, 204, 0.8);
+    background-color: rgba(102, 255, 204, 0.1);
+}
+
+/* ============================================
+ * 状态信息栏专属样式 - 更大更醒目的开关控件
+ * ============================================ */
+#infoWidget QCheckBox {
+    color: #66ffcc;              /* 青绿色科技感文字 */
+    font-size: 18px;             /* 更大字体：18px（普通14px） */
+    font-weight: bold;           /* 粗体 */
+    spacing: 10px;               /* 文字与复选框间距 */
+}
+
+#infoWidget QCheckBox::indicator {
+    width: 24px;                               /* 更大指示器：24x24（普通20x20） */
+    height: 24px;
+    border: 2px solid #66ffcc;                 /* 青绿色边框 */
+    border-radius: 4px;                        /* 圆角 */
+    background-color: rgba(16, 24, 24, 0.8);   /* 深色半透明背景 */
+}
+
+#infoWidget QCheckBox::indicator:checked {
+    background-color: #66ffcc;                 /* 选中时青绿色填充 */
+    border: 2px solid #66ffcc;
+    border-radius: 4px;
+    image: url(:/resources/images/checkbox_checked.svg);  /* 对勾图标 */
+}
+
+#infoWidget QCheckBox::indicator:hover {
+    border-color: rgba(102, 255, 204, 0.8);    /* 悬停时边框半透明 */
+    background-color: rgba(102, 255, 204, 0.1); /* 轻微高亮背景 */
+}
+
+/* QSpinBox / QDoubleSpinBox - 使用默认箭头，仅应用配色 */
+BatteryControl QSpinBox,
+TranRecvUI QSpinBox,
+DataSaveUI QSpinBox,
+DataProcessUI QSpinBox,
+sigParamUI QSpinBox,
+FreqControlUI QSpinBox,
+waveAndSample QSpinBox,
+ScanRangeUI QSpinBox,
+PhotoElectricParam QSpinBox,
+ServoControl QSpinBox,
+BatteryControl QDoubleSpinBox,
+TranRecvUI QDoubleSpinBox,
+DataSaveUI QDoubleSpinBox,
+DataProcessUI QDoubleSpinBox,
+sigParamUI QDoubleSpinBox,
+FreqControlUI QDoubleSpinBox,
+waveAndSample QDoubleSpinBox,
+ScanRangeUI QDoubleSpinBox,
+PhotoElectricParam QDoubleSpinBox,
+ServoControl QDoubleSpinBox {
+    background-color: rgba(16, 24, 24, 0.9);
+    color: #66ffcc;
+    font-size: 14px;
+    font-weight: bold;
+    border: 2px solid #66ffcc;
+    border-radius: 4px;
+    padding: 2px 6px;
+    min-height: 24px;
+}
+
+/* hover 提示（默认箭头样式保持不变） */
+BatteryControl QSpinBox:hover,
+TranRecvUI QSpinBox:hover,
+DataSaveUI QSpinBox:hover,
+DataProcessUI QSpinBox:hover,
+sigParamUI QSpinBox:hover,
+FreqControlUI QSpinBox:hover,
+waveAndSample QSpinBox:hover,
+ScanRangeUI QSpinBox:hover,
+PhotoElectricParam QSpinBox:hover,
+ServoControl QSpinBox:hover,
+BatteryControl QDoubleSpinBox:hover,
+TranRecvUI QDoubleSpinBox:hover,
+DataSaveUI QDoubleSpinBox:hover,
+DataProcessUI QDoubleSpinBox:hover,
+sigParamUI QDoubleSpinBox:hover,
+FreqControlUI QDoubleSpinBox:hover,
+waveAndSample QDoubleSpinBox:hover,
+ScanRangeUI QDoubleSpinBox:hover,
+PhotoElectricParam QDoubleSpinBox:hover,
+ServoControl QDoubleSpinBox:hover {
+    border-color: rgba(102, 255, 204, 0.8);
+    background-color: rgba(102, 255, 204, 0.08);
+}
+
+/* 按钮背景透明，保留默认箭头 */
+BatteryControl QAbstractSpinBox::up-button,
+TranRecvUI QAbstractSpinBox::up-button,
+DataSaveUI QAbstractSpinBox::up-button,
+DataProcessUI QAbstractSpinBox::up-button,
+sigParamUI QAbstractSpinBox::up-button,
+FreqControlUI QAbstractSpinBox::up-button,
+waveAndSample QAbstractSpinBox::up-button,
+ScanRangeUI QAbstractSpinBox::up-button,
+PhotoElectricParam QAbstractSpinBox::up-button,
+ServoControl QAbstractSpinBox::up-button,
+BatteryControl QAbstractSpinBox::down-button,
+TranRecvUI QAbstractSpinBox::down-button,
+DataSaveUI QAbstractSpinBox::down-button,
+DataProcessUI QAbstractSpinBox::down-button,
+sigParamUI QAbstractSpinBox::down-button,
+FreqControlUI QAbstractSpinBox::down-button,
+waveAndSample QAbstractSpinBox::down-button,
+ScanRangeUI QAbstractSpinBox::down-button,
+PhotoElectricParam QAbstractSpinBox::down-button,
+ServoControl QAbstractSpinBox::down-button {
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* QComboBox - combobox style */
+BatteryControl QComboBox,
+TranRecvUI QComboBox,
+DataSaveUI QComboBox,
+DataProcessUI QComboBox,
+sigParamUI QComboBox,
+FreqControlUI QComboBox,
+waveAndSample QComboBox,
+ScanRangeUI QComboBox,
+PhotoElectricParam QComboBox,
+ServoControl QComboBox {
+    background-color: rgba(16, 24, 24, 0.9);
+    color: #66ffcc;
+    font-size: 14px;
+    font-weight: bold;
+    border: 2px solid #66ffcc;
+    border-radius: 4px;
+    padding: 2px 6px;
+    max-height: 20px;
+}
+
+/* QComboBox hover */
+BatteryControl QComboBox:hover,
+TranRecvUI QComboBox:hover,
+DataSaveUI QComboBox:hover,
+DataProcessUI QComboBox:hover,
+sigParamUI QComboBox:hover,
+FreqControlUI QComboBox:hover,
+waveAndSample QComboBox:hover,
+ScanRangeUI QComboBox:hover,
+PhotoElectricParam QComboBox:hover,
+ServoControl QComboBox:hover {
+    border-color: rgba(102, 255, 204, 0.8);
+    background-color: rgba(102, 255, 204, 0.1);
+}
+
+/* QComboBox drop-down - 下拉按钮区域 */
+BatteryControl QComboBox::drop-down,
+TranRecvUI QComboBox::drop-down,
+DataSaveUI QComboBox::drop-down,
+DataProcessUI QComboBox::drop-down,
+sigParamUI QComboBox::drop-down,
+FreqControlUI QComboBox::drop-down,
+waveAndSample QComboBox::drop-down,
+ScanRangeUI QComboBox::drop-down,
+PhotoElectricParam QComboBox::drop-down,
+ServoControl QComboBox::drop-down {
+    border: none;
+    width: 30px;
+    background: transparent;
+}
+
+/* QComboBox down-arrow - 使用border技巧绘制三角形箭头 */
+BatteryControl QComboBox::down-arrow,
+TranRecvUI QComboBox::down-arrow,
+DataSaveUI QComboBox::down-arrow,
+DataProcessUI QComboBox::down-arrow,
+sigParamUI QComboBox::down-arrow,
+FreqControlUI QComboBox::down-arrow,
+waveAndSample QComboBox::down-arrow,
+ScanRangeUI QComboBox::down-arrow,
+PhotoElectricParam QComboBox::down-arrow,
+ServoControl QComboBox::down-arrow {
+    width: 0;
+    height: 0;
+    /* 使用border技巧绘制向下的三角形 */
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid #66ffcc;
+    margin-right: 8px;
+}
+
+/* QComboBox down-arrow hover - hover时箭头颜色变亮 */
+BatteryControl QComboBox::down-arrow:hover,
+TranRecvUI QComboBox::down-arrow:hover,
+DataSaveUI QComboBox::down-arrow:hover,
+DataProcessUI QComboBox::down-arrow:hover,
+sigParamUI QComboBox::down-arrow:hover,
+FreqControlUI QComboBox::down-arrow:hover,
+waveAndSample QComboBox::down-arrow:hover,
+ScanRangeUI QComboBox::down-arrow:hover,
+PhotoElectricParam QComboBox::down-arrow:hover,
+ServoControl QComboBox::down-arrow:hover {
+    border-top-color: #99ffdd;
+}
+
+/* QComboBox popup list view */
+BatteryControl QComboBox QAbstractItemView,
+TranRecvUI QComboBox QAbstractItemView,
+DataSaveUI QComboBox QAbstractItemView,
+DataProcessUI QComboBox QAbstractItemView,
+sigParamUI QComboBox QAbstractItemView,
+FreqControlUI QComboBox QAbstractItemView,
+waveAndSample QComboBox QAbstractItemView,
+ScanRangeUI QComboBox QAbstractItemView,
+PhotoElectricParam QComboBox QAbstractItemView,
+ServoControl QComboBox QAbstractItemView {
+    background-color: rgba(16, 24, 24, 0.95);
+    color: #66ffcc;
+    font-size: 14px;
+    border: 2px solid #66ffcc;
+    border-radius: 4px;
+    selection-background-color: rgba(102, 255, 204, 0.3);
+    selection-color: #ffffff;
+}
+
+/* QComboBox list item */
+BatteryControl QComboBox QAbstractItemView::item,
+TranRecvUI QComboBox QAbstractItemView::item,
+DataSaveUI QComboBox QAbstractItemView::item,
+DataProcessUI QComboBox QAbstractItemView::item,
+sigParamUI QComboBox QAbstractItemView::item,
+FreqControlUI QComboBox QAbstractItemView::item,
+waveAndSample QComboBox QAbstractItemView::item,
+ScanRangeUI QComboBox QAbstractItemView::item,
+PhotoElectricParam QComboBox QAbstractItemView::item,
+ServoControl QComboBox QAbstractItemView::item {
+    padding: 6px 10px;
+    min-height: 28px;
+}
+
+/* QComboBox list item hover */
+BatteryControl QComboBox QAbstractItemView::item:hover,
+TranRecvUI QComboBox QAbstractItemView::item:hover,
+DataSaveUI QComboBox QAbstractItemView::item:hover,
+DataProcessUI QComboBox QAbstractItemView::item:hover,
+sigParamUI QComboBox QAbstractItemView::item:hover,
+FreqControlUI QComboBox QAbstractItemView::item:hover,
+waveAndSample QComboBox QAbstractItemView::item:hover,
+ScanRangeUI QComboBox QAbstractItemView::item:hover,
+PhotoElectricParam QComboBox QAbstractItemView::item:hover,
+ServoControl QComboBox QAbstractItemView::item:hover {
+    background-color: rgba(102, 255, 204, 0.2);
+}
+
+/* QLineEdit - line edit */
+BatteryControl QLineEdit,
+TranRecvUI QLineEdit,
+DataSaveUI QLineEdit,
+DataProcessUI QLineEdit,
+sigParamUI QLineEdit,
+FreqControlUI QLineEdit,
+waveAndSample QLineEdit,
+ScanRangeUI QLineEdit,
+PhotoElectricParam QLineEdit {
+    background-color: rgba(16, 24, 24, 0.9);
+    color: #66ffcc;
+    font-size: 14px;
+    font-weight: bold;
+    border: 2px solid #66ffcc;
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+
+/* =============================================================================
+ * TWS/TAS模式对话框样式 - 工作模式配置对话框
+ * =============================================================================
+ */
+
+/**
+ * TWSModeDialog / TASModeDialog - TWS/TAS模式配置对话框
+ * 功能：配置TWS(Track While Scan)和TAS(Track After Scan)工作模式参数
+ * 特点：
+ * - 深色背景#1a1a1a与系统整体风格一致
+ * - 青绿色#00ff88主题色突出重要控件
+ * - 统一的圆角和边框设计
+ */
+#TWSModeDialog,
+#TASModeDialog {
+    background-color: #1a1a1a;
+}
+
+/**
+ * TWS/TAS对话框内的QGroupBox - 参数分组容器
+ * 功能：将相关参数分组（波形控制、采样参数、伺服控制等）
+ * 特点：
+ * - 青绿色边框和标题文字
+ * - 8px圆角提供现代化外观
+ * - 顶部留白确保标题不被遮挡
+ */
+#TWSModeDialog QGroupBox,
+#TASModeDialog QGroupBox {
+    color: #00ff88;
+    font-size: 14px;
+    font-weight: bold;
+    border: 2px solid #00ff88;
+    border-radius: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+}
+
+/**
+ * TWS/TAS对话框内的QGroupBox标题
+ * 功能：显示分组名称
+ * 特点：
+ * - 左侧15px偏移避免与圆角重叠
+ * - 上边距定位确保标题位于边框上方
+ */
+#TWSModeDialog QGroupBox::title,
+#TASModeDialog QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 15px;
+    padding: 0 5px;
+}
+
+/**
+ * TWS/TAS对话框内的QLabel - 参数标签
+ * 功能：显示参数名称和说明文字
+ * 特点：
+ * - 青绿色文字与系统主题一致
+ * - 13px适中字体大小
+ */
+#TWSModeDialog QLabel,
+#TASModeDialog QLabel {
+    color: #00ff88;
+    font-size: 13px;
+}
+
+/**
+ * TWS/TAS对话框内的QLineEdit - 参数输入框
+ * 功能：用户输入数值参数（距离、角度、采样时间等）
+ * 特点：
+ * - 深色背景#2a2a2a与对话框背景区分
+ * - 半透明青绿色边框，hover时变实色
+ * - 5px圆角和内边距提供舒适的输入体验
+ */
+#TWSModeDialog QLineEdit,
+#TASModeDialog QLineEdit {
+    background-color: #2a2a2a;
+    color: #ffffff;
+    border: 2px solid rgba(0, 255, 136, 0.5);
+    border-radius: 5px;
+    padding: 5px;
+    font-size: 13px;
+}
+
+/**
+ * TWS/TAS对话框内的QLineEdit悬停状态
+ * 特点：边框变为实色青绿色，提示可交互
+ */
+#TWSModeDialog QLineEdit:hover,
+#TASModeDialog QLineEdit:hover {
+    border: 2px solid #00ff88;
+}
+
+/**
+ * TWS/TAS对话框内的QLineEdit焦点状态
+ * 特点：
+ * - 边框颜色变亮#00ffaa
+ * - 背景略微变亮#2f2f2f，突出当前输入框
+ */
+#TWSModeDialog QLineEdit:focus,
+#TASModeDialog QLineEdit:focus {
+    border: 2px solid #00ffaa;
+    background-color: #2f2f2f;
+}
+
+/**
+ * TWS/TAS对话框内的QCheckBox - 使能开关
+ * 功能：控制波形使能、功能开关等
+ * 特点：
+ * - 青绿色文字和边框
+ * - 8px间距确保复选框与文字不贴合
+ */
+#TWSModeDialog QCheckBox,
+#TASModeDialog QCheckBox {
+    color: #00ff88;
+    font-size: 13px;
+    spacing: 8px;
+}
+
+/**
+ * TWS/TAS对话框内的QCheckBox指示器
+ * 特点：
+ * - 18x18像素正方形
+ * - 青绿色边框，4px圆角
+ * - 深色背景#2a2a2a
+ */
+#TWSModeDialog QCheckBox::indicator,
+#TASModeDialog QCheckBox::indicator {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #00ff88;
+    border-radius: 4px;
+    background-color: #2a2a2a;
+}
+
+/**
+ * TWS/TAS对话框内的QCheckBox选中状态
+ * 特点：背景填充为青绿色#00ff88，形成实心方块
+ */
+#TWSModeDialog QCheckBox::indicator:checked,
+#TASModeDialog QCheckBox::indicator:checked {
+    background-color: #00ff88;
+}
+
+/**
+ * TWS/TAS对话框内的QCheckBox悬停状态
+ * 特点：边框颜色变亮#00ffaa，提示可交互
+ */
+#TWSModeDialog QCheckBox::indicator:hover,
+#TASModeDialog QCheckBox::indicator:hover {
+    border: 2px solid #00ffaa;
+}
+
+/**
+ * TWS/TAS对话框内的ComboBox - 下拉选择框
+ * 功能：选择工作模式、波形编码、频率等
+ * 特点：
+ * - 与LineEdit相同的视觉风格
+ * - 深色背景#2a2a2a，半透明青绿色边框
+ * - 支持CustomComboBox和QComboBox两种类型
+ */
+#TWSModeDialog CustomComboBox,
+#TWSModeDialog QComboBox,
+#TASModeDialog CustomComboBox,
+#TASModeDialog QComboBox {
+    background-color: #2a2a2a;
+    color: #ffffff;
+    border: 2px solid rgba(0, 255, 136, 0.5);
+    border-radius: 5px;
+    padding: 5px;
+    font-size: 13px;
+}
+
+/**
+ * TWS/TAS对话框内的ComboBox悬停状态
+ */
+#TWSModeDialog CustomComboBox:hover,
+#TWSModeDialog QComboBox:hover,
+#TASModeDialog CustomComboBox:hover,
+#TASModeDialog QComboBox:hover {
+    border: 2px solid #00ff88;
+}
+
+/**
+ * TWS/TAS对话框内的ComboBox焦点状态
+ */
+#TWSModeDialog CustomComboBox:focus,
+#TWSModeDialog QComboBox:focus,
+#TASModeDialog CustomComboBox:focus,
+#TASModeDialog QComboBox:focus {
+    border: 2px solid #00ffaa;
+}
+
+/**
+ * TWS/TAS对话框内的ComboBox下拉按钮
+ * 特点：
+ * - 无边框设计
+ * - 20px固定宽度
+ */
+#TWSModeDialog CustomComboBox::drop-down,
+#TWSModeDialog QComboBox::drop-down,
+#TASModeDialog CustomComboBox::drop-down,
+#TASModeDialog QComboBox::drop-down {
+    border: none;
+    width: 20px;
+}
+
+/**
+ * TWS/TAS对话框内的ComboBox下拉列表
+ * 特点：
+ * - 深色背景#2a2a2a
+ * - 青绿色边框
+ * - 选中项使用青绿色背景和黑色文字
+ */
+#TWSModeDialog CustomComboBox QAbstractItemView,
+#TWSModeDialog QComboBox QAbstractItemView,
+#TASModeDialog CustomComboBox QAbstractItemView,
+#TASModeDialog QComboBox QAbstractItemView {
+    background-color: #2a2a2a;
+    color: #ffffff;
+    border: 2px solid #00ff88;
+    selection-background-color: #00ff88;
+    selection-color: #000000;
+}
+
+/**
+ * TWS/TAS对话框内的ComboBox列表项
+ * 特点：5px内边距确保文字不贴边
+ */
+#TWSModeDialog CustomComboBox QAbstractItemView::item,
+#TWSModeDialog QComboBox QAbstractItemView::item,
+#TASModeDialog CustomComboBox QAbstractItemView::item,
+#TASModeDialog QComboBox QAbstractItemView::item {
+    padding: 5px;
+}
+
+/**
+ * TWS/TAS对话框内的ComboBox列表项悬停状态
+ * 特点：半透明青绿色背景提示可选择
+ */
+#TWSModeDialog CustomComboBox QAbstractItemView::item:hover,
+#TWSModeDialog QComboBox QAbstractItemView::item:hover,
+#TASModeDialog CustomComboBox QAbstractItemView::item:hover,
+#TASModeDialog QComboBox QAbstractItemView::item:hover {
+    background-color: rgba(0, 255, 136, 0.3);
+}
+
+/* QDialogButtonBox buttons use the global QPushButton style so all dialogs stay consistent. */
+
+/* =============================================================================
+ * 总控通信窗口样式
+ * =============================================================================
+ *
+ * 该窗口使用对象名隔离样式：复用系统的深色背景、青绿色状态色和圆角控件，
+ * 不改变其他 QDialog、表格或按钮的视觉效果。
+ */
+#CommandControlWindow {
+    background-color: #101818;
+    border: 1px solid #176b5a;
+}
+
+#CommandControlTitleBar {
+    background-color: #0b1514;
+    border-bottom: 1px solid #246354;
+}
+
+#CommandControlWindow #CommandControlTitleLabel {
+    color: #65f5c0;
+    font-size: 15px;
+    font-weight: bold;
+}
+
+#CommandControlWindow #CommandControlTitleCloseButton {
+    min-width: 28px;
+    min-height: 28px;
+    max-width: 28px;
+    max-height: 28px;
+    padding: 0;
+    color: #d0ebe2;
+    font-size: 20px;
+    font-weight: normal;
+    background-color: transparent;
+    border: none;
+    border-radius: 5px;
+}
+
+#CommandControlWindow #CommandControlTitleCloseButton:hover {
+    color: #ffffff;
+    background-color: #c43e3e;
+    border: none;
+}
+
+#CommandControlWindow QLabel {
+    color: #d9f7ee;
+    background: transparent;
+    font-family: "Microsoft YaHei";
+    font-size: 13px;
+}
+
+#CommandControlControlPage,
+#CommandControlPeerPage,
+#CommandControlRecordPage {
+    background-color: #111f1d;
+}
+
+#CommandControlStatusLabel {
+    color: #bfffe6;
+    background-color: rgba(11, 35, 31, 0.92);
+    border: 1px solid rgba(0, 255, 136, 0.48);
+    border-radius: 7px;
+    padding: 10px 12px;
+    min-height: 40px;
+}
+
+#CommandControlTabs::pane {
+    background-color: #111f1d;
+    border: 1px solid #245a4d;
+    border-radius: 8px;
+    top: -1px;
+}
+
+#CommandControlTabs QTabBar::tab {
+    min-width: 108px;
+    color: #8fb9ac;
+    background-color: #172724;
+    border: 1px solid #2b5249;
+    border-radius: 6px;
+    padding: 8px 16px;
+    margin: 0 5px 7px 0;
+}
+
+#CommandControlTabs QTabBar::tab:hover {
+    color: #d8fff0;
+    border-color: #00cc88;
+    background-color: #1d3833;
+}
+
+#CommandControlTabs QTabBar::tab:selected {
+    color: #071713;
+    font-weight: bold;
+    border: 1px solid #00ff9a;
+    background-color: #00c982;
+}
+
+#CommandControlWindow QCheckBox {
+    color: #c9f8e7;
+    font-size: 14px;
+    spacing: 8px;
+    padding: 3px 0;
+}
+
+#CommandControlWindow QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #38ca91;
+    border-radius: 4px;
+    background-color: #0d1c1a;
+}
+
+#CommandControlWindow QCheckBox::indicator:checked {
+    background-color: #00c982;
+    border-color: #70ffd0;
+}
+
+#CommandControlWindow #CommandControlAutoRangeSpinBox {
+    color: #d9fff0;
+    background-color: #0c1b18;
+    border: 1px solid #33886e;
+    border-radius: 5px;
+    padding: 2px 7px;
+    font-size: 13px;
+}
+
+#CommandControlWindow #CommandControlAutoRangeSpinBox:hover,
+#CommandControlWindow #CommandControlAutoRangeSpinBox:focus {
+    border-color: #67e8b5;
+    background-color: #132924;
+}
+
+#CommandControlWindow #CommandControlApplyAutoRangeButton {
+    color: #071713;
+    font-weight: bold;
+    background-color: #00c982;
+    border-color: #72ffd1;
+}
+
+#CommandControlWindow #CommandControlApplyAutoRangeButton:hover {
+    color: #03100c;
+    background-color: #57efb2;
+    border-color: #c5ffe8;
+}
+
+#CommandControlWindow QPushButton {
+    min-height: 28px;
+    padding: 6px 18px;
+    color: #caffeb;
+    background-color: #17342e;
+    border: 1px solid #2fb886;
+    border-radius: 6px;
+}
+
+#CommandControlWindow QPushButton:hover {
+    color: #ffffff;
+    background-color: #21604f;
+    border: 1px solid #72ffd1;
+}
+
+#CommandControlWindow QPushButton:pressed {
+    background-color: #0e211d;
+    border-color: #00ff9a;
+}
+
+#CommandControlLoginButton,
+#CommandControlReplayButton,
+#CommandControlTimeSyncButton {
+    color: #061b14;
+    font-weight: bold;
+    background-color: #00c982;
+    border-color: #5cffc3;
+}
+
+#CommandControlLoginButton:hover,
+#CommandControlReplayButton:hover,
+#CommandControlTimeSyncButton:hover {
+    color: #03120d;
+    background-color: #54efb3;
+    border-color: #b0ffe0;
+}
+
+#CommandControlLogoutButton,
+#CommandControlStopReplayButton {
+    color: #ffded9;
+    background-color: #4a2a2a;
+    border-color: #bf6464;
+}
+
+#CommandControlPauseReplayButton {
+    color: #ffe8b0;
+    background-color: #4a3a1f;
+    border-color: #c89b3c;
+}
+
+#CommandControlPauseReplayButton:hover {
+    color: #ffffff;
+    background-color: #715425;
+    border-color: #ffd86a;
+}
+
+#CommandControlSeekReplayButton {
+    color: #ccecff;
+    background-color: #1b3544;
+    border-color: #438bb0;
+}
+
+#CommandControlSeekReplayButton:hover {
+    color: #ffffff;
+    background-color: #28536a;
+    border-color: #83d9ff;
+}
+
+#CommandControlLogoutButton:hover,
+#CommandControlStopReplayButton:hover {
+    color: #ffffff;
+    background-color: #7a3737;
+    border-color: #ff9494;
+}
+
+#CommandControlCloseButton {
+    min-width: 82px;
+    color: #d3eee6;
+    background-color: #1a2c29;
+    border-color: #42766a;
+}
+
+#CommandControlWindow QTableWidget {
+    color: #d4f1e8;
+    background-color: #0d1917;
+    alternate-background-color: #132521;
+    border: 1px solid #28594d;
+    border-radius: 6px;
+    gridline-color: #24453e;
+    selection-background-color: #176b55;
+    selection-color: #ffffff;
+    outline: none;
+}
+
+#CommandControlWindow QHeaderView::section {
+    color: #84f7c7;
+    background-color: #172d29;
+    border: none;
+    border-right: 1px solid #315d52;
+    border-bottom: 1px solid #315d52;
+    padding: 7px 8px;
+    font-weight: bold;
+}
+
+#CommandControlWindow QTableWidget::item {
+    border-bottom: 1px solid rgba(49, 93, 82, 0.55);
+    padding: 5px 8px;
+}
+
+#CommandControlWindow QScrollBar:vertical {
+    width: 10px;
+    margin: 3px;
+    background: #0a1413;
+}
+
+#CommandControlWindow QScrollBar::handle:vertical {
+    min-height: 24px;
+    border-radius: 5px;
+    background: #2c8f73;
+}
+
+#CommandControlWindow QScrollBar::handle:vertical:hover {
+    background: #52d6ad;
+}
+
+#CommandControlWindow QScrollBar::add-line:vertical,
+#CommandControlWindow QScrollBar::sub-line:vertical {
+    height: 0;
+}
+
+/* =============================================================================
+ * 距离-方位图表组件样式 - Range-Azimuth Chart Widget
+ * =============================================================================
+ */
+
+/**
+ * RangeAzimuthChartToolBar - 图表工具栏
+ * 特点：
+ * - 深色背景融入整体设计
+ * - 底部边框分隔工具栏和图表区域
+ */
+#RangeAzimuthChartToolBar {
+    background-color: #2b2b2b;
+    border-bottom: 1px solid #3c3c3c;
+    padding: 5px;
+}
+
+/**
+ * RangeAzimuthChart - 图表主体
+ * 特点：
+ * - 深色背景匹配整体主题
+ * - 边框提供视觉边界
+ */
+#RangeAzimuthChart {
+    background-color: #1e1e1e;
+    border: 1px solid #3c3c3c;
+}
+
+/**
+ * 工具栏标签样式
+ * 特点：浅色文字确保可读性
+ */
+#RangeAzimuthChartToolBar QLabel {
+    color: #dcdcdc;
+    font-size: 11px;
+    background: transparent;
+}
+
+/**
+ * 工具栏按钮样式
+ * 特点：
+ * - 深灰色背景
+ * - 悬停时变亮
+ * - 按下时变暗
+ */
+#RangeAzimuthChartToolBar QPushButton {
+    background-color: #3c3c3c;
+    color: #dcdcdc;
+    border: 1px solid #555555;
+    border-radius: 3px;
+    padding: 4px 12px;
+    font-size: 11px;
+    min-width: 60px;
+}
+
+#RangeAzimuthChartToolBar QPushButton:hover {
+    background-color: #4a4a4a;
+    border-color: #00ff88;
+}
+
+#RangeAzimuthChartToolBar QPushButton:pressed {
+    background-color: #2a2a2a;
+}
+
+/**
+ * 工具栏输入框样式
+ * 特点：
+ * - 深色输入框背景
+ * - 青色边框与系统主题一致
+ * - 聚焦时高亮边框
+ */
+#RangeAzimuthChartToolBar QLineEdit {
+    background-color: #2b2b2b;
+    color: #dcdcdc;
+    border: 1px solid #555555;
+    border-radius: 3px;
+    padding: 3px 6px;
+    selection-background-color: #00ff88;
+    selection-color: #000000;
+}
+
+#RangeAzimuthChartToolBar QLineEdit:focus {
+    border-color: #00ff88;
+    background-color: #333333;
+}
+
+#RangeAzimuthChartToolBar QLineEdit:disabled {
+    background-color: #1e1e1e;
+    color: #666666;
+}
+
+/**
+ * 工具栏分隔符
+ * 特点：细线分隔不同功能区域
+ */
+#RangeAzimuthChartToolBar QFrame[frameShape="4"] {  /* VLine */
+    background-color: #555555;
+    max-width: 1px;
+    margin: 2px 5px;
+}
+
+/* =============================================================================
+ * MousePositionInfo SpinBox 样式
+ * 描述：检测点和航迹点大小控制的spinbox样式
+ * ========================================================================== */
+
+/**
+ * MousePositionInfo QDoubleSpinBox - 与参数对话框保持一致的风格
+ */
+#MousePositionInfo QDoubleSpinBox {
+    background-color: rgba(16, 24, 24, 0.9);
+    color: #66ffcc;
+    font-size: 13px;
+    font-weight: normal;
+    border: 1px solid #005533;
+    border-radius: 4px;
+    padding: 3px 5px;
+    min-height: 22px;
+}
+
+/**
+ * MousePositionInfo QDoubleSpinBox hover - 悬停高亮
+ */
+#MousePositionInfo QDoubleSpinBox:hover {
+    border: 1px solid #00aa66;
+}
+
+/* 不设置按钮样式，让Qt使用默认的原生箭头按钮 */
+
+/* =============================================================================
+ * RangeAzimuthChartWidget / RangeAzimuthChartToolBar 样式
+ * 描述：距离-方位图组件，黑绿配色，与全局深色主题保持一致
+ * ========================================================================== */
+
+/* 工具栏容器 */
+#RangeAzimuthChartToolBar {
+    background-color: rgba(16, 24, 24, 0.92);
+    border-bottom: 1px solid rgba(0, 255, 136, 0.25);
+    border-radius: 0px;
+    padding: 2px 6px;
+}
+
+/* 方位角标签 */
+#RangeAzimuthLabel,
+#RangeAzimuthSeparatorLabel {
+    background-color: transparent;
+    color: #66ffcc;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+/* 方位角输入框 */
+#RangeAzimuthMinEdit,
+#RangeAzimuthMaxEdit,
+#Track3DToolBar QLineEdit {
+    background-color: rgba(16, 24, 24, 0.9);
+    color: #66ffcc;
+    font-size: 12px;
+    font-weight: bold;
+    border: 1px solid #005533;
+    border-radius: 4px;
+    padding: 2px 5px;
+    min-height: 22px;
+}
+
+#RangeAzimuthMinEdit:hover,
+#RangeAzimuthMaxEdit:hover,
+#Track3DToolBar QLineEdit:hover {
+    border: 1px solid #00aa66;
+    background-color: rgba(20, 32, 32, 0.95);
+}
+
+#RangeAzimuthMinEdit:focus,
+#RangeAzimuthMaxEdit:focus,
+#Track3DToolBar QLineEdit:focus {
+    border: 1px solid #00ff88;
+    background-color: rgba(16, 24, 24, 0.95);
+    color: #ffffff;
+}
+
+/* 工具栏按钮：清除 / 重置 */
+#RangeAzimuthClearButton,
+#RangeAzimuthResetButton {
+    background-color: transparent;
+    color: #00ff88;
+    font-size: 12px;
+    font-weight: bold;
+    border: 1px solid rgba(0, 255, 136, 0.45);
+    border-radius: 6px;
+    padding: 2px 10px;
+    min-height: 22px;
+}
+
+#RangeAzimuthClearButton:hover,
+#RangeAzimuthResetButton:hover {
+    background-color: rgba(0, 255, 136, 0.15);
+    border: 1px solid #00ff88;
+    color: #ffffff;
+}
+
+#RangeAzimuthClearButton:pressed,
+#RangeAzimuthResetButton:pressed {
+    background-color: rgba(0, 255, 136, 0.28);
+    border: 2px solid #00ffaa;
+    color: #ffffff;
+}
+
+/* 图表区域本身（QGraphicsView） */
+#RangeAzimuthChart {
+    background-color: rgb(10, 16, 16);
+    border: 1px solid rgba(0, 255, 136, 0.20);
+}
+
+/* 整体容器：统一黑色背景 */
+#RangeAzimuthChartWidget {
+    background-color: rgb(10, 16, 16);
+    border: 1px solid rgba(0, 255, 136, 0.25);
+    border-radius: 4px;
+}
+
+/* 三维航迹显示：工具栏由 Qt 绘制，场景主题由 track3d.css 保持同色系。 */
+#Track3DWidget {
+    background-color: rgb(10, 16, 16);
+}
+
+#Track3DToolBar {
+    background-color: rgba(16, 24, 24, 0.92);
+    border-bottom: 1px solid rgba(0, 255, 136, 0.35);
+}
+
+#Track3DToolBar QLabel {
+    color: #66ffcc;
+    background-color: transparent;
+}
+
+#Track3DToolBar QPushButton {
+    color: #00ff88;
+    background-color: rgba(0, 255, 136, 0.15);
+    border: 1px solid #00ff88;
+    border-radius: 2px;
+    padding: 3px 10px;
+}
+
+#Track3DToolBar QPushButton:hover {
+    background-color: rgba(0, 255, 136, 0.28);
+}
+
+#Track3DToolBar QPushButton:pressed {
+    background-color: rgba(0, 255, 136, 0.10);
+}
+
+/* =============================================================================
+ * ScreenRecorderWidget 录屏回放窗口样式
+ * =============================================================================
+ */
+
+/* 状态标签 & 帧信息标签 */
+#RecorderStatusLabel,
+#FrameInfoLabel {
+    color: #00ff88;
+    font-size: 13px;
+    font-weight: bold;
+    padding: 2px 4px;
+}
+
+/* 录屏文件列表 */
+#RecorderFileList {
+    background-color: rgb(10, 16, 16);
+    color: #b0b0b0;
+    font-size: 13px;
+    border: 1px solid rgba(0, 255, 136, 0.25);
+    border-radius: 4px;
+    padding: 2px;
+    outline: none;
+}
+
+#RecorderFileList::item {
+    padding: 6px 8px;
+    border-bottom: 1px solid rgba(0, 255, 136, 0.08);
+}
+
+#RecorderFileList::item:selected {
+    background-color: rgba(0, 255, 136, 0.18);
+    color: #ffffff;
+}
+
+#RecorderFileList::item:hover {
+    background-color: rgba(0, 255, 136, 0.10);
+}
+
+/* 录屏预览区域 */
+#RecorderPreview {
+    background-color: rgb(10, 16, 16);
+    border: 1px solid rgba(0, 255, 136, 0.20);
+    border-radius: 4px;
+}
+
+/* 控制按钮通用样式 */
+#RecordBtn,
+#PlayBtn,
+#StopPlayBtn,
+#DeleteBtn,
+#RefreshBtn {
+    background-color: transparent;
+    color: #00ff88;
+    font-size: 13px;
+    font-weight: bold;
+    border: 1px solid rgba(0, 255, 136, 0.45);
+    border-radius: 6px;
+    padding: 4px 14px;
+    min-height: 24px;
+}
+
+#RecordBtn:hover,
+#PlayBtn:hover,
+#StopPlayBtn:hover,
+#DeleteBtn:hover,
+#RefreshBtn:hover {
+    background-color: rgba(0, 255, 136, 0.15);
+    border: 1px solid #00ff88;
+    color: #ffffff;
+}
+
+#RecordBtn:pressed,
+#PlayBtn:pressed,
+#StopPlayBtn:pressed,
+#DeleteBtn:pressed,
+#RefreshBtn:pressed {
+    background-color: rgba(0, 255, 136, 0.28);
+    border: 2px solid #00ffaa;
+    color: #ffffff;
+}
+
+/* 录屏中按钮特殊高亮（红色提示） */
+#RecordBtn:checked,
+#RecordBtn[recording="true"] {
+    color: #ff4444;
+    border: 2px solid #ff4444;
+    background-color: rgba(255, 68, 68, 0.15);
+}
+
+/* 进度滑块 */
+#RecorderSlider::groove:horizontal {
+    height: 6px;
+    background-color: rgba(0, 255, 136, 0.15);
+    border-radius: 3px;
+}
+
+#RecorderSlider::handle:horizontal {
+    width: 14px;
+    height: 14px;
+    margin: -4px 0;
+    background-color: #00ff88;
+    border-radius: 7px;
+    border: 2px solid rgb(10, 16, 16);
+}
+
+#RecorderSlider::handle:horizontal:hover {
+    background-color: #00ffaa;
+    border: 2px solid rgba(0, 255, 136, 0.6);
+}
+
+#RecorderSlider::sub-page:horizontal {
+    background-color: rgba(0, 255, 136, 0.45);
+    border-radius: 3px;
+}
+
+/* 录制质量标签 */
+#RecorderQualityLabel {
+    color: #00ff88;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+/* 录制区段小标题（历史录制、预览/回放） */
+#RecorderSectionLabel {
+    color: #66ffcc;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 2px 0px;
+}
+
+/* 录制质量选择下拉框 */
+#RecorderQualityCombo {
+    background-color: rgba(0, 20, 10, 0.9);
+    color: #00ff88;
+    font-size: 13px;
+    font-weight: bold;
+    border: 1px solid rgba(0, 255, 136, 0.45);
+    border-radius: 4px;
+    padding: 4px 10px;
+    min-width: 120px;
+}
+
+#RecorderQualityCombo:hover {
+    border: 1px solid #00ff88;
+    color: #ffffff;
+}
+
+#RecorderQualityCombo::drop-down {
+    border: none;
+    width: 20px;
+}
+
+#RecorderQualityCombo::down-arrow {
+    image: none;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid #00ff88;
+    margin-right: 6px;
+}
+
+#RecorderQualityCombo QAbstractItemView {
+    background-color: rgb(10, 16, 16);
+    color: #b0b0b0;
+    border: 1px solid rgba(0, 255, 136, 0.4);
+    selection-background-color: rgba(0, 255, 136, 0.2);
+    selection-color: #ffffff;
+    outline: none;
+}

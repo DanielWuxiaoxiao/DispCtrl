@@ -6,6 +6,7 @@
  * @LastEditTime: 2026-09-12 12:22:53
  * @Description: 
  */
+#include "Basic/uitheme.h"
 #include "rangeheightchart.h"
 #include "../Basic/DispBasci.h"
 #include "../Basic/ConfigManager.h"
@@ -57,7 +58,8 @@ class RangeHeightBatchItem : public QGraphicsItem
 {
 public:
     explicit RangeHeightBatchItem(RangeHeightChart* chart)
-        : m_chart(chart)
+        : m_chart(chart),
+          m_droneRedEnabled(CF_INS.displayFlag("detection_drone_red_enabled", false))
     {
         setZValue(POINT_Z);
         setAcceptHoverEvents(true);
@@ -85,6 +87,7 @@ public:
         }
 
         QVarLengthArray<QPointF, 2048> detections;
+        QVarLengthArray<QPointF, 256> droneDetections;
         QVarLengthArray<QPointF, 2048> normalTracks;
         QVarLengthArray<QPointF, 2048> otherTracks;
         QVarLengthArray<QPointF, 2048> tbdTracks;
@@ -95,7 +98,11 @@ public:
 
         for (const auto& item : m_chart->m_detections) {
             if (m_chart->shouldShowDetection(item.info)) {
-                detections.append(pointFor(item.info));
+                if (m_droneRedEnabled && item.info.targetRecResult == 1) {
+                    droneDetections.append(pointFor(item.info));
+                } else {
+                    detections.append(pointFor(item.info));
+                }
             }
         }
         for (const auto& item : m_chart->m_tracks) {
@@ -112,6 +119,9 @@ public:
         drawPoints(painter, m_chart->m_detectionColor,
                    qMax<qreal>(1.0, m_chart->m_baseDetectionSize * m_chart->m_detectionSizeRatio),
                    detections);
+        drawPoints(painter, TRA_COLOR,
+                   qMax<qreal>(1.0, m_chart->m_baseDetectionSize * m_chart->m_detectionSizeRatio),
+                   droneDetections);
         drawPoints(painter, m_chart->m_trackColor,
                    qMax<qreal>(1.0, m_chart->m_baseTrackSize * m_chart->m_trackSizeRatio),
                    normalTracks);
@@ -209,8 +219,9 @@ private:
         return (info.targetRecResult == 1) ? normalTracks : otherTracks;
     }
 
+    template<int Prealloc>
     static void drawPoints(QPainter* painter, const QColor& color, qreal width,
-                           const QVarLengthArray<QPointF, 2048>& points)
+                           const QVarLengthArray<QPointF, Prealloc>& points)
     {
         if (points.isEmpty()) return;
         QPen pen(color);
@@ -247,6 +258,7 @@ private:
     }
 
     RangeHeightChart* m_chart = nullptr;
+    const bool m_droneRedEnabled;
     QRectF m_bounds = QRectF(0.0, 0.0, 1.0, 1.0);
 
     void updateBounds(bool prepare)
@@ -389,11 +401,11 @@ RangeHeightChart::RangeHeightChart(QWidget* parent)
     setGridVisible(true);
     setAxisVisible(true);
 
-    setChartBgColor(QColor(18, 23, 28));
-    setChartGridMajorColor(QColor(48, 59, 68));
-    setChartGridMinorColor(QColor(35, 45, 52));
-    setChartAxisColor(QColor(97, 117, 131));
-    setChartTextColor(QColor(166, 178, 189));
+    setChartBgColor((UiTheme::classicEnabled ? QColor(10, 16, 16) : UiTheme::color(QColor(18, 23, 28))));
+    setChartGridMajorColor((UiTheme::classicEnabled ? QColor(0, 80, 60) : UiTheme::color(QColor(48, 59, 68))));
+    setChartGridMinorColor((UiTheme::classicEnabled ? QColor(0, 50, 38) : UiTheme::color(QColor(35, 45, 52))));
+    setChartAxisColor((UiTheme::classicEnabled ? QColor(0, 255, 136) : UiTheme::color(QColor(97, 117, 131))));
+    setChartTextColor((UiTheme::classicEnabled ? QColor(102, 255, 204) : UiTheme::color(QColor(166, 178, 189))));
 
     m_batchItem = new RangeHeightBatchItem(this);
     scene()->addItem(m_batchItem);

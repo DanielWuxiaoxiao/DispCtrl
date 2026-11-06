@@ -15,6 +15,7 @@
  * @Description: 距离-方位显示组件实现
  */
 
+#include "Basic/uitheme.h"
 #include "rangeazimuthwidget.h"
 #include "sectorscene.h"
 #include "polaraxis.h"
@@ -103,7 +104,7 @@ RangeAzimuthView::RangeAzimuthView(SectorScene* scene, QWidget* parent)
     setObjectName("RangeAzimuthView");
 
     // 场景保持透明，主界面底图可从辅助视图透出。
-    setStyleSheet(UiFontScale::style("QGraphicsView#RangeAzimuthView { background: transparent; border: none; }"));
+    setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? "background: #1a1a1a;" : "QGraphicsView#RangeAzimuthView { background: transparent; border: none; }")));
 }
 
 void RangeAzimuthView::resizeEvent(QResizeEvent* event)

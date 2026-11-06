@@ -7,6 +7,7 @@
 #include <utility>
 #pragma pack(pop)
 #include "Basic/radarpanelstate.h"
+#include "Basic/systemtimesync.h"
 #pragma pack(push, 8)
 class QLineEdit;
 class QPushButton;
@@ -20,10 +21,12 @@ public:
         std::function<bool(int, const RadarReference::Pose&)> lock;
         std::function<std::optional<RadarReference::Pose>(int)> unlock;
         std::function<RadarPanelState::Snapshot()> live;
+        std::function<void()> requestTimeSync;
     };
     RadarPanelPositionDialog(const RadarPanelValues& values, const std::array<bool, 4>& locked,
                              Actions actions, QWidget* parent = nullptr);
     void attachToWindow(CusWindow* host);
+    void setSystemTimeSyncState(SystemTimeSyncState state);
 private:
     bool readRow(int id, RadarReference::Pose& values);
     void fillRow(int id, const RadarReference::Pose& values);
@@ -35,6 +38,8 @@ private:
     std::array<QPushButton*, 4> m_lock{}, m_unlock{};
     std::array<QLabel*, 4> m_status{};
     QLabel* m_error = nullptr;
+    QPushButton* m_timeSyncButton = nullptr;
+    QLabel* m_timeSyncStatus = nullptr;
     Actions m_actions;
     std::array<bool, 4> m_locked{};
 };

@@ -84,6 +84,7 @@ public:
 public slots:
     /** @brief Send AA09 for an ordinary radar track; Hz range 1..100. */
     void sendTrackDataRateControl(quint16 batch, quint8 rateHz);
+    void sendSystemTimeSyncControl();
     /**
      * @brief 发送电池控制参数
      * @param param 电池控制参数结构

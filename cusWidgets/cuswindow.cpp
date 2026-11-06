@@ -37,7 +37,7 @@ CusWindow::CusWindow(const QString& title, const QIcon& icon, QWidget* parent)
     setAttribute(Qt::WA_DeleteOnClose);
     setAttribute(Qt::WA_TranslucentBackground); // 支持窗口半透明
     // 整窗轻微透底，让内部实底面板也保留一致的透明度；仅应用于独立 CusWindow。
-    setWindowOpacity(0.96);
+    setWindowOpacity(UiTheme::classicEnabled ? 1.0 : 0.96);
     setObjectName("CusWindow");
     setWindowTitle(title);
 
@@ -72,7 +72,7 @@ CusWindow::CusWindow(const QString& title, const QIcon& icon, QWidget* parent)
     m_minBtn = new QPushButton(titleBar);
     m_minBtn->setObjectName("cMinButton");
     m_minBtn->setFixedSize(32, 32);
-    m_minBtn->setIcon(QIcon(":/resources/icon/ui/minus.svg"));
+    m_minBtn->setIcon((UiTheme::classicEnabled ? QIcon(":/resources/icon/min.png") : QIcon(":/resources/icon/ui/minus.svg")));
     m_minBtn->setIconSize(QSize(20, 20));
     m_minBtn->setToolTip("最小化窗口");
     connect(m_minBtn, &QPushButton::clicked, this, [this](){
@@ -82,7 +82,7 @@ CusWindow::CusWindow(const QString& title, const QIcon& icon, QWidget* parent)
     m_maxBtn = new QPushButton(titleBar);
     m_maxBtn->setObjectName("cMaxButton");
     m_maxBtn->setFixedSize(32, 32);
-    m_maxBtn->setIcon(QIcon(":/resources/icon/ui/expand.svg"));
+    m_maxBtn->setIcon((UiTheme::classicEnabled ? QIcon(":/resources/icon/full.png") : QIcon(":/resources/icon/ui/expand.svg")));
     m_maxBtn->setIconSize(QSize(20, 20));
     m_maxBtn->setToolTip("最大化/还原窗口");
     connect(m_maxBtn, &QPushButton::clicked, this, &CusWindow::toggleMaximized);
@@ -90,7 +90,7 @@ CusWindow::CusWindow(const QString& title, const QIcon& icon, QWidget* parent)
     m_closeBtn = new QPushButton(titleBar);
     m_closeBtn->setObjectName("cCloseBtn");
     m_closeBtn->setFixedSize(32, 32);
-    m_closeBtn->setIcon(QIcon(":/resources/icon/ui/close.svg"));
+    m_closeBtn->setIcon((UiTheme::classicEnabled ? QIcon(":/resources/icon/close.png") : QIcon(":/resources/icon/ui/close.svg")));
     m_closeBtn->setIconSize(QSize(20, 20));
     m_closeBtn->setToolTip("关闭窗口");
     connect(m_closeBtn, &QPushButton::clicked, this, [this](){
@@ -132,7 +132,7 @@ void CusWindow::toggleMaximized()
     if (m_maximized) {
         setGeometry(m_restoreRect);
         m_maximized = false;
-        m_maxBtn->setIcon(QIcon(":/resources/icon/ui/expand.svg"));
+        m_maxBtn->setIcon((UiTheme::classicEnabled ? QIcon(":/resources/icon/full.png") : QIcon(":/resources/icon/ui/expand.svg")));
         return;
     }
 
@@ -150,7 +150,7 @@ void CusWindow::toggleMaximized()
     m_restoreRect = geometry();
     setGeometry(target);
     m_maximized = true;
-    m_maxBtn->setIcon(QIcon(":/resources/icon/ui/restore.svg"));
+    m_maxBtn->setIcon((UiTheme::classicEnabled ? QIcon(":/resources/icon/win.png") : QIcon(":/resources/icon/ui/restore.svg")));
 }
 
 void CusWindow::setContentWidget(QWidget* w) {
@@ -282,6 +282,30 @@ void CusWindow::mouseDoubleClickEvent(QMouseEvent* e) {
 }
 
 void CusWindow::paintEvent(QPaintEvent* e) {
+    if (UiTheme::classicEnabled) {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+
+        // 1. 绘制阴影
+        int shadowWidth = 8;
+        QRect shadowRect = rect();
+        for (int i = shadowWidth; i > 0; --i) {
+            QColor shadowColor(0, 0, 0, 10 + 40 * i / shadowWidth); // 渐变透明
+            p.setPen(Qt::NoPen);
+            p.setBrush(shadowColor);
+            p.drawRoundedRect(shadowRect.adjusted(i, i, -i, -i), 15, 15);
+        }
+
+        // 2. 绘制窗口主体
+        QColor bg(16,24,24,220); // 220/255 约等于 0.85 透明度
+        p.setBrush(bg);
+        p.setPen(Qt::NoPen);
+        p.drawRoundedRect(rect().adjusted(shadowWidth, shadowWidth, -shadowWidth, -shadowWidth), 15, 15);
+
+        QWidget::paintEvent(e);
+        return;
+    }
+
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
 

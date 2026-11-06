@@ -8,6 +8,7 @@
 #include "cusWidgets/cuswindow.h"
 #include "Basic/radarpanelstate.h"
 #include "Basic/uiscale.h"
+#include "Basic/uitheme.h"
 #include "paramWidget/radarpanelpositiondialog.h"
 
 class RadarPanelPositionDialogTest final : public QObject {
@@ -84,6 +85,7 @@ private slots:
         QCOMPARE(dialog.findChild<QLineEdit*>("panel0Field3")->text(), QString("0.000"));
     }
     void editLockUnlockRememberAndCancel() {
+        UiTheme::configure(QStringLiteral("classic"));
         ScaleHelper::init(QStringLiteral("fixed"), 0.85);
         RadarPanelState state;
         state.initialize({120, 30, 100, 350, 0, 0}, 100, 50);
@@ -140,6 +142,51 @@ private slots:
         RadarPanelPositionDialog failed(state.dialogValues(), {}, {[](const RadarPanelValues&) { return false; }, {}, {}});
         failed.findChild<QPushButton*>("submitPanels")->click();
         QCOMPARE(failed.result(), int(QDialog::Rejected));
+    }
+    void systemTimeSyncUsesBothThemes_data()
+    {
+        QTest::addColumn<QString>("theme");
+        QTest::addColumn<QColor>("normal");
+        QTest::addColumn<QColor>("fault");
+        QTest::newRow("graphite") << QStringLiteral("graphite") << QColor("#78d4a5") << QColor("#ea8c93");
+        QTest::newRow("classic") << QStringLiteral("classic") << QColor("#00ff00") << QColor("#ff0000");
+    }
+    void systemTimeSyncUsesBothThemes()
+    {
+        QFETCH(QString, theme);
+        QFETCH(QColor, normal);
+        QFETCH(QColor, fault);
+        UiTheme::configure(theme);
+        RadarPanelState state;
+        state.initialize({120, 30, 100, 0, 0, 0}, 100, 50, true);
+        int requests = 0;
+        int poseSubmits = 0;
+        RadarPanelPositionDialog::Actions actions;
+        actions.requestTimeSync = [&] { ++requests; };
+        actions.submit = [&](const RadarPanelValues&) { ++poseSubmits; return true; };
+        RadarPanelPositionDialog dialog(state.dialogValues(), {true, true, true, true}, actions);
+        dialog.show();
+        QApplication::processEvents();
+        auto* button = dialog.findChild<QPushButton*>("systemTimeSyncButton");
+        auto* status = dialog.findChild<QLabel*>("systemTimeSyncStatus");
+        QVERIFY(button && status);
+        QCOMPARE(dialog.windowTitle(), QStringLiteral("四面阵配置"));
+        dialog.findChild<QLineEdit*>("panel0Field0")->clear();
+        button->click();
+        QCOMPARE(requests, 1);
+        QCOMPARE(poseSubmits, 0);
+        QVERIFY(dialog.isVisible());
+        dialog.setSystemTimeSyncState(SystemTimeSyncState::Waiting);
+        QVERIFY(!button->isEnabled());
+        dialog.setSystemTimeSyncState(SystemTimeSyncState::Succeeded);
+        QCOMPARE(status->text(), QStringLiteral("校时成功"));
+        QCOMPARE(status->palette().color(QPalette::WindowText), normal);
+        QVERIFY(button->isEnabled());
+        dialog.setSystemTimeSyncState(SystemTimeSyncState::Failed);
+        QCOMPARE(status->text(), QStringLiteral("校时失败"));
+        QCOMPARE(status->palette().color(QPalette::WindowText), fault);
+        dialog.setSystemTimeSyncState(SystemTimeSyncState::TimedOut);
+        QVERIFY(button->isEnabled());
     }
 };
 int main(int argc, char** argv) {

@@ -28,6 +28,7 @@
  * @date 2025
  */
 
+#include "Basic/uitheme.h"
 #include "customspinbox.h"
 #include <QStylePainter>
 #include <QStyleOptionSpinBox>
@@ -101,9 +102,9 @@ void CustomSpinBox::drawUpArrow(QPainter *painter, const QRect &rect)
 
     // 根据hover状态设置箭头颜色
     bool isHover = underMouse() && rect.contains(mapFromGlobal(QCursor::pos()));
-    QColor arrowColor = isHover ?
-                       QColor(120, 203, 216) :
-                       palette().color(QPalette::ButtonText);
+    const QColor arrowColor = UiTheme::classicEnabled
+        ? (isHover ? QColor(153, 255, 221) : QColor(102, 255, 204))
+        : (isHover ? QColor(120, 203, 216) : palette().color(QPalette::ButtonText));
 
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setPen(QPen(arrowColor, 1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
@@ -139,9 +140,9 @@ void CustomSpinBox::drawDownArrow(QPainter *painter, const QRect &rect)
 
     // 根据hover状态设置箭头颜色
     bool isHover = underMouse() && rect.contains(mapFromGlobal(QCursor::pos()));
-    QColor arrowColor = isHover ?
-                       QColor(120, 203, 216) :
-                       palette().color(QPalette::ButtonText);
+    const QColor arrowColor = UiTheme::classicEnabled
+        ? (isHover ? QColor(153, 255, 221) : QColor(102, 255, 204))
+        : (isHover ? QColor(120, 203, 216) : palette().color(QPalette::ButtonText));
 
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setPen(QPen(arrowColor, 1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
@@ -209,9 +210,9 @@ void CustomDoubleSpinBox::drawUpArrow(QPainter *painter, const QRect &rect)
     int centerY = rect.center().y();
 
     bool isHover = underMouse() && rect.contains(mapFromGlobal(QCursor::pos()));
-    QColor arrowColor = isHover ?
-                       QColor(120, 203, 216) :
-                       palette().color(QPalette::ButtonText);
+    const QColor arrowColor = UiTheme::classicEnabled
+        ? (isHover ? QColor(153, 255, 221) : QColor(102, 255, 204))
+        : (isHover ? QColor(120, 203, 216) : palette().color(QPalette::ButtonText));
 
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setPen(QPen(arrowColor, 1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
@@ -238,9 +239,9 @@ void CustomDoubleSpinBox::drawDownArrow(QPainter *painter, const QRect &rect)
     int centerY = rect.center().y();
 
     bool isHover = underMouse() && rect.contains(mapFromGlobal(QCursor::pos()));
-    QColor arrowColor = isHover ?
-                       QColor(120, 203, 216) :
-                       palette().color(QPalette::ButtonText);
+    const QColor arrowColor = UiTheme::classicEnabled
+        ? (isHover ? QColor(153, 255, 221) : QColor(102, 255, 204))
+        : (isHover ? QColor(120, 203, 216) : palette().color(QPalette::ButtonText));
 
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setPen(QPen(arrowColor, 1.5, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));

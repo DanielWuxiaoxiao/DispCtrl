@@ -6,6 +6,7 @@
  * @LastEditTime: 2026-09-16 21:32:30
  * @Description: 
  */
+#include "Basic/uitheme.h"
 #include "custommessagebox.h"
 #include <QGraphicsDropShadowEffect>
 #include <QIntValidator>
@@ -62,7 +63,50 @@ void CustomMessageBox::setupUI()
 
 void CustomMessageBox::applyStyle()
 {
-    setStyleSheet(UiFontScale::style(R"(
+    setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? R"(
+        #MessageBoxContainer {
+            background-color: rgba(20, 30, 30, 0.95);
+            border: 2px solid #00ff88;
+            border-radius: 12px;
+        }
+        #MessageBoxTitle {
+            color: #00ff88;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        #MessageBoxText {
+            color: #ffffff;
+            font-size: 14px;
+        }
+        #MessageBoxInput {
+            min-height: 26px;
+            padding: 4px 8px;
+            color: #d9ffff;
+            background-color: #071a1a;
+            border: 1px solid #00bfa5;
+            border-radius: 4px;
+            selection-background-color: #087a75;
+        }
+        #MessageBoxInput:focus {
+            border: 1px solid #00ffcc;
+        }
+        QPushButton {
+            min-width: 80px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 2px solid rgba(0, 255, 136, 0.4);
+            background-color: transparent;
+            color: #00ff88;
+        }
+        QPushButton:hover {
+            border: 2px solid #00ff88;
+            background-color: rgba(0, 255, 136, 0.2);
+            color: #ffffff;
+        }
+        QPushButton:pressed {
+            background-color: rgba(0, 255, 136, 0.4);
+        }
+    )" : R"(
         #MessageBoxContainer {
             background-color: #1b2228;
             border: 1px solid #3b4a55;
@@ -113,7 +157,7 @@ void CustomMessageBox::applyStyle()
             color: #8e9ba6;
             border-color: #303b44;
         }
-    )"));
+    )")));
 }
 
 int CustomMessageBox::showDialog(const QString &title, const QString &text,
