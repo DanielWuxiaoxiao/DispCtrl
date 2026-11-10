@@ -1,3 +1,4 @@
+#include "Basic/uithemeruntime.h"
 #include "Basic/uitheme.h"
 #include "radarpanelpositiondialog.h"
 #pragma pack(push, 8)
@@ -35,7 +36,7 @@ protected:
         const QRectF area = QRectF(rect()).adjusted(62, 28, -24, -32);
         if (area.width() <= 0 || area.height() <= 0) return;
         p.setPen((UiTheme::classicEnabled ? QColor("#92bdb4") : UiTheme::color(QColor("#92bdb4"))));
-        p.drawText(8, 18, QStringLiteral("解锁阵面偏航(°)  青色：原始值  黄色：最新100次滑动平均"));
+        p.drawText(8, 18, QStringLiteral("解锁阵面偏航(°)  青色：原始值  黄色：对应ID列表均值"));
         const auto series = RadarPanelState::yawPlotData(m_data);
         for (int tick = 0; tick <= 4; ++tick) {
             const double degree = series.lower + (series.upper - series.lower) * tick / 4.0;
@@ -86,7 +87,7 @@ RadarPanelPositionDialog::RadarPanelPositionDialog(const RadarPanelValues& value
     setWindowFlag(Qt::WindowContextHelpButtonHint, false);
     setWindowFlag(Qt::WindowMinMaxButtonsHint, true);
     setObjectName(QStringLiteral("panelPositionDialog"));
-    setStyleSheet(UiFontScale::style(
+    UiTheme::setStyle(this, [=] { return UiFontScale::style(
         (UiTheme::classicEnabled ? "QDialog#panelPositionDialog {background:#101818;}"
         "QScrollArea,QWidget#panelPositionViewport {background:#101818;border:0;}"
         "QWidget#panelPositionContent {background:#111e1b;border:1px solid #42665c;border-radius:6px;}"
@@ -105,7 +106,7 @@ RadarPanelPositionDialog::RadarPanelPositionDialog(const RadarPanelValues& value
         "QLineEdit[readOnly=\"true\"] {background:#202930;color:#a6b2bd;}"
         "QPushButton {background:#232d34;color:#e8edf1;border:1px solid #303b44;padding:7px;font-size:16px;}"
         "QPushButton:hover {background:#293b43;}"
-        "QPushButton:disabled {background:#1b2228;color:#82919e;border-color:#303b44;}")));
+        "QPushButton:disabled {background:#1b2228;color:#82919e;border-color:#303b44;}")); });
     auto* outer = new QVBoxLayout(this);
     outer->setContentsMargins(16, 14, 16, 14);
     outer->setSpacing(12);
@@ -125,7 +126,7 @@ RadarPanelPositionDialog::RadarPanelPositionDialog(const RadarPanelValues& value
     grid->addWidget(new QLabel(QStringLiteral("阵面"), contents), 0, 0);
     for (int field = 0; field < RadarReference::Count; ++field) {
         auto* label = new QLabel(fields[field], contents);
-        if (field == RadarReference::Yaw) label->setToolTip(QStringLiteral("多面阵表格与曲线均取扩展航向heading（0.001°）；表格按各阵面独立平均，曲线在解锁阵面切换时连续累计。"));
+        if (field == RadarReference::Yaw) label->setToolTip(QStringLiteral("锁定时可编辑阵面偏航，确定下发后应用。解锁时显示本阵面上报航向的均值。阵面1（ID0）的偏航用于主界面。"));
         grid->addWidget(label, 0, field + 1);
     }
     grid->addWidget(new QLabel(QStringLiteral("状态"), contents), 0, 7);
@@ -166,7 +167,7 @@ RadarPanelPositionDialog::RadarPanelPositionDialog(const RadarPanelValues& value
     }
     scroll->setMinimumHeight(ScaleHelper::uiScaled(250));
     outer->addWidget(scroll);
-    auto* note = new QLabel(QStringLiteral("默认全部锁定；每次仅解锁一个阵面接收BIT。切换阵面时曲线及100次滑动平均继续，不足100次按实际数量。锁定后可编辑，确定下发后应用。"), this);
+    auto* note = new QLabel(QStringLiteral("默认全部锁定；每次仅解锁一个阵面接收BIT。各ID独立保留最近100次均值，不足100次按实际数量；不筛除GPS/姿态零值、越界或突变样本。曲线均值与对应ID列表共用。锁定后可编辑，确定下发后应用。"), this);
     note->setWordWrap(true);
     outer->addWidget(note);
     auto* received = new QLabel(this);
@@ -198,7 +199,7 @@ RadarPanelPositionDialog::RadarPanelPositionDialog(const RadarPanelValues& value
         refresh(); timer->start();
     }
     m_error = new QLabel(this);
-    m_error->setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? "color:#ff9999;" : "color:#ea8c93;")));
+    UiTheme::setStyle(m_error, [=] { return UiFontScale::style((UiTheme::classicEnabled ? "color:#ff9999;" : "color:#ea8c93;")); });
     m_error->setWordWrap(true); m_error->hide();
     outer->addWidget(m_error);
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
@@ -238,34 +239,35 @@ RadarPanelPositionDialog::RadarPanelPositionDialog(const RadarPanelValues& value
 void RadarPanelPositionDialog::setSystemTimeSyncState(SystemTimeSyncState state)
 {
     QString text;
-    const char* color = UiTheme::Secondary;
     switch (state) {
     case SystemTimeSyncState::Idle:
         text = QStringLiteral("尚未校时");
         break;
     case SystemTimeSyncState::Waiting:
         text = QStringLiteral("等待校时回执…");
-        color = UiTheme::Accent;
         break;
     case SystemTimeSyncState::Succeeded:
         text = QStringLiteral("校时成功");
-        color = UiTheme::Normal;
         break;
     case SystemTimeSyncState::Failed:
         text = QStringLiteral("校时失败");
-        color = UiTheme::Fault;
         break;
     case SystemTimeSyncState::TimedOut:
         text = QStringLiteral("校时超时（未收到回执）");
-        color = UiTheme::Fault;
         break;
     case SystemTimeSyncState::Unavailable:
         text = QStringLiteral("校时请求未提交（链路未初始化）");
-        color = UiTheme::Fault;
         break;
     }
     m_timeSyncStatus->setText(text);
-    m_timeSyncStatus->setStyleSheet(UiFontScale::style(QStringLiteral("color:%1;").arg(QLatin1String(color))));
+    UiTheme::setStyle(m_timeSyncStatus, [state] {
+        const char* currentColor = UiTheme::Secondary;
+        if (state == SystemTimeSyncState::Waiting) currentColor = UiTheme::Accent;
+        else if (state == SystemTimeSyncState::Succeeded) currentColor = UiTheme::Normal;
+        else if (state == SystemTimeSyncState::Failed || state == SystemTimeSyncState::TimedOut
+                 || state == SystemTimeSyncState::Unavailable) currentColor = UiTheme::Fault;
+        return UiFontScale::style(QStringLiteral("color:%1;").arg(QLatin1String(currentColor)));
+    });
     m_timeSyncButton->setEnabled(m_actions.requestTimeSync && state != SystemTimeSyncState::Waiting);
 }
 
@@ -308,7 +310,7 @@ void RadarPanelPositionDialog::setLocked(int id, bool locked)
     for (auto* edit : m_edits[id]) edit->setReadOnly(!locked);
     m_lock[id]->setEnabled(!locked); m_unlock[id]->setEnabled(locked);
     m_status[id]->setText(locked ? QStringLiteral("已锁定") : QStringLiteral("未锁定"));
-    m_status[id]->setStyleSheet(UiFontScale::style(locked ? (UiTheme::classicEnabled ? "color:#ffcc66;" : "color:#dfbd82;") : (UiTheme::classicEnabled ? "color:#66ffcc;" : "color:#e8edf1;")));
+    UiTheme::setStyle(m_status[id], [=] { return UiFontScale::style(locked ? (UiTheme::classicEnabled ? "color:#ffcc66;" : "color:#dfbd82;") : (UiTheme::classicEnabled ? "color:#66ffcc;" : "color:#e8edf1;")); });
 }
 
 void RadarPanelPositionDialog::lockRow(int id)

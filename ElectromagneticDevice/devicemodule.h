@@ -32,7 +32,6 @@ public:
     bool toggleManualReport(quint32 batch);
     bool sendDetection(const PointInfo& point);
     void setInitialSoftwareStatus(MonitorParam report);
-    void showOriginDialog(QWidget* parent = nullptr);
     bool setManualRadarPosition(double latitude, double longitude, double altitude);
     void restoreAutomaticRadarPosition();
     bool currentRadarOrigin(Wgs84Coordinate::Lla& origin, QString& source) const;

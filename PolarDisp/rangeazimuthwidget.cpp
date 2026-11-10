@@ -1,3 +1,4 @@
+#include "Basic/uithemeruntime.h"
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@xidian.edu.cn
@@ -104,7 +105,7 @@ RangeAzimuthView::RangeAzimuthView(SectorScene* scene, QWidget* parent)
     setObjectName("RangeAzimuthView");
 
     // 场景保持透明，主界面底图可从辅助视图透出。
-    setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? "background: #1a1a1a;" : "QGraphicsView#RangeAzimuthView { background: transparent; border: none; }")));
+    UiTheme::setStyle(this, [=] { return UiFontScale::style((UiTheme::classicEnabled ? "background: #1a1a1a;" : "QGraphicsView#RangeAzimuthView { background: transparent; border: none; }")); });
 }
 
 void RangeAzimuthView::resizeEvent(QResizeEvent* event)

@@ -23,6 +23,9 @@
     var gridGroup = null;
     var pointsGroup = null;
     var trackHeadTexture;
+    var focusedHeadTexture;
+    var focusedStartTexture;
+    var focusDecorations = new Map();
     var trailLines;
     var trailPosition;
     var trailColor;
@@ -174,6 +177,7 @@
         camera.updateProjectionMatrix();
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         renderer.setSize(width, height, false);
+        headsDirty = true;
         reportViewport();
         requestRender();
     }
@@ -182,7 +186,8 @@
         if (!material) {
             return;
         }
-        if (material.map && material.map !== trackHeadTexture) {
+        if (material.map && material.map !== trackHeadTexture
+            && material.map !== focusedHeadTexture && material.map !== focusedStartTexture) {
             material.map.dispose();
         }
         material.dispose();
@@ -258,6 +263,74 @@
         context.closePath();
         context.fill();
         return new THREE.CanvasTexture(canvas);
+    }
+
+    function createFocusTexture(square) {
+        var canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 64;
+        var context = canvas.getContext('2d');
+        context.strokeStyle = '#ffffff';
+        context.lineWidth = 6;
+        if (square) {
+            context.strokeRect(8, 8, 48, 48);
+        } else {
+            context.beginPath();
+            context.moveTo(32, 5);
+            context.lineTo(7, 50);
+            context.lineTo(57, 50);
+            context.closePath();
+            context.stroke();
+        }
+        var texture = new THREE.CanvasTexture(canvas);
+        texture.name = square ? 'focused-start-square' : 'focused-head-triangle';
+        return texture;
+    }
+
+    function removeFocusDecoration(key) {
+        var decoration = focusDecorations.get(key);
+        if (!decoration) return;
+        scene.remove(decoration.start, decoration.label);
+        disposeMaterial(decoration.start.material);
+        disposeMaterial(decoration.label.material);
+        focusDecorations.delete(key);
+    }
+
+    function updateFocusDecoration(track, pointSize) {
+        var first = track.firstPoint;
+        var firstVisible = first && inView(first[3], first[2]);
+        var latestVisible = inView(track.rangeM, track.heightM);
+        var decoration = focusDecorations.get(track.key);
+        if (!decoration && !firstVisible && !latestVisible) return;
+        if (!decoration) {
+            var start = new THREE.Sprite(new THREE.SpriteMaterial({
+                map: focusedStartTexture, transparent: true, depthTest: false, depthWrite: false
+            }));
+            start.name = 'track-focus-start:' + track.key;
+            start.renderOrder = 11;
+            var label = createTextSprite('batch: ' + track.batch, '#ffffff', 0.085);
+            label.name = 'track-focus-label:' + track.key;
+            label.center.set(0.22, 0.1);
+            label.material.sizeAttenuation = false;
+            scene.add(start, label);
+            decoration = { start: start, label: label };
+            focusDecorations.set(track.key, decoration);
+        }
+        decoration.start.visible = !!firstVisible;
+        if (firstVisible) {
+            decoration.start.position.set(first[0] / horizontalScaleM,
+                (first[2] - verticalBaseM) / verticalScaleM, first[1] / horizontalScaleM);
+            decoration.start.scale.set(pointSize * 1.6, pointSize * 1.6, 1);
+            decoration.start.material.color.setHex(first[4]);
+        }
+        decoration.label.visible = latestVisible;
+        decoration.label.position.set(Number(track.eastM) / horizontalScaleM,
+            (Number(track.heightM) - verticalBaseM) / verticalScaleM,
+            Number(track.northM) / horizontalScaleM);
+        decoration.label.material.color.setHex(palette.axis);
+        // Keep the batch text readable in the narrow dock and while zooming.
+        // The 44px text occupies 44/128 of its canvas, giving about 14px glyphs.
+        var labelHeight = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * 41 / viewportHeight;
+        decoration.label.scale.set(labelHeight * 5, labelHeight, 1);
     }
 
     function formatAxisHeight(value) {
@@ -530,6 +603,7 @@
         if (!track) return;
         if (!trailRebuildPending) track.samples.forEach(removeSegment);
         tracks.delete(key);
+        removeFocusDecoration(key);
     }
 
     function rebuildTrackHeads() {
@@ -542,16 +616,28 @@
         var pointBuckets = new Map();
         var pointSize = 0.06 * Math.max(0.5, Math.min(3, Number(viewState.pointSizeRatio)));
 
-        tracks.forEach(function (track) {
-            if (!trackTypeVisible(track)) return;
-            if (inView(track.rangeM, track.heightM)) {
-                var pointColor = String(track.color || '#ea8c93').toLowerCase();
-                if (!pointBuckets.has(pointColor)) pointBuckets.set(pointColor, []);
-                pointBuckets.get(pointColor).push(track);
+        focusDecorations.forEach(function (decoration, key) {
+            var track = tracks.get(key);
+            if (!track || !track.focused) removeFocusDecoration(key);
+            else {
+                decoration.start.visible = false;
+                decoration.label.visible = false;
             }
         });
 
-        pointBuckets.forEach(function (items, color) {
+        tracks.forEach(function (track) {
+            if (!trackTypeVisible(track)) return;
+            if (track.focused) updateFocusDecoration(track, pointSize);
+            if (inView(track.rangeM, track.heightM)) {
+                var pointColor = String(track.color || '#ea8c93').toLowerCase();
+                var bucketKey = pointColor + (track.focused ? '|focused' : '|normal');
+                if (!pointBuckets.has(bucketKey)) pointBuckets.set(bucketKey, []);
+                pointBuckets.get(bucketKey).push(track);
+            }
+        });
+
+        pointBuckets.forEach(function (items) {
+            var focused = !!items[0].focused;
             var positions = new Float32Array(items.length * 3);
             items.forEach(function (track, index) {
                 positions[index * 3] = Number(track.eastM) / horizontalScaleM;
@@ -563,16 +649,18 @@
             geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
             geometry.computeBoundingSphere();
             var material = new THREE.PointsMaterial({
-                color: color,
-                map: trackHeadTexture,
+                color: items[0].color || '#ea8c93',
+                map: focused ? focusedHeadTexture : trackHeadTexture,
                 size: pointSize,
                 sizeAttenuation: true,
                 transparent: true,
                 alphaTest: 0.15,
                 opacity: 0.96,
-                depthWrite: true
+                depthWrite: !focused,
+                depthTest: !focused
             });
             var points = new THREE.Points(geometry, material);
+            if (focused) points.renderOrder = 12;
             points.userData.trackItems = items;
             pointsGroup.add(points);
             pointObjects.push(points);
@@ -603,6 +691,10 @@
         });
         palette = palettes[viewState.theme] || palettes.graphite;
         document.documentElement.setAttribute('data-theme', viewState.theme === 'classic' ? 'classic' : 'graphite');
+        var stylesheet = document.getElementById('theme-style');
+        var stylesheetName = viewState.theme === 'classic' ? 'track3d_classic.css' : 'track3d.css';
+        if (stylesheet && stylesheet.getAttribute('href') !== stylesheetName)
+            stylesheet.setAttribute('href', stylesheetName);
         scene.background.setHex(palette.background);
         renderer.setClearColor(palette.background, 1);
         axesSignature = [viewState.minRangeM, viewState.maxRangeM,
@@ -651,6 +743,7 @@
 
     function clearTracks() {
         tracks.clear();
+        focusDecorations.forEach(function (decoration, key) { removeFocusDecoration(key); });
         segmentEnds.length = 0;
         trailLines.geometry.dispose();
         trailLines.geometry = new THREE.BufferGeometry();
@@ -679,7 +772,15 @@
         if (track.offline) {
             return '离线颜色码 ' + track.targetRecResult;
         }
-        return Number(track.targetRecResult) === 1 ? '无人机' : '其它';
+        switch (Number(track.targetRecResult)) {
+        case 0: return '未知';
+        case 1: return '无人机';
+        case 2: return '行人';
+        case 3: return '车辆';
+        case 4: return '鸟';
+        case 5: return '其它';
+        default: return '未知';
+        }
     }
 
     function showTooltip(track, clientX, clientY) {
@@ -794,6 +895,8 @@
 
         raycaster = new THREE.Raycaster();
         trackHeadTexture = createTrackHeadTexture();
+        focusedHeadTexture = createFocusTexture(false);
+        focusedStartTexture = createFocusTexture(true);
         renderer.domElement.addEventListener('mousemove', onPointerMove, { passive: true });
         renderer.domElement.addEventListener('mouseleave', hideTooltip, { passive: true });
         renderer.domElement.addEventListener('webglcontextlost', function (event) {

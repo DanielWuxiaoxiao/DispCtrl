@@ -21,6 +21,7 @@
 #include "Basic/log.h"
 
 #include "sectordetmanager.h"
+#include "Basic/uithemeruntime.h"
 #include "Basic/ConfigManager.h"
 #include "Basic/DispBasci.h"
 #include "Controller/RadarDataManager.h"  // 雷达数据管理器头文件
@@ -44,6 +45,12 @@ SectorDetManager::SectorDetManager(QGraphicsScene* scene, PolarAxis* axis, QObje
     m_maxPoints = CF_INS.displayConfig("max_points", 1000);
     m_droneRedEnabled = CF_INS.displayFlag("detection_drone_red_enabled", false);
 
+    UiTheme::onChanged(this, [this] {
+        for (auto& node : m_nodes) {
+            if (node.point) node.point->setColor(m_droneRedEnabled && node.point->infoRef().targetRecResult == 1
+                ? TRA_COLOR : DET_COLOR);
+        }
+    });
     // 注册到统一数据管理器，使用唯一标识符
     RADAR_DATA_MGR.registerView("SectorDetManager_" + QString::number((quintptr)this), this);
 

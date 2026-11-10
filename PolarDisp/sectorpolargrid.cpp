@@ -36,6 +36,7 @@
 #include <QtMath>
 #include <QFont>
 #include "Basic/uifontscale.h"
+#include "Basic/uithemeruntime.h"
 
 /**
  * @brief 扇形极坐标网格构造函数
@@ -78,6 +79,13 @@ SectorPolarGrid::SectorPolarGrid(PolarAxis* axis, QGraphicsItem* parent)
     // 默认扇形范围
     m_minAngle = -30.0f;
     m_maxAngle = 30.0f;
+    UiTheme::onChanged(this, [this] {
+        m_rangePen.setColor(UiTheme::classicEnabled ? QColor(80, 80, 80) : QColor(76, 103, 116));
+        m_anglePen.setColor(UiTheme::classicEnabled ? QColor(85, 85, 85) : QColor(58, 82, 94));
+        m_textPen.setColor(UiTheme::classicEnabled ? QColor(150, 150, 150) : QColor(166, 178, 189));
+        m_borderPen.setColor(UiTheme::classicEnabled ? QColor(100, 100, 100) : QColor(120, 203, 216));
+        update();
+    });
 }
 
 /**

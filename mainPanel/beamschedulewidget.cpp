@@ -1,3 +1,4 @@
+#include "Basic/uithemeruntime.h"
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@xidian.edu.cn
@@ -30,7 +31,7 @@ BeamScheduleChart::BeamScheduleChart(QWidget* parent)
 {
     setMinimumSize(300, 100);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? "background:#0a0a0a;" : "background:#12171c;")));
+    UiTheme::setStyle(this, [=] { return UiFontScale::style((UiTheme::classicEnabled ? "background:#0a0a0a;" : "background:#12171c;")); });
 }
 
 void BeamScheduleChart::setSchedule(const BeamScheduleReport& hdr,
@@ -147,7 +148,7 @@ void BeamScheduleChart::paintEvent(QPaintEvent*)
 BeamScheduleWidget::BeamScheduleWidget(QWidget* parent)
     : QWidget(parent)
 {
-    setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? "background:#0a0a0a; color:#cccccc;" : "background:#12171c; color:#e8edf1;")));
+    UiTheme::setStyle(this, [=] { return UiFontScale::style((UiTheme::classicEnabled ? "background:#0a0a0a; color:#cccccc;" : "background:#12171c; color:#e8edf1;")); });
 
     // ---- 顶部状态栏 ----
     auto* topBar = new QHBoxLayout();
@@ -155,21 +156,21 @@ BeamScheduleWidget::BeamScheduleWidget(QWidget* parent)
     topBar->setSpacing(12);
 
     auto* lblTitle = new QLabel(QStringLiteral("波束调度"));
-    lblTitle->setStyleSheet(UiFontScale::style(
-        (UiTheme::classicEnabled ? "color:#ff8800; font:bold 11px 'Microsoft YaHei';" : "color:#e8edf1; font:bold 11px 'Microsoft YaHei';")));
+    UiTheme::setStyle(lblTitle, [=] { return UiFontScale::style(
+        (UiTheme::classicEnabled ? "color:#ff8800; font:bold 11px 'Microsoft YaHei';" : "color:#e8edf1; font:bold 11px 'Microsoft YaHei';")); });
     topBar->addWidget(lblTitle);
     topBar->addStretch();
 
-    const QString statStyle = (UiTheme::classicEnabled ? "color:#cccccc; font:10px Consolas;" : "color:#e8edf1; font:10px Consolas;");
+    const auto statStyle = [] { return UiFontScale::style(UiTheme::classicEnabled ? "color:#cccccc; font:10px Consolas;" : "color:#e8edf1; font:10px Consolas;"); };
 
     m_lblSeq = new QLabel(QStringLiteral("帧序: —"));
-    m_lblSeq->setStyleSheet(UiFontScale::style(statStyle));
+    UiTheme::setStyle(m_lblSeq, statStyle);
 
     m_lblSlotNum = new QLabel(QStringLiteral("槽数: —"));
-    m_lblSlotNum->setStyleSheet(UiFontScale::style(statStyle));
+    UiTheme::setStyle(m_lblSlotNum, statStyle);
 
     m_lblFrameUs = new QLabel(QStringLiteral("帧长: —"));
-    m_lblFrameUs->setStyleSheet(UiFontScale::style(statStyle));
+    UiTheme::setStyle(m_lblFrameUs, statStyle);
 
     topBar->addWidget(m_lblSeq);
     topBar->addWidget(m_lblSlotNum);

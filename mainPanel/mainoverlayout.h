@@ -81,6 +81,7 @@ class LaserReportManager;
 namespace HealthUi { class Field; class PowerCell; }
 namespace PhotoelectricV2 { class Module; }
 namespace ZhoushanOptical { class Module; }
+namespace RadarTrackApi { class Module; }
 
 
 namespace Ui {
@@ -197,6 +198,7 @@ public:
     void setLaserReportManager(LaserReportManager* module);
     void setPhotoelectricV2Module(PhotoelectricV2::Module* module);
     void setZhoushanOpticalModule(ZhoushanOptical::Module* module);
+    void setRadarTrackApiModule(RadarTrackApi::Module* module);
     /// 激光快捷下发使用与健康管理窗口一致的双端网络可达性判定。
     bool isLaserNetworkReady() const;
     QString laserNetworkStatusText() const;
@@ -425,6 +427,8 @@ private:
 
     Ui::MainOverLayOut *ui;           ///< UI界面对象指针
     QPushButton* m_modeSwitchButton = nullptr;
+    QPushButton* m_themeSwitchButton = nullptr;
+    void refreshTheme();
     PPIView* mView;                   ///< PPI雷达显示视图
     PPIScene* mScene;                 ///< PPI雷达场景管理器
     ZoomViewWidget* m_zoomView;       ///< 缩放视图控制器
@@ -584,6 +588,8 @@ private:
     std::array<bool, 8> m_networkHealthKnown{};
     std::array<QString, 8> m_networkHealthText{};
     ZhoushanOptical::Module* m_zhoushanOptical = nullptr;
+    RadarTrackApi::Module* m_radarTrackApi = nullptr;
+    QPushButton* m_radarTrackApiButton = nullptr;
     QPointer<QPushButton> m_zhoushanHealthButton;
     QString m_zhoushanStatus;
     bool m_zhoushanLinkOk = false;

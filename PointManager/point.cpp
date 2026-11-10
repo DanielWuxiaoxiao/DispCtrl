@@ -1,3 +1,4 @@
+#include "Basic/targetrecognition.h"
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@xidian.edu.cn
@@ -67,13 +68,13 @@ void Point::rebuildTooltipText()
                                         : trackTypeLabel(info.type);
 
     if (isDetection) {
-        text = QString("%1\nR:%2m\nA:%3°\nE:%4°\nSNR:%5dB\nV:%6m/s\nH:%7m\nAmp:%8")
+        text = QString("%1\nR:%2m\nA:%3°\nE:%4°\nSNR:%5dB\nV:%6m/s\nH:%7m\nAmp:%8\n识别:%9")
                 .arg(typeStr).arg(info.range).arg(info.azimuth).arg(info.elevation)
-                .arg(info.SNR).arg(info.speed).arg(info.altitute).arg(info.amp);
+                .arg(info.SNR).arg(info.speed).arg(info.altitute).arg(info.amp).arg(TargetRecognition::text(info));
         return;
     }
 
-    const QString targetRecStr = (info.targetRecResult == 1) ? "无人机" : "其它";
+    const QString targetRecStr = TargetRecognition::text(info);
     text = QString("%1\nNum:%2\nR:%3m\nA:%4°\nE:%5°\nSNR:%6dB\nV:%7m/s\nH:%8m\nAmp:%9\n识别:%10")
             .arg(typeStr)
             .arg(m_displayBatchText.isEmpty() ? QString::number(info.batch) : m_displayBatchText)

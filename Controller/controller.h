@@ -413,7 +413,7 @@ public slots:
 
 public:
     const RadarReference& radarReference() const { return m_radarReference; }
-    bool setManualRadarReference(const RadarReference::Values& values);
+    bool setManualRadarReference(const RadarReference::Values& values, bool holdPosition = false);
     bool sendCurrentRadarPanelPosition();
     bool sendRadarPanelPositions(const RadarPanelValues& values);
     void requestSystemTimeSync();

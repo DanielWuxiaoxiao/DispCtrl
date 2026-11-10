@@ -53,6 +53,8 @@ DispCtrl/
 - UI 可根据 `controller` 暴露的信号（如 `externalSystemCtrlAck`、`externalServoAck`、`bitReport` 等）展示状态。
 
 ## 配置
+
+V8.4.0 新增独立的 HTTP 平台航迹上报：`[radar_track_api]` 默认关闭，支持 P 显右键多批手动上报，以及参数设置窗口中的全部无人机自动上报；可与光电 TCP 目指并行使用。Token 从环境变量或本机配置读取，发布模板不包含实际令牌。按用户确认，速度取原报文空间速度，航向由连续位置推算相对真北方向，未知则省略；字段、坐标、开关和验证边界见 [平台HTTP航迹上报](docs/平台HTTP航迹上报.md)。
 应用启动时加载根目录 `config.toml`（失败则使用默认值，并打印日志），同时 CMake 会复制到 `build/bin/<Config>/config.toml`。
 关键段落：
 - `network.ips/ports/ids`：各子系统 IP、端口与 ID（含外部雷控链路）。
@@ -95,7 +97,7 @@ cmake --build . --config Debug
 
 ## 开发指引
 
-配色在 `config.toml` 的 `[ui]` 中设置 `theme = "graphite"`（默认石墨灰/冷青）或 `theme = "classic"`（完整恢复 x576/f338142 的黑绿样式、原字号/图标/弹窗及健康管理布局），重启后生效。两套方案内置于软件，部署机器无需安装 Git；发布时请同步复制 `htmls/` 下的 `*_classic.html` 页面。新版检测点开关和 3D 连线等功能继续可用。
+配色在 `config.toml` 的 `[ui]` 中设置 `theme = "graphite"`（默认石墨灰/冷青）或 `theme = "classic"`（完整恢复 x576/f338142 的黑绿样式、原字号/图标/弹窗及健康管理布局）。从 V8.3.0 起，点击用户/开发者模式旁的「换肤」可实时切换，并将选择保存到当前加载的配置文件。地图短暂重载，3D 保留当前观察角度；两套健康窗口使用相同状态快照。两套方案内置于软件，发布时请同步复制 `htmls/` 下的 `*_classic.html` 页面。
 - 新增显示模块：继承 `QGraphicsItem` 或 `QGraphicsScene`，实现 `paint()`/`boundingRect()`，在对应 Manager 注册，并更新 `CMakeLists.txt`。
 - 扩展协议/数据流：修改 `Basic/Protocol.h`，在相关 *Manager* 增加解析与分发逻辑，必要时补充 `config.toml` 的端口/ID。
 - 地图前端：`htmls/` 下为 WebEngine 页面，可根据需要调整地图样式或坐标转换逻辑。

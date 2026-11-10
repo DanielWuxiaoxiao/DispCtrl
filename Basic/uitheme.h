@@ -47,7 +47,8 @@ inline QString name()
     return classicEnabled ? QStringLiteral("classic") : QStringLiteral("graphite");
 }
 
-// 在创建 Controller/UI 之前调用一次。颜色引用地址稳定，绘制热路径直接读取颜色。
+// 启动时在创建 Controller/UI 之前配置；运行期通过 Runtime::apply 统一刷新。
+// 颜色引用地址稳定，绘制热路径直接读取颜色。
 inline void configure(const QString& theme)
 {
     classicEnabled = theme == QLatin1String("classic");

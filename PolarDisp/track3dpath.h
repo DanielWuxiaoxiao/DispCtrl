@@ -12,6 +12,8 @@ struct Track3DPathSample
     double heightM;
     float rangeM;
     unsigned rgb;
+    unsigned targetRecResult = 0;
+    bool offline = false;
 };
 
 class Track3DPath
@@ -20,6 +22,11 @@ public:
     int size() const { return static_cast<int>(m_samples.size()); }
 
     const Track3DPathSample& at(int index) const
+    {
+        return m_samples[(m_first + static_cast<std::size_t>(index)) % m_samples.size()];
+    }
+
+    Track3DPathSample& at(int index)
     {
         return m_samples[(m_first + static_cast<std::size_t>(index)) % m_samples.size()];
     }

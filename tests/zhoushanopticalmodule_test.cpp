@@ -20,6 +20,14 @@ private:
             {"receivedTime", "2026-10-20 12:30:00.001"}};
     }
 private slots:
+    void loggingSwitchAndRateLimit() {
+        Module m; QSignalSpy logs(&m, &Module::logMessage);
+        m.m_settings.logEnabled = false;
+        m.writeLog("disabled"); m.logLimited("TEST", "disabled"); QCOMPARE(logs.size(), 0);
+        m.m_settings.logEnabled = true;
+        m.writeLog("enabled"); m.logLimited("TEST", "first"); m.logLimited("TEST", "limited");
+        QCOMPARE(logs.size(), 2); m.logLimited("OTHER", "independent"); QCOMPARE(logs.size(), 3);
+    }
     void singleTargetLatestCoordinatesAndCancellation() {
         Module m; prepare(m); QCOMPARE(m.m_settings.kind, quint8(1));
         m.processTrack(point(42)); m.processTrack(point(43));

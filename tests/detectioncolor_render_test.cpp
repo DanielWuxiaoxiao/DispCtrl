@@ -1,6 +1,8 @@
 #include "Basic/ConfigManager.h"
 #include "Basic/DispBasci.h"
+#include "Basic/targetrecognition.h"
 #include "PointManager/detmanager.h"
+#include "PointManager/trackmanager.h"
 #include "PointManager/sectordetmanager.h"
 #include "PolarDisp/rangeazimuthchart.h"
 #include "PolarDisp/rangeheightchart.h"
@@ -34,6 +36,19 @@ class DetectionColorRenderTest : public QObject
     }
 
 private slots:
+    void recognitionLabelsAndWireSizes() {
+        const QStringList names{"未知", "无人机", "行人", "车辆", "鸟", "其它"};
+        for (unsigned i = 0; i < 6; ++i) {
+            PointInfo point{}; point.targetRecResult = i;
+            QCOMPARE(TargetRecognition::text(i), names[int(i)]);
+            QCOMPARE(TargetRecognition::text(point), names[int(i)]);
+        }
+        QCOMPARE(TargetRecognition::text(65537u), QStringLiteral("未知"));
+        PointInfo offline{}; offline.statMethod = OfflineRae::kStatMethod;
+        offline.targetRecResult = OfflineRae::kColorRed;
+        QCOMPARE(TargetRecognition::text(offline), QStringLiteral("其它"));
+        QCOMPARE(sizeof(detInfo), size_t(56)); QCOMPARE(sizeof(trackInfo), size_t(61));
+    }
     void detectionColor_data()
     {
         QTest::addColumn<int>("configValue");
@@ -41,7 +56,7 @@ private slots:
         QTest::addColumn<QString>("theme");
         for (const QString& theme : {QStringLiteral("graphite"), QStringLiteral("classic")}) {
             for (int flag : {0, 1}) {
-                for (unsigned result : {0u, 1u, 2u, 65537u}) {
+                for (unsigned result : {0u, 1u, 2u, 3u, 4u, 5u, 65537u}) {
                     const QByteArray name = theme.toUtf8() + '-' + QByteArray::number(flag)
                         + '-' + QByteArray::number(result);
                     QTest::newRow(name.constData()) << flag << result << theme;
@@ -88,6 +103,17 @@ private slots:
         QCOMPARE(colorCount(ppiScene, unexpected), 0);
         ppi.setAllVisible(false);
         QCOMPARE(colorCount(ppiScene, expected), 0);
+
+        QGraphicsScene trackScene;
+        trackScene.setSceneRect(-2500,-2500,5000,5000);
+        TrackManager tracks(&trackScene, &ppiAxis);
+        tracks.setPointSizeRatio(10);
+        auto trackInfo = info; trackInfo.type = PointType::Track; trackInfo.batch = 42;
+        tracks.addTrackPoint(trackInfo);
+        const QColor trackExpected = recognition == 1 ? TRA_COLOR : DRONE_COLOR;
+        const QColor trackUnexpected = recognition == 1 ? DRONE_COLOR : TRA_COLOR;
+        QVERIFY(colorCount(trackScene, trackExpected) > 0);
+        QCOMPARE(colorCount(trackScene, trackUnexpected), 0);
 
         QGraphicsScene sectorScene;
         sectorScene.setSceneRect(-2500, -5000, 5000, 5000);

@@ -1,3 +1,4 @@
+#include "Basic/uithemeruntime.h"
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@xidian.edu.cn
@@ -38,7 +39,7 @@ LogPanel::LogPanel(QWidget* parent)
     toolbar->setContentsMargins(4, 2, 4, 2);
     toolbar->setSpacing(6);
     auto* filterLbl = new QLabel(QStringLiteral("过滤:"), this);
-    filterLbl->setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? "color:#aaa; font-size:12px;" : "color:#a6b2bd; font-size:12px;")));
+    UiTheme::setStyle(filterLbl, [=] { return UiFontScale::style((UiTheme::classicEnabled ? "color:#aaa; font-size:12px;" : "color:#a6b2bd; font-size:12px;")); });
     toolbar->addWidget(filterLbl);
     toolbar->addWidget(m_filterCombo);
     toolbar->addStretch();
@@ -61,6 +62,13 @@ LogPanel::LogPanel(QWidget* parent)
     setLayout(vlay);
 
     applyStyle();
+    UiTheme::onChanged(this, [this] {
+        for (int i = 0; i < m_list->count(); ++i) {
+            auto* item = m_list->item(i);
+            item->setFont(UiFontScale::pointFont(QStringLiteral("Consolas"), 10));
+            item->setForeground(typeColor(static_cast<LogType>(item->data(Qt::UserRole).toInt())));
+        }
+    });
 
     connect(m_exportBtn,   &QPushButton::clicked,
             this, &LogPanel::onExportClicked);
@@ -86,6 +94,7 @@ void LogPanel::addLog(LogType type, const QString& text)
         QString line = QStringLiteral("[%1] [%2] %3").arg(ts, lbl, text);
 
         auto* item = new QListWidgetItem(line);
+        item->setData(Qt::UserRole, static_cast<int>(type));
         item->setForeground(typeColor(type));
         item->setFont(UiFontScale::pointFont(QStringLiteral("Consolas"), 10));
         m_list->addItem(item);
@@ -169,6 +178,7 @@ void LogPanel::rebuildDisplay()
         QString lbl = typeLabel(e.type);
         QString line = QStringLiteral("[%1] [%2] %3").arg(ts, lbl, e.text);
         auto* item = new QListWidgetItem(line);
+        item->setData(Qt::UserRole, static_cast<int>(e.type));
         item->setForeground(typeColor(e.type));
         item->setFont(UiFontScale::pointFont(QStringLiteral("Consolas"), 10));
         m_list->addItem(item);
@@ -178,7 +188,7 @@ void LogPanel::rebuildDisplay()
 
 void LogPanel::applyStyle()
 {
-    setStyleSheet(UiFontScale::style(
+    UiTheme::setStyle(this, [=] { return UiFontScale::style(
         (UiTheme::classicEnabled ? "LogPanel { background: #0a0a0a; }"
         "QListWidget { background: #0d0d0d; border: 1px solid #333; color: #ccc; }"
         "QListWidget::item:selected { background: #1a2a3a; }"
@@ -200,7 +210,7 @@ void LogPanel::applyStyle()
         "              padding: 2px 10px; border-radius: 3px; font-size:12px; }"
         "QPushButton:hover { background: #293b43; }"
         "QLabel { color: #e8edf1; font-size: 12px; }")
-    ));
+    ); });
 }
 
 QString LogPanel::typeLabel(LogType t)

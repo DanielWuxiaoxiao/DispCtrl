@@ -1,3 +1,4 @@
+#include "Basic/uithemeruntime.h"
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@xidian.edu.cn
@@ -22,7 +23,7 @@
 AScanPlot::AScanPlot(QWidget* parent) : QWidget(parent)
 {
     setMinimumHeight(160);
-    setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? "background: #0d0d0d;" : "background: #12171c;")));
+    UiTheme::setStyle(this, [=] { return UiFontScale::style((UiTheme::classicEnabled ? "background: #0d0d0d;" : "background: #12171c;")); });
 }
 
 void AScanPlot::setData(int /*pointNum*/, float rangeResM, float cfar,
@@ -138,7 +139,7 @@ AScanWidget::AScanWidget(QWidget* parent)
 {
     // 工具栏
     m_lblInfo = new QLabel(QStringLiteral("A显  方位: --°  量程: --"), this);
-    m_lblInfo->setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? "color:#ff8800; font-family:Consolas; font-size:12px;" : "color:#e8edf1; font-family:Consolas; font-size:12px;")));
+    UiTheme::setStyle(m_lblInfo, [=] { return UiFontScale::style((UiTheme::classicEnabled ? "color:#ff8800; font-family:Consolas; font-size:12px;" : "color:#e8edf1; font-family:Consolas; font-size:12px;")); });
 
     m_chkPC  = new QCheckBox(QStringLiteral("PC后"), this);
     m_chkMTD = new QCheckBox(QStringLiteral("MTD后"), this);
@@ -189,11 +190,11 @@ void AScanWidget::onAScanData(const AScanFrame& frame,
 
 void AScanWidget::applyStyle()
 {
-    setStyleSheet(UiFontScale::style(
+    UiTheme::setStyle(this, [=] { return UiFontScale::style(
         (UiTheme::classicEnabled ? "AScanWidget { background: #0a0a0a; }"
         "QCheckBox { color:#aaa; font-size:12px; }"
         "QCheckBox::indicator:checked { background:#44ff88; border:1px solid #44ff88; }" : "AScanWidget { background: #12171c; }"
         "QCheckBox { color:#a6b2bd; font-size:12px; }"
         "QCheckBox::indicator:checked { background:#78cbd8; border:1px solid #78cbd8; }")
-    ));
+    ); });
 }

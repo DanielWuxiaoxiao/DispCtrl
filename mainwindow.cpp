@@ -52,6 +52,7 @@
 #include "Controller/laserreportmanager.h"
 #include "PhotoelectricV2/module.h"
 #include "ZhoushanOptical/zhoushanmodule.h"
+#include "RadarTrackApi/radartrackapi.h"
 #include <QPalette>
 #include "Controller/totalcontrolmqttclient.h"
 #include "CommandControl/commandcontrolmodule.h"
@@ -273,10 +274,24 @@ void FramelessMainWindow::setupOverlayUI()
             ppiView->setEdgeRadarReporter(edgeReporter);
         }
 
+        if (CF_INS.radarTrackApiEnabled()) {
+            auto* api = new RadarTrackApi::Module(this);
+            connect(api, &RadarTrackApi::Module::logMessage, this, [](const QString& text) { LOG_INFO(text); });
+            connect(api, &RadarTrackApi::Module::logMessage, m_overlayWidget, &MainOverLayOut::appendExternalLog);
+            connect(CON_INS, &Controller::normalTrackFrameReady, api, &RadarTrackApi::Module::processTrackFrame);
+            connect(CON_INS, &Controller::traInfoProcess, api, &RadarTrackApi::Module::processTrack);
+            connect(CON_INS, &Controller::geoLocationUpdated, api, &RadarTrackApi::Module::updateRadarPosition);
+            ppiView->setRadarTrackApiModule(api);
+            m_overlayWidget->setRadarTrackApiModule(api);
+            api->init();
+        }
+
         if (CF_INS.zhoushanOpticalEnabled()) {
             if (CF_INS.photoelectricV2ConfiguredEnabled() || CF_INS.laserConfiguredEnabled(true)) {
                 const QString message = QStringLiteral("[ZS-OPT][CONFIG][CONFLICT] 多种光电协议同时开启：仅启用TCP目标指示，9009/10100不创建；请在config.toml关闭其它开关");
-                LOG_WARNING(message); m_overlayWidget->appendExternalLog(message);
+                if (CF_INS.zhoushanOpticalValue("log_enabled", true).toBool()) {
+                    LOG_WARNING(message); m_overlayWidget->appendExternalLog(message);
+                }
             }
             auto* optical = new ZhoushanOptical::Module(this);
             connect(optical, &ZhoushanOptical::Module::logMessage, this, [](const QString& text) { LOG_INFO(text); });

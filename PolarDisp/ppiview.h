@@ -34,6 +34,7 @@ class TotalControlMqttClient;
 class LaserReportManager;   ///< 激光侦察上报管理器（独立模块）
 namespace PhotoelectricV2 { class Module; }
 namespace ZhoushanOptical { class Module; }
+namespace RadarTrackApi { class Module; }
 class CommandControlModule;
 class ElectromagneticDeviceModule;
 
@@ -174,6 +175,7 @@ public:
     void setLaserReportManager(LaserReportManager* mgr);
     void setPhotoelectricV2Module(PhotoelectricV2::Module* module);
     void setZhoushanOpticalModule(ZhoushanOptical::Module* module);
+    void setRadarTrackApiModule(RadarTrackApi::Module* module);
     void setCommandControlModule(CommandControlModule* module);
 
 public slots:
@@ -476,6 +478,7 @@ private:
     LaserReportManager* m_laserReportManager = nullptr; ///< 激光侦察上报器（由外部注入，不拥有所有权）
     PhotoelectricV2::Module* m_opticalV2 = nullptr;
     ZhoushanOptical::Module* m_zhoushanOptical = nullptr;
+    RadarTrackApi::Module* m_radarTrackApi = nullptr;
     CommandControlModule* m_commandControlModule = nullptr; ///< 总控通信模块（由外部注入，不拥有所有权）
     ElectromagneticDeviceModule* m_electromagneticModule = nullptr;
     bool m_laserReportEnabled = true;        ///< 是否启用激光上报（关闭则右键菜单与 F6 无此项）

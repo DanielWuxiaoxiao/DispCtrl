@@ -69,6 +69,7 @@ public slots:
     void setOnlyRecognizedDroneTracksVisible(bool enabled);
     void setTrackSizeRatio(double ratio);
     void setMaxTrackPoints(int maxPoints);
+    void setBatchFocused(int batchID, bool focused);
     void resetView();
 
 protected:
@@ -90,6 +91,7 @@ private:
         PointInfo latest;
         Track3DCoordinate coordinate;
         Track3DPath path;
+        Track3DPathSample firstSample{};
     };
 
     static quint64 makeTrackKey(unsigned type, unsigned batch);
@@ -125,6 +127,7 @@ private:
     QHash<quint64, TrackSeries> m_tracks;
     QHash<quint64, int> m_pendingUpserts;
     QSet<quint64> m_pendingRemovals;
+    QSet<unsigned> m_focusedBatches;
     int m_maxTrackPoints = 200;
 
     double m_minRangeM = 0.0;

@@ -191,6 +191,7 @@ set(SRC_FILES
     ElectromagneticDevice/devicemodule.cpp
     PhotoelectricV2/module.cpp
     ZhoushanOptical/zhoushanmodule.cpp
+    RadarTrackApi/radartrackapi.cpp
     Controller/RadarDataManager.cpp            # 雷达数据统一管理器
     Controller/ErrorHandler.cpp                # 错误处理框架
     Controller/disp2sigmanager.cpp             # 显示到信号管理
@@ -275,6 +276,7 @@ set(HDR_FILES
     PhotoelectricV2/module.h
     PhotoelectricV2/protocol.h
     ZhoushanOptical/zhoushanmodule.h
+    RadarTrackApi/radartrackapi.h
     ZhoushanOptical/protocol.h
     Controller/disp2monmanager.h               # 显示到监控管理器
     Controller/disp2datamanager.h              # 显示到数据管理器
@@ -340,6 +342,8 @@ set(HDR_FILES
     Basic/log.h                               # 日志系统
     Basic/DispBasci.h                         # 显示基础定义
     Basic/uitheme.h                          # 石墨灰主题及健康状态展示样式
+    Basic/targetrecognition.h
+    Basic/uithemeruntime.h                    # 运行期换肤绑定与刷新
     Basic/classicui.h                         # x576 原始主屏图标
     mainPanel/healthstatuswidgets.h          # 健康状态卡片、列表和电源格
     Basic/uifontscale.h                       # Qt样式及绘制字体统一缩放
@@ -467,6 +471,11 @@ option(DISPCTRL_BUILD_TESTS "Build focused DispCtrl QTest targets" OFF)
 if(DISPCTRL_BUILD_TESTS)
     enable_testing()
     find_package(Qt5 REQUIRED COMPONENTS Test)
+    add_executable(ui_theme_runtime_test tests/uithemeruntime_test.cpp Basic/log.cpp)
+    target_include_directories(ui_theme_runtime_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(ui_theme_runtime_test PRIVATE Qt5::Widgets Qt5::Test)
+    add_test(NAME ui_theme_runtime_test COMMAND ui_theme_runtime_test)
+    set_tests_properties(ui_theme_runtime_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     add_executable(command_control_config_test tests/commandcontrol_config_test.cpp
         CommandControl/commandcontrolconfig.cpp Basic/log.cpp)
     target_include_directories(command_control_config_test PRIVATE "${CMAKE_SOURCE_DIR}")
@@ -530,6 +539,7 @@ if(DISPCTRL_BUILD_TESTS)
     add_test(NAME scan_layer_render_test COMMAND scan_layer_render_test)
     set_tests_properties(scan_layer_render_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     add_executable(detection_color_render_test tests/detectioncolor_render_test.cpp
+        PointManager/trackmanager.cpp PointManager/trackmanager.h
         PointManager/detmanager.cpp PointManager/detmanager.h
         PointManager/sectordetmanager.cpp PointManager/sectordetmanager.h PointManager/point.cpp
         PolarDisp/polaraxis.cpp PolarDisp/polaraxis.h PolarDisp/tooltip.cpp
@@ -585,6 +595,13 @@ if(DISPCTRL_BUILD_TESTS)
     endif()
     add_test(NAME command_control_lifecycle_test COMMAND command_control_lifecycle_test)
     add_executable(zhoushan_optical_protocol_test tests/zhoushanopticalprotocol_test.cpp)
+    add_executable(radar_track_api_test tests/radartrackapi_test.cpp
+        RadarTrackApi/radartrackapi.cpp RadarTrackApi/radartrackapi.h Basic/log.cpp
+        cusWidgets/cuswindow.cpp cusWidgets/cuswindow.h)
+    target_include_directories(radar_track_api_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(radar_track_api_test PRIVATE Qt5::Core Qt5::Widgets Qt5::Network Qt5::Test)
+    add_test(NAME radar_track_api_test COMMAND radar_track_api_test)
+    set_tests_properties(radar_track_api_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     target_include_directories(zhoushan_optical_protocol_test PRIVATE "${CMAKE_SOURCE_DIR}")
     target_link_libraries(zhoushan_optical_protocol_test PRIVATE Qt5::Core Qt5::Test)
     add_test(NAME zhoushan_optical_protocol_test COMMAND zhoushan_optical_protocol_test)

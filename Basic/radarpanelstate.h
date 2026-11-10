@@ -39,8 +39,9 @@ public:
         };
         s.attitudeCount = m_attitudes[id].count; s.attitudeMean = m_attitudes[id].lastMean;
         copy(m_attitudes[id], s.attitude);
-        s.curveCount = m_curve.filter.count; s.curveMean = m_curve.filter.lastMean;
-        copy(m_curve.filter, s.curve);
+        const auto& curveFilter = m_gateReports ? m_attitudes[id] : m_curve.filter;
+        s.curveCount = curveFilter.count; s.curveMean = curveFilter.lastMean;
+        copy(curveFilter, s.curve);
         return s;
     }
     struct YawPlotData {
@@ -82,27 +83,31 @@ public:
         if (m_gateReports && reference.locked()) return update;
         GpsPositionFilter::Fix average;
         update.position = m_filters[id].push({report.latitudeE9 / 1e9, report.longitudeE9 / 1e9,
-                                             report.altitudeCm * 0.01}, average);
+                                             report.altitudeCm * 0.01}, average, !m_gateReports);
+        const auto applyReport = [&](RadarReference::Field field, double value) {
+            return m_gateReports ? reference.updateUnfilteredReport(field, value) : reference.updateReport(field, value);
+        };
         if (update.position == GpsPositionFilter::Result::Accepted) {
-            update.positionChanged = reference.updateReport(RadarReference::Longitude, average.longitude);
-            update.positionChanged = reference.updateReport(RadarReference::Latitude, average.latitude) || update.positionChanged;
-            update.positionChanged = reference.updateReport(RadarReference::Altitude, average.altitude) || update.positionChanged;
+            update.positionChanged = applyReport(RadarReference::Longitude, average.longitude);
+            update.positionChanged = applyReport(RadarReference::Latitude, average.latitude) || update.positionChanged;
+            update.positionChanged = applyReport(RadarReference::Altitude, average.altitude) || update.positionChanged;
             update.changed = update.positionChanged;
         }
-        update.attitudeValid = update.position == GpsPositionFilter::Result::Accepted && report.headingMilliDeg <= 360000
+        update.attitudeValid = m_gateReports || (update.position == GpsPositionFilter::Result::Accepted && report.headingMilliDeg <= 360000
             && report.pitchMilliDeg >= -90000 && report.pitchMilliDeg <= 90000
-            && report.rollCentiDeg >= -9000 && report.rollCentiDeg <= 9000;
+            && report.rollCentiDeg >= -9000 && report.rollCentiDeg <= 9000);
         if (update.attitudeValid) {
             auto& filter = m_attitudes[id];
             const auto pose = filter.push(report.headingMilliDeg * 0.001, report.pitchMilliDeg * 0.001, report.rollCentiDeg * 0.01);
-            update.changed = reference.updateReport(RadarReference::Yaw, pose[0]) || update.changed;
-            update.changed = reference.updateReport(RadarReference::Pitch, pose[1]) || update.changed;
-            update.changed = reference.updateReport(RadarReference::Roll, pose[2]) || update.changed;
+            update.changed = applyReport(RadarReference::Yaw, pose[0]) || update.changed;
+            update.changed = applyReport(RadarReference::Pitch, pose[1]) || update.changed;
+            update.changed = applyReport(RadarReference::Roll, pose[2]) || update.changed;
         }
         {
             auto& curve = m_curve;
             const double yaw = m_gateReports ? report.headingMilliDeg * 0.001 : report.yaw * 0.01;
-            curve.history[curve.next] = {++curve.frame, yaw, id, curve.filter.push(yaw, 0, 0)[0]};
+            const double mean = m_gateReports ? reference.value(RadarReference::Yaw) : curve.filter.push(yaw, 0, 0)[0];
+            curve.history[curve.next] = {++curve.frame, yaw, id, mean};
             curve.next = (curve.next + 1) % curve.history.size();
             curve.count = std::min(curve.count + 1, curve.history.size());
         }
@@ -197,7 +202,7 @@ private:
         std::size_t count = 0, next = 0;
         quint64 frame = 0;
     };
-    Curve m_curve; // Continuous selected-panel history and 100-sample mean across manual switches.
+    Curve m_curve; // 连续诊断历史；四面阵均值直接引用对应ID的姿态均值。
     bool m_gateReports = false;
     std::array<qint64, 4> m_receivedMs{};
 };

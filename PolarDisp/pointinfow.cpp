@@ -1,3 +1,4 @@
+#include "Basic/targetrecognition.h"
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@xidian.edu.cn
@@ -83,7 +84,7 @@ void PointInfoW::updatePointInfo(const PointInfo& info)
     }
     ui->speed->setText(QString::number(info.speed, 'f', 1) + " m/s");
     ui->SNR->setText(QString::number(info.SNR, 'f', 1) + " dB");
-    QString recStr = (info.targetRecResult == 1) ? "无人机" : "其它";
+    QString recStr = TargetRecognition::text(info);
     ui->targetRec->setText(recStr);
 }
 

@@ -1,3 +1,4 @@
+#include "Basic/uithemeruntime.h"
 #include "Basic/uitheme.h"
 #include "developerlogindialog.h"
 #include "Basic/authmanager.h"
@@ -19,7 +20,7 @@ DeveloperLoginDialog::DeveloperLoginDialog(QWidget* parent) : QDialog(parent)
         setWindowIcon(QIcon(":/resources/icon/radararray.png"));
         setWindowModality(Qt::ApplicationModal);
         setMinimumWidth(420);
-        setStyleSheet(UiFontScale::style(QStringLiteral(
+        UiTheme::setStyle(this, [=] { return UiFontScale::style(QStringLiteral(
             "QDialog#DeveloperLoginDialog { background:#101818; }"
             "QDialog#DeveloperLoginDialog QLabel { color:#D9FFFF; font-size:18px; }"
             "QDialog#DeveloperLoginDialog QLabel#DeveloperLoginError { color:#FF9B9B; }"
@@ -27,7 +28,7 @@ DeveloperLoginDialog::DeveloperLoginDialog(QWidget* parent) : QDialog(parent)
             "border:1px solid #66CCAA; border-radius:4px; padding:6px; }"
             "QDialog#DeveloperLoginDialog QPushButton { color:#66FFCC; background:#123630; font-size:18px; "
             "border:1px solid #66FFCC; border-radius:5px; padding:6px 16px; min-height:28px; }"
-            "QDialog#DeveloperLoginDialog QPushButton:hover { background:#195046; }")));
+            "QDialog#DeveloperLoginDialog QPushButton:hover { background:#195046; }")); });
         auto* layout = new QVBoxLayout(this);
         layout->setContentsMargins(24, 20, 24, 20);
         layout->setSpacing(14);
@@ -74,7 +75,7 @@ DeveloperLoginDialog::DeveloperLoginDialog(QWidget* parent) : QDialog(parent)
 
     setObjectName(QStringLiteral("DeveloperLoginDialog"));
     setWindowTitle(QStringLiteral("开发者模式验证"));
-    setWindowIcon((UiTheme::classicEnabled ? QIcon(":/resources/icon/radararray.png") : QIcon(":/resources/icon/ui/radar.svg")));
+    setWindowIcon(UiTheme::themedIcon(QStringLiteral(":/resources/icon/radararray.png"), QStringLiteral(":/resources/icon/ui/radar.svg")));
     setWindowModality(Qt::ApplicationModal);
     setMinimumWidth(ScaleHelper::uiScaled(480));
     auto* layout = new QVBoxLayout(this);
@@ -134,7 +135,7 @@ DeveloperLoginDialog::DeveloperLoginDialog(QWidget* parent) : QDialog(parent)
             password->setFocus();
         }
     });
-    setStyleSheet(UiFontScale::style(QString(
+    UiTheme::setStyle(this, [=] { return UiFontScale::style(QString(
         (UiTheme::classicEnabled ? "QDialog#DeveloperLoginDialog { background:#101818; }"
         "QDialog#DeveloperLoginDialog QLabel { color:#D9FFFF; font-size:18px; }"
         "QDialog#DeveloperLoginDialog QLabel#DeveloperLoginError { color:#FF9B9B; }"
@@ -158,6 +159,6 @@ DeveloperLoginDialog::DeveloperLoginDialog(QWidget* parent) : QDialog(parent)
         "QDialog#DeveloperLoginDialog QPushButton:pressed { background:#23414a; }"
         "QDialog#DeveloperLoginDialog QPushButton#DeveloperLoginAccept { color:#c2e8ed; background:#23414a; border-color:#78cbd8; }"
         "QDialog#DeveloperLoginDialog QPushButton#DeveloperLoginAccept:hover { background:#2e4b57; }"
-        "QDialog#DeveloperLoginDialog QPushButton:disabled { color:#8e9ba6; background:#1b232a; border-color:#303b44; }"))));
+        "QDialog#DeveloperLoginDialog QPushButton:disabled { color:#8e9ba6; background:#1b232a; border-color:#303b44; }"))); });
     password->setFocus();
 }

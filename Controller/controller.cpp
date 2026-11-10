@@ -429,9 +429,9 @@ void Controller::publishRadarReference()
                             m_radarReference.value(RadarReference::Altitude));
 }
 
-bool Controller::setManualRadarReference(const RadarReference::Values& values)
+bool Controller::setManualRadarReference(const RadarReference::Values& values, bool holdPosition)
 {
-    if (!m_radarReference.setManual(values)) return false;
+    if (!m_radarReference.setManual(values, holdPosition)) return false;
     LOG_INFO(QStringLiteral("[RADAR_REFERENCE] latest UI applied lon=%1 lat=%2 alt=%3 yaw=%4 pitch=%5 roll=%6")
         .arg(m_radarReference.value(RadarReference::Longitude), 0, 'f', 7)
         .arg(m_radarReference.value(RadarReference::Latitude), 0, 'f', 7)
@@ -586,7 +586,7 @@ void Controller::logRadarReferenceDebug(const BITReportV2& report, const RadarPa
         {"pitch_mean_deg", d.attitudeMean[1]}, {"roll_mean_deg", d.attitudeMean[2]},
         {"table_heading_effective_deg", reference.value(RadarReference::Yaw)},
         {"table_heading_source", sources[int(reference.source(RadarReference::Yaw))]},
-        {"curve_count_across_unlock_switches", int(d.curveCount)}, {"curve_yaw_mean_deg", d.curveMean[0]}};
+        {"curve_count_this_id", int(d.curveCount)}, {"curve_yaw_mean_deg", d.curveMean[0]}};
     if (plot.historyCount) {
         const auto& latest = plot.history[plot.historyCount - 1];
         means.insert("curve_last_id", latest.id); means.insert("curve_frame", double(latest.frame));
@@ -604,7 +604,7 @@ void Controller::logRadarReferenceDebug(const BITReportV2& report, const RadarPa
             attitude.append(QJsonArray{d.attitude[i][0], d.attitude[i][1], d.attitude[i][2]});
         for (std::size_t i = 0; i < d.curveCount; ++i) {
             curve.append(d.curve[i][0]);
-            curveIds.append(plot.history[plot.historyCount - d.curveCount + i].id);
+            curveIds.append(m_multiPanelReference ? id : plot.history[plot.historyCount - d.curveCount + i].id);
         }
         line.insert("inputs_oldest_to_newest", QJsonObject{{"gps_lat_lon_alt", gps},
             {"heading_pitch_roll_this_id", attitude}, {"curve_yaw_deg", curve}, {"curve_ids", curveIds}});

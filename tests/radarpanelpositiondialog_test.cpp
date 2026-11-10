@@ -14,6 +14,23 @@
 class RadarPanelPositionDialogTest final : public QObject {
     Q_OBJECT
 private slots:
+    void unfilteredMeansReachListInBothThemes() {
+        for (const auto& theme : {QStringLiteral("graphite"), QStringLiteral("classic")}) {
+            UiTheme::configure(theme);
+            RadarPanelState state;
+            state.initialize({120,30,100,0,0,0},100,50,true); QVERIFY(state.unlock(0));
+            RadarPanelPositionDialog::Actions actions; actions.live = [&] { return state.snapshot(); };
+            RadarPanelPositionDialog dialog(state.dialogValues(), state.snapshot().locked, actions);
+            BITReportV2 bit; bit.radarId=0; bit.latitudeE9=0; bit.longitudeE9=0; bit.altitudeCm=0;
+            bit.headingMilliDeg=655350; bit.pitchMilliDeg=120000; bit.rollCentiDeg=19000;
+            state.ingest(bit);
+            QTRY_COMPARE(dialog.findChild<QLineEdit*>("panel0Field4")->text(), QString("120.000"));
+            QCOMPARE(dialog.findChild<QLineEdit*>("panel0Field5")->text(), QString("190.00"));
+            const auto shown=dialog.findChild<QLineEdit*>("panel0Field3")->text().toDouble();
+            QVERIFY(std::abs(shown-state.snapshot().history[0].average)<0.00051);
+            QCOMPARE(state.snapshot().history[0].average,state.snapshot().values[0][3]);
+        }
+    }
     void customHostEmbeddingAndCloseLifetime() {
         RadarPanelState state;
         state.initialize({120, 30, 100, 0, 0, 0}, 100, 50, true);

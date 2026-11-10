@@ -1,3 +1,4 @@
+#include "Basic/uithemeruntime.h"
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@xidian.edu.cn
@@ -79,7 +80,7 @@ MapProxyWidget::MapProxyWidget()
     mView = new QWebEngineView();
     mView->setPage(new MapPage(mView));
     mView->page()->setBackgroundColor(Qt::black);
-    mView->setStyleSheet(UiFontScale::style("background-color: black;"));
+    UiTheme::setStyle(mView, [=] { return UiFontScale::style("background-color: black;"); });
     m_loadWatchdog = new QTimer(this);
     m_loadWatchdog->setSingleShot(true);
     connect(m_loadWatchdog, &QTimer::timeout, this, [this] {
@@ -91,6 +92,7 @@ MapProxyWidget::MapProxyWidget()
         mView->hide();
     });
 
+    UiTheme::onChanged(this, [this] { chooseMap(m_currentMapType); });
     if (!tilesAvailable) {
         // Missing optional tiles must not skip HTML/WebChannel initialization.
         LOG_WARNING("Optional map tiles not found; missing offline basemaps will use black.html with WebChannel initialized.");

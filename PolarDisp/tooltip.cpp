@@ -7,6 +7,7 @@
  * @Description: 
  */
 #include "Basic/uitheme.h"
+#include "Basic/uithemeruntime.h"
 #include "tooltip.h"
 #include <QBrush>
 #include <QPen>
@@ -43,6 +44,15 @@ Tooltip::Tooltip(QGraphicsItem* parent)
 
     // 忽略视图变换，保证tooltip在放大视图中不会跟随缩放而变大
     setFlag(QGraphicsItem::ItemIgnoresTransformations, true);
+    UiTheme::onChanged(qApp, [this] {
+        m_background->setBrush(UiTheme::classicEnabled ? QColor(16, 24, 24, 230) : QColor(27, 34, 40, 235));
+        m_background->setPen(QPen(UiTheme::classicEnabled ? QColor(102, 255, 204) : PPI_ACCENT_COLOR, 1));
+        m_text->setDefaultTextColor(UiTheme::classicEnabled ? QColor(102, 255, 204) : PPI_TEXT_COLOR);
+        QFont next = m_text->font();
+        next.setPixelSize(UiFontScale::pointPixels(8));
+        m_text->setFont(next);
+        m_background->setRect(m_text->boundingRect().adjusted(-6, -3, 6, 3));
+    });
 }
 
 void Tooltip::showTooltip(const QPointF& scenePos,const QString& text)

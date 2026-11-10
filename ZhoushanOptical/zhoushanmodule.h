@@ -27,6 +27,7 @@ struct Settings {
     quint16 port = 9010, senderId = 1100, receiverId = 3101;
     quint8 kind = 1;
     bool utc = false;
+    bool logEnabled = true, logPayloadEnabled = false;
     int intervalMs = 1000, responseTimeoutMs = 3000, trackTimeoutMs = 10000, logIntervalMs = 5000, maxTracks = 1024;
     qint64 timeOriginMs = 0;
 };
@@ -90,6 +91,7 @@ private:
     void consume(const QVariantList& packets);
     void publish();
     void logLimited(const QString& category, const QString& text);
+    void writeLog(const QString& text);
     bool hasTrack(int batch) const;
     QByteArray encode(const PointInfo& point) const;
     void refreshWindow();

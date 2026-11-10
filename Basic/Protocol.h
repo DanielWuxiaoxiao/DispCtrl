@@ -838,7 +838,7 @@ typedef struct _detInfo
     unsigned disChannel;
     unsigned dopChannel;
     float targetConfidence;
-    unsigned targetRecResult;
+    unsigned targetRecResult;  // 0未知，1无人机，2行人，3车辆，4鸟，5其它
 }detInfo;
 static_assert(sizeof(detInfo) == 56, "DD01 point record must remain 56 bytes");
 
@@ -882,7 +882,7 @@ typedef struct _trackInfo
     float vel;
     float spaceVel;
     float accelerate;
-    unsigned targetRecResult;  // 目标识别结果：0=其它，1=无人机
+    unsigned targetRecResult;  // 0未知，1无人机，2行人，3车辆，4鸟，5其它
     unsigned reserve1;
     unsigned reserve2;
 }trackInfo;
@@ -1000,7 +1000,7 @@ typedef struct _PointInfo
     float amp;
     unsigned int batch;
     unsigned char statMethod;
-    unsigned targetRecResult;  // 0=other, 1=drone
+    unsigned targetRecResult;  // 0未知，1无人机，2行人，3车辆，4鸟，5其它
     float targetConfidence = 0.0f;
     unsigned char radarId = RADAR_ID_MIN;  // DD01 radar/array ID; EE track frames have no ID field
 }PointInfo;

@@ -70,13 +70,15 @@ function harness(options = {}) {
             removeEventListener(type, callback) { removeListener(listeners, type, callback); },
             dispatchEvent(event) { (listeners.get(event.type) || []).slice().forEach(fn => fn(event)); },
             setAttribute(name, value) { this[name] = value; },
+            getAttribute(name) { return this[name]; },
             getBoundingClientRect() {
                 return { left: 0, top: 0, right: state.width, bottom: state.height,
                     width: state.width, height: state.height };
             },
             getContext() {
-                return { clearRect() {}, fillText() {}, beginPath() {}, moveTo() {},
-                    lineTo() {}, closePath() {}, fill() {} };
+                const canvas = this;
+                return { clearRect() {}, fillText(text) { canvas.drawnText = text; }, beginPath() {}, moveTo() {},
+                    lineTo() {}, closePath() {}, fill() {}, stroke() {}, strokeRect() {} };
             },
             focus() {}
         };
@@ -84,6 +86,7 @@ function harness(options = {}) {
     const nodes = {};
     document.documentElement = element('html');
     ['scene-root', 'tooltip', 'status-overlay', 'axis-range'].forEach(id => { nodes[id] = element('div'); });
+    nodes['theme-style'] = element('link');
     const window = {
         devicePixelRatio: 1.5, location: { href: 'qrc:///track3d/index.html?theme=' + (options.theme || 'graphite') },
         get innerWidth() { return state.width; }, get innerHeight() { return state.height; },
@@ -222,6 +225,25 @@ function sample(east, { height = 100, range = 1000, rgb = red } = {}) {
     return [east, 0, height, range, rgb];
 }
 
+test('all six recognition labels are distinct while only drone tracks pass the drone filter', () => {
+    const start = sources['track3d.js'].indexOf('function recognitionLabel(track)');
+    const end = sources['track3d.js'].indexOf('function showTooltip', start);
+    const label = vm.runInNewContext('(' + sources['track3d.js'].slice(start, end).trim() + ')');
+    const labels = ['未知', '无人机', '行人', '车辆', '鸟', '其它'];
+    labels.forEach((name, code) => assert.equal(label({targetRecResult: code}), name));
+    assert.equal(label({targetRecResult: 65537}), '未知');
+    assert.equal(label({targetRecResult: 102, offline: true}), '离线颜色码 102');
+    for (const theme of ['graphite', 'classic']) {
+        const h = boot({theme});
+        h.bridge.snapshotChanged.emit(labels.map((_, code) => track('2:' + (code + 1), {
+            targetRecResult: code, color: code === 1 ? '#ff0000' : '#ffff00'
+        })), {}); h.flush();
+        assert.equal(h.visibleKeys().length, 6);
+        h.bridge.sceneStateChanged.emit({onlyRecognizedDroneTracksVisible: true}); h.flush();
+        assert.deepEqual(h.visibleKeys(), ['2:2']);
+    }
+});
+
 test('CSS viewport bounds are compatible with Qt 5.14 Chromium 77', () => {
     const css = sources['track3d.css'].replace(/\/\*[\s\S]*?\*\//g, '');
     for (const selector of ['scene-root', 'status-overlay']) {
@@ -303,6 +325,24 @@ test('latest markers retain a shared triangle texture and apply the 3D height wi
     });
 });
 
+test('signed height windows show negative tracks in both themes and keep cached history', () => {
+    for (const theme of ['graphite', 'classic']) {
+        const h = boot();
+        const tracks = [track('2:1', {heightM: -1000}), track('2:2', {heightM: -500}),
+            track('2:3', {heightM: -100}), track('2:4', {heightM: 0}),
+            track('2:5', {heightM: 1000}), track('2:6', {heightM: 1001})];
+        h.bridge.snapshotChanged.emit(tracks, {theme, minHeightM: -500, maxHeightM: 1000}); h.flush();
+        assert.deepEqual(h.visibleKeys(), ['2:2', '2:3', '2:4', '2:5']);
+        assert.match(h.nodes['axis-range'].textContent, /-500–1000 m/);
+        h.bridge.sceneStateChanged.emit({minHeightM: -1000, maxHeightM: -100}); h.flush();
+        assert.deepEqual(h.visibleKeys(), ['2:1', '2:2', '2:3']);
+        assert.match(h.nodes['axis-range'].textContent, /-1000–-100 m/);
+        h.bridge.sceneStateChanged.emit({minHeightM: -1000, maxHeightM: 1500}); h.flush();
+        assert.equal(h.visibleKeys().length, tracks.length, 'changing height range must not discard cached tracks');
+        assert.equal(h.state.uncaught.length, 0);
+    }
+});
+
 test('snapshot, overwrite, removal and clear reach the real scene graph', () => {
     const h = boot();
     h.bridge.snapshotChanged.emit([track('2:101'), track('2:102')], {}); h.flush();
@@ -311,6 +351,96 @@ test('snapshot, overwrite, removal and clear reach the real scene graph', () => 
     assert.deepEqual(h.visibleKeys(), ['2:101', '2:103']);
     h.bridge.clearRequested.emit(); h.flush();
     assert.deepEqual(h.visibleKeys(), []);
+});
+
+test('focus shows the original start square, hollow latest triangle and a reused batch label in both themes', () => {
+    for (const theme of ['graphite', 'classic']) {
+        const h = boot({ theme });
+        const firstPoint = sample(100);
+        h.bridge.snapshotChanged.emit([track('2:101', {
+            focused: true, firstPoint, path: sample(200).concat(sample(300)), eastM: 300
+        }), track('3:101')], { maxTrackPoints: 2 });
+        h.flush();
+        const scene = h.state.renders[h.state.renders.length - 1].scene;
+        const start = scene.getObjectByName('track-focus-start:2:101');
+        const label = scene.getObjectByName('track-focus-label:2:101');
+        assert.ok(start.visible && label.visible);
+        assert.equal(start.material.map.name, 'focused-start-square');
+        assert.equal(start.position.x, 100 / 5000);
+        assert.equal(label.material.map.image.tagName, 'CANVAS');
+        assert.equal(label.material.map.image.drawnText, 'batch: 101');
+        assert.equal(label.material.sizeAttenuation, false);
+        const focusedHeads = () => {
+            const result = [];
+            scene.traverse(node => {
+                if (node.isPoints && node.material.map.name === 'focused-head-triangle') result.push(node);
+            });
+            return result;
+        };
+        assert.equal(focusedHeads().length, 1);
+        assert.equal(focusedHeads()[0].userData.trackItems[0].key, '2:101');
+        assert.equal(focusedHeads()[0].userData.trackItems[0].batch, 101);
+        const labelTexture = label.material.map;
+        const headTexture = focusedHeads()[0].material.map;
+        let sharedDisposals = 0;
+        let labelDisposals = 0;
+        headTexture.addEventListener('dispose', () => { ++sharedDisposals; });
+        start.material.map.addEventListener('dispose', () => { ++sharedDisposals; });
+        labelTexture.addEventListener('dispose', () => { ++labelDisposals; });
+
+        h.bridge.trackDeltaChanged.emit([track('2:101', {
+            focused: true, firstPoint, path: sample(400), eastM: 400
+        })], []);
+        h.flush();
+        assert.equal(scene.getObjectByName('track-focus-label:2:101'), label);
+        assert.equal(label.material.map, labelTexture);
+        assert.equal(start.position.x, 100 / 5000, 'FIFO must not move the original start marker');
+        assert.equal(label.position.x, 400 / 5000);
+        assert.deepEqual(h.visibleSegments(), [[red, 300, 400]]);
+
+        h.bridge.trackDeltaChanged.emit([track('2:101', { focused: false, eastM: 400 })], []);
+        h.flush();
+        assert.equal(scene.getObjectByName('track-focus-start:2:101'), undefined);
+        assert.equal(scene.getObjectByName('track-focus-label:2:101'), undefined);
+        assert.equal(focusedHeads().length, 0);
+        assert.equal(labelDisposals, 1);
+        assert.equal(sharedDisposals, 0);
+        assert.deepEqual(h.visibleSegments(), [[red, 300, 400]], 'Focus-only changes must not append points');
+        assert.deepEqual(h.visibleKeys(), ['2:101', '3:101']);
+    }
+});
+
+test('focus markers follow filters, hidden updates, removal and batch reuse', () => {
+    const h = boot();
+    const focused = track('2:101', { focused: true, firstPoint: sample(100), path: sample(100) });
+    h.bridge.snapshotChanged.emit([focused], {});
+    h.flush();
+    const scene = h.state.renders[h.state.renders.length - 1].scene;
+    const label = () => scene.getObjectByName('track-focus-label:2:101');
+    h.bridge.sceneStateChanged.emit({ trackVisible: false });
+    h.flush();
+    assert.equal(label().visible, false);
+    h.bridge.sceneStateChanged.emit({ trackVisible: true, minHeightM: 200 });
+    h.flush();
+    assert.equal(label().visible, false);
+    h.bridge.activeChanged.emit(false);
+    h.bridge.snapshotChanged.emit([focused], { minHeightM: 0 });
+    h.flush();
+    h.bridge.activeChanged.emit(true);
+    h.flush();
+    assert.equal(label().visible, true);
+    h.bridge.trackDeltaChanged.emit([], ['2:101']);
+    h.flush();
+    assert.equal(label(), undefined);
+    h.bridge.trackDeltaChanged.emit([track('2:101')], []);
+    h.flush();
+    assert.equal(label(), undefined);
+    h.bridge.snapshotChanged.emit([focused], {});
+    h.flush();
+    h.bridge.clearRequested.emit();
+    h.flush();
+    assert.equal(label(), undefined);
+    assert.equal(scene.getObjectByName('track-focus-start:2:101'), undefined);
 });
 
 test('hidden updates do not render; reactivation renders the latest state', () => {
@@ -444,6 +574,26 @@ test('classic URL selects the palette before the first frame', () => {
     assert.equal(h.state.renders[0].scene.background.getHex(), 0x0a1010);
 });
 
+test('live theme changes update the stylesheet and preserve the camera and trail model', () => {
+    const h = boot();
+    h.bridge.snapshotChanged.emit([track('2:101', { focused: true, firstPoint: sample(100),
+        path: sample(100).concat(sample(200)), eastM: 200 })], {});
+    h.flush();
+    const { scene, camera } = h.state.renders[h.state.renders.length - 1];
+    const position = camera.position.toArray();
+    for (const theme of ['classic', 'graphite', 'classic', 'graphite']) {
+        h.bridge.sceneStateChanged.emit({ theme });
+        h.flush();
+        assert.deepEqual(camera.position.toArray(), position);
+        assert.equal(h.nodes['theme-style'].getAttribute('href'), theme === 'classic'
+            ? 'track3d_classic.css' : 'track3d.css');
+        assert.deepEqual(h.visibleKeys(), ['2:101']);
+        assert.deepEqual(h.visibleSegments(), [[red, 100, 200]]);
+        assert.ok(scene.getObjectByName('track-focus-label:2:101').visible);
+        assert.equal(h.state.rendererConstructions, 1);
+    }
+});
+
 for (const [name, option, expected] of [
     ['missing Three.js', 'missingThree', /three|undefined|dependency|依赖/i],
     ['missing OrbitControls', 'missingOrbit', /orbit|constructor|dependency|依赖/i],
@@ -474,10 +624,15 @@ async function browserSmoke() {
         const page = await browser.newPage({ viewport: { width: 960, height: 640 } });
         const errors = [];
         page.on('pageerror', error => errors.push(error.message));
-        await page.setContent('<!doctype html><html><head></head><body>'
+        const html = '<!doctype html><html><head><link id="theme-style" rel="stylesheet" href="track3d.css"></head><body>'
             + '<div id="scene-root"></div><div id="axis-legend"><span id="axis-range"></span></div>'
-            + '<div id="tooltip"></div><div id="status-overlay">loading</div></body></html>');
-        const themeStyle = await page.addStyleTag({ content: sources['track3d.css'] });
+            + '<div id="tooltip"></div><div id="status-overlay">loading</div></body></html>';
+        await page.route('http://track3d.test/**', route => {
+            const file = new URL(route.request().url()).pathname.slice(1);
+            return route.fulfill({ contentType: file.endsWith('.css') ? 'text/css' : 'text/html',
+                body: sources[file] || html });
+        });
+        await page.goto('http://track3d.test/index.html');
         await page.evaluate(() => {
             window.testBridge = { ready: 0, errors: [], viewports: [] };
             const bridge = {};
@@ -505,6 +660,8 @@ async function browserSmoke() {
                 const render = renderer.render.bind(renderer);
                 renderer.render = (scene, camera) => {
                     render(scene, camera);
+                    window.testBridge.scene = scene;
+                    window.testBridge.cameraObject = camera;
                     window.testBridge.camera = { position: camera.position.toArray(),
                         quaternion: camera.quaternion.toArray() };
                 };
@@ -582,6 +739,44 @@ async function browserSmoke() {
         await page.mouse.move(480, 320);
         await page.waitForFunction(() => document.getElementById('tooltip').innerText.includes('402'));
         await page.evaluate(data => new Promise(resolve => {
+            window.testBridge.signals.snapshotChanged.emit([data], { pointSizeRatio: 3 });
+            requestAnimationFrame(() => requestAnimationFrame(resolve));
+        }), track('2:402', { focused: true, firstPoint: sample(-900, { height: 175, rgb: 0xff20ff }),
+            eastM: 900, northM: 0, heightM: 175, rangeM: 1000, color: '#ff20ff' }));
+        const markers = await page.evaluate(() => {
+            const scene = window.testBridge.scene;
+            const camera = window.testBridge.cameraObject;
+            const start = scene.getObjectByName('track-focus-start:2:402');
+            const label = scene.getObjectByName('track-focus-label:2:402');
+            const project = point => {
+                const p = point.clone().project(camera);
+                return { x: (p.x + 1) * 480, y: (1 - p.y) * 320 };
+            };
+            let head;
+            scene.traverse(node => {
+                if (node.isPoints && node.material.map.name === 'focused-head-triangle') head = node;
+            });
+            return { first: project(start.position),
+                latest: project(new THREE.Vector3().fromBufferAttribute(head.geometry.getAttribute('position'), 0)),
+                labelVisible: label.visible };
+        });
+        assert.equal(markers.labelVisible, true);
+        const focusedImage = PNG.sync.read(await page.screenshot());
+        for (const center of [markers.first, markers.latest]) {
+            let borderPixels = 0;
+            let interiorPixels = 0;
+            for (let y = Math.round(center.y - 45); y <= center.y + 45; ++y) {
+                for (let x = Math.round(center.x - 45); x <= center.x + 45; ++x) {
+                    const i = (y * focusedImage.width + x) * 4;
+                    if (!magenta(focusedImage.data[i], focusedImage.data[i + 1], focusedImage.data[i + 2])) continue;
+                    ++borderPixels;
+                    if (Math.abs(x - center.x) < 2 && Math.abs(y - center.y) < 2) ++interiorPixels;
+                }
+            }
+            assert.ok(borderPixels > 40, 'Focused endpoint frame must reach the real WebGL canvas');
+            assert.equal(interiorPixels, 0, 'Focused endpoint frames must have hollow centers');
+        }
+        await page.evaluate(data => new Promise(resolve => {
             window.testBridge.signals.snapshotChanged.emit([data], { maxTrackPoints: 4, pointSizeRatio: 1 });
             requestAnimationFrame(() => requestAnimationFrame(resolve));
         }), track('2:401', {
@@ -614,9 +809,7 @@ async function browserSmoke() {
             window.testBridge.signals.sceneStateChanged.emit({ theme: 'classic' });
             requestAnimationFrame(() => requestAnimationFrame(resolve));
         }));
-        // Production reloads the standalone page with the original x576 stylesheet.
-        await themeStyle.evaluate(node => node.remove());
-        await page.addStyleTag({ content: sources['track3d_classic.css'] });
+        await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(10, 16, 16)');
         const classicBackground = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
         assert.equal(classicBackground, 'rgb(10, 16, 16)');
         first.classicGreenPixels = await countScenePixels((r, g, b) => g > 120 && g > r * 2 && g > b * 1.2);

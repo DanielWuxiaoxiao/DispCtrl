@@ -101,6 +101,7 @@ struct SectorTrackSeries {
     QGraphicsLineItem* labelLine = nullptr;     ///< 标签到最新点的连线
     bool visible = true;                        ///< 航迹可见性标志
     QColor color;                               ///< 航迹颜色
+    bool hasCustomColor = false;
     PointType type = PointType::Track;          ///< 航迹类型（DBT/TBD）
 };
 

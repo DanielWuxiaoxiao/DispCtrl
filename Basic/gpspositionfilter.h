@@ -14,12 +14,13 @@ public:
         if (std::isfinite(horizontalM) && horizontalM > 0) m_horizontalM = horizontalM;
         if (std::isfinite(altitudeM) && altitudeM > 0) m_altitudeM = altitudeM;
     }
-    Result push(Fix fix, Fix& average) {
-        if (!std::isfinite(fix.latitude) || !std::isfinite(fix.longitude) || !std::isfinite(fix.altitude)
-            || fix.latitude < -90 || fix.latitude > 90 || fix.longitude < -180 || fix.longitude > 180
-            || fix.altitude < -10000 || fix.altitude > 100000) return Result::Invalid;
-        if (fix.latitude == 0 && fix.longitude == 0 && fix.altitude == 0) return Result::AllZero;
-        if (m_count) {
+    Result push(Fix fix, Fix& average, bool screen = true) {
+        if (!std::isfinite(fix.latitude) || !std::isfinite(fix.longitude) || !std::isfinite(fix.altitude)) return Result::Invalid;
+        if (screen && (
+               fix.latitude < -90 || fix.latitude > 90 || fix.longitude < -180 || fix.longitude > 180
+            || fix.altitude < -10000 || fix.altitude > 100000)) return Result::Invalid;
+        if (screen && fix.latitude == 0 && fix.longitude == 0 && fix.altitude == 0) return Result::AllZero;
+        if (screen && m_count) {
             const Fix centre = median();
             if (horizontalDistance(centre, fix) > m_horizontalM || std::abs(fix.altitude - centre.altitude) > m_altitudeM)
                 return Result::Deviation;
@@ -31,10 +32,11 @@ public:
         const double anchor = m_fixes[0].longitude;
         for (std::size_t i = 0; i < m_count; ++i) {
             average.latitude += m_fixes[i].latitude / m_count;
-            average.longitude += (anchor + longitudeDelta(m_fixes[i].longitude - anchor)) / m_count;
+            average.longitude += (screen ? anchor + longitudeDelta(m_fixes[i].longitude - anchor)
+                                          : m_fixes[i].longitude) / m_count;
             average.altitude += m_fixes[i].altitude / m_count;
         }
-        average.longitude = longitudeDelta(average.longitude);
+        if (screen) average.longitude = longitudeDelta(average.longitude);
         m_average = average;
         return Result::Accepted;
     }

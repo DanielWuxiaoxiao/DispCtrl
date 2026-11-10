@@ -17,6 +17,7 @@
  */
 
 #include "Basic/uitheme.h"
+#include "Basic/uithemeruntime.h"
 #include "polargrid.h"
 #include <QPen>
 #include <QFont>
@@ -50,6 +51,7 @@ PolarGrid::PolarGrid(QGraphicsScene* scene, PolarAxis* axis, QObject* parent)
     : QObject(parent), mScene(scene), mAxis(axis)
 {
     connect(mAxis, &PolarAxis::rangeChanged, this, &PolarGrid::updateGrid);
+    UiTheme::onChanged(this, [this] { updateGrid(); });
     updateGrid();
 }
 

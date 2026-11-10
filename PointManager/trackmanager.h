@@ -75,6 +75,7 @@ public:
     void setAnchorItem(QGraphicsItem* anchor, QGraphicsLineItem* tether);
 
     void setFocused(bool focused);
+    void refreshThemeFont();
     bool isFocused() const { return m_focused; }
     void setExternallyReported(bool reported);
 
@@ -356,6 +357,8 @@ public:
                                    const QString& reportText = QString());
 
 signals:
+    void batchFocusChanged(int batchID, bool focused);
+
     /**
      * @brief 航迹被删除信号
      * @param batchID 被删除的批次ID

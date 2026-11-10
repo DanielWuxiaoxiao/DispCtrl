@@ -1,3 +1,4 @@
+#include "Basic/uithemeruntime.h"
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@xidian.edu.cn
@@ -57,6 +58,9 @@ CusWindow::CusWindow(const QString& title, const QIcon& icon, QWidget* parent)
         iconLabel->setPixmap(icon.pixmap(20, 20));
         iconLabel->setFixedSize(32, 32);
         iconLabel->setScaledContents(true);
+        UiTheme::onChanged(iconLabel, [iconLabel, icon] {
+            iconLabel->setPixmap(UiTheme::refreshedIcon(icon).pixmap(20, 20));
+        });
     }
 
     m_titleLabel = new QLabel(title, titleBar);
@@ -72,7 +76,7 @@ CusWindow::CusWindow(const QString& title, const QIcon& icon, QWidget* parent)
     m_minBtn = new QPushButton(titleBar);
     m_minBtn->setObjectName("cMinButton");
     m_minBtn->setFixedSize(32, 32);
-    m_minBtn->setIcon((UiTheme::classicEnabled ? QIcon(":/resources/icon/min.png") : QIcon(":/resources/icon/ui/minus.svg")));
+    m_minBtn->setIcon(UiTheme::themedIcon(QStringLiteral(":/resources/icon/min.png"), QStringLiteral(":/resources/icon/ui/minus.svg")));
     m_minBtn->setIconSize(QSize(20, 20));
     m_minBtn->setToolTip("最小化窗口");
     connect(m_minBtn, &QPushButton::clicked, this, [this](){
@@ -82,7 +86,7 @@ CusWindow::CusWindow(const QString& title, const QIcon& icon, QWidget* parent)
     m_maxBtn = new QPushButton(titleBar);
     m_maxBtn->setObjectName("cMaxButton");
     m_maxBtn->setFixedSize(32, 32);
-    m_maxBtn->setIcon((UiTheme::classicEnabled ? QIcon(":/resources/icon/full.png") : QIcon(":/resources/icon/ui/expand.svg")));
+    m_maxBtn->setIcon(UiTheme::themedIcon(QStringLiteral(":/resources/icon/full.png"), QStringLiteral(":/resources/icon/ui/expand.svg")));
     m_maxBtn->setIconSize(QSize(20, 20));
     m_maxBtn->setToolTip("最大化/还原窗口");
     connect(m_maxBtn, &QPushButton::clicked, this, &CusWindow::toggleMaximized);
@@ -90,7 +94,7 @@ CusWindow::CusWindow(const QString& title, const QIcon& icon, QWidget* parent)
     m_closeBtn = new QPushButton(titleBar);
     m_closeBtn->setObjectName("cCloseBtn");
     m_closeBtn->setFixedSize(32, 32);
-    m_closeBtn->setIcon((UiTheme::classicEnabled ? QIcon(":/resources/icon/close.png") : QIcon(":/resources/icon/ui/close.svg")));
+    m_closeBtn->setIcon(UiTheme::themedIcon(QStringLiteral(":/resources/icon/close.png"), QStringLiteral(":/resources/icon/ui/close.svg")));
     m_closeBtn->setIconSize(QSize(20, 20));
     m_closeBtn->setToolTip("关闭窗口");
     connect(m_closeBtn, &QPushButton::clicked, this, [this](){
@@ -125,6 +129,10 @@ CusWindow::CusWindow(const QString& title, const QIcon& icon, QWidget* parent)
     };
     enableMouseTracking(this);
     m_rubberBand = nullptr;
+    UiTheme::onChanged(this, [this] {
+        setWindowOpacity(UiTheme::classicEnabled ? 1.0 : 0.96);
+        update();
+    });
 }
 
 void CusWindow::toggleMaximized()
@@ -132,7 +140,7 @@ void CusWindow::toggleMaximized()
     if (m_maximized) {
         setGeometry(m_restoreRect);
         m_maximized = false;
-        m_maxBtn->setIcon((UiTheme::classicEnabled ? QIcon(":/resources/icon/full.png") : QIcon(":/resources/icon/ui/expand.svg")));
+        m_maxBtn->setIcon(UiTheme::themedIcon(QStringLiteral(":/resources/icon/full.png"), QStringLiteral(":/resources/icon/ui/expand.svg")));
         return;
     }
 
@@ -150,7 +158,7 @@ void CusWindow::toggleMaximized()
     m_restoreRect = geometry();
     setGeometry(target);
     m_maximized = true;
-    m_maxBtn->setIcon((UiTheme::classicEnabled ? QIcon(":/resources/icon/win.png") : QIcon(":/resources/icon/ui/restore.svg")));
+    m_maxBtn->setIcon(UiTheme::themedIcon(QStringLiteral(":/resources/icon/win.png"), QStringLiteral(":/resources/icon/ui/restore.svg")));
 }
 
 void CusWindow::setContentWidget(QWidget* w) {

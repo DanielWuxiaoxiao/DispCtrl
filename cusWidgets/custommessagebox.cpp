@@ -1,3 +1,4 @@
+#include "Basic/uithemeruntime.h"
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@xidian.edu.cn
@@ -63,7 +64,7 @@ void CustomMessageBox::setupUI()
 
 void CustomMessageBox::applyStyle()
 {
-    setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? R"(
+    UiTheme::setStyle(this, [=] { return UiFontScale::style((UiTheme::classicEnabled ? R"(
         #MessageBoxContainer {
             background-color: rgba(20, 30, 30, 0.95);
             border: 2px solid #00ff88;
@@ -157,7 +158,7 @@ void CustomMessageBox::applyStyle()
             color: #8e9ba6;
             border-color: #303b44;
         }
-    )")));
+    )")); });
 }
 
 int CustomMessageBox::showDialog(const QString &title, const QString &text,

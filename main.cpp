@@ -20,6 +20,7 @@
  */
 
 #include "Basic/uitheme.h"
+#include "Basic/uithemeruntime.h"
 #include <QApplication>
 #include <QSysInfo>
 #include <QDir>
@@ -624,6 +625,10 @@ int main(int argc, char *argv[]) {
     setupFont(app);      // 设置全局字体
     // OpenGL 默认格式已在 QApplication 之前按 GL 后端配置（仅 desktop 后端设置 Core 3.3），此处不再重复
     setupStyle(app);     // 应用深色主题样式
+    UiTheme::Runtime::instance().setApplicationRefresh([&app] {
+        setupFont(app);
+        setupStyle(app);
+    });
 
     // =============================================================================
     // 每次启动固定为用户模式；需要时由主界面按钮人工验证升级。

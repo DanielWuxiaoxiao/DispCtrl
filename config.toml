@@ -116,7 +116,7 @@ keep_alive_sec = 30
 publish_interval_ms = 4000
 
 [ui]
-theme = "graphite" # graphite：当前石墨灰/冷青；classic：x576/f338142 原始样式、字号、图标及布局。重启生效
+theme = "graphite" # 启动主题：graphite 石墨灰/冷青；classic 原始青绿。可用模式按钮旁的“换肤”实时切换并保存。
 # DPI policy:
 # fixed  = do not follow Windows display/text scaling; preferred for fixed-layout display control UI
 # system = follow system DPI scaling; fallback for high-DPI systems that require OS scaling
@@ -281,7 +281,31 @@ response_timeout_ms = 3000
 track_timeout_ms = 10000
 max_tracks = 1024                   # 只缓存普通航迹最新点，范围1..4096
 time_basis = "local"                # 8字节时标采用local/utc；须与光电约定一致
-log_interval_ms = 5000
+log_enabled = true                 # 模块日志总开关；同时控制文件日志和界面日志
+log_payload_enabled = false        # 调试时开启发送/回执HEX，仍按类别限频
+log_interval_ms = 5000              # 同类周期日志最小间隔，范围1000..60000ms
+
+# =============================================================================
+# 平台 HTTP 航迹上报；与光电TCP目指完全独立，关闭时不创建线程或显示入口。
+# speed取原报文空间速度；heading由连续位置推算（真北0°、顺时针），未知则省略。
+# 真实Token仅配置在本机，禁止提交到Git。
+# =============================================================================
+[radar_track_api]
+enabled = false
+log_enabled = true                 # 模块日志总开关；与TCP日志独立
+log_payload_enabled = false        # 调试时记录发送JSON；始终不记录Token/请求头
+log_interval_ms = 5000              # TX/成功/失败/状态分别限频，范围1000..60000ms
+endpoint = "http://api.csscuss3d.com/api/gateway/radar_track/receive"
+token_env = "DISPCTRL_RADAR_TRACK_API_TOKEN" # 优先读取此环境变量
+api_token = ""                    # 环境变量未配置时读取；发布模板必须留空
+model = "RADAR"
+track_id_prefix = "X576-"          # 后接批号和本次航迹生命周期的UUID
+auto_report = false               # 独立自动上报全部无人机；也可在窗口开启
+report_interval_ms = 1000          # 每批最小间隔，始终取最新样本
+request_interval_ms = 100          # 全局请求最小间隔；最多1条请求在途
+response_timeout_ms = 3000
+track_timeout_ms = 10000           # 按显控收到最新有效普通航迹的单调时间过期
+max_tracks = 1024                  # 缓存容量1..4096；超限拒绝新增，不积压历史
 
 # =============================================================================
 # 健康管理网络状态 Network Health

@@ -1,4 +1,5 @@
 #include "Basic/uitheme.h"
+#include "Basic/uithemeruntime.h"
 #include "track3dwidget.h"
 
 #include "../Basic/ConfigManager.h"
@@ -29,6 +30,7 @@
 #include <QtMath>
 
 #include <cmath>
+#include <limits>
 #include "Basic/uifontscale.h"
 
 namespace {
@@ -170,15 +172,22 @@ Track3DWidget::Track3DWidget(QWidget* parent)
     auto* heightLayout = new QHBoxLayout;
     heightLayout->setSpacing(5);
     toolbarRows->addLayout(heightLayout);
-    heightLayout->addWidget(new QLabel(tr("高度 (m)"), toolbar));
+    heightLayout->addWidget(new QLabel(tr("高度量程 (m)"), toolbar));
     auto* minHeightEdit = new QLineEdit(QString::number(m_minHeightM), toolbar);
     auto* maxHeightEdit = new QLineEdit(QString::number(m_maxHeightM), toolbar);
-    minHeightEdit->setToolTip(tr("最小显示高度 (m)"));
-    maxHeightEdit->setToolTip(tr("最大显示高度 (m)"));
+    minHeightEdit->setObjectName(QStringLiteral("Track3DMinHeightEdit"));
+    maxHeightEdit->setObjectName(QStringLiteral("Track3DMaxHeightEdit"));
+    minHeightEdit->setAccessibleName(tr("高度下限"));
+    maxHeightEdit->setAccessibleName(tr("高度上限"));
+    minHeightEdit->setPlaceholderText(QStringLiteral("-500"));
+    maxHeightEdit->setPlaceholderText(QStringLiteral("1000"));
+    minHeightEdit->setToolTip(tr("高度下限 (m)，支持负值，例如 -500；下限须小于上限"));
+    maxHeightEdit->setToolTip(tr("高度上限 (m)，支持负值，例如 -100；上限须大于下限"));
     for (auto* edit : {minHeightEdit, maxHeightEdit}) {
         edit->setMaximumWidth(UiFontScale::pixels(80));
         auto* validator = new QDoubleValidator(edit);
-        validator->setDecimals(2);
+        // 高度是有符号坐标，不沿用径向距离的非负限制。
+        validator->setRange(-std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), 2);
         validator->setNotation(QDoubleValidator::StandardNotation);
         QLocale locale = QLocale::c();
         locale.setNumberOptions(QLocale::RejectGroupSeparator);
@@ -189,7 +198,8 @@ Track3DWidget::Track3DWidget(QWidget* parent)
     heightLayout->addWidget(new QLabel(QStringLiteral("~"), toolbar));
     heightLayout->addWidget(maxHeightEdit);
     auto* applyHeightButton = new QPushButton(tr("应用"), toolbar);
-    applyHeightButton->setToolTip(tr("应用 3D 高度量程，上限须大于下限"));
+    applyHeightButton->setObjectName(QStringLiteral("Track3DApplyHeightButton"));
+    applyHeightButton->setToolTip(tr("应用 3D 高度量程，例如 -500 ~ 1000 m 或 -1000 ~ -100 m；上限须大于下限"));
     heightLayout->addWidget(applyHeightButton);
     heightLayout->addStretch();
 
@@ -270,6 +280,19 @@ Track3DWidget::Track3DWidget(QWidget* parent)
     });
 
     m_webView->load(track3DPageUrl());
+    UiTheme::onChanged(this, [this] {
+        for (auto it = m_tracks.begin(); it != m_tracks.end(); ++it) {
+            const auto recolor = [this, &it](Track3DPathSample& sample) {
+                PointInfo source = it->latest;
+                source.targetRecResult = sample.targetRecResult;
+                source.statMethod = sample.offline ? OfflineRae::kStatMethod : 0;
+                sample.rgb = trackColor(source).rgb() & 0xffffffu;
+            };
+            for (int i = 0; i < it->path.size(); ++i) recolor(it->path.at(i));
+            recolor(it->firstSample);
+        }
+        sendSnapshot();
+    });
 }
 
 Track3DWidget::~Track3DWidget() = default;
@@ -330,6 +353,13 @@ QVariantMap Track3DWidget::trackPayload(const TrackSeries& track, int sampleCoun
     payload.insert(QStringLiteral("targetRecResult"), info.targetRecResult);
     payload.insert(QStringLiteral("offline"), OfflineRae::isOffline(info));
     payload.insert(QStringLiteral("color"), trackColor(info).name(QColor::HexRgb));
+    const bool focused = info.type == PointType::Track && m_focusedBatches.contains(info.batch);
+    payload.insert(QStringLiteral("focused"), focused);
+    if (focused) {
+        const auto& first = track.firstSample;
+        payload.insert(QStringLiteral("firstPoint"), QVariantList{
+            first.eastM, first.northM, first.heightM, static_cast<double>(first.rangeM), first.rgb});
+    }
 
     // Flat samples avoid one WebChannel object allocation per history point.
     QVariantList path;
@@ -369,6 +399,7 @@ void Track3DWidget::addPointInfo(const PointInfo& info)
 
     const quint64 key = makeTrackKey(info.type, info.batch);
     if (info.statMethod == 2) {
+        if (info.type == PointType::Track) m_focusedBatches.remove(info.batch);
         if (!m_tracks.remove(key)) return;
         m_pendingUpserts.remove(key);
         updateTrackCountLabel();
@@ -391,8 +422,12 @@ void Track3DWidget::addPointInfo(const PointInfo& info)
     track.latest = info;
     track.coordinate = coordinate;
     track.path.append({coordinate.eastM, coordinate.northM, coordinate.heightM,
-                       info.range, trackColor(info).rgb() & 0xffffffu}, m_maxTrackPoints);
-    if (newTrack) updateTrackCountLabel();
+                       info.range, trackColor(info).rgb() & 0xffffffu,
+                       info.targetRecResult, OfflineRae::isOffline(info)}, m_maxTrackPoints);
+    if (newTrack) {
+        track.firstSample = track.path.at(0);
+        updateTrackCountLabel();
+    }
 
     if (m_pageReady && m_rendererActive) {
         // A same-key removal stays queued; JS removes the old series before appending.
@@ -433,7 +468,8 @@ void Track3DWidget::setRangeFromMain(double minRange, double maxRange)
 
 void Track3DWidget::setHeightRange(double minHeight, double maxHeight)
 {
-    if (!std::isfinite(minHeight) || !std::isfinite(maxHeight) || maxHeight <= minHeight) {
+    if (!std::isfinite(minHeight) || !std::isfinite(maxHeight)
+        || !std::isfinite(maxHeight - minHeight) || maxHeight <= minHeight) {
         return;
     }
     if (fuzzyEqual(m_minHeightM, minHeight) && fuzzyEqual(m_maxHeightM, maxHeight)) {
@@ -497,6 +533,25 @@ void Track3DWidget::resetView()
 {
     if (m_pageReady && m_rendererActive) {
         emit m_bridge->resetViewRequested();
+    }
+}
+
+void Track3DWidget::setBatchFocused(int batchID, bool focused)
+{
+    if (batchID < 0) return;
+    const unsigned batch = static_cast<unsigned>(batchID);
+    if (m_focusedBatches.contains(batch) == focused) return;
+    if (focused) m_focusedBatches.insert(batch);
+    else m_focusedBatches.remove(batch);
+
+    const quint64 key = makeTrackKey(PointType::Track, batch);
+    if (!m_tracks.contains(key)) return;
+    if (m_pageReady && m_rendererActive) {
+        // A metadata-only update must not resend the latest history sample.
+        if (!m_pendingUpserts.contains(key)) m_pendingUpserts.insert(key, 0);
+        scheduleFlush();
+    } else {
+        m_snapshotRequired = true;
     }
 }
 

@@ -19,6 +19,7 @@
  */
 
 #include "sectortrackmanager.h"
+#include "Basic/uithemeruntime.h"
 #include "Basic/ConfigManager.h"
 #include "Basic/DispBasci.h"
 #include "Basic/log.h"
@@ -110,6 +111,29 @@ SectorTrackManager::SectorTrackManager(QGraphicsScene* scene, PolarAxis* axis, Q
     : QObject(parent), m_scene(scene), m_axis(axis)
 {
     m_maxPointsPerBatch = CF_INS.displayConfig("max_track_points", 200);
+    UiTheme::onChanged(this, [this] {
+        for (auto it = m_series.begin(); it != m_series.end(); ++it) {
+            auto& series = it.value();
+            if (!series.hasCustomColor) series.color = trackTypeColor(series.type);
+            for (auto& node : series.nodes) {
+                if (node.point) node.point->setColor(series.color);
+                if (node.lineFromPrev) {
+                    QPen pen = node.lineFromPrev->pen();
+                    pen.setColor(series.color);
+                    node.lineFromPrev->setPen(pen);
+                }
+            }
+            if (series.label) {
+                series.label->setDefaultTextColor(PPI_TEXT_COLOR);
+                series.label->setFont(QApplication::font());
+            }
+            if (series.labelLine) {
+                QPen pen = series.labelLine->pen();
+                pen.setColor(series.color);
+                series.labelLine->setPen(pen);
+            }
+        }
+    });
 
     // 注册到统一数据管理器
     RADAR_DATA_MGR.registerView("SectorTrackManager_" + QString::number((quintptr)this), this);
@@ -352,6 +376,7 @@ void SectorTrackManager::setBatchColor(int batchID, const QColor& color)
     }
     SectorTrackSeries& series = m_series[trackKey];
     series.color = color;
+    series.hasCustomColor = true;
 
     // 更新所有点和线的颜色
     for (SectorTrackNode& node : series.nodes) {

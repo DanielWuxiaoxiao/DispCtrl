@@ -16,6 +16,7 @@
  */
 
 #include "Basic/uitheme.h"
+#include "Basic/uithemeruntime.h"
 #include "rangeazimuthchart.h"
 #include "../Basic/DispBasci.h"
 #include "../Basic/ConfigManager.h"
@@ -454,6 +455,20 @@ RangeAzimuthChart::RangeAzimuthChart(QWidget* parent)
 
     m_batchItem = new RangeAzimuthBatchItem(this);
     scene()->addItem(m_batchItem);
+    UiTheme::onChanged(this, [this] {
+        m_detectionColor = DET_COLOR;
+        m_trackColor = TRA_COLOR;
+        m_otherTrackColor = DRONE_COLOR;
+        m_tbdTrackColor = TBD_COLOR;
+        m_cooperativeTrackColor = CO_TRACK_COLOR;
+        setChartBgColor(UiTheme::classicEnabled ? QColor(10, 16, 16) : QColor(18, 23, 28));
+        setChartGridMajorColor(UiTheme::classicEnabled ? QColor(0, 80, 60) : QColor(48, 59, 68));
+        setChartGridMinorColor(UiTheme::classicEnabled ? QColor(0, 50, 38) : QColor(35, 45, 52));
+        setChartAxisColor(UiTheme::classicEnabled ? QColor(0, 255, 136) : QColor(97, 117, 131));
+        setChartTextColor(UiTheme::classicEnabled ? QColor(102, 255, 204) : QColor(166, 178, 189));
+        refreshTrackLabels();
+        m_batchItem->update();
+    });
 }
 
 RangeAzimuthChart::~RangeAzimuthChart()

@@ -1,3 +1,4 @@
+#include "Basic/uithemeruntime.h"
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@xidian.edu.cn
@@ -59,7 +60,7 @@ void FrozenColumnHelper::init()
     m_frozenTable->horizontalHeader()->setStretchLastSection(false);
 
     // 使用应用级 QSS，不在这里覆写局部样式，避免破坏主表既有外观。
-    m_frozenTable->setStyleSheet(UiFontScale::style(QString()));
+    UiTheme::setStyle(m_frozenTable, [=] { return UiFontScale::style(QString()); });
 
     // 同步垂直滚动
     connect(m_mainTable->verticalScrollBar(), &QScrollBar::valueChanged,

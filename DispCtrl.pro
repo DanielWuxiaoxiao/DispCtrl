@@ -96,6 +96,7 @@ SOURCES += \
     Controller/disp2photomanager.cpp \
     PhotoelectricV2/module.cpp \
     ZhoushanOptical/zhoushanmodule.cpp \
+    RadarTrackApi/radartrackapi.cpp \
     Controller/disp2resmanager.cpp \
     Controller/res2dispmanager.cpp \
     Controller/disp2sigmanager.cpp \
@@ -209,6 +210,8 @@ HEADERS += \
     Basic/pointinfovalidation.h \
     Basic/DispBasci.h \
     Basic/uitheme.h \
+    Basic/targetrecognition.h \
+    Basic/uithemeruntime.h \
     Basic/classicui.h \
     mainPanel/healthstatuswidgets.h \
     Basic/uifontscale.h \
@@ -238,6 +241,7 @@ HEADERS += \
     PhotoelectricV2/module.h \
     PhotoelectricV2/protocol.h \
     ZhoushanOptical/zhoushanmodule.h \
+    RadarTrackApi/radartrackapi.h \
     ZhoushanOptical/protocol.h \
     Controller/disp2resmanager.h \
     Controller/res2dispmanager.h \

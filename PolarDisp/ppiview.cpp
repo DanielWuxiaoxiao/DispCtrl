@@ -1,3 +1,4 @@
+#include "Basic/uithemeruntime.h"
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@xidian.edu.cn
@@ -41,6 +42,7 @@
 #include "../Controller/laserreportmanager.h"
 #include "PhotoelectricV2/module.h"
 #include "ZhoushanOptical/zhoushanmodule.h"
+#include "RadarTrackApi/radartrackapi.h"
 #include "../CommandControl/commandcontrolmodule.h"
 #include "../ElectromagneticDevice/devicemodule.h"
 #include "../cusWidgets/custommessagebox.h"
@@ -424,7 +426,7 @@ void PPIView::setupOverlay() {
     // 快捷入口只由对应功能开关决定是否展示；真正下发前再校验网络、登录和航迹缓存。
     m_externalQuickActionPanel = new QFrame(this);
     m_externalQuickActionPanel->setObjectName(QStringLiteral("externalQuickActionPanel"));
-    m_externalQuickActionPanel->setStyleSheet(UiFontScale::style(
+    UiTheme::setStyle(m_externalQuickActionPanel, [=] { return UiFontScale::style(
         (UiTheme::classicEnabled ? QStringLiteral("QFrame#externalQuickActionPanel { background: rgba(4, 25, 25, 210); "
                        "border: 1px solid #00BFA5; border-radius: 4px; }"
                        "QPushButton { min-height: 28px; padding: 2px 10px; color: #D9FFFF; "
@@ -435,7 +437,7 @@ void PPIView::setupOverlay() {
                        "QPushButton { min-height: 28px; padding: 2px 10px; color: #e8edf1; "
                        "background: rgba(27,34,40,100); border: 1px solid #303b44; border-radius: 3px; }"
                        "QPushButton:hover { background: rgba(41,59,67,210); }"
-                       "QPushButton:disabled { color: #82919e; border-color: #303b44; background: rgba(27,34,40,100); }"))));
+                       "QPushButton:disabled { color: #82919e; border-color: #303b44; background: rgba(27,34,40,100); }"))); });
     auto* quickActionLayout = new QHBoxLayout(m_externalQuickActionPanel);
     quickActionLayout->setContentsMargins(6, 5, 6, 5);
     quickActionLayout->setSpacing(6);
@@ -500,6 +502,32 @@ void PPIView::setupOverlay() {
     // 连接经纬高变化信号到PPIView（浮点容差判断+道路点下发）
     connect(CON_INS, &Controller::geoLocationUpdated,
             this, &PPIView::onGeoLocationChanged);
+
+    UiTheme::onChanged(this, [this] {
+        if (m_measurePath) {
+            QPen pen = m_measurePath->pen();
+            pen.setColor(PPI_MEASURE_COLOR);
+            m_measurePath->setPen(pen);
+        }
+        for (auto* marker : {m_startMarker, m_endMarker}) {
+            if (!marker) continue;
+            QPen pen = marker->pen();
+            pen.setColor(PPI_MEASURE_COLOR);
+            marker->setPen(pen);
+        }
+        if (m_distanceText) {
+            m_distanceText->setDefaultTextColor(PPI_MEASURE_COLOR);
+            QFont font = m_distanceText->font();
+            font.setPixelSize(UiFontScale::pointPixels(10));
+            m_distanceText->setFont(font);
+        }
+        for (auto* point : m_roadPointItems) {
+            point->setBrush(PPI_MEASURE_COLOR);
+            QPen pen = point->pen();
+            pen.setColor(PPI_MEASURE_COLOR);
+            point->setPen(pen);
+        }
+    });
 
     layoutOverlay();
 }
@@ -1517,6 +1545,15 @@ void PPIView::setZhoushanOpticalModule(ZhoushanOptical::Module* module)
     updateExternalQuickActionVisibility(); refreshExternalReportingHighlights();
 }
 
+void PPIView::setRadarTrackApiModule(RadarTrackApi::Module* module)
+{
+    if (m_radarTrackApi) disconnect(m_radarTrackApi, nullptr, this, nullptr);
+    m_radarTrackApi = module;
+    if (module) connect(module, &RadarTrackApi::Module::reportingStateChanged,
+                        this, &PPIView::refreshExternalReportingHighlights);
+    refreshExternalReportingHighlights();
+}
+
 void PPIView::setCommandControlModule(CommandControlModule* module)
 {
     if (module && !module->isEnabled()) module = nullptr;
@@ -1541,6 +1578,7 @@ bool PPIView::isExternallyReporting(int batch) const
 QString PPIView::externalReportingText(int batch) const
 {
     QStringList states;
+    if (m_radarTrackApi && m_radarTrackApi->isReporting(batch)) states.append(QStringLiteral("平台上报已启用"));
     if (m_zhoushanOptical && m_zhoushanOptical->isReporting(batch)) states.append(QStringLiteral("光电目指"));
     if (m_opticalV2 && m_opticalV2->isReporting(batch)) states.append(QStringLiteral("光电V2引导中"));
     QString electromagneticText;
@@ -1884,17 +1922,17 @@ void PPIView::updateCommandControlReplayLegend()
     if (!m_commandControlReplayLegend) {
         m_commandControlReplayLegend = new QFrame(this);
         m_commandControlReplayLegend->setObjectName(QStringLiteral("commandControlReplayLegend"));
-        m_commandControlReplayLegend->setStyleSheet(UiFontScale::style(
+        UiTheme::setStyle(m_commandControlReplayLegend, [=] { return UiFontScale::style(
             (UiTheme::classicEnabled ? QStringLiteral("QFrame#commandControlReplayLegend { background: rgba(4, 25, 25, 210); "
                            "border: 1px solid #00BFA5; border-radius: 4px; }") : QStringLiteral("QFrame#commandControlReplayLegend { background: rgba(18,23,28,175); "
-                           "border: 1px solid #303b44; border-radius: 4px; }"))));
+                           "border: 1px solid #303b44; border-radius: 4px; }"))); });
         auto* layout = new QVBoxLayout(m_commandControlReplayLegend);
         layout->setContentsMargins(8, 6, 8, 6);
         layout->setSpacing(2);
         m_commandControlReplayLegendText = new QLabel(m_commandControlReplayLegend);
         m_commandControlReplayLegendText->setTextFormat(Qt::RichText);
-        m_commandControlReplayLegendText->setStyleSheet(UiFontScale::style(
-            (UiTheme::classicEnabled ? QStringLiteral("QLabel { color: #D9FFFF; font-size: 12px; background: transparent; }") : QStringLiteral("QLabel { color: #e8edf1; font-size: 12px; background: transparent; }"))));
+        UiTheme::setStyle(m_commandControlReplayLegendText, [=] { return UiFontScale::style(
+            (UiTheme::classicEnabled ? QStringLiteral("QLabel { color: #D9FFFF; font-size: 12px; background: transparent; }") : QStringLiteral("QLabel { color: #e8edf1; font-size: 12px; background: transparent; }"))); });
         layout->addWidget(m_commandControlReplayLegendText);
     }
 
@@ -1970,6 +2008,14 @@ void PPIView::onTrackLabelRightClicked(int batchID, PointType type)
     QAction* laserAction = nullptr;      // 单目标持续上报开关
     QAction* opticalAction = nullptr;
     QAction* zhoushanAction = nullptr;
+    QAction* apiAction = nullptr;
+    QAction* apiWindow = nullptr;
+    if (canReportExternally && m_radarTrackApi) {
+        apiAction = menu.addAction(m_radarTrackApi->isManualReport(batchID)
+            ? tr("停止平台手动上报 [批次: %1]").arg(batchID)
+            : tr("开启平台手动上报 [批次: %1]").arg(batchID));
+        apiWindow = menu.addAction(tr("平台航迹上报设置"));
+    }
     if (canReportExternally && m_zhoushanOptical) {
         zhoushanAction = menu.addAction(m_zhoushanOptical->isSelected(batchID)
             ? tr("停止光电目指 [批次: %1]").arg(batchID)
@@ -2026,6 +2072,13 @@ void PPIView::onTrackLabelRightClicked(int batchID, PointType type)
         return;
     }
 
+    if (apiWindow && chosen == apiWindow) { m_radarTrackApi->showWindow(this); return; }
+    if (apiAction && chosen == apiAction) {
+        if (m_radarTrackApi->isManualReport(batchID)) m_radarTrackApi->stopReport(batchID);
+        else if (!m_radarTrackApi->startReport(batchID))
+            CustomMessageBox::showWarning(this, tr("平台航迹上报"), tr("无法选批：请检查Token、雷达经纬高及未过期的普通航迹。"));
+        return;
+    }
     if (opticalAction && chosen == opticalAction) {
         if (m_opticalV2->isReporting(batchID)) {
             // Automatic mode belongs to the control window and is not a manual subscription.

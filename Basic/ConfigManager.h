@@ -304,6 +304,45 @@ public:
         return QStringLiteral("graphite");
     }
 
+    bool saveUiTheme(const QString& theme) {
+        if (theme != QLatin1String("classic") && theme != QLatin1String("graphite")) return false;
+        QFile source(configFilePath);
+        if (!source.open(QIODevice::ReadOnly)) return false;
+        const QByteArray bytes = source.readAll();
+        if (source.error() != QFileDevice::NoError) return false;
+        source.close();
+        const QString newline = bytes.contains("\r\n") ? QStringLiteral("\r\n") : QStringLiteral("\n");
+        const bool hasBom = bytes.startsWith("\xEF\xBB\xBF");
+        QStringList lines = QString::fromUtf8(hasBom ? bytes.mid(3) : bytes).split('\n');
+        for (QString& line : lines) if (line.endsWith('\r')) line.chop(1);
+        int section = -1, end = lines.size();
+        for (int i = 0; i < lines.size(); ++i) {
+            const QString line = lines[i].trimmed();
+            if (line == QLatin1String("[ui]")) { section = i + 1; continue; }
+            if (section >= 0 && line.startsWith('[')) { end = i; break; }
+        }
+        if (section < 0) {
+            lines.append(QStringLiteral("[ui]"));
+            section = end = lines.size();
+        }
+        bool found = false;
+        for (int i = section; i < end; ++i) {
+            const int equal = lines[i].indexOf('=');
+            if (equal < 0 || lines[i].left(equal).trimmed() != QLatin1String("theme")) continue;
+            const int comment = lines[i].indexOf('#', equal);
+            const QString suffix = comment < 0 ? QString() : QStringLiteral("  ") + lines[i].mid(comment);
+            lines[i] = lines[i].left(equal + 1) + QStringLiteral(" \"%1\"").arg(theme) + suffix;
+            found = true;
+        }
+        if (!found) lines.insert(end, QStringLiteral("theme = \"%1\"").arg(theme));
+        QByteArray output = lines.join(newline).toUtf8();
+        if (hasBom) output.prepend("\xEF\xBB\xBF");
+        QSaveFile target(configFilePath);
+        if (!target.open(QIODevice::WriteOnly) || target.write(output) != output.size() || !target.commit()) return false;
+        configData["ui.theme"] = theme;
+        return true;
+    }
+
     double uiScale(double def = 1.0) const {
         bool ok = false;
         const double value = getValue("ui.ui_scale", def).toDouble(&ok);
@@ -401,6 +440,13 @@ public:
     }
     QVariant zhoushanOpticalValue(const QString& key, const QVariant& fallback) const {
         return getValue("zhoushan_optical." + key, fallback);
+    }
+    // HTTP 平台上报独立于三种光电目指协议，不参与它们的互斥选择。
+    bool radarTrackApiEnabled() const {
+        return getValue("radar_track_api.enabled", false).toBool();
+    }
+    QVariant radarTrackApiValue(const QString& key, const QVariant& fallback) const {
+        return getValue("radar_track_api." + key, fallback);
     }
     QVariant photoelectricV2Value(const QString& key, const QVariant& fallback) const {
         return getValue("photoelectric_v2." + key, fallback);

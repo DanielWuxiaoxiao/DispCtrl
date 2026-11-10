@@ -1,3 +1,4 @@
+#include "Basic/uithemeruntime.h"
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@xidian.edu.cn
@@ -24,7 +25,7 @@ StatsChart::StatsChart(QWidget* parent)
     : QWidget(parent)
 {
     setMinimumHeight(120);
-    setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? "background: #0d0d0d;" : "background: #12171c;")));
+    UiTheme::setStyle(this, [=] { return UiFontScale::style((UiTheme::classicEnabled ? "background: #0d0d0d;" : "background: #12171c;")); });
 }
 
 void StatsChart::setWindowSec(int seconds)
@@ -134,19 +135,19 @@ StatsPanel::StatsPanel(QWidget* parent)
     auto mkTitleLbl = [&](const QString& text, const QString& color) {
         auto* l = new QLabel(text, this);
         l->setAlignment(Qt::AlignCenter);
-        l->setStyleSheet(UiFontScale::style(QStringLiteral("color:%1; font-size:11px; font-weight:bold;").arg(color)));
+        UiTheme::setStyle(l, [=] { return UiFontScale::style(QStringLiteral("color:%1; font-size:11px; font-weight:bold;").arg(color)); });
         return l;
     };
     auto mkValLbl = [&](const QString& color) {
         auto* l = new QLabel(QStringLiteral("0"), this);
         l->setAlignment(Qt::AlignCenter);
-        l->setStyleSheet(UiFontScale::style(QStringLiteral("color:%1; font-size:28px; font-family:Consolas; font-weight:bold;").arg(color)));
+        UiTheme::setStyle(l, [=] { return UiFontScale::style(QStringLiteral("color:%1; font-size:28px; font-family:Consolas; font-weight:bold;").arg(color)); });
         return l;
     };
     auto mkRateLbl = [&]() {
         auto* l = new QLabel(QStringLiteral("0/s"), this);
         l->setAlignment(Qt::AlignCenter);
-        l->setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? QStringLiteral("color:#888; font-size:11px;") : QStringLiteral("color:#a6b2bd; font-size:11px;"))));
+        UiTheme::setStyle(l, [=] { return UiFontScale::style((UiTheme::classicEnabled ? QStringLiteral("color:#888; font-size:11px;") : QStringLiteral("color:#a6b2bd; font-size:11px;"))); });
         return l;
     };
 
@@ -229,11 +230,11 @@ void StatsPanel::onSecondTick()
 
 void StatsPanel::applyStyle()
 {
-    setStyleSheet(UiFontScale::style(
+    UiTheme::setStyle(this, [=] { return UiFontScale::style(
         (UiTheme::classicEnabled ? "StatsPanel { background: #0a0a0a; }"
         "QWidget { background: #0a0a0a; }"
         "QLabel  { background: transparent; }" : "StatsPanel { background: #12171c; }"
         "QWidget { background: #12171c; }"
         "QLabel  { background: transparent; }")
-    ));
+    ); });
 }

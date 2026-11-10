@@ -57,7 +57,7 @@ private slots:
         QCOMPARE(restored.dialogValues(), sent);
         for (int id = 0; id < 4; ++id) QVERIFY(restored.reference(id).locked());
     }
-    void debugSnapshotSeparatesWireFieldsAndRejectedHeadingSamples() {
+    void tableAndCurveShareMeanIncludingZeroGps() {
         RadarPanelState state;
         state.initialize({120, 30, 100, 0, 0, 0}, 100, 50, true);
         QVERIFY(state.unlock(0));
@@ -71,12 +71,16 @@ private slots:
         bit.latitudeE9 = 0; bit.longitudeE9 = 0; bit.altitudeCm = 0;
         bit.headingMilliDeg = 120000; bit.yaw = 10200;
         const auto update = state.ingest(bit);
-        QVERIFY(!update.attitudeValid);
+        QVERIFY(update.attitudeValid);
+        QCOMPARE(update.position, GpsPositionFilter::Result::Accepted);
         debug = state.debugSnapshot(0);
-        QCOMPARE(debug.attitudeCount, std::size_t(1)); QCOMPARE(debug.curveCount, std::size_t(2));
+        QCOMPARE(debug.attitudeCount, std::size_t(2)); QCOMPARE(debug.curveCount, std::size_t(2));
         QVERIFY(std::abs(debug.attitude[0][0] - 97.787) < 1e-9);
         QCOMPARE(debug.curve[0][0], 97.787); QCOMPARE(debug.curve[1][0], 120.0);
         QVERIFY(std::abs(debug.curveMean[0] - 108.8935) < 1e-9);
+        QCOMPARE(state.reference(0).value(RadarReference::Yaw), debug.curveMean[0]);
+        QCOMPARE(state.snapshot().history[1].average, debug.curveMean[0]);
+        QCOMPARE(state.reference(0).value(RadarReference::Latitude), 15.0);
     }
     void diagnosticMeanUsesExactlyNewestHundredSamples() {
         RadarPanelState state;
@@ -92,6 +96,35 @@ private slots:
         snap = state.snapshot();
         QCOMPARE(snap.historyCount, std::size_t(101));
         QVERIFY(std::abs(snap.history[100].average - 20.0) < 1e-9);
+        QCOMPARE(snap.history[100].average, state.reference(0).value(RadarReference::Yaw));
+    }
+    void unfilteredFourPanelMeansAndSwitchBackRemainIdentical() {
+        RadarPanelState state;
+        state.initialize({120,30,100,0,0,0}, 100,50,true);
+        QVERIFY(state.unlock(0));
+        auto bit = report(0);
+        bit.latitudeE9 = 400000000000LL; bit.longitudeE9 = 800000000000LL;
+        bit.altitudeCm = 20000000; bit.headingMilliDeg = 540000;
+        bit.pitchMilliDeg = 120000; bit.rollCentiDeg = 19000;
+        auto update = state.ingest(bit);
+        QVERIFY(update.attitudeValid); QCOMPARE(update.position, GpsPositionFilter::Result::Accepted);
+        const auto pose = state.reference(0).pose();
+        QCOMPARE(pose[0],800.0); QCOMPARE(pose[1],400.0); QCOMPARE(pose[2],200000.0);
+        QVERIFY(std::abs(pose[3]-180.0)<1e-9); QCOMPARE(pose[4],120.0); QCOMPARE(pose[5],190.0);
+        QCOMPARE(state.snapshot().history[0].average, pose[3]);
+        RadarPositionControl command; QVERIFY(!state.buildCommand(state.dialogValues(),command));
+        QVERIFY(state.unlock(1)); bit=report(1); bit.headingMilliDeg=90000;
+        state.ingest(bit); QCOMPARE(state.snapshot().history[1].average,90.0);
+        QVERIFY(state.unlock(0)); bit=report(0); bit.headingMilliDeg=0;
+        bit.latitudeE9=0; bit.longitudeE9=0; bit.altitudeCm=0;
+        state.ingest(bit);
+        const auto snap=state.snapshot(); const auto debug=state.debugSnapshot(0);
+        QCOMPARE(snap.history[2].average, snap.values[0][3]);
+        QCOMPARE(debug.curveMean[0],debug.attitudeMean[0]);
+        QCOMPARE(debug.curveCount,std::size_t(2)); QCOMPARE(debug.gpsCount,std::size_t(2));
+        QCOMPARE(snap.values[0][0],400.0); QCOMPARE(snap.values[0][1],200.0);
+        const auto count=snap.historyCount; bit=report(1); state.ingest(bit);
+        QCOMPARE(state.snapshot().historyCount,count); // 切走后的锁定ID不进入任何窗口。
     }
     void persistentLockedReferencesRoundTripAndAtomicErrors() {
         QTemporaryDir directory; QVERIFY(directory.isValid());
@@ -154,7 +187,7 @@ private slots:
         bit = report(1); bit.headingMilliDeg = 90000; state.ingest(bit, 2);
         auto s = state.snapshot();
         QCOMPARE(s.historyCount, std::size_t(2)); QCOMPARE(s.history[1].yaw, 90.0);
-        QCOMPARE(s.history[1].id, 1); QVERIFY(std::abs(s.history[1].average - 50.0) < 1e-9);
+        QCOMPARE(s.history[1].id, 1); QVERIFY(std::abs(s.history[1].average - 90.0) < 1e-9);
         bit = report(0); bit.yaw = 3000; state.ingest(bit, 3);
         s = state.snapshot(); QCOMPARE(s.historyCount, std::size_t(2));
         QCOMPARE(s.history[1].id, 1); // locked ID0 does not enter the mean or curve.

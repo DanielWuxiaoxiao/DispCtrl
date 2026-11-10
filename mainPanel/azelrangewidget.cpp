@@ -1,3 +1,4 @@
+#include "Basic/uithemeruntime.h"
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@xidian.edu.cn
@@ -68,7 +69,7 @@ AzElRangeWidget::AzElRangeWidget(QWidget *parent)
     auto *drawHolder = new QWidget(this);
     drawHolder->setAttribute(Qt::WA_TransparentForMouseEvents, true);
     drawHolder->setAttribute(Qt::WA_TranslucentBackground, true);
-    drawHolder->setStyleSheet(UiFontScale::style("background-color: transparent;"));
+    UiTheme::setStyle(drawHolder, [=] { return UiFontScale::style("background-color: transparent;"); });
     drawHolder->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 //    drawHolder->setMinimumHeight(180);  // 设置绘图区域最小高度
     mainLay->addWidget(drawHolder, 1);  // 给绘图区域更多权重
@@ -116,7 +117,7 @@ AzElRangeWidget::AzElRangeWidget(QWidget *parent)
     mainLay->addLayout(grid);
 
     // 统一样式，确保继承父widget背景
-    setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? R"(
+    UiTheme::setStyle(this, [=] { return UiFontScale::style((UiTheme::classicEnabled ? R"(
                   QWidget#AzElRangeWidget {
                   background-color: transparent;
                   border: none;
@@ -198,7 +199,7 @@ AzElRangeWidget::AzElRangeWidget(QWidget *parent)
                   QPushButton#SettingsButton:pressed {
                   background-color: #29434c;
                   }
-                  )")));
+                  )")); });
 
     connectEditors();
 }

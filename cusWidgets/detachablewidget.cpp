@@ -1,3 +1,4 @@
+#include "Basic/uithemeruntime.h"
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@xidian.edu.cn
@@ -15,7 +16,7 @@ DetachableWidget::DetachableWidget(QString name , QWidget* childWidget, QIcon ic
     : QWidget(parent), m_child(childWidget) , m_name(name) , m_icon(icon)
 {
     m_btn = new QPushButton(); // 小按钮
-    m_btn->setIcon((UiTheme::classicEnabled ? QIcon(":/resources/icon/full.png") : QIcon(":/resources/icon/ui/expand.svg")));
+    m_btn->setIcon(UiTheme::themedIcon(QStringLiteral(":/resources/icon/full.png"), QStringLiteral(":/resources/icon/ui/expand.svg")));
     m_btn->setToolTip("分离窗口");
     m_btn->setObjectName("DetachBtn");
     connect(m_btn, &QPushButton::clicked, this, &DetachableWidget::detach);
@@ -26,6 +27,9 @@ DetachableWidget::DetachableWidget(QString name , QWidget* childWidget, QIcon ic
         iconLabel->setPixmap(icon.pixmap(20, 20));
         iconLabel->setFixedSize(32, 32);
         iconLabel->setScaledContents(true);
+        UiTheme::onChanged(iconLabel, [iconLabel, icon] {
+            iconLabel->setPixmap(UiTheme::refreshedIcon(icon).pixmap(20, 20));
+        });
         iconLabel->setToolTip("组件图标");
     }
     m_titleLabel = new QLabel(m_name, this);
@@ -47,6 +51,7 @@ DetachableWidget::DetachableWidget(QString name , QWidget* childWidget, QIcon ic
     m_layout->addLayout(titleBar);
     m_layout->addWidget(m_child);
     setLayout(m_layout);
+    UiTheme::onChanged(this, [this] { m_icon = UiTheme::refreshedIcon(m_icon); });
 }
 
 DetachableWidget::~DetachableWidget()

@@ -1,3 +1,4 @@
+#include "Basic/targetrecognition.h"
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@xidian.edu.cn
@@ -37,7 +38,7 @@ constexpr int kPpiRefreshIntervalMs = 16; // ~60 FPS when the GUI thread keeps u
 
 QString detectionTooltipText(const PointInfo& info)
 {
-    return QString("%1\nR:%2m\nA:%3°\nE:%4°\nSNR:%5dB\nV:%6m/s\nH:%7m\nAmp:%8")
+    return QString("%1\nR:%2m\nA:%3°\nE:%4°\nSNR:%5dB\nV:%6m/s\nH:%7m\nAmp:%8\n识别:%9")
             .arg(QString::fromUtf8(DET_LABEL))
             .arg(info.range)
             .arg(info.azimuth)
@@ -45,7 +46,8 @@ QString detectionTooltipText(const PointInfo& info)
             .arg(info.SNR)
             .arg(info.speed)
             .arg(info.altitute)
-            .arg(info.amp);
+            .arg(info.amp)
+            .arg(TargetRecognition::text(info));
 }
 
 } // namespace

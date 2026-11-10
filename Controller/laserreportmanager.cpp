@@ -1,3 +1,4 @@
+#include "Basic/targetrecognition.h"
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@xidian.edu.cn
@@ -494,7 +495,7 @@ unsigned short LaserReportManager::mapTrackQuality(const PointInfo& info)
 
 QString LaserReportManager::targetTypeText(const PointInfo& info)
 {
-    return (info.targetRecResult == 1) ? QStringLiteral("无人机") : QStringLiteral("其它");
+    return TargetRecognition::text(info);
 }
 
 float LaserReportManager::normalizedAzimuth(float azimuth)

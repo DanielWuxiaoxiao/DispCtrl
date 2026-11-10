@@ -1,3 +1,4 @@
+#include "Basic/uithemeruntime.h"
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@xidian.edu.cn
@@ -40,14 +41,14 @@ MousePositionInfo::MousePositionInfo(QWidget *parent) :
     // 检测点：绿色圆圈
     {
         QLabel* detColorLabel = new QLabel("●", this);
-        detColorLabel->setStyleSheet(UiFontScale::style(QString((UiTheme::classicEnabled ? "color: #00FF00; font-size: 18px;" : "color: %1; font-size: 18px;")).arg(DET_COLOR.name())));
+        UiTheme::setStyle(detColorLabel, [=] { return UiFontScale::style(QString((UiTheme::classicEnabled ? "color: #00FF00; font-size: 18px;" : "color: %1; font-size: 18px;")).arg(DET_COLOR.name())); });
         detColorLabel->setFixedWidth(16);
         ui->checkboxLayout->insertWidget(1, detColorLabel);
     }
     // 跟踪点：红色圆圈
     {
         QLabel* trackColorLabel = new QLabel("●", this);
-        trackColorLabel->setStyleSheet(UiFontScale::style(QString((UiTheme::classicEnabled ? "color: #FF0000; font-size: 18px;" : "color: %1; font-size: 18px;")).arg(TRA_COLOR.name())));
+        UiTheme::setStyle(trackColorLabel, [=] { return UiFontScale::style(QString((UiTheme::classicEnabled ? "color: #FF0000; font-size: 18px;" : "color: %1; font-size: 18px;")).arg(TRA_COLOR.name())); });
         trackColorLabel->setFixedWidth(16);
         ui->checkboxLayout->addWidget(trackColorLabel);
     }
@@ -57,17 +58,19 @@ MousePositionInfo::MousePositionInfo(QWidget *parent) :
                                  const QString& text,
                                  const QString& toolTip,
                                  const QString& objectName,
-                                 const QColor& color,
                                  void (MousePositionInfo::*signal)(bool)) {
         checkBox = new QCheckBox(text, this);
         checkBox->setToolTip(toolTip);
         checkBox->setChecked(true);
         checkBox->setObjectName(objectName);
-        checkBox->setStyleSheet(UiFontScale::style("QCheckBox::indicator { width: 12px; height: 12px; }"));
+        UiTheme::setStyle(checkBox, [=] { return UiFontScale::style("QCheckBox::indicator { width: 12px; height: 12px; }"); });
         layout->addWidget(checkBox);
 
         QLabel* colorLabel = new QLabel("●", this);
-        colorLabel->setStyleSheet(UiFontScale::style(QString("color: %1; font-size: 18px;").arg(color.name())));
+        UiTheme::setStyle(colorLabel, [=] {
+            const QColor current = objectName == QLatin1String("MouseCheckBoxTBDTrack") ? TBD_COLOR : CO_TRACK_COLOR;
+            return UiFontScale::style(QStringLiteral("color: %1; font-size: 18px;").arg(current.name()));
+        });
         colorLabel->setFixedWidth(16);
         layout->addWidget(colorLabel);
 
@@ -88,7 +91,6 @@ MousePositionInfo::MousePositionInfo(QWidget *parent) :
                        tr("TBD航迹"),
                        tr("显示/隐藏TBD航迹"),
                        "MouseCheckBoxTBDTrack",
-                       trackTypeColor(PointType::TBDPointType),
                        &MousePositionInfo::tbdTrackVisibilityChanged);
     }
 
@@ -98,7 +100,6 @@ MousePositionInfo::MousePositionInfo(QWidget *parent) :
                        tr("协同航迹"),
                        tr("显示/隐藏协同航迹"),
                        "MouseCheckBoxCooperativeTrack",
-                       trackTypeColor(PointType::CooperativeTrackPointType),
                        &MousePositionInfo::cooperativeTrackVisibilityChanged);
     }
 
@@ -106,8 +107,8 @@ MousePositionInfo::MousePositionInfo(QWidget *parent) :
     // 标识 objectName 并调整指示器尺寸为稍小（更紧凑）
     ui->checkBoxDetection->setObjectName("MouseCheckBoxDetection");
     ui->checkBoxTrack->setObjectName("MouseCheckBoxTrack");
-    ui->checkBoxDetection->setStyleSheet(UiFontScale::style("QCheckBox::indicator { width: 12px; height: 12px; }"));
-    ui->checkBoxTrack->setStyleSheet(UiFontScale::style("QCheckBox::indicator { width: 12px; height: 12px; }"));
+    UiTheme::setStyle(ui->checkBoxDetection, [=] { return UiFontScale::style("QCheckBox::indicator { width: 12px; height: 12px; }"); });
+    UiTheme::setStyle(ui->checkBoxTrack, [=] { return UiFontScale::style("QCheckBox::indicator { width: 12px; height: 12px; }"); });
 
     connect(ui->checkBoxDetection, &QCheckBox::toggled, this, &MousePositionInfo::detectionVisibilityChanged);
     connect(ui->checkBoxTrack, &QCheckBox::toggled, this, &MousePositionInfo::trackVisibilityChanged);

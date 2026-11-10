@@ -9,25 +9,24 @@ namespace UiTheme {
 // mainoverlayout.ui 的 x576/f338142 图标引用，按对象名恢复。
 inline void applyClassicMainIcons(QWidget* root)
 {
-    if (!classicEnabled) return;
-    struct Entry { const char* name; const char* path; };
+    struct Entry { const char* name; const char* path; const char* graphite; };
     static const Entry entries[] = {
-        {"tab_2", ":/resources/icon/log.png"},
-        {"tab_4", ":/resources/icon/mode.png"},
-        {"tab", ":/resources/icon/param.png"},
-        {"tab_5", ":/resources/icon/track.png"},
-        {"droneTrackTab", ":/resources/icon/track.png"},
-        {"CloseButton", ":/resources/icon/close.png"},
-        {"minButton", ":/resources/icon/min.png"},
-        {"FuncToolButton", ":/resources/icon/control.png"},
-        {"radarsystem", ":/resources/icon/radararray.png"},
-        {"FuncToolButton_2", ":/resources/icon/data.png"},
-        {"toolButton_3", ":/resources/icon/record.png"},
+        {"tab_2", ":/resources/icon/log.png", ":/resources/icon/ui/log.svg"},
+        {"tab_4", ":/resources/icon/mode.png", ":/resources/icon/ui/radar.svg"},
+        {"tab", ":/resources/icon/param.png", ":/resources/icon/ui/sliders.svg"},
+        {"tab_5", ":/resources/icon/track.png", ":/resources/icon/ui/track.svg"},
+        {"droneTrackTab", ":/resources/icon/track.png", ":/resources/icon/ui/track.svg"},
+        {"CloseButton", ":/resources/icon/close.png", ":/resources/icon/ui/close.svg"},
+        {"minButton", ":/resources/icon/min.png", ":/resources/icon/ui/minus.svg"},
+        {"FuncToolButton", ":/resources/icon/control.png", ":/resources/icon/ui/sliders.svg"},
+        {"radarsystem", ":/resources/icon/radararray.png", ":/resources/icon/ui/radar.svg"},
+        {"FuncToolButton_2", ":/resources/icon/data.png", ":/resources/icon/ui/awareness.svg"},
+        {"toolButton_3", ":/resources/icon/record.png", ":/resources/icon/ui/replay.svg"},
     };
     for (const auto& entry : entries) {
         QWidget* widget = root->findChild<QWidget*>(QString::fromLatin1(entry.name));
         if (!widget) continue;
-        const QIcon icon(QString::fromLatin1(entry.path));
+        const QIcon icon(QString::fromLatin1(classicEnabled ? entry.path : entry.graphite));
         if (auto* button = qobject_cast<QAbstractButton*>(widget)) {
             button->setIcon(icon);
         } else {

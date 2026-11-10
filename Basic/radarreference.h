@@ -8,7 +8,8 @@
 #include <optional>
 
 // A panel lock freezes all six effective values; reports continue updating a bounded shadow cache.
-// Otherwise LLA uses the latest valid UI/report event; manual attitude stays authoritative.
+// Normally LLA uses the latest valid UI/report event. A manual position hold keeps LLA and attitude
+// fixed while the latest valid reports remain available for restoring automatic mode.
 class RadarReference {
 public:
     enum Field { Longitude, Latitude, Altitude, Yaw, Pitch, Roll, Count };
@@ -34,7 +35,7 @@ public:
     }
     Source source(Field field) const {
         if (m_locked) return Source::Locked;
-        if (field >= Yaw && m_manual[field]) return Source::Manual;
+        if ((field >= Yaw || m_holdManualPosition) && m_manual[field]) return Source::Manual;
         return m_sources[field];
     }
     static bool validUi(Field field, double value) {
@@ -48,12 +49,13 @@ public:
         return m_defaults[field];
     }
     const Values& manual() const { return m_manual; }
-    bool setManual(const Values& values) {
+    bool setManual(const Values& values, bool holdPosition = false) {
         if (m_locked) return false;
         for (int i = 0; i < Count; ++i) {
             if (values[i] && !valid(static_cast<Field>(i), *values[i])) return false;
         }
         m_manual = values;
+        m_holdManualPosition = holdPosition;
         for (int i = 0; i < Count; ++i) {
             if (values[i]) m_sources[i] = Source::Manual;
             else if (m_sources[i] == Source::Manual) m_sources[i] = m_report[i] ? Source::Report : Source::Boot;
@@ -62,6 +64,11 @@ public:
     }
     bool updateReport(Field field, double reported) {
         if (!valid(field, reported)) return false;
+        return updateUnfilteredReport(field, reported);
+    }
+    // 四面阵均值试验：保留有限的越界均值，不改变UI编辑/协议组帧的合法性校验。
+    bool updateUnfilteredReport(Field field, double reported) {
+        if (!std::isfinite(reported)) return false;
         const double oldValue = value(field);
         const Source oldSource = source(field);
         m_report[field] = reported;
@@ -85,6 +92,7 @@ public:
         // Explicit unlock means resume accepted reports, including attitude, not old manual overrides.
         m_locked.reset();
         m_manual = {};
+        m_holdManualPosition = false;
         for (int i = 0; i < Count; ++i) m_sources[i] = m_report[i] ? Source::Report : Source::Boot;
         return true;
     }
@@ -99,6 +107,7 @@ public:
         if (!m_locked) return false;
         for (int i = 0; i < Count; ++i) { m_report[i] = (*m_locked)[i]; m_sources[i] = Source::Report; }
         m_manual = {};
+        m_holdManualPosition = false;
         m_locked.reset();
         return true;
     }
@@ -111,6 +120,7 @@ private:
     std::array<double, Count> m_defaults;
     Values m_report{};
     Values m_manual{};
+    bool m_holdManualPosition = false;
     std::optional<Pose> m_locked;
     std::array<Source, Count> m_sources{};
 };

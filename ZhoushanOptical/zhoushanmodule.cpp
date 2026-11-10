@@ -1,3 +1,4 @@
+#include "Basic/uithemeruntime.h"
 #include "Basic/uitheme.h"
 #include "zhoushanmodule.h"
 #include "Basic/ConfigManager.h"
@@ -120,7 +121,8 @@ void Transport::drain()
         }
         Response response; QString error;
         if (!parseResponse(frame, m_settings.receiverId, m_settings.senderId, response, error)) {
-            reject(error + " hex=" + QString::fromLatin1(frame.toHex(' '))); continue;
+            reject(error + (m_settings.logEnabled && m_settings.logPayloadEnabled
+                ? " hex=" + QString::fromLatin1(frame.toHex(' ')) : QString())); continue;
         }
         const quint64 key = (quint64(response.kind) << 32) | response.batch;
         if (m_latest.size() >= 32 && !m_latest.contains(key)) { reject(QStringLiteral("响应缓存达到32条上限")); continue; }
@@ -172,10 +174,12 @@ quint64 Module::nextToken()
 void Module::init()
 {
     if (!CF_INS.zhoushanOpticalEnabled()) return;
+    m_settings.logEnabled = CF_INS.zhoushanOpticalValue("log_enabled", true).toBool();
+    m_settings.logPayloadEnabled = CF_INS.zhoushanOpticalValue("log_payload_enabled", false).toBool();
     bool valid = true;
     auto number = [&](const QString& key, int fallback, int low, int high) {
         bool ok; const int value = CF_INS.zhoushanOpticalValue(key, fallback).toString().toInt(&ok, 0);
-        if (!ok || value < low || value > high) { valid = false; emit logMessage("[ZS-OPT][CONFIG][ERROR] " + key); return fallback; }
+        if (!ok || value < low || value > high) { valid = false; writeLog("[ZS-OPT][CONFIG][ERROR] " + key); return fallback; }
         return value;
     };
     m_settings.localIp = CF_INS.zhoushanOpticalValue("local_ip", "192.168.101.14").toString().trimmed();
@@ -196,14 +200,14 @@ void Module::init()
     if (local.protocol() != QAbstractSocket::IPv4Protocol || local == QHostAddress::AnyIPv4 || local.isMulticast()
         || local == QHostAddress::Broadcast || peer.protocol() != QAbstractSocket::IPv4Protocol
         || peer.isMulticast() || peer == QHostAddress::AnyIPv4 || peer == QHostAddress::Broadcast) valid = false;
-    emit logMessage(QString("[ZS-OPT][CONFIG] path=%1 TCP server=%2:%3 peer=%4 IDs=%5->%6 kind=%7 time=%8 section=6 only")
+    writeLog(QString("[ZS-OPT][CONFIG] path=%1 TCP server=%2:%3 peer=%4 IDs=%5->%6 kind=%7 time=%8 section=6 only")
         .arg(CF_INS.getConfigFilePath(), m_settings.localIp).arg(m_settings.port).arg(m_settings.peerIp)
         .arg(m_settings.senderId).arg(m_settings.receiverId).arg(m_settings.kind).arg(basis));
     if (!valid) { m_connectionText = QStringLiteral("配置非法，TCP未启动"); publish(); return; }
     const double nan = std::numeric_limits<double>::quiet_NaN();
     m_origin = {CF_INS.longitude("longitude", nan), CF_INS.latitude("latitude", nan), CF_INS.altitude("altitude", nan)};
     m_originValid = Wgs84Coordinate::isValid(m_origin);
-    emit logMessage(QString("[ZS-OPT][ORIGIN] CONFIG valid=%1 lon=%2 lat=%3 alt=%4；不额外旋转姿态")
+    writeLog(QString("[ZS-OPT][ORIGIN] CONFIG valid=%1 lon=%2 lat=%3 alt=%4；不额外旋转姿态")
         .arg(m_originValid).arg(m_origin.longitudeDeg, 0, 'f', 7).arg(m_origin.latitudeDeg, 0, 'f', 7).arg(m_origin.altitudeM));
     m_settings.timeOriginMs = m_clock.msecsSinceReference();
     auto* worker = new Transport(m_settings, m_allowedToken); worker->moveToThread(&m_thread);
@@ -227,7 +231,9 @@ void Module::init()
         if (token != m_token) { publish(); return; }
         if (ok) {
             m_sentAt = acceptedAt;
-            ++m_sentCount; logLimited("TX", QString("本机入队累计=%1 hex=%2 %3").arg(m_sentCount).arg(QString::fromLatin1(m_request.toHex(' ')), text));
+            ++m_sentCount;
+            logLimited("TX", QString("本机入队累计=%1 %2").arg(m_sentCount).arg(text)
+                + (m_settings.logEnabled && m_settings.logPayloadEnabled ? " hex=" + QString::fromLatin1(m_request.toHex(' ')) : QString()));
         }
         else {
             m_pending = false; m_confirmationSent = false; m_resultText = QStringLiteral("发送失败");
@@ -244,7 +250,7 @@ void Module::updateRadarPosition(double latitude, double longitude, double altit
     const Wgs84Coordinate::Lla origin{longitude, latitude, altitude};
     if (!Wgs84Coordinate::isValid(origin)) { logLimited("ORIGIN_INVALID", "拒绝非法显控有效原点"); return; }
     m_origin = origin; m_originValid = true;
-    if (!m_dd05) emit logMessage("[ZS-OPT][ORIGIN] 使用显控统一原点（UI > GPS > 开机默认）");
+    if (!m_dd05) writeLog("[ZS-OPT][ORIGIN] 使用显控统一原点（UI > GPS > 开机默认）");
     m_dd05 = true;
 }
 bool Module::hasTrack(int batch) const
@@ -279,7 +285,7 @@ QByteArray Module::encode(const PointInfo& point) const
 bool Module::startReport(int batch)
 {
     if (!m_connected || !hasTrack(batch) || encode(m_tracks.value(batch).point).isEmpty()) {
-        emit logMessage(QString("[ZS-OPT][SELECT][ERROR] batch=%1 TCP/普通航迹/雷达原点未就绪").arg(batch)); return false;
+        writeLog(QString("[ZS-OPT][SELECT][ERROR] batch=%1 TCP/普通航迹/雷达原点未就绪").arg(batch)); return false;
     }
     // Switching is local only: section 6 has no cancellation command.
     if (m_currentResponse.batch != batch) {
@@ -289,13 +295,13 @@ bool Module::startReport(int batch)
     m_selected = batch; m_pending = false; nextToken();
     m_request.clear(); m_confirmationSent = false; m_timedOut = false; m_nextSend = 0;
     m_resultText = QStringLiteral("等待发送目标指示");
-    emit logMessage(QString("[ZS-OPT][SELECT] batch=%1 kind=%2").arg(batch).arg(m_settings.kind));
+    writeLog(QString("[ZS-OPT][SELECT] batch=%1 kind=%2").arg(batch).arg(m_settings.kind));
     emit reportingStateChanged(); tick(); return true;
 }
 void Module::stopReport()
 {
     if (m_selected < 0) return;
-    emit logMessage(QString("[ZS-OPT][STOP] batch=%1 仅停止本地下发，不伪造取消报文").arg(m_selected));
+    writeLog(QString("[ZS-OPT][STOP] batch=%1 仅停止本地下发，不伪造取消报文").arg(m_selected));
     m_selected = -1; m_pending = false; nextToken(); m_request.clear();
     m_timedOut = false; m_resultText = QStringLiteral("已停止本地下发"); emit reportingStateChanged(); publish();
 }
@@ -354,7 +360,7 @@ void Module::consume(const QVariantList& packets)
             .arg(response.target.longitudeDeg, 0, 'f', 7).arg(response.target.latitudeDeg, 0, 'f', 7)
             .arg(response.altitudeValid ? QString::number(response.target.altitudeM, 'f', 1) + " m" : QStringLiteral("无效"))
             .arg(matches ? QStringLiteral("已匹配对应下发请求") : QStringLiteral("未匹配当前请求，仅记录"));
-        logLimited(matches ? "RESPONSE" : "UNMATCHED_RESPONSE", lastResponse + " hex=" + QString::fromLatin1(packet.toHex(' ')));
+        logLimited(matches ? "RESPONSE" : "UNMATCHED_RESPONSE", lastResponse + (m_settings.logEnabled && m_settings.logPayloadEnabled ? " hex=" + QString::fromLatin1(packet.toHex(' ')) : QString()));
         if (record["session"].toULongLong() == m_session) {
             ResponseDisplay* display = m_currentResponse.batch >= 0 && response.batch == quint32(m_currentResponse.batch) ? &m_currentResponse
                 : m_previousResponse.batch >= 0 && response.batch == quint32(m_previousResponse.batch) ? &m_previousResponse : nullptr;
@@ -383,11 +389,13 @@ void Module::consume(const QVariantList& packets)
     }
     emit acknowledgeReceive(); publish();
 }
+void Module::writeLog(const QString& text) { if (m_settings.logEnabled) emit logMessage(text); }
 void Module::logLimited(const QString& category, const QString& text)
 {
+    if (!m_settings.logEnabled) return;
     const auto now = m_clock.elapsed();
     if (!m_logs.contains(category) || now - m_logs[category] >= m_settings.logIntervalMs) {
-        m_logs[category] = now; emit logMessage("[ZS-OPT][" + category + "] " + text);
+        m_logs[category] = now; writeLog("[ZS-OPT][" + category + "] " + text);
     }
 }
 QString Module::statusText() const {
@@ -448,14 +456,14 @@ void Module::refreshWindow()
 void Module::showWindow(QWidget* parent)
 {
     if (m_window) { m_window->show(); publish(); m_window->raise(); m_window->activateWindow(); return; }
-    auto* window = new CusWindow(QStringLiteral("光电目标指示"), (UiTheme::classicEnabled ? QIcon(":/resources/icon/radararray.png") : QIcon(":/resources/icon/ui/radar.svg")), parent);
+    auto* window = new CusWindow(QStringLiteral("光电目标指示"), UiTheme::themedIcon(QStringLiteral(":/resources/icon/radararray.png"), QStringLiteral(":/resources/icon/ui/radar.svg")), parent);
     window->setAttribute(Qt::WA_DeleteOnClose); m_window = window;
     auto* content = new QWidget(window); auto* layout = new QVBoxLayout(content);
     layout->setContentsMargins(14, 12, 14, 12); layout->setSpacing(12);
     content->setObjectName(QStringLiteral("OpticalIndicationContent"));
     content->setAttribute(Qt::WA_StyledBackground);
     // This detached window cannot rely on the main panel's label palette.
-    content->setStyleSheet(UiFontScale::style(QString(
+    UiTheme::setStyle(content, [=] { return UiFontScale::style(QString(
         (UiTheme::classicEnabled ? "QWidget#OpticalIndicationContent { background-color:#101818; color:#D9FFFF; }"
         "QWidget#OpticalIndicationContent QLabel { color:#D9FFFF; background:transparent; font-size:22px; }"
         "QWidget#OpticalIndicationContent QLabel[section=\"true\"] { color:#66FFCC; font-size:24px; font-weight:bold; }"
@@ -488,7 +496,7 @@ void Module::showWindow(QWidget* parent)
         "QWidget#OpticalIndicationContent QPushButton { color:#e8edf1; background-color:#1b2228; font-size:22px; "
         "border:1px solid #303b44; border-radius:5px; min-height:38px; padding:4px 12px; }"
         "QWidget#OpticalIndicationContent QPushButton:hover { background-color:#293b43; border-color:#78cbd8; }"
-        "QWidget#OpticalIndicationContent QPushButton:disabled { color:#82919e; border-color:#303b44; background:#1b2228; }"))));
+        "QWidget#OpticalIndicationContent QPushButton:disabled { color:#82919e; border-color:#303b44; background:#1b2228; }"))); });
     auto heading = [content, layout](const QString& text) {
         auto* label = new QLabel(text, content); label->setProperty("section", true); layout->addWidget(label);
     };
@@ -510,6 +518,16 @@ void Module::showWindow(QWidget* parent)
     m_exchangeTable->setObjectName(QStringLiteral("OpticalExchangeTable"));
     QFont tableFont = m_exchangeTable->font(); tableFont.setPixelSize(UiFontScale::pixels(22));
     m_exchangeTable->setFont(tableFont); m_exchangeTable->horizontalHeader()->setFont(tableFont);
+    UiTheme::onChanged(m_exchangeTable, [this] {
+        QFont font = m_exchangeTable->font();
+        font.setPixelSize(UiFontScale::pixels(22));
+        m_exchangeTable->setFont(font);
+        m_exchangeTable->horizontalHeader()->setFont(font);
+        for (int row = 0; row < m_exchangeTable->rowCount(); ++row) {
+            if (auto* item = m_exchangeTable->item(row, 0))
+                item->setForeground(UiTheme::classicEnabled ? QColor("#66FFCC") : QColor("#e8edf1"));
+        }
+    });
     m_exchangeTable->setHorizontalHeaderLabels({QStringLiteral("信息项"), QStringLiteral("最近下发"),
         QStringLiteral("当前批次回传"), QStringLiteral("上一批次回传")});
     m_exchangeTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -546,7 +564,7 @@ void Module::showWindow(QWidget* parent)
     });
     auto* scroll = new QScrollArea(window); scroll->setObjectName(QStringLiteral("OpticalIndicationScroll"));
     scroll->setWidgetResizable(true); scroll->setFrameShape(QFrame::NoFrame);
-    scroll->setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? QStringLiteral("QScrollArea#OpticalIndicationScroll { background:#101818; border:0; }") : QStringLiteral("QScrollArea#OpticalIndicationScroll { background:#12171c; border:0; }"))));
+    UiTheme::setStyle(scroll, [=] { return UiFontScale::style((UiTheme::classicEnabled ? QStringLiteral("QScrollArea#OpticalIndicationScroll { background:#101818; border:0; }") : QStringLiteral("QScrollArea#OpticalIndicationScroll { background:#12171c; border:0; }"))); });
     scroll->setWidget(content);
     window->setContentWidget(scroll); window->setMinimumSize(640, 480);
     refreshWindow();

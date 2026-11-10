@@ -1,3 +1,4 @@
+#include "Basic/uithemeruntime.h"
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@xidian.edu.cn
@@ -160,9 +161,9 @@ void HealthDashboard::buildUi()
     auto* softGroup = new QVBoxLayout;
     auto mkSection = [](const QString& title) {
         auto* l = new QLabel(title);
-        l->setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? "color:#ff8800; font-size:13px; font-weight:bold; "
+        UiTheme::setStyle(l, [=] { return UiFontScale::style((UiTheme::classicEnabled ? "color:#ff8800; font-size:13px; font-weight:bold; "
                          "border-bottom: 1px solid #ff8800; padding-bottom:3px;" : "color:#e8edf1; font-size:13px; font-weight:bold; "
-                         "border-bottom: 1px solid #303b44; padding-bottom:3px;")));
+                         "border-bottom: 1px solid #303b44; padding-bottom:3px;")); });
         return l;
     };
     softGroup->addWidget(mkSection(QStringLiteral("▌ 软件状态")));
@@ -218,11 +219,11 @@ void HealthDashboard::buildUi()
     m_lblScanAngle  = new QLabel(QStringLiteral("扫描角: -- °"),  this);
     m_lblLastUpdate = new QLabel(QStringLiteral("最后更新: --"),    this);
 
-    auto mkDataLbl = [](QLabel* l) { l->setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? "color:#ccc; font-family:Consolas; font-size:14px;" : "color:#e8edf1; font-family:Consolas; font-size:14px;"))); };
+    auto mkDataLbl = [](QLabel* l) { UiTheme::setStyle(l, [=] { return UiFontScale::style((UiTheme::classicEnabled ? "color:#ccc; font-family:Consolas; font-size:14px;" : "color:#e8edf1; font-family:Consolas; font-size:14px;")); }); };
     mkDataLbl(m_lblServoSpeed);
     mkDataLbl(m_lblServoAz);
     mkDataLbl(m_lblScanAngle);
-    m_lblLastUpdate->setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? "color:#555; font-size:11px;" : "color:#a6b2bd; font-size:11px;")));
+    UiTheme::setStyle(m_lblLastUpdate, [=] { return UiFontScale::style((UiTheme::classicEnabled ? "color:#555; font-size:11px;" : "color:#a6b2bd; font-size:11px;")); });
 
     auto* servoGroup = new QVBoxLayout;
     servoGroup->addWidget(mkSection(QStringLiteral("▌ 伺服状态")));
@@ -254,15 +255,15 @@ void HealthDashboard::buildUi()
 
 void HealthDashboard::applyStyle()
 {
-    setStyleSheet(UiFontScale::style(
+    UiTheme::setStyle(this, [=] { return UiFontScale::style(
         (UiTheme::classicEnabled ? "HealthDashboard { background: #0a0a0a; }"
         "QFrame#dashCard { background: #111; border: 1px solid #333; border-radius:6px; }"
         "QLabel { background: transparent; color: #ccc; }" : "HealthDashboard { background: #12171c; }"
         "QFrame#dashCard { background: #1b2228; border: 1px solid #303b44; border-radius:6px; }"
         "QLabel { background: transparent; color: #e8edf1; }")
-    ));
-    m_lblFpgaTempNum->setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? "color:#ff8800; font-family:Consolas; font-size:13px;" : "color:#e8edf1; font-family:Consolas; font-size:13px;")));
-    m_lblPanelTempNum->setStyleSheet(UiFontScale::style((UiTheme::classicEnabled ? "color:#ff8800; font-family:Consolas; font-size:13px;" : "color:#e8edf1; font-family:Consolas; font-size:13px;")));
+    ); });
+    UiTheme::setStyle(m_lblFpgaTempNum, [=] { return UiFontScale::style((UiTheme::classicEnabled ? "color:#ff8800; font-family:Consolas; font-size:13px;" : "color:#e8edf1; font-family:Consolas; font-size:13px;")); });
+    UiTheme::setStyle(m_lblPanelTempNum, [=] { return UiFontScale::style((UiTheme::classicEnabled ? "color:#ff8800; font-family:Consolas; font-size:13px;" : "color:#e8edf1; font-family:Consolas; font-size:13px;")); });
 }
 
 void HealthDashboard::onMonitorParam(const MonitorParam& p)

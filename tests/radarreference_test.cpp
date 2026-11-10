@@ -73,6 +73,28 @@ private slots:
         QCOMPARE(reference.value(RadarReference::Pitch), -10.0);
     }
 
+    void heldPositionAndYawRestoreLatestAutomaticReports() {
+        RadarReference reference({108, 34, 400, 15, 5, 2});
+        RadarReference::Values manual{109, 35, 410, 0, -2};
+        QVERIFY(reference.setManual(manual, true));
+        QVERIFY(!reference.updateReport(RadarReference::Longitude, 110));
+        QVERIFY(!reference.updateReport(RadarReference::Latitude, 36));
+        QVERIFY(!reference.updateReport(RadarReference::Altitude, 420));
+        QVERIFY(!reference.updateReport(RadarReference::Yaw, 70));
+        QCOMPARE(reference.pose(), (RadarReference::Pose{109, 35, 410, 0, -2, 2}));
+        QCOMPARE(int(reference.source(RadarReference::Longitude)), int(RadarReference::Source::Manual));
+
+        manual[RadarReference::Latitude] = 91;
+        QVERIFY(!reference.setManual(manual));
+        QCOMPARE(reference.value(RadarReference::Longitude), 109.0);
+
+        manual = reference.manual();
+        for (int i = RadarReference::Longitude; i <= RadarReference::Yaw; ++i) manual[i].reset();
+        QVERIFY(reference.setManual(manual));
+        QCOMPARE(reference.pose(), (RadarReference::Pose{110, 36, 420, 70, -2, 2}));
+        QVERIFY(reference.updateReport(RadarReference::Longitude, 111));
+    }
+
     void fixedPanelOrderAndWrapping() {
         QCOMPARE(RadarReference::panelHeading(350, 0), 350.0);
         QCOMPARE(RadarReference::panelHeading(350, 1), 80.0);

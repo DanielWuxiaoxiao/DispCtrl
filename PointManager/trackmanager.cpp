@@ -1,3 +1,4 @@
+#include "Basic/targetrecognition.h"
 /*
  * @Author: wuxiaoxiao
  * @Email: wuxiaoxiao@xidian.edu.cn
@@ -19,6 +20,7 @@
  */
 
 #include "trackmanager.h"
+#include "Basic/uithemeruntime.h"
 #include "Basic/log.h"
 #include <QBrush>
 #include <QDateTime>
@@ -76,7 +78,7 @@ QColor displayedSeriesColor(const TrackSeries& series, const PointInfo& info)
 
 QString trackTooltipText(const PointInfo& info, const QString& displayBatchLabel)
 {
-    const QString targetRecStr = (info.targetRecResult == 1) ? "无人机" : "其它";
+    const QString targetRecStr = TargetRecognition::text(info);
     return QString("%1\nNum:%2\nR:%3m\nA:%4°\nE:%5°\nSNR:%6dB\nV:%7m/s\nH:%8m\nAmp:%9\n识别:%10")
             .arg(trackTypeLabel(info.type))
             .arg(displayBatchLabel.isEmpty() ? QString::number(info.batch) : displayBatchLabel)
@@ -477,6 +479,18 @@ void DraggableLabel::setFocused(bool focused)
     update();
 }
 
+void DraggableLabel::refreshThemeFont()
+{
+    m_baseFont = QApplication::font();
+    QFont next = m_baseFont;
+    if (m_focused) {
+        if (next.pixelSize() > 0) next.setPixelSize(qRound(next.pixelSize() * kFocusedLabelFontScale));
+        else next.setPointSizeF(next.pointSizeF() * kFocusedLabelFontScale);
+        next.setBold(true);
+    }
+    setFont(next);
+}
+
 void DraggableLabel::setExternallyReported(bool reported)
 {
     if (m_externallyReported == reported) {
@@ -580,6 +594,14 @@ TrackManager::TrackManager(QGraphicsScene* scene, PolarAxis* axis, QObject* pare
 {
     m_maxPointsPerBatch = qMax(1, CF_INS.displayConfig("max_track_points", 200));
     m_labelRefreshIntervalMs = qMax(0, CF_INS.displayConfig("track_label_refresh_ms", 200));
+    UiTheme::onChanged(this, [this] {
+        for (auto it = mSeries.begin(); it != mSeries.end(); ++it) {
+            if (it->label) it->label->refreshThemeFont();
+            updateLatestInteractivePoint(it.key());
+            updateLatestLabel(it.key(), true);
+            if (it->batchItem) it->batchItem->update();
+        }
+    });
 
     m_batchRepaintTimer.setSingleShot(true);
     m_batchRepaintTimer.setInterval(kPpiRefreshIntervalMs);
@@ -1235,6 +1257,7 @@ void TrackManager::setBatchVisible(int batchID, bool vis)
 
 void TrackManager::setBatchFocused(int batchID, bool focused)
 {
+    if (isBatchFocused(batchID) == focused) return;
     if (focused) {
         m_focusedBatches.insert(makeTrackKey(PointType::Track, batchID));
     } else {
@@ -1242,6 +1265,7 @@ void TrackManager::setBatchFocused(int batchID, bool focused)
     }
 
     updateBatchFocusStyle(makeTrackKey(PointType::Track, batchID));
+    emit batchFocusChanged(batchID, focused);
 }
 
 bool TrackManager::isBatchFocused(int batchID) const
@@ -1395,7 +1419,8 @@ void TrackManager::removeSeries(quint64 trackKey)
     auto it = mSeries.find(trackKey);
     if (it == mSeries.end()) return;
 
-    m_focusedBatches.remove(trackKey);
+    if (m_focusedBatches.remove(trackKey))
+        emit batchFocusChanged(static_cast<int>(trackKey & 0xffffffffULL), false);
     m_pendingBatchRepaints.remove(trackKey);
 
     auto& s = it.value();
@@ -1414,6 +1439,8 @@ void TrackManager::clear()
     QList<quint64> keys = mSeries.keys();
     for (quint64 trackKey : keys) removeSeries(trackKey);
     mSeries.clear();
+    for (quint64 trackKey : m_focusedBatches)
+        emit batchFocusChanged(static_cast<int>(trackKey & 0xffffffffULL), false);
     m_focusedBatches.clear();
 }
 
