@@ -343,14 +343,15 @@ typedef struct _DirGramScan
 }DirGramScan;
 
 // 伺服控制（显控→资源调度→雷达控制），信息编号 0xAA03
-// 字段：指令/转速/方位角(0.01°)，预留7字节
+// 字段：指令/转速/方位角(0.01°)/真北偏差(有符号，0.001°)，预留3字节
 typedef struct _ServoControlParam
 {
     unsigned short mesID;
     unsigned char cmd;    // 0停转 1转动 2寻位 3归北
     unsigned char speed;  // 秒/转
     unsigned short az;    // 0.01°量化 [0,36000]
-    unsigned char reserve[7];
+    qint32 northDeviationMilliDeg;
+    unsigned char reserve[3];
 
     _ServoControlParam()
     {
@@ -358,6 +359,9 @@ typedef struct _ServoControlParam
         mesID = 0xAA03;
     }
 } ServoControlParam;
+static_assert(sizeof(ServoControlParam) == 13
+              && offsetof(ServoControlParam, northDeviationMilliDeg) == 6
+              && offsetof(ServoControlParam, reserve) == 10, "AA03 layout changed");
 
 typedef struct _ScanRange
 {
@@ -375,7 +379,7 @@ typedef struct _ScanRange
 typedef struct _BeamControl
 {
     unsigned short mesID;
-    unsigned char freqID;  // 固定频点0/10/.../80对应9.0~9.8GHz；TAS跳频=90(0x5A)。
+    unsigned char freqID;  // TAS固定频点0..80对应9.00..9.80GHz，0.01GHz/码；跳频=90(0x5A)。
     unsigned char type;  // 1 线性负调频，2 线性正调频（默认）
     int aziStart;      // 0.01°量化 (默认-4500)
     int aziEnd;        // 0.01°量化 (默认4500)
@@ -567,10 +571,12 @@ static_assert(sizeof(TrackDataRateControl) == 5 && offsetof(TrackDataRateControl
 struct SystemTimeSyncControl {
     quint16 mesID = 0xAA10;
     quint8 syncFlag = 1;
-    quint8 reserve[3]{};
+    quint8 radarId = 0;
+    quint8 reserve[2]{};
 };
 static_assert(sizeof(SystemTimeSyncControl) == 6 && offsetof(SystemTimeSyncControl, syncFlag) == 2
-              && offsetof(SystemTimeSyncControl, reserve) == 3, "AA10 layout changed");
+              && offsetof(SystemTimeSyncControl, radarId) == 3
+              && offsetof(SystemTimeSyncControl, reserve) == 4, "AA10 layout changed");
 
 typedef struct _DataProParam
 {
@@ -961,7 +967,7 @@ typedef struct _BITReport
 }BITReport;
 static_assert(sizeof(BITReport) == 39, "DE02 BIT report layout must remain 39 bytes");
 
-// Multi-panel DE02: preserve the entire 39-byte legacy prefix, including reserve.
+// Extended DE02: preserve the entire 39-byte legacy prefix, including reserve.
 struct BITReportV2 {
     unsigned short mesID = 0xDE02;
     unsigned char bitGroup = 0, powerState = 0;
@@ -975,9 +981,10 @@ struct BITReportV2 {
     quint32 headingMilliDeg = 0;
     qint32 pitchMilliDeg = 0;
     qint16 rollCentiDeg = 0;
-    unsigned char reserve[34] = {};
+    quint32 servoEncoderMilliDeg = 0;
+    unsigned char reserve[30] = {};
 };
-static_assert(sizeof(BITReportV2) == 103, "Multi-panel DE02 payload is 103 bytes");
+static_assert(sizeof(BITReportV2) == 103, "Extended DE02 payload is 103 bytes");
 static_assert(offsetof(BITReportV2, legacyReserve) == 18, "Legacy reserve offset");
 static_assert(offsetof(BITReportV2, latitudeE9) == 39, "DE02 latitude offset");
 static_assert(offsetof(BITReportV2, longitudeE9) == 47, "DE02 longitude offset");
@@ -985,7 +992,8 @@ static_assert(offsetof(BITReportV2, altitudeCm) == 55, "DE02 altitude offset");
 static_assert(offsetof(BITReportV2, headingMilliDeg) == 59, "DE02 heading offset");
 static_assert(offsetof(BITReportV2, pitchMilliDeg) == 63, "DE02 pitch offset");
 static_assert(offsetof(BITReportV2, rollCentiDeg) == 67, "DE02 roll offset");
-static_assert(offsetof(BITReportV2, reserve) == 69, "DE02 final reserve offset");
+static_assert(offsetof(BITReportV2, servoEncoderMilliDeg) == 69, "DE02 servo encoder offset");
+static_assert(offsetof(BITReportV2, reserve) == 73, "DE02 final reserve offset");
 
 
 typedef struct _PointInfo

@@ -86,6 +86,7 @@ class PPIView : public QGraphicsView {
     Q_OBJECT
 public:
     void setElectromagneticDeviceModule(ElectromagneticDeviceModule* module);
+    void showRadarPositionDialog();
     /**
      * @brief 构造函数
      * @param parent 父窗口指针

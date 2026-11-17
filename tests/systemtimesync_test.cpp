@@ -14,6 +14,17 @@ private slots:
         QCOMPARE(bytes.toHex(), QByteArray("55fa55fa0100020003000000140010aa01000000affa55fa55"));
     }
 
+    void selectedRadarGoldenFrame()
+    {
+        SystemTimeSyncControl command;
+        command.radarId = 3;
+        char* frame = packData(reinterpret_cast<char*>(&command), sizeof(command), 1, 2, 3);
+        QVERIFY(frame);
+        const QByteArray bytes(frame, sizeof(ProtocolFrame) + sizeof(command) + sizeof(ProtocolEnd));
+        free(frame);
+        QCOMPARE(bytes.toHex(), QByteArray("55fa55fa0100020003000000140010aa01030000acfa55fa55"));
+    }
+
     void replySuccessAndFailure()
     {
         const auto success = QByteArray::fromHex("55fa55fa0100020003000000140003de01000000c8fa55fa55");

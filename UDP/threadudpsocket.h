@@ -303,7 +303,7 @@ private:
     static const int RECONNECT_COOLDOWN_MS = 60000; ///< 放弃重连后的冷却时间(毫秒)，60秒后重置
 
     // 心跳机制
-    bool m_multiPanelBit = false; ///< Startup-configured DE02 wire layout, not guessed from length.
+    bool m_multiPanelBit = false; ///< Only single-panel installations accept the legacy DE02.
     QTimer* heartbeatTimer = nullptr;            ///< 心跳定时器
     QByteArray heartbeatPacket;                  ///< 心跳数据包缓存
     static const int HEARTBEAT_INTERVAL = 5000;  ///< 心跳间隔时间(毫秒)

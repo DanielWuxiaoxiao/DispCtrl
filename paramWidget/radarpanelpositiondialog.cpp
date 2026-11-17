@@ -1,16 +1,21 @@
 #include "Basic/uithemeruntime.h"
 #include "Basic/uitheme.h"
 #include "radarpanelpositiondialog.h"
+#include "Basic/mechanicalgps.h"
 #pragma pack(push, 8)
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QKeyEvent>
 #include <QGuiApplication>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QScreen>
 #include <QScrollArea>
+#include <QSignalBlocker>
+#include <QStyle>
 #include <QVBoxLayout>
 #include <QTimer>
 #include <QPainter>
@@ -21,10 +26,9 @@
 
 #pragma pack(push, 8)
 namespace {
-// Multi-panel diagnostics use the same high-resolution heading field as the table.
 class BitYawPlot final : public QWidget {
 public:
-    explicit BitYawPlot(QWidget* parent) : QWidget(parent) {
+    BitYawPlot(QWidget* parent, const MechanicalGps* gps) : QWidget(parent), m_gps(gps) {
         setMinimumHeight(ScaleHelper::uiScaled(260));
     }
     void setSnapshot(const RadarPanelState::Snapshot& s) { m_data = s; update(); }
@@ -33,18 +37,62 @@ protected:
         QPainter p(this);
         p.fillRect(rect(), (UiTheme::classicEnabled ? QColor("#111e1b") : UiTheme::color(QColor("#1b2228"))));
         p.setFont(UiFontScale::pointFont(p.font().family(), 10));
-        const QRectF area = QRectF(rect()).adjusted(62, 28, -24, -32);
+        const int axisWidth = m_gps ? qMax(62, p.fontMetrics().horizontalAdvance(QStringLiteral("-360.000")) + 12) : 62;
+        const QRectF area = QRectF(rect()).adjusted(axisWidth, 28, -24, -32);
         if (area.width() <= 0 || area.height() <= 0) return;
         p.setPen((UiTheme::classicEnabled ? QColor("#92bdb4") : UiTheme::color(QColor("#92bdb4"))));
-        p.drawText(8, 18, QStringLiteral("解锁阵面偏航(°)  青色：原始值  黄色：对应ID列表均值"));
+        p.drawText(8, 18, m_gps ? QStringLiteral("D (°) = 伺服码盘 − 北斗航向")
+                                : QStringLiteral("解锁阵面偏航(°)  青色：原始值  黄色：对应ID列表均值"));
         const auto series = RadarPanelState::yawPlotData(m_data);
+        double lower = series.lower;
+        double upper = series.upper;
+        std::optional<double> minimum, maximum;
+        if (m_gps) {
+            for (std::size_t i = 0; i < m_gps->count(); ++i) {
+                if (const auto sample = m_gps->sample(i)) {
+                    minimum = std::min(minimum.value_or(*sample), *sample);
+                    maximum = std::max(maximum.value_or(*sample), *sample);
+                }
+            }
+            if (minimum) {
+                const double padding = std::max(0.05, (*maximum - *minimum) * 0.10);
+                lower = *minimum - padding;
+                upper = *maximum + padding;
+            }
+        }
         for (int tick = 0; tick <= 4; ++tick) {
-            const double degree = series.lower + (series.upper - series.lower) * tick / 4.0;
+            const double degree = lower + (upper - lower) * tick / 4.0;
             const double y = area.bottom() - area.height() * tick / 4.0;
             p.setPen((UiTheme::classicEnabled ? QColor("#2d4941") : UiTheme::color(QColor("#2d4941")))); p.drawLine(QPointF(area.left(), y), QPointF(area.right(), y));
-            p.setPen((UiTheme::classicEnabled ? QColor("#b9d8d0") : UiTheme::color(QColor("#b9d8d0")))); p.drawText(QRectF(0, y - 9, 55, 18), Qt::AlignRight, QString::number(degree, 'f', 2));
+            p.setPen(QColor("#b9d8d0"));
+            p.drawText(QRectF(0, y - 9, area.left() - 7, 18), Qt::AlignRight,
+                       QString::number(degree, 'f', m_gps ? 3 : 2));
         }
         p.drawRect(area);
+        const QPen rawPen(QColor(UiTheme::classicEnabled ? "#66ffcc" : "#e8edf1"), 2);
+        if (m_gps) {
+            if (!minimum) {
+                p.drawText(area, Qt::AlignCenter, QStringLiteral("等待有效北斗航向和伺服码盘"));
+                return;
+            }
+            p.setRenderHint(QPainter::Antialiasing);
+            p.setPen(rawPen);
+            std::optional<QPointF> previous;
+            const auto span = std::max<std::size_t>(1, m_gps->count() - 1);
+            for (std::size_t i = 0; i < m_gps->count(); ++i) {
+                const auto sample = m_gps->sample(i);
+                if (!sample) {
+                    previous.reset();
+                    continue;
+                }
+                const QPointF point(area.left() + area.width() * double(i) / span,
+                                    area.bottom() - area.height() * (*sample - lower) / (upper - lower));
+                if (previous) p.drawLine(*previous, point);
+                else p.drawEllipse(point, 2, 2);
+                previous = point;
+            }
+            return;
+        }
         if (!m_data.historyCount) { p.drawText(area, Qt::AlignCenter, QStringLiteral("等待有效BIT偏航")); return; }
         const auto first = m_data.history[0].frame;
         const auto last = m_data.history[m_data.historyCount - 1].frame;
@@ -60,7 +108,7 @@ protected:
                 area.bottom() - area.height() * (series.average[i] - series.lower) / (series.upper - series.lower));
         }
         p.setRenderHint(QPainter::Antialiasing);
-        p.setPen(QPen((UiTheme::classicEnabled ? QColor("#66ffcc") : UiTheme::color(QColor("#e8edf1"))), 2));
+        p.setPen(rawPen);
         if (points.size() == 1) p.drawEllipse(points[0], 3, 3); else p.drawPolyline(points);
         p.setPen(QPen((UiTheme::classicEnabled ? QColor("#ffcc66") : UiTheme::color(QColor("#dfbd82"))), 2));
         if (averages.size() == 1) p.drawEllipse(averages[0], 2, 2); else p.drawPolyline(averages);
@@ -71,6 +119,7 @@ protected:
     }
 private:
     RadarPanelState::Snapshot m_data;
+    const MechanicalGps* m_gps;
 };
 const int precision[] = {9, 9, 2, 3, 3, 2};
 const QStringList fields{QStringLiteral("经度(°)"), QStringLiteral("纬度(°)"), QStringLiteral("高程(m)"),
@@ -80,9 +129,22 @@ const QStringList fields{QStringLiteral("经度(°)"), QStringLiteral("纬度(°
 
 RadarPanelPositionDialog::RadarPanelPositionDialog(const RadarPanelValues& values,
     const std::array<bool, 4>& locked, Actions actions, QWidget* parent)
-    : QDialog(parent), m_actions(std::move(actions))
+    : RadarPanelPositionDialog(values, locked, std::move(actions), std::nullopt, parent)
+{}
+
+RadarPanelPositionDialog::RadarPanelPositionDialog(const RadarReference::Pose& values, SinglePanel single,
+    std::function<void(int)> requestTimeSync, QWidget* parent)
+    : RadarPanelPositionDialog(RadarPanelValues{values}, {}, Actions{{}, {}, {}, {}, std::move(requestTimeSync)},
+                               std::move(single), parent)
+{}
+
+RadarPanelPositionDialog::RadarPanelPositionDialog(const RadarPanelValues& values,
+    const std::array<bool, 4>& locked, Actions actions, std::optional<SinglePanel> single, QWidget* parent)
+    : QDialog(parent), m_actions(std::move(actions)), m_single(std::move(single))
 {
-    setWindowTitle(QStringLiteral("四面阵配置"));
+    const int panelCount = m_single ? 1 : 4;
+    const int fieldCount = m_single ? m_single->fieldCount : RadarReference::Count;
+    setWindowTitle(m_single ? QStringLiteral("单面阵配置") : QStringLiteral("四面阵配置"));
     setWindowModality(Qt::NonModal);
     setWindowFlag(Qt::WindowContextHelpButtonHint, false);
     setWindowFlag(Qt::WindowMinMaxButtonsHint, true);
@@ -124,20 +186,33 @@ RadarPanelPositionDialog::RadarPanelPositionDialog(const RadarPanelValues& value
     grid->setContentsMargins(12, 12, 12, 12);
     grid->setHorizontalSpacing(10); grid->setVerticalSpacing(12);
     grid->addWidget(new QLabel(QStringLiteral("阵面"), contents), 0, 0);
-    for (int field = 0; field < RadarReference::Count; ++field) {
+    for (int field = 0; field < fieldCount; ++field) {
         auto* label = new QLabel(fields[field], contents);
-        if (field == RadarReference::Yaw) label->setToolTip(QStringLiteral("锁定时可编辑阵面偏航，确定下发后应用。解锁时显示本阵面上报航向的均值。阵面1（ID0）的偏航用于主界面。"));
+        if (!m_single && field == RadarReference::Yaw) label->setToolTip(QStringLiteral("锁定时可编辑阵面偏航，确定下发后应用。解锁时显示本阵面上报航向的均值。阵面1（ID0）的偏航用于主界面。"));
         grid->addWidget(label, 0, field + 1);
     }
-    grid->addWidget(new QLabel(QStringLiteral("状态"), contents), 0, 7);
-    for (int id = 0; id < 4; ++id) {
+    grid->addWidget(new QLabel(m_single ? QStringLiteral("工作方式") : QStringLiteral("状态"), contents), 0, fieldCount + 1);
+    QComboBox* gpsMode = nullptr;
+    for (int id = 0; id < panelCount; ++id) {
         grid->addWidget(new QLabel(QStringLiteral("阵面%1 / ID%2").arg(id + 1).arg(id), contents), id + 1, 0);
-        for (int field = 0; field < RadarReference::Count; ++field) {
+        for (int field = 0; field < fieldCount; ++field) {
             auto* edit = new QLineEdit(contents);
             edit->setObjectName(QStringLiteral("panel%1Field%2").arg(id).arg(field));
             edit->setMinimumWidth(ScaleHelper::uiScaled(field < 2 ? 155 : 90));
             m_edits[id][field] = edit;
             grid->addWidget(edit, id + 1, field + 1);
+        }
+        fillRow(id, values[id]);
+        if (m_single) {
+            gpsMode = new QComboBox(contents);
+            gpsMode->setObjectName(QStringLiteral("mechanicalGpsMode"));
+            gpsMode->addItem(QStringLiteral("手动 GPS"), true);
+            gpsMode->addItem(QStringLiteral("自动 GPS"), false);
+            gpsMode->setCurrentIndex(m_single->manualGps ? 0 : 1);
+            gpsMode->setEnabled(bool(m_single->setManualGps));
+            gpsMode->setToolTip(QStringLiteral("切换当前运行模式，启动模式由 config.toml 指定"));
+            grid->addWidget(gpsMode, id + 1, fieldCount + 1);
+            continue;
         }
         m_status[id] = new QLabel(contents);
         m_lock[id] = new QPushButton(QStringLiteral("锁定"), contents);
@@ -147,14 +222,13 @@ RadarPanelPositionDialog::RadarPanelPositionDialog(const RadarPanelValues& value
         grid->addWidget(m_status[id], id + 1, 7);
         grid->addWidget(m_lock[id], id + 1, 8);
         grid->addWidget(m_unlock[id], id + 1, 9);
-        fillRow(id, values[id]);
         setLocked(id, locked[id]);
         connect(m_lock[id], &QPushButton::clicked, this, [this, id] { lockRow(id); });
         connect(m_unlock[id], &QPushButton::clicked, this, [this, id] { unlockRow(id); });
     }
     scroll->setWidget(contents);
     // Only user edits propagate; BIT refreshes/unlock refills must not rewrite other rows.
-    for (int id = 0; id < 4; ++id) {
+    for (int id = 0; id < panelCount && !m_single; ++id) {
         for (int field = RadarReference::Longitude; field <= RadarReference::Altitude; ++field) {
             connect(m_edits[id][field], &QLineEdit::textEdited, this,
                 [this, id, field](const QString& text) {
@@ -165,17 +239,28 @@ RadarPanelPositionDialog::RadarPanelPositionDialog(const RadarPanelValues& value
                 });
         }
     }
-    scroll->setMinimumHeight(ScaleHelper::uiScaled(250));
+    contents->ensurePolished();
+    const int rowHeight = contents->sizeHint().height() + scroll->style()->pixelMetric(QStyle::PM_ScrollBarExtent);
+    scroll->setMinimumHeight(m_single ? rowHeight : ScaleHelper::uiScaled(250));
     outer->addWidget(scroll);
-    auto* note = new QLabel(QStringLiteral("默认全部锁定；每次仅解锁一个阵面接收BIT。各ID独立保留最近100次均值，不足100次按实际数量；不筛除GPS/姿态零值、越界或突变样本。曲线均值与对应ID列表共用。锁定后可编辑，确定下发后应用。"), this);
+    auto* note = new QLabel(this);
+    if (m_single) m_modeNote = note;
+    else note->setText(QStringLiteral("默认全部锁定；每次仅解锁一个阵面接收BIT。各ID独立保留最近100次均值，不足100次按实际数量；不筛除GPS/姿态零值、越界或突变样本。曲线均值与对应ID列表共用。锁定后可编辑，确定下发后应用。"));
     note->setWordWrap(true);
     outer->addWidget(note);
     auto* received = new QLabel(this);
     received->setObjectName(QStringLiteral("panelBitReceived"));
     received->setWordWrap(true);
     outer->addWidget(received);
-    auto* plot = new BitYawPlot(this);
-    outer->addWidget(plot, 1);
+    m_received = received;
+    BitYawPlot* plot = nullptr;
+    if (!m_single || m_single->gps) {
+        plot = new BitYawPlot(this, m_single ? m_single->gps : nullptr);
+        plot->setObjectName(m_single ? QStringLiteral("mechanicalDeviationPlot") : QStringLiteral("panelYawPlot"));
+        m_deviationPlot = plot;
+        outer->addWidget(plot, 1);
+    }
+    if (m_single) refreshMechanicalGps();
     if (m_actions.live) {
         const auto refresh = [this, received, plot] {
             const auto s = m_actions.live();
@@ -203,37 +288,202 @@ RadarPanelPositionDialog::RadarPanelPositionDialog(const RadarPanelValues& value
     m_error->setWordWrap(true); m_error->hide();
     outer->addWidget(m_error);
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
-    buttons->button(QDialogButtonBox::Ok)->setText(QStringLiteral("确定下发"));
-    buttons->button(QDialogButtonBox::Ok)->setObjectName(QStringLiteral("submitPanels"));
-    buttons->button(QDialogButtonBox::Cancel)->setText(QStringLiteral("取消"));
-    connect(buttons, &QDialogButtonBox::accepted, this, [this] { submit(); });
+    m_applyButton = buttons->button(QDialogButtonBox::Ok);
+    m_applyButton->setText(QStringLiteral("确定下发"));
+    m_applyButton->setObjectName(QStringLiteral("submitPanels"));
+    buttons->button(QDialogButtonBox::Cancel)->setText(m_single ? QStringLiteral("关闭") : QStringLiteral("取消"));
+    if (m_single) buttons->button(QDialogButtonBox::Cancel)->setObjectName(QStringLiteral("closeSinglePanel"));
+    connect(buttons, &QDialogButtonBox::accepted, this, [this] {
+        if (m_single) applySinglePanel(false);
+        else submit();
+    });
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    auto* singleActions = m_single ? new QHBoxLayout : nullptr;
+    if (m_single) {
+        m_saveLocalButton = new QPushButton(QStringLiteral("保存本地"), this);
+        m_saveLocalButton->setObjectName(QStringLiteral("saveMechanicalReference"));
+        m_saveLocalButton->setAutoDefault(false);
+        m_saveLocalButton->setToolTip(QStringLiteral("保存表格参数到 config.toml 并更新本地参考值"));
+        connect(m_saveLocalButton, &QPushButton::clicked, this, [this] { applySinglePanel(true); });
+        singleActions->addWidget(m_saveLocalButton);
+        if (m_single->restoreAutomatic) {
+            auto* restore = new QPushButton(QStringLiteral("解除本地覆盖"), this);
+            m_restoreAutomaticButton = restore;
+            restore->setObjectName(QStringLiteral("restoreAutomaticGps"));
+            restore->setAutoDefault(false);
+            restore->setToolTip(QStringLiteral("清除显控及电磁模块的手动参考覆盖，恢复使用自动数据源"));
+            connect(restore, &QPushButton::clicked, this, [this] {
+                const QString error = m_single->restoreAutomatic();
+                showFeedback(error.isEmpty() ? QStringLiteral("已解除本地覆盖，恢复自动参考。") : error,
+                             error.isEmpty());
+            });
+            singleActions->addWidget(restore);
+        }
+        if (m_single->submitGps) {
+            auto* send = new QPushButton(QStringLiteral("下发 GPS 位置"), this);
+            m_submitGpsButton = send;
+            send->setObjectName(QStringLiteral("submitMechanicalGps"));
+            send->setAutoDefault(false);
+            send->setToolTip(QStringLiteral("把最新有效的设备 GPS 位置和姿态下发给资源调度的 ID0"));
+            connect(send, &QPushButton::clicked, this, [this] {
+                const bool submitted = m_single->submitGps();
+                showFeedback(submitted ? QStringLiteral("已提交 ID 0 GPS 位置下发请求。")
+                                       : QStringLiteral("暂无有效 GPS 位置或下发链路不可用。"), submitted);
+            });
+            singleActions->addWidget(send);
+        }
+        if (m_single->submitServoNorth) {
+            auto* north = new QPushButton(QStringLiteral("下发伺服归北"), this);
+            north->setObjectName(QStringLiteral("submitMechanicalServoNorth"));
+            north->setAutoDefault(false);
+            north->setToolTip(QStringLiteral("自动 GPS 请观察 D 稳定后点击，手动 GPS 使用 0°"));
+            connect(north, &QPushButton::clicked, this, [this] {
+                const auto sent = m_single->submitServoNorth();
+                showFeedback(sent ? QStringLiteral("已提交伺服归北，D = %1°。").arg(*sent / 1000.0, 0, 'f', 3)
+                                  : QStringLiteral("归北请求未提交，请检查 D 值或资源调度链路。"), sent.has_value());
+            });
+            singleActions->addWidget(north);
+        }
+    }
     auto* footer = new QHBoxLayout;
     m_timeSyncButton = new QPushButton(QStringLiteral("系统校时"), this);
     m_timeSyncButton->setObjectName(QStringLiteral("systemTimeSyncButton"));
     m_timeSyncButton->setAutoDefault(false);
     m_timeSyncButton->setToolTip(QStringLiteral("请求资源调度使用 GPS 时间校准系统时间"));
+    m_timeSyncRadar = new QComboBox(this);
+    m_timeSyncRadar->setObjectName(QStringLiteral("systemTimeSyncRadar"));
+    m_timeSyncRadar->setToolTip(QStringLiteral("选择安装 GPS 的阵面"));
+    for (int id = RADAR_ID_MIN; id <= RADAR_ID_MAX; ++id) {
+        if (id < panelCount) m_timeSyncRadar->addItem(QStringLiteral("校时阵面 %1").arg(id + 1), id);
+    }
     m_timeSyncStatus = new QLabel(this);
     m_timeSyncStatus->setObjectName(QStringLiteral("systemTimeSyncStatus"));
     m_timeSyncStatus->setWordWrap(true);
     if (m_actions.requestTimeSync) {
-        connect(m_timeSyncButton, &QPushButton::clicked, this, [this] { m_actions.requestTimeSync(); });
+        connect(m_timeSyncButton, &QPushButton::clicked, this, [this] {
+            m_actions.requestTimeSync(m_timeSyncRadar->currentData().toInt());
+        });
     }
     setSystemTimeSyncState(SystemTimeSyncState::Idle);
+    footer->addWidget(m_timeSyncRadar);
     footer->addWidget(m_timeSyncButton);
     footer->addWidget(m_timeSyncStatus, 1);
+    if (singleActions) footer->addLayout(singleActions);
     footer->addWidget(buttons);
     outer->addLayout(footer);
+    if (gpsMode) {
+        updateSinglePanelMode();
+        connect(gpsMode, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this, gpsMode](int index) {
+            if (index < 0 || !m_single->setManualGps) return;
+            const bool manual = gpsMode->itemData(index).toBool();
+            const QString error = m_single->setManualGps(manual);
+            if (!error.isEmpty()) {
+                const QSignalBlocker blocker(gpsMode);
+                gpsMode->setCurrentIndex(m_single->manualGps ? 0 : 1);
+                showFeedback(error);
+                return;
+            }
+            m_single->manualGps = manual;
+            m_error->hide();
+            updateSinglePanelMode();
+            resizeSinglePanelWindow();
+        });
+    }
     auto* screen = parent ? QGuiApplication::screenAt(parent->mapToGlobal(parent->rect().center())) : nullptr;
     if (!screen) screen = QGuiApplication::primaryScreen();
     const int widthLimit = screen ? qMax(400, screen->availableGeometry().width() - 60) : 1280;
     if (screen && screen->availableGeometry().height() < ScaleHelper::uiScaled(800)) {
-        scroll->setMinimumHeight(ScaleHelper::uiScaled(100));
-        plot->setMinimumHeight(ScaleHelper::uiScaled(180));
+        if (!m_single) scroll->setMinimumHeight(ScaleHelper::uiScaled(100));
+        if (plot) plot->setMinimumHeight(ScaleHelper::uiScaled(180));
         outer->setSpacing(8);
     }
-    resize(qMin(ScaleHelper::uiScaled(1320), widthLimit), qMin(ScaleHelper::uiScaled(800),
+    resize(qMin(ScaleHelper::uiScaled(1320), widthLimit), qMin(preferredContentHeight(),
         screen ? screen->availableGeometry().height() - 60 : 680));
+}
+
+void RadarPanelPositionDialog::keyPressEvent(QKeyEvent* event)
+{
+    if (m_single && event->key() == Qt::Key_Escape) {
+        event->accept();
+        return;
+    }
+    QDialog::keyPressEvent(event);
+}
+
+int RadarPanelPositionDialog::preferredContentHeight() const
+{
+    return ScaleHelper::uiScaled(m_single && m_single->manualGps ? 320 : 800);
+}
+
+void RadarPanelPositionDialog::resizeSinglePanelWindow()
+{
+    if (!isVisible()) return;
+    auto* top = window();
+    auto* host = qobject_cast<CusWindow*>(top);
+    auto* screen = QGuiApplication::screenAt(top->frameGeometry().center());
+    if (!screen) screen = QGuiApplication::primaryScreen();
+    const QRect available = screen ? screen->availableGeometry() : QRect{};
+    layout()->activate();
+    if (host) host->layout()->activate();
+    const int chrome = host ? qMax(0, host->height() - height()) : 0;
+    const int preferred = preferredContentHeight() + chrome;
+    const int height = qMax(top->minimumSizeHint().height(),
+                            available.isValid() ? qMin(preferred, available.height()) : preferred);
+    if (host) host->resizeNormalHeight(height, available);
+    else resize(width(), height);
+}
+
+void RadarPanelPositionDialog::updateSinglePanelMode()
+{
+    const bool manual = m_single->manualGps;
+    m_modeNote->setText(manual
+        ? QStringLiteral("手动 GPS 配置下发到阵面1（ID0），资源调度使用本地时间。")
+        : QStringLiteral("下发 GPS 位置采用设备上报，表格中编辑的参数可单独应用到本地。"));
+    m_applyButton->setText(manual ? QStringLiteral("确定下发") : QStringLiteral("应用本地"));
+    m_applyButton->setToolTip(manual ? QStringLiteral("下发表格参数给 ID0，并更新显控参考")
+                                   : QStringLiteral("将表格参数用于本次运行的本地参考，资源调度参数由单独按钮下发"));
+    m_saveLocalButton->setVisible(manual || !m_restoreAutomaticButton);
+    if (m_restoreAutomaticButton) m_restoreAutomaticButton->setVisible(!manual);
+    if (m_submitGpsButton) m_submitGpsButton->setVisible(!manual);
+    if (m_deviationPlot) m_deviationPlot->setVisible(!manual);
+    m_timeSyncRadar->setVisible(!manual);
+    m_timeSyncButton->setVisible(!manual);
+    m_timeSyncStatus->setVisible(!manual);
+    refreshMechanicalGps();
+}
+
+void RadarPanelPositionDialog::refreshMechanicalGps()
+{
+    if (!m_single || !m_single->gps) return;
+    const auto& gps = m_single->gps->latest();
+    const auto format = [](const std::optional<double>& angle) {
+        return angle ? QString::number(*angle, 'f', 3) + QStringLiteral("°") : QStringLiteral("未上报");
+    };
+    QString status = QStringLiteral("北斗航向 %1    伺服码盘 %2").arg(format(gps.heading), format(gps.encoder));
+    if (!m_single->manualGps) status += QStringLiteral("    当前 D %1").arg(format(gps.deviation));
+    m_received->setText(status);
+    if (m_deviationPlot) m_deviationPlot->update();
+}
+
+void RadarPanelPositionDialog::showFeedback(const QString& message, bool succeeded)
+{
+    UiTheme::setStyle(m_error, [succeeded] {
+        const char* color = succeeded ? UiTheme::Normal : UiTheme::classicEnabled ? "#ff9999" : UiTheme::Fault;
+        return UiFontScale::style(QStringLiteral("color:%1;").arg(color));
+    });
+    m_error->setText(message);
+    m_error->show();
+}
+
+void RadarPanelPositionDialog::applySinglePanel(bool saveLocal)
+{
+    RadarReference::Pose values{};
+    if (!m_single->apply || !readRow(0, values)) return;
+    const QString error = m_single->apply(values, saveLocal);
+    if (!error.isEmpty()) showFeedback(error);
+    else if (saveLocal) showFeedback(QStringLiteral("已保存到本地 config.toml。"), true);
+    else showFeedback(m_single->manualGps ? QStringLiteral("已提交 ID 0 位置下发请求。")
+                                         : QStringLiteral("已应用本地参考。"), true);
 }
 
 void RadarPanelPositionDialog::setSystemTimeSyncState(SystemTimeSyncState state)
@@ -268,7 +518,9 @@ void RadarPanelPositionDialog::setSystemTimeSyncState(SystemTimeSyncState state)
                  || state == SystemTimeSyncState::Unavailable) currentColor = UiTheme::Fault;
         return UiFontScale::style(QStringLiteral("color:%1;").arg(QLatin1String(currentColor)));
     });
-    m_timeSyncButton->setEnabled(m_actions.requestTimeSync && state != SystemTimeSyncState::Waiting);
+    const bool enabled = m_actions.requestTimeSync && state != SystemTimeSyncState::Waiting;
+    m_timeSyncButton->setEnabled(enabled);
+    m_timeSyncRadar->setEnabled(enabled);
 }
 
 void RadarPanelPositionDialog::attachToWindow(CusWindow* host)
@@ -285,19 +537,24 @@ void RadarPanelPositionDialog::attachToWindow(CusWindow* host)
 
 void RadarPanelPositionDialog::fillRow(int id, const RadarReference::Pose& values)
 {
-    for (int field = 0; field < RadarReference::Count; ++field)
-        m_edits[id][field]->setText(QString::number(values[field], 'f', precision[field]));
+    const int fieldCount = m_single ? m_single->fieldCount : RadarReference::Count;
+    for (int field = 0; field < fieldCount; ++field) {
+        const int decimals = m_single && fieldCount == RadarReference::Yaw + 1
+                                      && field == RadarReference::Altitude ? 3 : precision[field];
+        m_edits[id][field]->setText(QString::number(values[field], 'f', decimals));
+    }
 }
 
 bool RadarPanelPositionDialog::readRow(int id, RadarReference::Pose& values)
 {
-    for (int field = 0; field < RadarReference::Count; ++field) {
+    const int fieldCount = m_single ? m_single->fieldCount : RadarReference::Count;
+    for (int field = 0; field < fieldCount; ++field) {
         bool ok = false;
         values[field] = m_edits[id][field]->text().trimmed().toDouble(&ok);
         if (!ok || !RadarReference::validUi(static_cast<RadarReference::Field>(field), values[field])) {
-            m_error->setText(QStringLiteral("阵面%1（ID%2）的%3无效。经度±180，纬度/倾角/横滚±90，航向0～360，高程-1000～5000m；各项不能为空。")
+            showFeedback(QStringLiteral("阵面%1（ID%2）的%3无效。经度±180，纬度/倾角/横滚±90，航向0～360，高程-1000～5000m，各项不能为空。")
                 .arg(id + 1).arg(id).arg(fields[field]));
-            m_error->show(); m_edits[id][field]->setFocus();
+            m_edits[id][field]->setFocus();
             return false;
         }
     }

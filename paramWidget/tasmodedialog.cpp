@@ -23,6 +23,7 @@
 #include "Basic/DispBasci.h"
 #include "Basic/authmanager.h"
 #include "Basic/tascontrolformat.h"
+#include "tasfrequencycombo.h"
 #include "Controller/controller.h"
 #include "cusWidgets/custommessagebox.h"
 #include "ui_tasmodedialog.h"
@@ -36,6 +37,7 @@ unsigned char TASModeDialog::PRTs[] = {40, 25, 20, 50, 100, 175, 15, 30, 40, 50,
 
 TASModeDialog::TASModeDialog(QWidget* parent) : QDialog(parent), ui(new Ui::TASModeDialog) {
     ui->setupUi(this);
+    TasControl::setupFrequencyCombo(ui->freq);
     m_multiPanelMode = CF_INS.defaultPanelCount() > 1;
     if (m_multiPanelMode) ui->groupSector->setTitle(tr("方位空域参数"));
     setMinimumWidth(1200);
@@ -185,7 +187,7 @@ void TASModeDialog::updateServoCenterAngle() {
 }
 
 void TASModeDialog::onAccept() {
-    const int frequencyCode = TasControl::frequencyCode(ui->freq->currentIndex());
+    const int frequencyCode = ui->freq->currentIndex() >= 0 ? ui->freq->currentData().toInt() : -1;
     if (frequencyCode < 0) {
         CustomMessageBox::showWarning(this, tr("参数错误"), tr("请选择有效频点或跳频。"));
         return;
@@ -338,8 +340,7 @@ void TASModeDialog::restoreParam(const TASModeParam& param) {
     ui->wave3->setCurrentIndex(beamParam.beam3Code);
 
     // 频率和类型
-    const int frequencyIndex = TasControl::frequencyIndex(beamParam.freqID);
-    ui->freq->setCurrentIndex(frequencyIndex >= 0 ? frequencyIndex : 0);
+    TasControl::restoreFrequencyCombo(ui->freq, beamParam.freqID);
     ui->type->setCurrentIndex(beamParam.type - 1);
 
     // TAS模式：方位空域（从beamParam中的中心角度推算，暂时设为±45°）
@@ -381,6 +382,12 @@ void TASModeDialog::restoreParam(const TASModeParam& param) {
 }
 
 void TASModeDialog::onSaveToConfig() {
+    const int frequencyCode = ui->freq->currentIndex() >= 0 ? ui->freq->currentData().toInt() : -1;
+    if (frequencyCode < 0) {
+        CustomMessageBox::showWarning(this, tr("参数错误"), tr("请选择有效频点或跳频，未保存配置。"));
+        return;
+    }
+
     // 弹出确认对话框
     if (!CustomMessageBox::showConfirm(
             this, tr("确认保存"),
@@ -388,11 +395,6 @@ void TASModeDialog::onSaveToConfig() {
         return;
     }
 
-    const int frequencyCode = TasControl::frequencyCode(ui->freq->currentIndex());
-    if (frequencyCode < 0) {
-        CustomMessageBox::showWarning(this, tr("参数错误"), tr("请选择有效频点或跳频，未保存配置。"));
-        return;
-    }
     // TAS保存逻辑与TWS类似，保存三种参数
     // 注意：这里简化实现，可根据需要扩展
 

@@ -317,8 +317,8 @@ void SectorPolarGrid::drawLabels(QPainter* painter)
         double pixelRadius = m_axis->rangeToPixel(range);
         if (pixelRadius <= 0) continue;
 
-        // 转换为公里显示（参考PPIView的显示方式）
-        QString rangeText = QString::number((int)(range / 1000.0)) + "km";
+        const double rangeKm = range / 1000.0;
+        const QString rangeText = QString::number(rangeKm, 'g', 5) + QStringLiteral("km");
 
         // 左边界标签（最小角度处）- 向圆心靠近一些
         double leftRadians = qDegreesToRadians(static_cast<double>(m_minAngle));

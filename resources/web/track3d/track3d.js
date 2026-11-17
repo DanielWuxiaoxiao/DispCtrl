@@ -360,12 +360,21 @@
         var minHeight = Number(viewState.minHeightM);
         var maxHeight = Number(viewState.maxHeightM);
 
+        var rangeStepKm = maxRangeKm / 5;
+        var rangeDecimals = 1;
+        var scaledStep = rangeStepKm * 10;
+        while (rangeDecimals < 3 && Math.abs(scaledStep - Math.round(scaledStep)) > 0.000001) {
+            ++rangeDecimals;
+            scaledStep *= 10;
+        }
+
         for (var ring = 1; ring <= 5; ++ring) {
             var radius = ring / 5;
             gridGroup.add(createLine(circlePoints(radius, 0), ring === 5 ? axisColor : majorColor,
                                      ring === 5 ? 0.9 : 0.72, true));
 
-            var rangeLabel = createTextSprite((maxRangeKm * radius).toFixed(1) + ' km', labelColor, 0.065);
+            var rangeLabel = createTextSprite((rangeStepKm * ring).toFixed(rangeDecimals) + ' km',
+                labelColor, 0.065);
             rangeLabel.position.set(radius, 0.025, 0.035);
             gridGroup.add(rangeLabel);
         }
@@ -430,7 +439,7 @@
             gridGroup.add(sprite);
         });
 
-        axisRange.textContent = '量程 ' + maxRangeKm.toFixed(1) + ' km | 高度 '
+        axisRange.textContent = '量程 ' + maxRangeKm.toFixed(rangeDecimals) + ' km | 高度 '
             + formatAxisHeight(minHeight) + '–' + formatAxisHeight(maxHeight) + ' m';
         requestRender();
     }

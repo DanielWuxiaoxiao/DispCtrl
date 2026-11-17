@@ -7,6 +7,30 @@
 class RadarPositionControlTest final : public QObject {
     Q_OBJECT
 private slots:
+    void mechanicalCommandFillsOnlyIdZero() {
+        RadarReference::Pose pose{120, 30, -100, 250.123, -15, -2.5};
+        RadarPositionControl command;
+        QVERIFY(buildMechanicalRadarPositionControl(pose, command));
+        QCOMPARE(sizeof(command), std::size_t(142));
+        const auto* bytes = reinterpret_cast<const uchar*>(&command);
+        QCOMPARE(qFromLittleEndian<quint16>(bytes), quint16(0xAA08));
+        QCOMPARE(command.panels[0].latitudeE9, qint64(30000000000LL));
+        QCOMPARE(command.panels[0].longitudeE9, qint64(120000000000LL));
+        QCOMPARE(command.panels[0].altitudeCm, qint32(-10000));
+        QCOMPARE(command.panels[0].headingMilliDeg, quint32(250123));
+        QCOMPARE(command.panels[0].pitchMilliDeg, qint32(-15000));
+        QCOMPARE(command.panels[0].rollCentiDeg, qint16(-250));
+        for (int id = 1; id < 4; ++id) {
+            const auto* record = bytes + 2 + 31 * id;
+            QCOMPARE(record[0], uchar(id));
+            for (int field = 1; field < 31; ++field) QCOMPARE(record[field], uchar(0));
+        }
+        for (int i = 126; i < 142; ++i) QCOMPARE(bytes[i], uchar(0));
+        pose[RadarReference::Yaw] = -1;
+        QVERIFY(!buildMechanicalRadarPositionControl(pose, command));
+        QCOMPARE(command.panels[0].headingMilliDeg, quint32(250123));
+    }
+
     void wireLayoutAndQuantization() {
         RadarReference reference({120, 30, 100, 350, -15, -2.5});
         RadarPositionControl command;

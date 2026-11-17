@@ -304,8 +304,7 @@ private slots:
     void onServoControlClicked();
 
     /**
-     * @brief 执行伺服归北序列
-     * @details 先下发方位归北0°，4秒后下发方位寻位0°
+     * @brief 自动 GPS 打开归北观测窗口，手动 GPS 使用既有归北与寻位序列
      */
     void onServoNorthClicked();
 

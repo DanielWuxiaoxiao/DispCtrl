@@ -6,6 +6,7 @@ test -f /input/CMakeLists.txt
 test -d /output
 
 tar --exclude='./build' --exclude='./build-*' --exclude='./deploy' \
+    --exclude='./code.zip' \
     --exclude='./.git' --exclude='./.vs' --exclude='./.codex' --exclude='./.agents' \
     --exclude='*.pro.user*' --exclude='*.exe' --exclude='*.dll' \
     -C /input -cf - . | tar -C /src -xf -

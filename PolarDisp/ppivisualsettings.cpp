@@ -36,6 +36,7 @@
 #include <QPolygon>
 #include <QEvent>
 #include <QIntValidator>
+#include <QLocale>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QHBoxLayout>
@@ -55,12 +56,12 @@
  *
  * 验证器配置：
  * - 类型：QDoubleValidator确保输入为有效数值
- * - 范围：1.0到99999.0公里，覆盖实际使用范围
+ * - 范围：0.1到99999.0公里
  * - 精度：2位小数，满足精度要求
  * - 目的：防止无效输入，提升用户体验
  *
  * 默认配置：
- * - 最大距离：500公里，适合大多数雷达应用场景
+ * - 最大距离：从配置读取，默认5公里
  * - 地图类型：索引1（路网图），提供基础地理参考
  * - 便于快速开始使用，减少初次配置工作
  */
@@ -74,7 +75,12 @@ PPIVisualSettings::PPIVisualSettings(QWidget *parent)
     setupStyle();
 
     // 为距离输入框设置验证器
-    QDoubleValidator* distanceValidator = new QDoubleValidator(1.0, 99999.0, 2, this);
+    auto* distanceValidator = new QDoubleValidator(PPI_MAX_DISTANCE_MIN_KM,
+                                                    PPI_MAX_DISTANCE_MAX_KM, 2, this);
+    distanceValidator->setNotation(QDoubleValidator::StandardNotation);
+    QLocale distanceLocale = QLocale::c();
+    distanceLocale.setNumberOptions(QLocale::RejectGroupSeparator);
+    distanceValidator->setLocale(distanceLocale);
     ui->maxDistanceEdit->setValidator(distanceValidator);
     ui->maxDistanceEdit->setFixedWidth(ScaleHelper::uiScaled(64));
 
@@ -89,8 +95,7 @@ PPIVisualSettings::PPIVisualSettings(QWidget *parent)
     connectSignals();
 
     // 设置默认值（配置文件中直接是公里值）
-    double maxRangeInKm = CF_INS.range("max", 5);  // 配置直接返回公里值
-    ui->maxDistanceEdit->setText(QString::number(maxRangeInKm));
+    setMaxDistance(CF_INS.range("max", 5.0));
 
     int defaultMapType = CF_INS.mapType("default_type", 0);
     ui->mapTypeCombo->setCurrentIndex(defaultMapType); // 使用配置的默认地图类型
@@ -101,7 +106,7 @@ PPIVisualSettings::PPIVisualSettings(QWidget *parent)
     setMaxTrackPoints(CF_INS.displayConfig("max_track_points", 200));
 
     // 设置工具提示
-    ui->maxDistanceEdit->setToolTip("设置雷达显示的最大距离范围");
+    ui->maxDistanceEdit->setToolTip(tr("最大显示距离为 0.1～99999 km，支持两位小数，按回车应用"));
     ui->mapTypeCombo->setToolTip("选择背景地图显示类型");
     ui->maxPointsEdit->setToolTip("设置最大检测点数量，超出后删除旧数据");
     if (m_maxTrackPointsEdit) {
@@ -207,7 +212,11 @@ double PPIVisualSettings::getMaxDistance() const
  */
 void PPIVisualSettings::setMaxDistance(double distance)
 {
-    ui->maxDistanceEdit->setText(QString::number(distance, 'f', 1));
+    QString text = QString::number(distance, 'f', 2);
+    if (text.endsWith(QLatin1Char('0'))) {
+        text.chop(1);
+    }
+    ui->maxDistanceEdit->setText(text);
 }
 
 /**
@@ -270,29 +279,11 @@ void PPIVisualSettings::setMaxTrackPoints(int maxPoints)
  *
  * 处理流程：
  * 1. 获取输入值：从LineEdit控件读取用户输入
- * 2. 数值转换：将文本转换为double类型数值
- * 3. 有效性验证：调用validateDistance()检查合法性
- * 4. 信号发射：如果有效，发出maxDistanceChanged信号
- * 5. 错误处理：如果无效，显示错误提示并恢复原值
- *
- * 验证标准：
- * - 数值范围：1.0到99999.0公里
- * - 有效性：非零正数，实际可达范围
- * - 用户体验：清晰的错误提示，便于纠正
+ * 2. 回车信号只在输入通过距离验证器时触发
  */
 void PPIVisualSettings::onDistanceEditReturnPressed()
 {
-    bool ok;
-    double distance = ui->maxDistanceEdit->text().toDouble(&ok);
-
-    if (ok && validateDistance(distance)) {
-        emit maxDistanceChanged(distance);
-    } else {
-        // 输入无效，恢复之前的值并提示
-        QMessageBox::warning(this, "输入错误", "请输入有效的距离值 (1-99999 km)");
-        ui->maxDistanceEdit->selectAll();
-        ui->maxDistanceEdit->setFocus();
-    }
+    emit maxDistanceChanged(getMaxDistance());
 }
 
 /**
@@ -485,27 +476,6 @@ void PPIVisualSettings::connectSignals()
 
     connect(ui->clearDisplayBtn, &QPushButton::clicked,
             this, &PPIVisualSettings::onClearDisplayClicked);
-}
-
-/**
- * @brief 验证距离输入
- * @param distance 输入的距离值
- * @return 验证结果，true表示有效
- * @details 检查距离输入的合法性，确保在合理范围内
- *
- * 验证规则：
- * - 最小值：1.0公里，避免过小的无意义值
- * - 最大值：99999.0公里，覆盖所有实际应用场景
- * - 正数检查：确保为正值，避免负数或零值
- *
- * 设计考虑：
- * - 实用性：范围覆盖从近距离到远程雷达应用
- * - 安全性：防止系统因极值输入而异常
- * - 用户体验：合理的限制，清晰的反馈
- */
-bool PPIVisualSettings::validateDistance(double distance) const
-{
-    return distance >= 1.0 && distance <= 99999.0;
 }
 
 /**

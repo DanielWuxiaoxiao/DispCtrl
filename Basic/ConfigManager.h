@@ -179,8 +179,10 @@ public:
         return getValue("network.total_control_mqtt.publish_interval_ms", def).toInt();
     }
 
-    int range(const QString& key, int def = 0) const {
-        return getValue("polarDisp.range." + key, def).toInt();
+    double range(const QString& key, double def = 0.0) const {
+        bool ok = false;
+        const double value = getValue("polarDisp.range." + key, def).toDouble(&ok);
+        return ok && std::isfinite(value) ? value : def;
     }
 
     int mapType(const QString& key, int def = 0) const {
@@ -212,6 +214,10 @@ public:
     // 雷达位置相关配置
     QVariant radarValue(const QString& key, const QVariant& fallback = QVariant()) const {
         return getValue("radar." + key, fallback);
+    }
+    bool mechanicalGpsManual() const {
+        return radarValue(QStringLiteral("gps_mode")).toString().trimmed().compare(
+            QStringLiteral("auto"), Qt::CaseInsensitive) != 0;
     }
     double latitude(const QString& key = "latitude", double def = 34.2311) const {
         return getValue("radar." + key, def).toDouble();

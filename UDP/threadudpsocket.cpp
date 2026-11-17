@@ -332,12 +332,11 @@ void ThreadedUdpSocket::handleDatagram(const QByteArray& data, int senderPort) {
                 BITReportV2 extended;
                 bool hasReference = false;
                 if (!decodeBitReportPayload(payload, payloadSize, m_multiPanelBit, info, extended, hasReference)) {
-                    reportError("UDP_TRUNCATED_BIT", QString("Invalid BIT payload length=%1 expected=%2 multiPanel=%3 senderPort=%4")
-                                .arg(payloadSize).arg(m_multiPanelBit ? sizeof(BITReportV2) : sizeof(BITReport))
-                                .arg(m_multiPanelBit).arg(senderPort));
+                    reportError("UDP_TRUNCATED_BIT", QString("Invalid BIT payload length=%1 multiPanel=%2 senderPort=%3")
+                                .arg(payloadSize).arg(m_multiPanelBit).arg(senderPort));
                     break;
                 }
-                // Reference first: do not transiently apply the coarse legacy yaw of V2.
+                // Reference first so consumers can use the pose from the same frame.
                 if (hasReference) emit bitReferenceReport(extended);
                 emit bitReport(info);
                 break;

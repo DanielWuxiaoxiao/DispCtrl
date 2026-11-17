@@ -356,8 +356,10 @@ set(HDR_FILES
     Basic/authmanager.h                       # 管理者模式认证管理器
     Basic/radarreference.h                    # 经纬高/姿态逐字段优先级
     Basic/tascontrolformat.h                  # TAS频点编码及参数日志
+    paramWidget/tasfrequencycombo.h
     Basic/healthstatewindow.h                 # 5秒健康窗口及1000帧全零防抖
     Basic/gpspositionfilter.h                 # 100点GPS平滑与离群剔除
+    Basic/mechanicalgps.h                     # 机扫码盘、航向与偏差历史
     Basic/radarpositioncontrol.h              # AA08四阵面位置编码
     Basic/radarpanelstate.h                   # 四阵面锁定与选中接入状态
     Basic/radarpanelstore.h                   # 独立TOML锁定快照原子读写
@@ -553,6 +555,12 @@ if(DISPCTRL_BUILD_TESTS)
     add_test(NAME detection_color_render_test COMMAND detection_color_render_test)
     set_tests_properties(detection_color_render_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     add_executable(tas_control_format_test tests/tascontrolformat_test.cpp)
+    add_executable(tas_frequency_combo_test tests/tasfrequencycombo_test.cpp
+        cusWidgets/customcombobox.cpp cusWidgets/customcombobox.h)
+    target_include_directories(tas_frequency_combo_test PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_link_libraries(tas_frequency_combo_test PRIVATE Qt5::Widgets Qt5::Test)
+    add_test(NAME tas_frequency_combo_test COMMAND tas_frequency_combo_test)
+    set_tests_properties(tas_frequency_combo_test PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     target_include_directories(tas_control_format_test PRIVATE "${CMAKE_SOURCE_DIR}")
     target_link_libraries(tas_control_format_test PRIVATE Qt5::Core Qt5::Test)
     add_test(NAME tas_control_format_test COMMAND tas_control_format_test)

@@ -4,13 +4,14 @@
 #pragma pack(push, 8)
 #include <QtEndian>
 
-// Exact lengths prevent a truncated V2 payload from being mistaken for legacy BIT.
+// The current DE02 format carries the reference for both installations.
+// Only the legacy single-array installation also accepts the exact old size.
 inline bool decodeBitReportPayload(const char* bytes, int size, bool multiPanel, BITReport& status,
                                   BITReportV2& extended, bool& hasReference)
 {
     hasReference = false;
-    const int expectedSize = multiPanel ? sizeof(BITReportV2) : sizeof(BITReport);
-    if (!bytes || size != expectedSize
+    const bool extendedSize = size == sizeof(BITReportV2);
+    if (!bytes || (!extendedSize && (multiPanel || size != sizeof(BITReport)))
         || qFromLittleEndian<quint16>(bytes) != 0xDE02) return false;
     status = BITReport{};
     status.bitGroup = static_cast<unsigned char>(bytes[2]);
@@ -22,7 +23,7 @@ inline bool decodeBitReportPayload(const char* bytes, int size, bool multiPanel,
     status.scanAngle = qFromLittleEndian<quint16>(bytes + 15);
     status.radarId = static_cast<unsigned char>(bytes[17]);
     memcpy(status.reserve, bytes + 18, sizeof(status.reserve));
-    if (!multiPanel) return true;
+    if (!extendedSize) return true;
     extended = BITReportV2{};
     extended.bitGroup = status.bitGroup;
     extended.powerState = status.powerState;
@@ -39,7 +40,8 @@ inline bool decodeBitReportPayload(const char* bytes, int size, bool multiPanel,
     extended.headingMilliDeg = qFromLittleEndian<quint32>(bytes + 59);
     extended.pitchMilliDeg = qFromLittleEndian<qint32>(bytes + 63);
     extended.rollCentiDeg = qFromLittleEndian<qint16>(bytes + 67);
-    memcpy(extended.reserve, bytes + 69, sizeof(extended.reserve));
+    extended.servoEncoderMilliDeg = qFromLittleEndian<quint32>(bytes + 69);
+    memcpy(extended.reserve, bytes + 73, sizeof(extended.reserve));
     hasReference = true;
     return true;
 }

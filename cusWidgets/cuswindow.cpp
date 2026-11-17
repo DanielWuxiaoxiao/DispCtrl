@@ -167,6 +167,16 @@ void CusWindow::setContentWidget(QWidget* w) {
     m_contentLayout->addWidget(w);
 }
 
+void CusWindow::resizeNormalHeight(int height, const QRect& available)
+{
+    QRect normal = m_maximized ? m_restoreRect : geometry();
+    normal.setHeight(height);
+    if (available.isValid())
+        normal.moveTop(qMax(available.top(), qMin(normal.top(), available.bottom() - height + 1)));
+    if (m_maximized) m_restoreRect = normal;
+    else setGeometry(normal);
+}
+
 void CusWindow::setCustomTitleBar(QWidget* titleBar)
 {
     auto* titleLayout = titleBar ? qobject_cast<QHBoxLayout*>(titleBar->layout()) : nullptr;

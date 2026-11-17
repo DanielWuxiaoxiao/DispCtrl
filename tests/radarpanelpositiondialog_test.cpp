@@ -1,4 +1,5 @@
 #include <QApplication>
+#include <QComboBox>
 #include <QScreen>
 #include <QLineEdit>
 #include <QPushButton>
@@ -7,6 +8,7 @@
 #include <QLabel>
 #include "cusWidgets/cuswindow.h"
 #include "Basic/radarpanelstate.h"
+#include "Basic/mechanicalgps.h"
 #include "Basic/uiscale.h"
 #include "Basic/uitheme.h"
 #include "paramWidget/radarpanelpositiondialog.h"
@@ -14,6 +16,168 @@
 class RadarPanelPositionDialogTest final : public QObject {
     Q_OBJECT
 private slots:
+    void singlePanelUsesSharedShellAndLayoutInBothThemes() {
+        for (const auto& theme : {QStringLiteral("graphite"), QStringLiteral("classic")}) {
+            UiTheme::configure(theme);
+            const RadarReference::Pose pose{120, 30, 100, 10, 20, 30};
+            RadarPanelPositionDialog multi(RadarPanelValues{pose}, {true, true, true, true}, {});
+            MechanicalGps gps;
+            RadarPanelPositionDialog::SinglePanel actions;
+            actions.fieldCount = RadarReference::Yaw + 1;
+            actions.manualGps = true;
+            actions.gps = &gps;
+            int requestedId = -1;
+            int submissions = 0;
+            std::optional<qint32> lastNorth;
+            int restored = 0;
+            int applied = 0;
+            bool manual = true;
+            bool canSwitch = false;
+            actions.setManualGps = [&](bool requested) {
+                if (!canSwitch) return QStringLiteral("无法切换");
+                manual = requested;
+                return QString();
+            };
+            actions.submitGps = [&] { ++submissions; return true; };
+            actions.submitServoNorth = [&]() -> std::optional<qint32> {
+                ServoControlParam command;
+                if (!gps.fillNorthDeviation(command, manual)) {
+                    lastNorth.reset();
+                    return std::nullopt;
+                }
+                lastNorth = command.northDeviationMilliDeg;
+                return lastNorth;
+            };
+            actions.restoreAutomatic = [&] { ++restored; return QString(); };
+            actions.apply = [&](const RadarReference::Pose&, bool) { ++applied; return QString(); };
+            QPointer<CusWindow> host = new CusWindow(QStringLiteral("单面阵配置"), QIcon());
+            host->setWindowModality(Qt::ApplicationModal);
+            QPointer<RadarPanelPositionDialog> single = new RadarPanelPositionDialog(pose, actions,
+                [&](int id) { requestedId = id; }, host);
+            single->attachToWindow(host);
+            host->show();
+            QApplication::processEvents();
+            QCOMPARE(single->styleSheet(), multi.styleSheet());
+            QCOMPARE(single->windowTitle(), QStringLiteral("单面阵配置"));
+            QVERIFY(host->windowFlags().testFlag(Qt::FramelessWindowHint));
+            QVERIFY(host->isModal());
+            QVERIFY(!single->isWindow());
+            QVERIFY(single->findChild<QLabel*>("panelPositionTitle")->isHidden());
+            auto* table = single->findChild<QWidget*>("panelPositionContent");
+            QVERIFY(table);
+            QCOMPARE(table->findChildren<QLineEdit*>().size(), 4);
+            auto* plot = single->findChild<QWidget*>("mechanicalDeviationPlot");
+            auto* mode = single->findChild<QComboBox*>("mechanicalGpsMode");
+            auto* sync = single->findChild<QPushButton*>("systemTimeSyncButton");
+            auto* send = single->findChild<QPushButton*>("submitMechanicalGps");
+            auto* apply = single->findChild<QPushButton*>("submitPanels");
+            auto* north = single->findChild<QPushButton*>("submitMechanicalServoNorth");
+            QVERIFY(plot && mode && sync && send && apply && north);
+            QVERIFY(mode->currentData().toBool());
+            QVERIFY(plot->isHidden() && sync->isHidden() && send->isHidden());
+            mode->setCurrentIndex(mode->findData(false));
+            QVERIFY(manual && mode->currentData().toBool());
+            QVERIFY(sync->isHidden());
+            canSwitch = true;
+            mode->setCurrentIndex(mode->findData(false));
+            QVERIFY(!manual);
+            QVERIFY(!plot->isHidden() && !sync->isHidden() && !send->isHidden());
+            QApplication::processEvents();
+            const int automaticHeight = host->height();
+            QCOMPARE(apply->text(), QStringLiteral("应用本地"));
+            north->click();
+            QVERIFY(!lastNorth);
+            QVERIFY(!single->findChild<QPushButton*>("lockPanel0"));
+            auto* radar = single->findChild<QComboBox*>("systemTimeSyncRadar");
+            QCOMPARE(radar->count(), 1);
+            QCOMPARE(radar->currentData().toInt(), 0);
+            sync->click();
+            QCOMPARE(requestedId, 0);
+            send->click();
+            QCOMPARE(submissions, 1);
+            auto* angle = table->findChild<QLineEdit*>("panel0Field3");
+            angle->setText("123.456");
+            BITReportV2 report;
+            report.bitGroup = 3;
+            report.headingMilliDeg = 20000;
+            report.servoEncoderMilliDeg = 25125;
+            gps.ingest(report);
+            single->refreshMechanicalGps();
+            QVERIFY(single->findChild<QLabel*>("panelBitReceived")->text().contains("5.125"));
+            QCOMPARE(angle->text(), QStringLiteral("123.456"));
+            report.servoEncoderMilliDeg = 18875;
+            gps.ingest(report);
+            single->refreshMechanicalGps();
+            north->click();
+            QCOMPARE(lastNorth.value_or(0), qint32(-1125));
+            mode->setCurrentIndex(mode->findData(true));
+            QVERIFY(manual);
+            QVERIFY(plot->isHidden() && sync->isHidden() && send->isHidden());
+            QApplication::processEvents();
+            const int manualHeight = host->height();
+            QVERIFY(manualHeight < automaticHeight);
+            QCOMPARE(apply->text(), QStringLiteral("确定下发"));
+            QCOMPARE(angle->text(), QStringLiteral("123.456"));
+            north->click();
+            QVERIFY(lastNorth.has_value());
+            QCOMPARE(*lastNorth, qint32(0));
+            QVERIFY(!single->findChild<QPushButton*>("saveMechanicalReference")->isHidden());
+            mode->setCurrentIndex(mode->findData(false));
+            QApplication::processEvents();
+            QVERIFY(host->height() > manualHeight);
+            apply->click();
+            QCOMPARE(applied, 1);
+            QVERIFY(host->isVisible() && single->isVisible());
+            single->findChild<QPushButton*>("restoreAutomaticGps")->click();
+            QCOMPARE(restored, 1);
+            QTest::keyClick(angle, Qt::Key_Escape);
+            QApplication::processEvents();
+            QVERIFY(host->isVisible() && single->isVisible());
+            single->findChild<QPushButton*>("closeSinglePanel")->click();
+            QApplication::processEvents();
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+            QVERIFY(host.isNull());
+            QVERIFY(single.isNull());
+        }
+    }
+
+    void singleManualPanelKeepsSaveAndSubmitSeparate() {
+        RadarPanelPositionDialog::SinglePanel actions;
+        actions.manualGps = true;
+        RadarReference::Pose submitted{};
+        int saves = 0;
+        int sends = 0;
+        actions.apply = [&](const RadarReference::Pose& values, bool saveLocal) {
+            submitted = values;
+            if (saveLocal) ++saves;
+            else ++sends;
+            return QString();
+        };
+        const RadarReference::Pose pose{120, 30, 100, 10, 20, 30};
+        RadarPanelPositionDialog dialog(pose, actions, {});
+        dialog.show();
+        QVERIFY(dialog.findChild<QPushButton*>("systemTimeSyncButton")->isHidden());
+        QVERIFY(!dialog.findChild<QPushButton*>("submitMechanicalGps"));
+        QVERIFY(!dialog.findChild<QWidget*>("mechanicalDeviationPlot"));
+        auto* longitude = dialog.findChild<QLineEdit*>("panel0Field0");
+        auto* submit = dialog.findChild<QPushButton*>("submitPanels");
+        longitude->setText("181");
+        submit->click();
+        QCOMPARE(sends, 0);
+        longitude->setText("121.02");
+        dialog.findChild<QPushButton*>("saveMechanicalReference")->click();
+        QCOMPARE(saves, 1);
+        QCOMPARE(sends, 0);
+        QVERIFY(dialog.isVisible());
+        submit->click();
+        QCOMPARE(sends, 1);
+        QCOMPARE(submitted[RadarReference::Longitude], 121.02);
+        QCOMPARE(submitted[RadarReference::Roll], 30.0);
+        QVERIFY(dialog.isVisible());
+        dialog.findChild<QPushButton*>("closeSinglePanel")->click();
+        QVERIFY(!dialog.isVisible());
+    }
+
     void unfilteredMeansReachListInBothThemes() {
         for (const auto& theme : {QStringLiteral("graphite"), QStringLiteral("classic")}) {
             UiTheme::configure(theme);
@@ -177,24 +341,30 @@ private slots:
         RadarPanelState state;
         state.initialize({120, 30, 100, 0, 0, 0}, 100, 50, true);
         int requests = 0;
+        int requestedId = -1;
         int poseSubmits = 0;
         RadarPanelPositionDialog::Actions actions;
-        actions.requestTimeSync = [&] { ++requests; };
+        actions.requestTimeSync = [&](int id) { ++requests; requestedId = id; };
         actions.submit = [&](const RadarPanelValues&) { ++poseSubmits; return true; };
         RadarPanelPositionDialog dialog(state.dialogValues(), {true, true, true, true}, actions);
         dialog.show();
         QApplication::processEvents();
         auto* button = dialog.findChild<QPushButton*>("systemTimeSyncButton");
         auto* status = dialog.findChild<QLabel*>("systemTimeSyncStatus");
-        QVERIFY(button && status);
+        auto* radar = dialog.findChild<QComboBox*>("systemTimeSyncRadar");
+        QVERIFY(button && status && radar);
+        QCOMPARE(radar->currentData().toInt(), 0);
+        radar->setCurrentIndex(radar->findData(3));
         QCOMPARE(dialog.windowTitle(), QStringLiteral("四面阵配置"));
         dialog.findChild<QLineEdit*>("panel0Field0")->clear();
         button->click();
         QCOMPARE(requests, 1);
+        QCOMPARE(requestedId, 3);
         QCOMPARE(poseSubmits, 0);
         QVERIFY(dialog.isVisible());
         dialog.setSystemTimeSyncState(SystemTimeSyncState::Waiting);
         QVERIFY(!button->isEnabled());
+        QVERIFY(!radar->isEnabled());
         dialog.setSystemTimeSyncState(SystemTimeSyncState::Succeeded);
         QCOMPARE(status->text(), QStringLiteral("校时成功"));
         QCOMPARE(status->palette().color(QPalette::WindowText), normal);

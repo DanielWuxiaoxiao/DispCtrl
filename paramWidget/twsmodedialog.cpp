@@ -227,6 +227,11 @@ void TWSModeDialog::onAccept()
     angle = std::clamp(angle, 0, 36000);
     servoParam.az = static_cast<unsigned short>(angle);
 
+    if (!CON_INS->prepareServoControl(servoParam)) {
+        CustomMessageBox::showWarning(this, tr("归北未下发"), tr("未收到有效 D 值，请在单面阵配置中检查北斗航向和伺服码盘。"));
+        return;
+    }
+
     // 按顺序依次发送三个配置
     emit setScanRange(scanRangeParam);
     emit setBeamControl(beamParam);

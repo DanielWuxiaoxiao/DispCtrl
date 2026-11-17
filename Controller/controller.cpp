@@ -93,6 +93,12 @@ Controller::Controller(QObject* parent)
     }
     m_panelState.initialize(defaults, CF_INS.gpsMaxHorizontalDeviationM(), CF_INS.gpsMaxAltitudeDeviationM(), CF_INS.defaultPanelCount() > 1);
     m_multiPanelReference = CF_INS.defaultPanelCount() > 1;
+    m_mechanicalGpsManual = !m_multiPanelReference && CF_INS.mechanicalGpsManual();
+    if (m_mechanicalGpsManual) {
+        RadarReference::Values manual{};
+        for (int i = 0; i < RadarReference::Count; ++i) manual[i] = defaults[i];
+        m_radarReference.setManual(manual, true);
+    }
     m_referenceDebugEnabled = CF_INS.referenceDebugLogEnabled();
     m_referenceDebugSamples = CF_INS.referenceDebugLogSamples();
     m_referenceDebugIntervalMs = CF_INS.referenceDebugLogIntervalMs();
@@ -109,6 +115,7 @@ Controller::Controller(QObject* parent)
         } else saveRadarPanelReferences(m_panelState);
     }
     m_gpsFilter.setLimits(CF_INS.gpsMaxHorizontalDeviationM(), CF_INS.gpsMaxAltitudeDeviationM());
+    m_mechanicalBitGpsFilter.setLimits(CF_INS.gpsMaxHorizontalDeviationM(), CF_INS.gpsMaxAltitudeDeviationM());
     // 成员指针初始化在init()中进行
     m_bitLogClock.start();
     m_bitWarningLogIntervalMs = qMax(HealthStateWindow::IntervalMs, CF_INS.bitReportWarningLogIntervalMs());
@@ -396,29 +403,38 @@ void Controller::flushHealthStateWindow()
     emit healthWindowFlushed();
 }
 
-void Controller::updateRadarGeoLocation(double latitude, double longitude, double altitude)
-{
-    // Multi-panel installations take position from ID0 DE02, never mix in DD05.
-    if (!m_multiPanelReference) applyRadarGeoLocation(latitude, longitude, altitude);
-}
-
-void Controller::applyRadarGeoLocation(double latitude, double longitude, double altitude)
+std::optional<GpsPositionFilter::Fix> Controller::filterRadarGeoLocation(GpsPositionFilter& filter,
+                                                                         GpsPositionFilter::Fix fix)
 {
     GpsPositionFilter::Fix average;
-    const auto result = m_gpsFilter.push({latitude, longitude, altitude}, average);
+    const auto result = filter.push(fix, average);
     if (result != GpsPositionFilter::Result::Accepted) {
         const auto log = m_gpsRejectLogs.sample(m_bitLogClock.elapsed(), 5000);
         if (log.write) LOG_WARNING(QStringLiteral("[GPS][REJECT] reason=%1 lat=%2 lon=%3 alt=%4 suppressed=%5")
-            .arg(static_cast<int>(result)).arg(latitude, 0, 'g', 15).arg(longitude, 0, 'g', 15)
-            .arg(altitude, 0, 'g', 15).arg(qulonglong(log.suppressed)));
-        return;
+            .arg(static_cast<int>(result)).arg(fix.latitude, 0, 'g', 15).arg(fix.longitude, 0, 'g', 15)
+            .arg(fix.altitude, 0, 'g', 15).arg(qulonglong(log.suppressed)));
+        return std::nullopt;
     }
+    return average;
+}
+
+void Controller::updateRadarGeoLocation(double latitude, double longitude, double altitude)
+{
+    // DD05 is a fallback for legacy single-panel equipment until DE02 carries GPS.
+    if (m_multiPanelReference || m_mechanicalGpsManual || m_mechanicalBitGpsFilter.count() != 0) return;
+    const auto average = filterRadarGeoLocation(m_gpsFilter, {latitude, longitude, altitude});
+    if (average && applyRadarGeoLocation(*average)) publishRadarReference();
+}
+
+bool Controller::applyRadarGeoLocation(const GpsPositionFilter::Fix& average)
+{
     // EM keeps its independent manual override, but never receives invalid/outlier GPS fixes.
-    if (!m_radarReference.locked()) emit filteredGeoLocationReported(average.latitude, average.longitude, average.altitude);
+    if (!m_mechanicalGpsManual && !m_radarReference.locked())
+        emit filteredGeoLocationReported(average.latitude, average.longitude, average.altitude);
     bool changed = m_radarReference.updateReport(RadarReference::Latitude, average.latitude);
     changed = m_radarReference.updateReport(RadarReference::Longitude, average.longitude) || changed;
     changed = m_radarReference.updateReport(RadarReference::Altitude, average.altitude) || changed;
-    if (changed) publishRadarReference();
+    return changed;
 }
 
 void Controller::publishRadarReference()
@@ -429,9 +445,28 @@ void Controller::publishRadarReference()
                             m_radarReference.value(RadarReference::Altitude));
 }
 
+bool Controller::setMechanicalGpsManual(bool manual)
+{
+    if (m_multiPanelReference || m_radarReference.locked()) return false;
+    if (m_mechanicalGpsManual == manual) return true;
+    RadarReference::Values values{};
+    if (manual) {
+        const auto pose = m_radarReference.pose();
+        for (int field = 0; field < RadarReference::Count; ++field) values[field] = pose[field];
+    }
+    if (!m_radarReference.setManual(values, manual)) return false;
+    m_mechanicalGpsManual = manual;
+    publishRadarReference();
+    if (!manual && m_mechanicalBitGpsFilter.count() != 0) {
+        const auto fix = m_mechanicalBitGpsFilter.average();
+        emit filteredGeoLocationReported(fix.latitude, fix.longitude, fix.altitude);
+    }
+    return true;
+}
+
 bool Controller::setManualRadarReference(const RadarReference::Values& values, bool holdPosition)
 {
-    if (!m_radarReference.setManual(values, holdPosition)) return false;
+    if (!m_radarReference.setManual(values, holdPosition || m_mechanicalGpsManual)) return false;
     LOG_INFO(QStringLiteral("[RADAR_REFERENCE] latest UI applied lon=%1 lat=%2 alt=%3 yaw=%4 pitch=%5 roll=%6")
         .arg(m_radarReference.value(RadarReference::Longitude), 0, 'f', 7)
         .arg(m_radarReference.value(RadarReference::Latitude), 0, 'f', 7)
@@ -446,6 +481,48 @@ bool Controller::setManualRadarReference(const RadarReference::Values& values, b
 bool Controller::sendCurrentRadarPanelPosition()
 {
     return sendRadarPanelPositions(m_panelState.dialogValues());
+}
+
+bool Controller::sendMechanicalRadarPosition(const RadarReference::Pose& pose)
+{
+    RadarPositionControl command;
+    if (m_multiPanelReference || !resMgr || !buildMechanicalRadarPositionControl(pose, command)) {
+        LOG_WARNING("[AA08][REJECT] 机扫位置无效或下发链路未初始化");
+        return false;
+    }
+    const auto& panel = command.panels[0];
+    const QString details = QStringLiteral("AA08 机扫位置下发请求(142B)，ID=0 lat=%1 lon=%2 alt=%3m heading=%4° pitch=%5° roll=%6°")
+        .arg(panel.latitudeE9 / 1e9, 0, 'f', 9).arg(panel.longitudeE9 / 1e9, 0, 'f', 9)
+        .arg(panel.altitudeCm * 0.01, 0, 'f', 2).arg(panel.headingMilliDeg * 0.001, 0, 'f', 3)
+        .arg(panel.pitchMilliDeg * 0.001, 0, 'f', 3).arg(panel.rollCentiDeg * 0.01, 0, 'f', 2);
+    LOG_INFO("[AA08][SUBMIT] " + details);
+    emit radarPanelPositionRequested(details);
+    emit sendRadarPositionControl(command);
+    return true;
+}
+
+bool Controller::sendMechanicalGpsPosition()
+{
+    return !m_mechanicalGpsManual && m_mechanicalGpsPose
+        && sendMechanicalRadarPosition(*m_mechanicalGpsPose);
+}
+
+bool Controller::prepareServoControl(ServoControlParam& command) const
+{
+    if (command.cmd != 3 || m_multiPanelReference) return true;
+    return m_mechanicalGps.fillNorthDeviation(command, m_mechanicalGpsManual);
+}
+
+std::optional<qint32> Controller::requestMechanicalServoNorth(quint8 speed)
+{
+    ServoControlParam command;
+    command.cmd = 3;
+    command.speed = speed;
+    if (m_multiPanelReference || !resMgr || !prepareServoControl(command)) return std::nullopt;
+    emit sendServoControl(command);
+    const qint32 sent = command.northDeviationMilliDeg;
+    LOG_INFO(QStringLiteral("[AA03][SUBMIT] 机扫归北，D=%1°（raw=%2）").arg(sent / 1000.0, 0, 'f', 3).arg(sent));
+    return sent;
 }
 
 bool Controller::requestTrackDataRate(int batchId, int rateHz)
@@ -487,9 +564,20 @@ bool Controller::sendRadarPanelPositions(const RadarPanelValues& values)
     return true;
 }
 
-void Controller::requestSystemTimeSync()
+void Controller::requestSystemTimeSync(int radarId)
 {
     if (m_systemTimeSyncState == SystemTimeSyncState::Waiting) return;
+    if (m_mechanicalGpsManual) {
+        LOG_WARNING("[AA10][REJECT] 机扫手动 GPS 模式使用资源调度本地时间");
+        setSystemTimeSyncState(SystemTimeSyncState::Unavailable);
+        return;
+    }
+    if (radarId < RADAR_ID_MIN || radarId > RADAR_ID_MAX
+        || (!m_multiPanelReference && radarId != RADAR_ID_MIN)) {
+        LOG_WARNING(QStringLiteral("[AA10][REJECT] 无效校时雷达ID=%1").arg(radarId));
+        setSystemTimeSyncState(SystemTimeSyncState::Unavailable);
+        return;
+    }
     if (!resMgr) {
         LOG_WARNING("[AA10][REJECT] 资源调度发送管理器未初始化");
         setSystemTimeSyncState(SystemTimeSyncState::Unavailable);
@@ -497,8 +585,8 @@ void Controller::requestSystemTimeSync()
     }
     m_systemTimeSyncTimeout->start();
     setSystemTimeSyncState(SystemTimeSyncState::Waiting);
-    LOG_INFO("[AA10][SUBMIT] 系统校时下发请求，标志=1");
-    emit sendSystemTimeSyncControl();
+    LOG_INFO(QStringLiteral("[AA10][SUBMIT] 系统校时下发请求，标志=1，雷达ID=%1").arg(radarId));
+    emit sendSystemTimeSyncControl(static_cast<quint8>(radarId));
 }
 
 void Controller::setSystemTimeSyncState(SystemTimeSyncState state)
@@ -614,7 +702,31 @@ void Controller::logRadarReferenceDebug(const BITReportV2& report, const RadarPa
 
 void Controller::onBITReferenceReport(BITReportV2 report)
 {
-    if (!m_multiPanelReference || report.mesID != 0xDE02 || report.radarId > RADAR_ID_MAX) return;
+    if (report.mesID != 0xDE02 || report.radarId > RADAR_ID_MAX) return;
+    if (!m_multiPanelReference) {
+        if (report.radarId != RADAR_ID_MIN) return;
+        m_mechanicalGps.ingest(report);
+        m_mechanicalGpsPose.reset();
+        std::optional<GpsPositionFilter::Fix> average;
+        if (report.bitGroup & 0x01)
+            average = filterRadarGeoLocation(m_mechanicalBitGpsFilter,
+                {report.latitudeE9 / 1e9, report.longitudeE9 / 1e9, report.altitudeCm * 0.01});
+        const double pitch = report.pitchMilliDeg * 0.001;
+        const double roll = report.rollCentiDeg * 0.01;
+        const auto heading = m_mechanicalGps.latest().heading;
+        if (average && heading && RadarReference::valid(RadarReference::Pitch, pitch)
+            && RadarReference::valid(RadarReference::Roll, roll)) {
+            m_mechanicalGpsPose = RadarReference::Pose{average->longitude, average->latitude,
+                average->altitude, *heading, pitch, roll};
+        }
+        emit mechanicalGpsUpdated();
+        const bool positionChanged = average && applyRadarGeoLocation(*average);
+        const bool pitchChanged = m_radarReference.updateReport(RadarReference::Pitch, pitch);
+        const bool rollChanged = m_radarReference.updateReport(RadarReference::Roll, roll);
+        if (positionChanged) publishRadarReference();
+        else if (pitchChanged || rollChanged) emit radarReferenceChanged();
+        return;
+    }
     const auto update = m_panelState.ingest(report, QDateTime::currentMSecsSinceEpoch());
     logRadarReferenceDebug(report, update);
     if (!m_panelState.reference(report.radarId).locked()

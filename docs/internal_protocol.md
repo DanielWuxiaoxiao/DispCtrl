@@ -140,7 +140,10 @@
 | 3       | 控制指令     | uchar | 0 停转 / 1 转动 / 2 寻位 / 3 归北          |
 | 4       | 方位转速     | uchar | X 秒/转                                     |
 | 5-6     | 方位角度     | ushort | 0.01°，[0,360]                              |
-| 7-13    | 预留         | -     | 7B                                          |
+| 7-10    | 伺服真北偏差 | int32 | 有符号小端，0.001°/码，归北时使用         |
+| 11-13   | 预留         | -     | 3B，全零                                    |
+
+按 2026-11-16(2) 版使用方位角之后的 AA03 字段，按用户确认以有符号数发送 D，负值不折返。负载仍为13B，偏差的负载偏移为6、完整UDP帧偏移为20。单面阵自动GPS归北取最近一帧有效 D，手动 GPS 使用 0。普通停转、转动和寻位仍使用原字段。
 
 #### 2.2.1.4 工作模式控制 (0xAA04)
 
@@ -279,15 +282,16 @@ V6.4：多面阵下发按钮打开四行实时窗口，未收到有效报告时�
 
 #### 2.2.1.10 系统校时 (0xAA10)
 
-「四面阵配置」中的「系统校时」向资源调度发送独立请求，由资源调度用 GPS 时间校准系统时间。复用 `DISP_2_RES_PORT` → `RES_GET_DISP_PORT`，默认 6012 → 8012。Word 协议表的字节序号已按本消息负载从 1 起算修正。
+「四面阵配置」与机扫自动 GPS 窗口中的「系统校时」向资源调度发送独立请求，由资源调度用所选雷达的 GPS 时间校准系统时间。复用 `DISP_2_RES_PORT` → `RES_GET_DISP_PORT`，默认 6012 → 8012。Word 协议表的字节序号已按本消息负载从 1 起算修正。
 
 | 负载字节序号（从 1 起算） | UDP 帧偏移（从 0 起算） | 字段 | 类型 | 值 |
 | --- | --- | --- | --- | --- |
 | 1–2 | 14–15 | 信息编号 | uint16 | `0xAA10` |
 | 3 | 16 | 对时标志 | uint8 | `1` |
-| 4–6 | 17–19 | 预留 | 3B | 全零 |
+| 4 | 17 | 对时雷达 ID | uint8 | 四面阵选 0～3，机扫自动 GPS 用 0 |
+| 5–6 | 18–19 | 预留 | 2B | 全零 |
 
-负载 6B，按小端编码为 `10 AA 01 00 00 00`。沿用 14B 帧头和 5B 帧尾，完整帧 25B，帧头 `dataLen=20`，帧尾校验为前 20 字节 XOR。
+负载 6B，ID 0 时按小端编码为 `10 AA 01 00 00 00`。沿用 14B 帧头和 5B 帧尾，完整帧 25B，帧头 `dataLen=20`，帧尾校验为前 20 字节 XOR。机扫手动 GPS 模式使用资源调度本地时间，显控不发 AA10。
 
 ### 2.2.2 显控→信号处理
 
@@ -448,11 +452,16 @@ V6.4窗口补充：阵面下发窗口为非模态，可与主显控及其他窗�
 | 航向角             | uint32 | 0.001°，[0,360]，负载偏移59 |
 | 倾角               | int32  | 0.001°，[-90,90]，负载偏移63 |
 | 横滚角             | int16  | 0.01°，[-90,90]，负载偏移67 |
-| 新预留             | 34B    | 偏移69，多面阵新版负载103B |
+| 伺服码盘值         | uint32 | 横滚角之后，0.001°，[0,360]，负载偏移69 |
+| 新预留             | 30B    | 偏移73，新版负载103B |
 
-2026-10-29最终修订取代此前临时58B方案：新版DE02负载103B（含消息编号），加14B帧头和5B帧尾共122B；不是外部128B BB01。按启动config的displayConfig.default_panel_count选择线格式：1只接收39B旧版，2～4只接收103B新版，严格拒绝跨模式长度、已作废58B和任何截断/多余字节。前21B预留不承载坐标。上游资源管理按2秒限流；显控仍采用五秒健康窗口和1000帧电源全零防抖，不主动修改上游周期。
+按2026-11-16内部协议，新版DE02负载103B（含消息编号），加14B帧头和5B帧尾共122B。四面阵继续使用103B，机扫支持103B并兼容原39B健康帧。只接收规定的完整长度，拒绝作废的58B及多余字节。上游资源管理按2秒限流；显控健康聚合和电源防抖沿用现有逻辑。
 
-default_panel_count>1时，ID0新版BIT经纬高经既有GPS校验/全零剔除/偏离剔除/五点平滑后，更新统一原点和过滤位置消费者；DD05在多面阵不参与位置更新，其他ID不覆盖ID0。新版有效航向/倾角/横滚更新自动姿态，手动姿态仍优先。单面阵保持DD05与旧BIT偏航。无有效新位置时保留当前UI/默认值，不增加RAE姿态旋转，也不改变扫描角度。仅单面阵使用旧39B，不提供新位置；新版也归一化为相同健康/扫描模型。
+四面阵继续由ID0提供统一原点，解锁及均值按现有四面阵逻辑。机扫自动GPS由ID0的103B DE02提供经纬高与倾角/横滚，北斗航向单独显示。GPS位置经现有合法性、全零与偏离检查和平滑，首个有效新位置之前兼容旧DD05，两路样本各自维护窗口。机扫手动GPS使用手动位置与姿态，仍可查看北斗航向。健康与扫描使用共同的39B状态模型。
+
+V8.5.0机扫自动GPS按同一条DE02计算 `D = A0 − J0`，其中 A0 为伺服码盘，J0 为北斗航向。显示带符号的原始差值及近200次上报折线。无效航向或码盘导致曲线断线，不补零。码盘占用旧103B报文预留的前4B，帧长无法区分两版。归北偏差通过 AA03 下发，见 2.2.1.3。
+
+机扫AA08沿用四阵面142B负载，只有ID0的位置及姿态有效，ID1～3仅保留编号，位置及姿态填零。自动GPS下发最新接受的GPS位置与北斗航向/倾角/横滚，手动GPS下发手填参数。
 
 #### 2.2.7.3 系统校时回执 (0xDE03)
 
@@ -513,7 +522,7 @@ default_panel_count>1时，ID0新版BIT经纬高经既有GPS校验/全零剔除/
 ## 2026-07-14 protocol update
 
 - `0xDD01` point reports now use the documented 56-byte point record: the last 8 bytes are `targetConfidence` (`float`) and `targetRecResult` (`uint`). The frame-level `radarId` is in the range `0..3` and is copied into `PointInfo::radarId`.
-- Single-panel `0xDE02`: 39B legacy payload. Multi-panel V6.3: 103B payload preserving that entire prefix, followed by LLA/attitude and 34 reserved bytes. The startup panel count selects the layout; 58B is obsolete and rejected. See section 2.2.7.2. Health/scan consumers retain the normalized 39B status model.
+- `0xDE02` uses the 103B payload for four-panel and mechanical systems. Mechanical mode also accepts the 39B legacy status payload. See section 2.2.7.2. Health/scan consumers use the normalized 39B status model.
 - `0xEE01`, `0xEE02`, and `0xEE03` track reports were kept in the existing layout: `mesID` + `trackNum` + `N * trackInfo`. The field sum of `trackInfo` is 61 bytes, although the 2026-07-14 table says 58 bytes. These tables do not define a radar/array ID, so track frames cannot be separated by radar ID until that field position and size are specified by the protocol owner. Legacy track decoding therefore remains unchanged and uses radar ID 0 internally.
 - The 2026-07-03 external-control document adds fields inside the existing opaque 512-byte system-control table. `ExternalSystemControl512` remains a pass-through buffer; no external frame-size change is required in the display controller.
 - `Basic/Protocol.h` contains size assertions for the byte-level structures. Invalid DD01 radar IDs are logged, and DD01/DE02 receive logs include the radar ID for field troubleshooting.
@@ -539,3 +548,10 @@ default_panel_count>1时，ID0新版BIT经纬高经既有GPS校验/全零剔除/
 按用户提供的最新点迹上报表，`targetRecResult`为uint32小端：0未知、1无人机、2行人、3车辆、4鸟、5其它。DD01点迹记录仍为56B，EE航迹记录仍为61B，字段类型、偏移、角度/距离单位和帧结构不变；不把uint32压缩为1字节或布尔值。各接收器保留原值。
 
 列表、P显/扇区提示、点信息和3D提示显示六种名称。着色不按新增类别分色：普通航迹仅`targetRecResult==1`使用现有无人机颜色，其余0/2/3/4/5共用原非无人机颜色。保持逐样本着色，不用最新识别改整条历史航迹；两种主题分别沿用现有颜色。检测点的无人机红色仍由既有配置开关控制，且只匹配完整数值1。离线颜色码、TBD/协同类型颜色和外报协议自身类型映射不变。
+
+
+### TAS频点临时扩展（V8.4.5，2026-11-10）
+
+TAS的AA05 freqID固定码扩展为0～80的每个整数，对应9.00～9.80GHz，0.01GHz/码。例：9.01→1、9.02→2、9.10→10、9.80→80。跳频仍为90/0x5A；81～89不是有效固定频点。频点为原uint8，AA05负载54B、频点偏移2不变。保存配置直接记录发送码，恢复通过itemData匹配，不从显示序号推断编码。TWS频点选项不随本轮修改。
+
+2026-11-16（V8.4.6）：TAS界面隐藏临时中间频点，可选固定码回到0/10/…/80，跳频保留90/0x5A。旧配置若保存了临时频点，需重新选择后才可保存或下发。AA05字节布局和频点日志解码沿用上述定义。

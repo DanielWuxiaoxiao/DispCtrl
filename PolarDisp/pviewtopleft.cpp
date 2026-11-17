@@ -15,29 +15,16 @@
 #include "Basic/ConfigManager.h"
 #include "Controller/controller.h"
 #include "ElectromagneticDevice/devicemodule.h"
-#include "cusWidgets/custommessagebox.h"
 #include <QPushButton>
-#include <QDialog>
-#include <QDialogButtonBox>
-#include <QFormLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPointer>
-#include <QVBoxLayout>
 #include <QFontMetrics>
 #include "Basic/uifontscale.h"
 #include "paramWidget/radarpanelpositiondialog.h"
 #pragma pack(push, 8)
 #include "cusWidgets/cuswindow.h"
-#include <QGuiApplication>
-#include <QScreen>
 #pragma pack(pop)
-
-namespace {
-int referencePrecision(int field) {
-    return field < 2 ? 9 : field == RadarReference::Altitude || field == RadarReference::Roll ? 2 : 3;
-}
-}
 
 mainviewTopLeft::mainviewTopLeft(QWidget *parent) :
     QWidget(parent),
@@ -71,7 +58,7 @@ mainviewTopLeft::mainviewTopLeft(QWidget *parent) :
     m_rollEdit->setAlignment(Qt::AlignCenter);
     ui->gridLayout->addWidget(rollLabel, 5, 0);
     ui->gridLayout->addWidget(m_rollEdit, 5, 1);
-    m_originButton = new QPushButton(QStringLiteral("配置雷达经纬高/姿态"), this);
+    m_originButton = new QPushButton(QStringLiteral("机扫 GPS 配置"), this);
     m_originButton->setObjectName("radarReferenceButton");
     UiTheme::setStyle(m_originButton, [=] { return UiFontScale::style((UiTheme::classicEnabled ? "QPushButton { background:#075a58; color:#d9ffff; font-size:15px; "
                                  "padding:6px 10px; border:1px solid #00bfa5; border-radius:5px; }"
@@ -87,7 +74,7 @@ mainviewTopLeft::mainviewTopLeft(QWidget *parent) :
     m_originButton->setVisible(!multiPanel);
     m_sendPositionButton->setVisible(multiPanel);
     connect(m_sendPositionButton, &QPushButton::clicked, this, &mainviewTopLeft::showPanelPositionDialog);
-    connect(m_originButton, &QPushButton::clicked, this, &mainviewTopLeft::showReferenceDialog);
+    connect(m_originButton, &QPushButton::clicked, this, &mainviewTopLeft::showPanelPositionDialog);
     connect(CON_INS, &Controller::radarReferenceChanged, this, &mainviewTopLeft::refreshReference);
     refreshReference();
     fitReferenceLayout();
@@ -170,21 +157,27 @@ void mainviewTopLeft::showPanelPositionDialog()
         m_panelPositionWindow->activateWindow();
         return;
     }
-    std::array<bool, 4> locked{};
-    for (int id = 0; id < 4; ++id) locked[id] = CON_INS->radarPanelReference(id).locked();
-    RadarPanelPositionDialog::Actions actions;
-    actions.submit = [](const RadarPanelValues& values) { return CON_INS->sendRadarPanelPositions(values); };
-    actions.requestTimeSync = [] { CON_INS->requestSystemTimeSync(); };
-    actions.live = [] { return CON_INS->radarPanelSnapshot(); };
-    actions.lock = [](int id, const RadarReference::Pose& values) { return CON_INS->lockRadarPanelReference(id, values); };
-    actions.unlock = [](int id) -> std::optional<RadarReference::Pose> {
-        if (!CON_INS->unlockRadarPanelReference(id)) return std::nullopt;
-        return CON_INS->radarPanelReference(id).pose();
-    };
-    m_panelPositionWindow = new CusWindow(QStringLiteral("四面阵配置"),
-        QIcon(":/resources/icon/radararray.png"), this);
-    m_panelPositionDialog = new RadarPanelPositionDialog(
-        CON_INS->radarPanelDialogValues(), locked, std::move(actions), m_panelPositionWindow);
+    const bool multiPanel = CF_INS.defaultPanelCount() > 1;
+    const QString title = multiPanel ? QStringLiteral("四面阵配置") : QStringLiteral("单面阵配置");
+    m_panelPositionWindow = new CusWindow(title, QIcon(":/resources/icon/radararray.png"), this);
+    if (!multiPanel) {
+        m_panelPositionWindow->setWindowModality(Qt::ApplicationModal);
+        m_panelPositionDialog = createSinglePanelDialog(m_panelPositionWindow);
+    } else {
+        std::array<bool, 4> locked{};
+        for (int id = 0; id < 4; ++id) locked[id] = CON_INS->radarPanelReference(id).locked();
+        RadarPanelPositionDialog::Actions actions;
+        actions.submit = [](const RadarPanelValues& values) { return CON_INS->sendRadarPanelPositions(values); };
+        actions.requestTimeSync = [](int radarId) { CON_INS->requestSystemTimeSync(radarId); };
+        actions.live = [] { return CON_INS->radarPanelSnapshot(); };
+        actions.lock = [](int id, const RadarReference::Pose& values) { return CON_INS->lockRadarPanelReference(id, values); };
+        actions.unlock = [](int id) -> std::optional<RadarReference::Pose> {
+            if (!CON_INS->unlockRadarPanelReference(id)) return std::nullopt;
+            return CON_INS->radarPanelReference(id).pose();
+        };
+        m_panelPositionDialog = new RadarPanelPositionDialog(
+            CON_INS->radarPanelDialogValues(), locked, std::move(actions), m_panelPositionWindow);
+    }
     connect(CON_INS, &Controller::systemTimeSyncStateChanged, m_panelPositionDialog.data(),
             &RadarPanelPositionDialog::setSystemTimeSyncState);
     m_panelPositionDialog->setSystemTimeSyncState(CON_INS->systemTimeSyncState());
@@ -195,154 +188,66 @@ void mainviewTopLeft::showPanelPositionDialog()
     m_panelPositionWindow->resize(contentSize + QSize(22, 38));
 }
 
-void mainviewTopLeft::showReferenceDialog()
+RadarPanelPositionDialog* mainviewTopLeft::createSinglePanelDialog(QWidget* parent)
 {
-    const bool classic = UiTheme::classicEnabled;
+    auto* controller = CON_INS;
     const auto electromagnetic = m_electromagneticModule;
     const bool withElectromagnetic = electromagnetic && electromagnetic->isEnabled();
     const int fieldCount = withElectromagnetic ? RadarReference::Yaw + 1 : RadarReference::Count;
-    const QString title = m_originButton->text();
-    QPointer<CusWindow> host;
-    if (!classic) {
-        host = new CusWindow(title, QIcon(":/resources/icon/ui/sliders.svg"), this);
-        host->setWindowModality(Qt::ApplicationModal);
-        UiTheme::setStyle(host, [=] { return UiFontScale::style(
-            "QWidget#TitleBar {background:#1b2228;border:none;border-bottom:1px solid #303b44;}"
-            "QLabel#TitleLabel {background:transparent;color:#e8edf1;font-size:20px;font-weight:bold;}"); });
-    }
-    QPointer<QDialog> dialog = new QDialog(host ? static_cast<QWidget*>(host.data()) : this);
-    if (host) dialog->setWindowFlags(Qt::Widget);
-    dialog->setObjectName(QStringLiteral("radarReferenceDialog"));
-    dialog->setWindowTitle(title);
-    dialog->setMinimumWidth(classic ? 580 : ScaleHelper::uiScaled(560));
-    UiTheme::setStyle(dialog, [=] { return UiFontScale::style(classic ?
-        "QDialog {background:#101818;} QLabel {color:#d9ffff;font-size:18px;}"
-        "QLineEdit {background:#142d28;color:white;border:1px solid #66ccaa;padding:6px;font-size:18px;}"
-        "QPushButton {background:#123630;color:#66ffcc;border:1px solid #66ccaa;padding:7px;font-size:18px;}" :
-        "QDialog#radarReferenceDialog {background:#12171c;}"
-        "QLabel {background:transparent;color:#e8edf1;font-size:18px;}"
-        "QLineEdit {background:#141c22;color:#e8edf1;border:1px solid #3b4a55;"
-        "border-radius:4px;padding:7px 10px;font-size:18px;selection-background-color:#2e4b57;}"
-        "QLineEdit:focus {border-color:#78cbd8;}"
-        "QPushButton {background:#222c33;color:#e8edf1;border:1px solid #3b4a55;"
-        "border-radius:4px;padding:7px 14px;font-size:16px;}"
-        "QPushButton:hover {background:#293b44;border-color:#78cbd8;}"
-        "QPushButton:pressed {background:#23414a;}"); });
-    auto* layout = new QVBoxLayout(dialog);
-    auto* form = new QFormLayout;
-    if (host) {
-        layout->setContentsMargins(16, 14, 16, 14);
-        layout->setSpacing(14);
-        form->setHorizontalSpacing(18);
-        form->setVerticalSpacing(10);
-        form->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
-    }
-    layout->addLayout(form);
-    const QStringList names = {QStringLiteral("经度(°)"), QStringLiteral("纬度(°)"), QStringLiteral("海拔高度(m)"),
-                               QStringLiteral("阵面偏航(°)"), QStringLiteral("倾角(°)"), QStringLiteral("横滚角(°)")};
-    std::array<QLineEdit*, RadarReference::Count> edits{};
-    const auto& reference = CON_INS->radarReference();
-    for (int i = 0; i < fieldCount; ++i) {
-        edits[i] = new QLineEdit(dialog);
-        edits[i]->setObjectName(QStringLiteral("radarReferenceField%1").arg(i));
-        const int precision = withElectromagnetic && i == RadarReference::Altitude ? 3 : referencePrecision(i);
-        edits[i]->setText(QString::number(reference.value(static_cast<RadarReference::Field>(i)), 'f', precision));
-        form->addRow(names[i], edits[i]);
-    }
-    auto* error = new QLabel(dialog);
-    const QString errorStyle = UiFontScale::style(classic ? "color:#ff9b9b" : "color:#ea8c93");
-    UiTheme::setStyle(error, [=] { return errorStyle; });
-    error->setWordWrap(true);
-    error->hide();
-    layout->addWidget(error);
-    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, dialog);
-    buttons->button(QDialogButtonBox::Ok)->setText(QStringLiteral("确定"));
-    buttons->button(QDialogButtonBox::Ok)->setObjectName(QStringLiteral("applyRadarReference"));
-    if (host) buttons->button(QDialogButtonBox::Ok)->setStyleSheet(QStringLiteral(
-        "QPushButton {background:#23414a;border-color:#78cbd8;color:#c2e8ed;}"
-        "QPushButton:hover {background:#2e4b57;}"));
-    buttons->button(QDialogButtonBox::Cancel)->setText(QStringLiteral("取消"));
-    layout->addWidget(buttons);
-    connect(buttons, &QDialogButtonBox::rejected, dialog, &QDialog::reject);
-    const auto checkReference = [error, errorStyle, withElectromagnetic, electromagnetic] {
-        UiTheme::setStyle(error, [=] { return errorStyle; });
-        if (CON_INS->radarReference().locked()) {
-            error->setText(QStringLiteral("阵面0已锁定，请先在四面阵配置中解除锁定。"));
-        } else if (withElectromagnetic && (!electromagnetic || !electromagnetic->isEnabled())) {
-            error->setText(QStringLiteral("电磁模块不可用。"));
-        } else {
-            return true;
-        }
-        error->show();
-        return false;
+    const auto checkReference = [controller, electromagnetic, withElectromagnetic]() -> QString {
+        if (controller->radarReference().locked())
+            return QStringLiteral("阵面0已锁定，请先在四面阵配置中解除锁定。");
+        if (withElectromagnetic && (!electromagnetic || !electromagnetic->isEnabled()))
+            return QStringLiteral("电磁模块不可用。");
+        return {};
     };
-    const auto apply = [=](bool persist) {
-        if (!checkReference()) return;
-        auto values = CON_INS->radarReference().manual();
-        for (int i = 0; i < fieldCount; ++i) {
-            const QString text = edits[i]->text().trimmed();
-            bool ok = false;
-            const double value = text.toDouble(&ok);
-            if (!ok || !RadarReference::validUi(static_cast<RadarReference::Field>(i), value)) {
-                const QString range = withElectromagnetic
-                    ? QStringLiteral("经度±180、纬度±90、偏航0～360、高度-1000～5000m。")
-                    : QStringLiteral("经度±180、纬度/倾角/横滚±90、偏航0～360、高度-1000～5000m。");
-                error->setText(names[i] + QStringLiteral("无效。") + range);
-                error->show();
-                edits[i]->setFocus();
-                return;
-            }
-            values[i] = value;
+    RadarPanelPositionDialog::SinglePanel actions;
+    actions.fieldCount = fieldCount;
+    actions.manualGps = controller->mechanicalGpsManual();
+    actions.gps = &controller->mechanicalGps();
+    actions.setManualGps = [controller, electromagnetic](bool manual) -> QString {
+        if (!controller->setMechanicalGpsManual(manual)) return QStringLiteral("切换 GPS 模式失败。");
+        if (!manual && electromagnetic && electromagnetic->isEnabled())
+            electromagnetic->restoreAutomaticRadarPosition();
+        return {};
+    };
+    actions.apply = [=](const RadarReference::Pose& edited, bool persist) -> QString {
+        if (const QString error = checkReference(); !error.isEmpty()) return error;
+        auto pose = controller->radarReference().pose();
+        auto values = controller->radarReference().manual();
+        for (int field = 0; field < fieldCount; ++field) {
+            pose[field] = edited[field];
+            values[field] = edited[field];
         }
-        if (persist && !CF_INS.saveRadarReference(*values[0], *values[1], *values[2], *values[3], *values[4], *values[5])) {
-            error->setText(QStringLiteral("保存失败，请检查 config.toml 的路径及写入权限。"));
-            error->show();
-            return;
-        }
-        if (!CON_INS->setManualRadarReference(values, withElectromagnetic)) return;
+        if (controller->mechanicalGpsManual() && !persist && !controller->sendMechanicalRadarPosition(pose))
+            return QStringLiteral("机扫位置下发请求未提交，请检查参数和资源调度链路。");
+        if (persist && !CF_INS.saveRadarReference(pose[0], pose[1], pose[2], pose[3], pose[4], pose[5]))
+            return QStringLiteral("保存失败，请检查 config.toml 的路径及写入权限。");
+        if (!controller->setManualRadarReference(values, withElectromagnetic))
+            return QStringLiteral("应用本地参考值失败。");
         if (withElectromagnetic && electromagnetic)
-            electromagnetic->setManualRadarPosition(*values[RadarReference::Latitude],
-                *values[RadarReference::Longitude], *values[RadarReference::Altitude]);
-        if (persist) {
-            UiTheme::setStyle(error, [=] { return UiFontScale::style(classic ? "color:#66ffcc" : "color:#e8edf1"); });
-            error->setText(QStringLiteral("已保存到本地 config.toml。"));
-            error->show();
-        } else if (dialog) dialog->accept();
+            electromagnetic->setManualRadarPosition(pose[RadarReference::Latitude],
+                pose[RadarReference::Longitude], pose[RadarReference::Altitude]);
+        return {};
     };
-    connect(buttons, &QDialogButtonBox::accepted, dialog, [apply] { apply(false); });
+    actions.submitGps = [controller] { return controller->sendMechanicalGpsPosition(); };
+    actions.submitServoNorth = [controller] {
+        return controller->requestMechanicalServoNorth(CF_INS.servoSpeed(3));
+    };
     if (withElectromagnetic) {
-        auto* automatic = buttons->addButton(QStringLiteral("恢复自动"), QDialogButtonBox::ResetRole);
-        connect(automatic, &QPushButton::clicked, dialog, [=] {
-            if (!checkReference()) return;
-            auto values = CON_INS->radarReference().manual();
-            for (int i = 0; i < fieldCount; ++i) values[i].reset();
-            if (!CON_INS->setManualRadarReference(values)) return;
+        actions.restoreAutomatic = [=]() -> QString {
+            if (const QString error = checkReference(); !error.isEmpty()) return error;
+            auto values = controller->radarReference().manual();
+            for (int field = 0; field < fieldCount; ++field) values[field].reset();
+            if (!controller->setManualRadarReference(values)) return QStringLiteral("解除本地覆盖失败。");
             if (electromagnetic) electromagnetic->restoreAutomaticRadarPosition();
-            if (dialog) dialog->accept();
-        });
-    } else {
-        auto* save = buttons->addButton(QStringLiteral("保存本地"), QDialogButtonBox::ActionRole);
-        connect(save, &QPushButton::clicked, dialog, [apply] { apply(true); });
+            return {};
+        };
     }
-    if (!host) {
-        dialog->exec();
-        if (dialog) dialog->deleteLater();
-        return;
-    }
-    host->setContentWidget(dialog);
-    host->ensurePolished();
-    const QSize preferredSize = host->sizeHint().expandedTo(QSize(ScaleHelper::uiScaled(600), 0));
-    QScreen* screen = QGuiApplication::screenAt(mapToGlobal(rect().center()));
-    if (!screen) screen = QGuiApplication::primaryScreen();
-    if (screen) {
-        const QRect available = screen->availableGeometry();
-        const QSize size = preferredSize.boundedTo(available.size());
-        host->setInitialGeometry(QRect(available.center() - QPoint(size.width() / 2, size.height() / 2), size));
-    }
-    host->show();
-    // 保留原 exec 模态及 Enter/Esc 语义；返回后再关闭宿主，避免 accept/reject 栈内销毁。
-    dialog->exec();
-    if (host) host->close();
+    auto* dialog = new RadarPanelPositionDialog(controller->radarReference().pose(),
+        std::move(actions), [controller](int id) { controller->requestSystemTimeSync(id); }, parent);
+    connect(controller, &Controller::mechanicalGpsUpdated, dialog, &RadarPanelPositionDialog::refreshMechanicalGps);
+    return dialog;
 }
 
 void mainviewTopLeft::paintEvent(QPaintEvent* event) {

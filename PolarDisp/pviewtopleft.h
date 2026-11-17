@@ -36,6 +36,7 @@ public:
     double getAltitude()  const;  // 高度，单位：米
     double getYaw()       const;  // 阵面偏航角（真北参考），单位：度
     void setElectromagneticDeviceModule(ElectromagneticDeviceModule* module);
+    void showPanelPositionDialog();
 signals:
     void overlaySizeChanged();
 
@@ -45,8 +46,7 @@ protected:
 private:
     void refreshReference();
     void fitReferenceLayout();
-    void showReferenceDialog();
-    void showPanelPositionDialog();
+    RadarPanelPositionDialog* createSinglePanelDialog(QWidget* parent);
     QPushButton* m_originButton = nullptr;
     QPushButton* m_sendPositionButton = nullptr;
     QLineEdit* m_rollEdit = nullptr;

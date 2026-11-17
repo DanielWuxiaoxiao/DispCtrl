@@ -105,6 +105,7 @@ public:
 
     // Qt 全局逻辑坐标。首次 show 保留调用方给定的大小/屏幕位置，不再 adjustSize。
     void setInitialGeometry(const QRect& geometry);
+    void resizeNormalHeight(int height, const QRect& available);
 
 protected:
     // === 鼠标事件处理 ===

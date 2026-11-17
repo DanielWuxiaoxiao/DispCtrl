@@ -1105,16 +1105,27 @@ void PPIView::resizeEvent(QResizeEvent* e) {
  */
 void PPIView::onMaxDistanceChanged(double distance)
 {
+    if (!std::isfinite(distance) || distance < PPI_MAX_DISTANCE_MIN_KM) {
+        return;
+    }
+    const double maxRangeInMeters = distance * 1000.0;
+    if (m_scene && m_scene->axis() && maxRangeInMeters <= m_scene->axis()->minRange()) {
+        if (visualSettings) {
+            visualSettings->setMaxDistance(m_currentRange);
+        }
+        CustomMessageBox::showWarning(this, tr("输入错误"), tr("最大显示距离必须大于最小显示距离。"));
+        return;
+    }
+
     // 更新内部范围记录
     m_currentRange = distance;
+    if (visualSettings) {
+        visualSettings->setMaxDistance(distance);
+    }
 
     if (m_scene && m_scene->axis()) {
-        // 将公里转换为米（PolarAxis使用米作为单位）
-        double maxRangeInMeters = distance * 1000.0;
-        double currentMinRange = m_scene->axis()->minRange();
-
         // 设置新的距离范围
-        m_scene->axis()->setRange(currentMinRange, maxRangeInMeters);
+        m_scene->axis()->setRange(m_scene->axis()->minRange(), maxRangeInMeters);
 
         // 触发场景更新
         m_scene->updateSceneSize(size());
@@ -1604,6 +1615,11 @@ QString PPIView::externalReportingText(int batch) const
     // 激光与指控分别由独立模块维护；同批航迹允许同时处于两种上报状态。
     if (!electromagneticText.isEmpty()) states.append(electromagneticText);
     return states.join(QStringLiteral(" + "));
+}
+
+void PPIView::showRadarPositionDialog()
+{
+    if (radarInfoW) radarInfoW->showPanelPositionDialog();
 }
 
 void PPIView::setElectromagneticDeviceModule(ElectromagneticDeviceModule* module)

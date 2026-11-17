@@ -5,13 +5,13 @@
 #include <QString>
 
 namespace TasControl {
-// All TAS options use index*10; index 9 is random hopping (90/0x5A).
-inline int frequencyCode(int index) { return index >= 0 && index <= 9 ? index * 10 : -1; }
-inline int frequencyIndex(int code) { return code >= 0 && code <= 90 && code % 10 == 0 ? code / 10 : -1; }
+// 9.00..9.80GHz，0.01GHz/码；跳频保留90(0x5A)，放在固定频点之后。
+inline int frequencyCode(int index) { return index >= 0 && index <= 80 ? index : index == 81 ? 90 : -1; }
+inline int frequencyIndex(int code) { return code >= 0 && code <= 80 ? code : code == 90 ? 81 : -1; }
 inline QString frequencyText(int code) {
     if (code == 90) return QStringLiteral("跳频(freqID=90/0x5A)");
     if (frequencyIndex(code) >= 0)
-        return QStringLiteral("%1GHz(freqID=%2)").arg(9.0 + code * 0.01, 0, 'f', 1).arg(code);
+        return QStringLiteral("%1GHz(freqID=%2)").arg(9.0 + code * 0.01, 0, 'f', 2).arg(code);
     return QStringLiteral("未知频点(freqID=%1)").arg(code);
 }
 inline QString scanDetails(const ScanRange& param) {

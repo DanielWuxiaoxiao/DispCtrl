@@ -154,9 +154,10 @@ void Disp2ResManager::sendTrackDataRateControl(quint16 batch, quint8 rateHz)
     sendParam(reinterpret_cast<char*>(&command), sizeof(command));
 }
 
-void Disp2ResManager::sendSystemTimeSyncControl()
+void Disp2ResManager::sendSystemTimeSyncControl(quint8 radarId)
 {
     SystemTimeSyncControl command;
+    command.radarId = radarId;
     sendParam(reinterpret_cast<char*>(&command), sizeof(command));
 }
 

@@ -14,7 +14,7 @@
  * @details 显示在主界面标题区（原英文名 SubtitleLabel 处）。
  *          发布新版本时只需修改此处一处。
  */
-#define APP_VERSION_STR "V8.4.4"
+#define APP_VERSION_STR "V8.5.0"
 
 #include <QColor>
 #include <QString>
@@ -53,6 +53,8 @@ constexpr char CO_TRACK_LABEL[] = "协同航迹";
 //RANGE - 可通过CF_INS.range()获取配置值
 constexpr float MIN_RANGE = 0.0;
 constexpr float MAX_RANGE = 5000.0;  //单位m
+constexpr double PPI_MAX_DISTANCE_MIN_KM = 0.1;
+constexpr double PPI_MAX_DISTANCE_MAX_KM = 99999.0;
 
 //ZVALUE - 可通过CF_INS.zValue()获取配置值
 constexpr int TOOL_TIP_Z = 1000;

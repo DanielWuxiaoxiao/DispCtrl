@@ -5,6 +5,28 @@
 class RadarReferenceConfigTest final : public QObject {
     Q_OBJECT
 private slots:
+    void manualGpsModeLoadsAndSurvivesSavingReference() {
+        auto& config = ConfigManager::instance();
+        QVERIFY(config.mechanicalGpsManual());
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath("config.toml");
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QVERIFY(file.write("[radar]\ngps_mode = \"manual\"\n") > 0);
+        file.close();
+        QVERIFY(config.load(path));
+        QVERIFY(config.mechanicalGpsManual());
+        QVERIFY(config.saveRadarReference(120, 30, 100, 0, 0, 0));
+        QVERIFY(config.load(path));
+        QVERIFY(config.mechanicalGpsManual());
+        QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        QVERIFY(file.write("[radar]\ngps_mode = \"auto\"\n") > 0);
+        file.close();
+        QVERIFY(config.load(path));
+        QVERIFY(!config.mechanicalGpsManual());
+    }
+
     void wideBeamAzimuthConfigDoesNotTruncate() {
         QTemporaryDir dir;
         QVERIFY(dir.isValid());

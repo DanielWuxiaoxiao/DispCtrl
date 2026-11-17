@@ -278,13 +278,6 @@ private:
      */
     void setupTrackPointLimitRow();
 
-    /**
-     * @brief 验证距离输入
-     * @param distance 输入的距离值
-     * @return 验证结果，true表示有效
-     * @details 检查距离输入的合法性，确保在合理范围内
-     */
-    bool validateDistance(double distance) const;
 };
 
 #endif // PPIVISUALSETTINGS_H

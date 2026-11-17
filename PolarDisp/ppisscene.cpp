@@ -65,12 +65,11 @@ PPIScene::PPIScene(QObject *parent)
     initLayerObjects();
 
     // 配置文件中的值是公里，需要转换为米用于内部计算
-    double minRangeKm = CF_INS.range("min", 1);  // 默认1公里
-    double maxRangeKm = CF_INS.range("max", 5);  // 默认5公里
-    double minRangeM = minRangeKm * 1000.0;      // 转换为米
-    double maxRangeM = maxRangeKm * 1000.0;      // 转换为米
-
-    setRange(minRangeM, maxRangeM);
+    const double maxRangeKm = std::clamp(CF_INS.range("max", 5.0),
+                                        PPI_MAX_DISTANCE_MIN_KM, PPI_MAX_DISTANCE_MAX_KM);
+    const double minRangeKm = CF_INS.range("min", 0.0);
+    const double effectiveMinKm = minRangeKm < maxRangeKm ? minRangeKm : 0.0;
+    setRange(effectiveMinKm * 1000.0, maxRangeKm * 1000.0);
 
     m_scan = new ScanLayer(m_axis);
     addItem(m_scan);

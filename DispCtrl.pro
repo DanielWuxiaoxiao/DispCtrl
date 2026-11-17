@@ -225,8 +225,10 @@ HEADERS += \
     Basic/authmanager.h \
     Basic/radarreference.h \
     Basic/tascontrolformat.h \
+    paramWidget/tasfrequencycombo.h \
     Basic/healthstatewindow.h \
     Basic/gpspositionfilter.h \
+    Basic/mechanicalgps.h \
     Basic/radarpositioncontrol.h \
     Basic/radarpanelstate.h \
     Basic/radarpanelstore.h \

@@ -2963,19 +2963,26 @@ void MainOverLayOut::onServoControlClicked() {
 
     dialog->restoreParam(m_servoControlParam);
 
-    connect(dialog, &ServoControl::setParam, this, [this](const ServoControlParam param) {
+    connect(dialog, &ServoControl::setParam, this, [this](ServoControlParam param) {
+        if (!CON_INS->prepareServoControl(param)) {
+            CustomMessageBox::showWarning(this, tr("归北未下发"), tr("未收到有效 D 值，请在单面阵配置中检查北斗航向和伺服码盘。"));
+            return;
+        }
         m_servoControlParam = param;
         logCommand(QString::fromUtf8(u8"\u624b\u52a8\u4f3a\u670d\u63a7\u5236"),
                    formatServoControlDetails(param, QString::fromUtf8(u8"\u624b\u52a8\u4e0b\u53d1")));
+        CON_INS->sendServoControl(param);
     });
-
-    connect(dialog, &ServoControl::setParam, CON_INS, &Controller::sendServoControl);
 
     window->show();
 }
 
 void MainOverLayOut::onServoNorthClicked()
 {
+    if (CF_INS.defaultPanelCount() == 1 && !CON_INS->mechanicalGpsManual()) {
+        if (mView) mView->showRadarPositionDialog();
+        return;
+    }
     ServoControlParam northParam;
     northParam.cmd = 3;
     northParam.speed = m_servoControlParam.speed;
@@ -3155,7 +3162,7 @@ QString MainOverLayOut::formatServoControlDetails(const ServoControlParam& param
         + QString("%1").arg(param.mesID, 4, 16, QLatin1Char('0')).toUpper();
     const double azDeg = static_cast<double>(param.az) / 100.0;
 
-    return QString::fromUtf8(u8"%1, mesID=%2, cmd=%3(%4), speed=%5\u79d2/\u8f6c, azRaw=%6, az=%7\u00b0")
+    QString details = QString::fromUtf8(u8"%1, mesID=%2, cmd=%3(%4), speed=%5\u79d2/\u8f6c, azRaw=%6, az=%7\u00b0")
         .arg(source)
         .arg(mesId)
         .arg(static_cast<unsigned int>(param.cmd))
@@ -3163,6 +3170,8 @@ QString MainOverLayOut::formatServoControlDetails(const ServoControlParam& param
         .arg(static_cast<unsigned int>(param.speed))
         .arg(param.az)
         .arg(azDeg, 0, 'f', 2);
+    if (param.cmd == 3) details += QStringLiteral("，D=%1°").arg(param.northDeviationMilliDeg / 1000.0, 0, 'f', 3);
+    return details;
 }
 
 /**

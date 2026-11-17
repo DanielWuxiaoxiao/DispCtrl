@@ -12,24 +12,27 @@ private slots:
         QCOMPARE(offsetof(BeamControl, beam1Flag), std::size_t(18));
         QCOMPARE(offsetof(BeamControl, beam2Flag), std::size_t(30));
         QCOMPARE(offsetof(BeamControl, beam3Flag), std::size_t(42));
-        for (int index = 0; index <= 8; ++index) {
-            QCOMPARE(TasControl::frequencyCode(index), index * 10);
-            QCOMPARE(TasControl::frequencyIndex(index * 10), index);
+        for (int index = 0; index <= 80; ++index) {
+            QCOMPARE(TasControl::frequencyCode(index), index);
+            QCOMPARE(TasControl::frequencyIndex(index), index);
         }
-        QCOMPARE(TasControl::frequencyCode(9), 90);
-        QCOMPARE(TasControl::frequencyIndex(90), 9);
+        QCOMPARE(TasControl::frequencyCode(81), 90);
+        QCOMPARE(TasControl::frequencyIndex(90), 81);
         QCOMPARE(TasControl::frequencyCode(-1), -1);
-        QCOMPARE(TasControl::frequencyIndex(9), -1);
+        QCOMPARE(TasControl::frequencyCode(82), -1);
+        QCOMPARE(TasControl::frequencyIndex(81), -1);
         BeamControl param;
         const QByteArray baseline(reinterpret_cast<const char*>(&param), sizeof(param));
-        param.freqID = static_cast<unsigned char>(TasControl::frequencyCode(9));
+        param.freqID = static_cast<unsigned char>(TasControl::frequencyCode(81));
         const QByteArray wire(reinterpret_cast<const char*>(&param), sizeof(param));
         QCOMPARE(quint8(wire[2]), quint8(0x5A));
         QCOMPARE(wire.left(2), baseline.left(2));
         QCOMPARE(wire.mid(3), baseline.mid(3));
         QCOMPARE(TasControl::frequencyText(90), QStringLiteral("跳频(freqID=90/0x5A)"));
-        QVERIFY(TasControl::frequencyText(40).contains("9.4GHz"));
-        QVERIFY(TasControl::frequencyText(80).contains("9.8GHz"));
+        QVERIFY(TasControl::frequencyText(1).contains("9.01GHz"));
+        QVERIFY(TasControl::frequencyText(2).contains("9.02GHz"));
+        QVERIFY(TasControl::frequencyText(40).contains("9.40GHz"));
+        QVERIFY(TasControl::frequencyText(80).contains("9.80GHz"));
     }
     void logsUseTransmittedFields() {
         BeamControl beam;

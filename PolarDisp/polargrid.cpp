@@ -220,18 +220,21 @@ void PolarGrid::updateGrid() {
 
     // === 6. 右侧距离刻度标注绘制 ===
     // 在屏幕右侧显示距离值，对应各个距离圆环的实际距离
-    double maxRange = mAxis->maxRange();
-    int rangeStep = maxRange / ringCount;  // 计算每个圆环对应的距离步长
+    const double rangeStepKm = mAxis->maxRange() / (ringCount * 1000.0);
+    int decimals = 1;
+    double scaledStep = rangeStepKm * 10.0;
+    while (decimals < 3 && std::abs(scaledStep - std::round(scaledStep)) > 1e-6) {
+        ++decimals;
+        scaledStep *= 10.0;
+    }
 
     for (int i=1; i<=ringCount; ++i) {
         double r = radius * i / ringCount;  // 当前圆环的像素半径
 
         // 距离标签格式化：第一个圆环显示"km"单位，其他仅显示数值
-        QString label;
+        QString label = QString::number(i * rangeStepKm, 'f', decimals);
         if(i == 1) {
-            label = QString::number(i * rangeStep / 1000.0, 'f', 1) + " km";
-        } else {
-            label = QString::number(i * rangeStep / 1000.0, 'f', 1);
+            label += QStringLiteral(" km");
         }
 
         // 创建距离标注文本并定位到右侧

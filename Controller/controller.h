@@ -51,6 +51,7 @@
 #include "Basic/radarpanelstate.h"
 #include "Basic/healthstatewindow.h"
 #include "Basic/gpspositionfilter.h"
+#include "Basic/mechanicalgps.h"
 #include "Basic/systemtimesync.h"
 
 class QTimer;
@@ -219,7 +220,7 @@ signals:
     void radarPanelPositionRequested(const QString& text);
     void sendTrackDataRateControl(quint16 batch, quint8 rateHz);
     void trackDataRateRequested(const QString& text);
-    void sendSystemTimeSyncControl();
+    void sendSystemTimeSyncControl(quint8 radarId);
     void systemTimeSyncStateChanged(SystemTimeSyncState state);
 
     /**
@@ -391,6 +392,7 @@ signals:
     void geoLocationUpdated(double latitude, double longitude, double altitude);
     void filteredGeoLocationReported(double latitude, double longitude, double altitude);
     void radarReferenceChanged();
+    void mechanicalGpsUpdated();
     void healthBitSnapshot(BITReport report, bool powerConfirmed, quint32 powerSampleCount);
     void healthSoftwareSnapshot(MonitorParam report);
     void healthFaultSummary(const QString& text);
@@ -413,10 +415,17 @@ public slots:
 
 public:
     const RadarReference& radarReference() const { return m_radarReference; }
+    bool mechanicalGpsManual() const { return m_mechanicalGpsManual; }
+    bool setMechanicalGpsManual(bool manual);
+    const MechanicalGps& mechanicalGps() const { return m_mechanicalGps; }
     bool setManualRadarReference(const RadarReference::Values& values, bool holdPosition = false);
     bool sendCurrentRadarPanelPosition();
     bool sendRadarPanelPositions(const RadarPanelValues& values);
-    void requestSystemTimeSync();
+    bool sendMechanicalRadarPosition(const RadarReference::Pose& pose);
+    bool sendMechanicalGpsPosition();
+    bool prepareServoControl(ServoControlParam& command) const;
+    std::optional<qint32> requestMechanicalServoNorth(quint8 speed);
+    void requestSystemTimeSync(int radarId = 0);
     SystemTimeSyncState systemTimeSyncState() const { return m_systemTimeSyncState; }
     RadarPanelValues radarPanelDialogValues() const { return m_panelState.dialogValues(); }
     RadarPanelState::Snapshot radarPanelSnapshot() const { return m_panelState.snapshot(); }
@@ -443,15 +452,21 @@ private:
     void flushHealthStateWindow();
     bool saveRadarPanelReferences(const RadarPanelState& state, const RadarPositionControl* submitted = nullptr);
     void logRadarReferenceDebug(const BITReportV2& report, const RadarPanelState::Update& update);
-    void applyRadarGeoLocation(double latitude, double longitude, double altitude);
+    std::optional<GpsPositionFilter::Fix> filterRadarGeoLocation(GpsPositionFilter& filter,
+                                                                 GpsPositionFilter::Fix fix);
+    bool applyRadarGeoLocation(const GpsPositionFilter::Fix& average);
     bool m_multiPanelReference = false;
     bool m_hasExtendedBitAttitude = false;
+    bool m_mechanicalGpsManual = false;
+    MechanicalGps m_mechanicalGps;
+    std::optional<RadarReference::Pose> m_mechanicalGpsPose;
     HealthStateWindow m_healthStateWindow;
     RadarPanelState m_panelState;
     QString m_panelReferencePath;
     RadarPanelValues m_savedPanelReferences{};
     RadarReference& m_radarReference; // Stable alias of the canonical ID0 slot, never a second copy.
     GpsPositionFilter m_gpsFilter;
+    GpsPositionFilter m_mechanicalBitGpsFilter;
     DiagnosticLogWindow m_gpsRejectLogs;
     std::array<DiagnosticLogWindow, 4> m_panelReferenceRejectLogs;
     std::array<DiagnosticLogWindow, 4> m_referenceDebugLogs;

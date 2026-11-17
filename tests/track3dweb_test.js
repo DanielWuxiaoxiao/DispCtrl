@@ -325,6 +325,27 @@ test('latest markers retain a shared triangle texture and apply the 3D height wi
     });
 });
 
+test('sub-kilometer range labels distinguish all five rings and preserve cached tracks', () => {
+    const h = boot();
+    const tracks = [track('2:1', {rangeM: 100, eastM: 100}),
+        track('2:2', {rangeM: 105, eastM: 105})];
+    h.bridge.snapshotChanged.emit(tracks, {maxRangeM: 100}); h.flush();
+    assert.deepEqual(h.visibleKeys(), ['2:1']);
+    assert.match(h.nodes['axis-range'].textContent, /量程 0\.10 km/);
+    const ringLabels = () => {
+        const labels = [];
+        h.state.renders[h.state.renders.length - 1].scene.traverse(node => {
+            if (node.isSprite && node.name.endsWith(' km')) labels.push(node.name);
+        });
+        return labels;
+    };
+    assert.deepEqual(ringLabels(), ['0.02 km', '0.04 km', '0.06 km', '0.08 km', '0.10 km']);
+
+    h.bridge.sceneStateChanged.emit({maxRangeM: 110}); h.flush();
+    assert.deepEqual(h.visibleKeys(), ['2:1', '2:2']);
+    assert.deepEqual(ringLabels(), ['0.022 km', '0.044 km', '0.066 km', '0.088 km', '0.110 km']);
+});
+
 test('signed height windows show negative tracks in both themes and keep cached history', () => {
     for (const theme of ['graphite', 'classic']) {
         const h = boot();
