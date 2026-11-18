@@ -803,7 +803,7 @@ void MainOverLayOut::topRightSet() {
 
     ui->verticalLayout_6->removeWidget(ui->SubtitleLabel);
     auto* modeRow = new QHBoxLayout;
-    modeRow->setSpacing(10);
+    modeRow->setSpacing(6);
     modeRow->addWidget(ui->SubtitleLabel, 0, Qt::AlignVCenter);
     m_modeSwitchButton = new QPushButton(ui->SubtitleLabel->parentWidget());
     m_modeSwitchButton->setObjectName(QStringLiteral("modeSwitchButton"));
@@ -3709,6 +3709,13 @@ void MainOverLayOut::refreshModeControls()
     const bool developer = AuthManager::instance().isAdminMode();
     m_modeSwitchButton->setText(developer ? QStringLiteral("开发者模式") : QStringLiteral("用户模式"));
     m_modeSwitchButton->setToolTip(developer ? QStringLiteral("点击切换为用户模式") : QStringLiteral("点击验证并进入开发者模式"));
+    // QSS 的内边距和主题字号参与 sizeHint，不能只按字符宽度分配空间。
+    m_modeSwitchButton->ensurePolished();
+    m_modeSwitchButton->setMinimumWidth(m_modeSwitchButton->sizeHint().width());
+    if (m_themeSwitchButton) {
+        m_themeSwitchButton->ensurePolished();
+        m_themeSwitchButton->setMinimumWidth(m_themeSwitchButton->sizeHint().width());
+    }
 }
 
 void MainOverLayOut::refreshTheme()
@@ -3755,6 +3762,7 @@ void MainOverLayOut::refreshTheme()
         }
     }
     QTimer::singleShot(0, this, [this] {
+        refreshModeControls(); // 主题样式应用完后，按新字体重新预留标题按钮宽度。
         if (m_trackTableFrozenHelper) m_trackTableFrozenHelper->syncFrozenContent();
         if (m_droneTableFrozenHelper) m_droneTableFrozenHelper->syncFrozenContent();
     });
@@ -4319,7 +4327,9 @@ void MainOverLayOut::applyScaledSizes() {
     ui->horizontalSpacer_2->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
     ui->horizontalSpacer_3->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
     ui->horizontalSpacer->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Minimum);
-    ui->LogoWidget->setMaximumWidth(qBound(ScaleHelper::uiScaled(230), rightW - ScaleHelper::uiScaled(120), ScaleHelper::uiScaled(300)));
+    // 标题区新增模式/换肤按钮后，旧的 230~300px 上限会裁切文字。
+    // 由布局和当前字体的最小尺寸协商宽度，保留侧栏及 PPI 的原有尺寸策略。
+    ui->LogoWidget->setMaximumWidth(QWIDGETSIZE_MAX);
     ui->CloseButton->setMinimumWidth(topButtonW);
     ui->CloseButton->setMaximumWidth(topButtonW);
     ui->minButton->setMinimumWidth(topButtonW);

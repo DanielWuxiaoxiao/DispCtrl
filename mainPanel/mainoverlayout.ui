@@ -702,7 +702,7 @@
               <item>
                <widget class="QLabel" name="SubtitleLabel">
                 <property name="text">
-                 <string>V8.5.0</string>
+                 <string>V8.5.1</string>
                 </property>
                </widget>
               </item>
